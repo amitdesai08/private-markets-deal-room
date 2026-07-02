@@ -10,8 +10,15 @@ import { SOURCES, catalysts, catalystById, deskCompanies } from '../data/news.js
 import { researchFor } from '../data/research.js';
 import { classifyCatalyst } from './agents.js';
 import { fundMandate, seedThemes, seedScreens } from '../data/mandates.js';
-import { scoreTargets, validateScreen } from './scoring.js';
+import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scoring.js';
 import { buildWorkspace, checklistStats, MD_OPTIONS } from '../data/workspace.js';
+import {
+  seedCandidates,
+  PASS_REASONS,
+  PARK_REASONS,
+  reasonLabel,
+  stageIndex as candStageIndex
+} from '../data/candidates.js';
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 
@@ -42,12 +49,70 @@ let themes = clone(seedThemes);
 let screens = clone(seedScreens);
 let screenSeq = 1;
 let dealSeq = 1;
+let candSeq = 1;
+let candidates = clone(seedCandidates);
 let desk = clone(deskCompanies);
 let sources = clone(SOURCES);
+
+// A screened deal (Stage-2 entry, pre-launch) built from a pursued candidate.
+function makeScreenedDeal(cand, when) {
+  return {
+    id: `screened-${dealSeq++}-${cand.id}`,
+    company: cand.company,
+    sector: cand.sector,
+    subSector: cand.subSector || cand.sector,
+    hq: cand.hq || cand.country || cand.region,
+    dealSize: cand.dealSize,
+    currency: 'EUR',
+    stage: 'SCR',
+    status: 'screened',
+    screenedAt: when || new Date().toISOString(),
+    sponsorPersona: cand.sponsorPersona || 'partner',
+    leadAnalyst: 'analyst',
+    targetICDate: new Date(Date.now() + 42 * DAY).toISOString(),
+    baselineDays: 45,
+    thesis: `${cand.company} — ${cand.sector}. Cleared the Screening Gate; awaiting diligence launch.`,
+    keyFigures: [
+      { label: 'Revenue (LTM)', value: `€${cand.revenue}M`, source: 'Screen', confidence: 'medium' },
+      { label: 'EBITDA (LTM)', value: `€${cand.ebitda}M`, source: 'Screen', confidence: 'medium' },
+      { label: 'EBITDA margin', value: `${cand.ebitdaMargin}%`, source: 'Derived', confidence: 'medium' }
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'not_started', progress: 0, findings: [] },
+      { lane: 'techai', owner: 'ai-md', status: 'not_started', progress: 0, findings: [] },
+      { lane: 'operations', owner: 'supply-md', status: 'not_started', progress: 0, findings: [] }
+    ],
+    documents: [{ name: 'Investment Screen.pdf', type: 'Screen', pages: 6, status: 'parsed' }],
+    memoSections: [
+      { key: 'thesis', title: 'Investment thesis', status: 'draft', content: `${cand.company} — ${cand.sector}. (Screen.)`, citations: ['Screen'] },
+      { key: 'market', title: 'Market & commercial', status: 'empty', content: '', citations: [] },
+      { key: 'value-creation', title: 'Value creation plan', status: 'empty', content: '', citations: [] },
+      { key: 'risks', title: 'Key risks & mitigants', status: 'empty', content: '', citations: [] },
+      { key: 'recommendation', title: 'Recommendation', status: 'empty', content: '', citations: [] }
+    ],
+    compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
+    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at the Screening Gate', when: when || new Date().toISOString() }],
+    hoursSaved: 0
+  };
+}
+
+// At startup, materialise a screened deal for each already-pursued candidate.
+function initScreenedFromCandidates() {
+  const existing = new Set(deals.map((d) => d.company.toLowerCase()));
+  for (const c of candidates.filter((x) => x.disposition === 'pursued')) {
+    if (!existing.has(c.company.toLowerCase())) {
+      deals.push(makeScreenedDeal(c, c.sourcedAt));
+      existing.add(c.company.toLowerCase());
+    }
+  }
+}
 
 const MEMO_WEIGHT = { empty: 0, draft: 0.6, in_progress: 0.8, approved: 1 };
 const COMPLIANCE_WEIGHT = { pending: 0, in_progress: 0.5, passed: 1, failed: 0 };
 const DAY = 24 * 60 * 60 * 1000;
+
+// Now that DAY is initialised, seed screened deals from pursued candidates.
+initScreenedFromCandidates();
 
 function daysUntil(iso) {
   return Math.ceil((new Date(iso).getTime() - Date.now()) / DAY);
@@ -413,115 +478,241 @@ export function getScoredTargets() {
   const sel = selectedScreens();
   const list = desk.filter((c) => c.visible);
   const targets = scoreTargets(list, sel, fund);
+  const inFunnel = new Set(candidates.map((c) => c.company.toLowerCase()));
   return {
     selectedCount: sel.length,
     discoveredCount: desk.filter((c) => c.justDiscovered).length,
     totalCount: list.length,
     gatedCount: targets.filter((t) => t.gated).length,
-    targets
+    targets: targets.map((t) => ({ ...t, inFunnel: inFunnel.has(t.name.toLowerCase()) }))
   };
 }
 
-// The Stage-1 origination funnel — real, derived counts (not a single deal).
-// Stage 1 is a funnel that filters MANY candidates down to a shortlist; these
-// counts map straight onto the four O-steps and come from the live sourcing
-// desk + fund-gate + screen scoring, so they are defensible KPIs.
-export function getPipelineFunnel() {
-  const scored = getScoredTargets();
-  const targets = scored.targets || [];
-  const passing = targets.filter((t) => !t.gated);
-  const sourced = scored.totalCount;
-  const mandateFit = sourced - scored.gatedCount;
-  const triaged = passing.filter((t) => t.band === 'strong' || t.band === 'moderate').length;
-  const gateReady = passing.filter((t) => t.band === 'strong').length;
+// ===========================================================================
+//  Stage-1 origination COHORT — candidates flow O2 → O3 → O4, filtered at each
+//  step (advance / pass / park). PURSUE at O4 flips a candidate into a screened
+//  deal (single-deal workflow from there).
+// ===========================================================================
+
+// Score a candidate against the selected screens (same engine as O1 targets).
+function scoreCandidate(c) {
+  const sel = selectedScreens();
+  const gate = gateCompany(c, fund);
+  let best = { score: 0, screen: null, parts: null };
+  if (gate.passes) {
+    for (const s of sel) {
+      const { score, parts } = scoreScreen(c, s);
+      if (score > best.score) best = { score, screen: { id: s.id, name: s.name }, parts };
+    }
+  }
+  const band = !gate.passes ? 'excluded' : best.score >= 75 ? 'strong' : best.score >= 45 ? 'moderate' : 'weak';
+  return { gate, score: best.score, band, matchedScreen: best.screen };
+}
+
+// The O2 "Target-Screening Agent" hard-knockout recommendation for a candidate.
+function screenRecommendation(c) {
+  const knockouts = [];
+  const gate = gateCompany(c, fund);
+  if (!gate.passes) knockouts.push({ reason: 'esg-exclusion', detail: gate.reasons[0] });
+  if ((c.ebitdaMargin ?? 0) < 6) knockouts.push({ reason: 'business-model', detail: `EBITDA margin ${c.ebitdaMargin}% below viability floor` });
+  if ((c.growth ?? 0) < -2) knockouts.push({ reason: 'revenue-quality', detail: `Revenue declining (${c.growth}% YoY)` });
+  if ((c.ebitda ?? 0) < 10) knockouts.push({ reason: 'size-floor', detail: `EBITDA €${c.ebitda}M below the size floor` });
+  return { action: knockouts.length ? 'pass' : 'advance', knockouts };
+}
+
+function publicCandidate(c) {
+  const sc = scoreCandidate(c);
+  return {
+    id: c.id,
+    company: c.company,
+    sector: c.sector,
+    subSector: c.subSector,
+    region: c.region,
+    country: c.country,
+    hq: c.hq,
+    dealSize: c.dealSize,
+    ownership: c.ownership,
+    revenue: c.revenue,
+    ebitda: c.ebitda,
+    ebitdaMargin: c.ebitdaMargin,
+    growth: c.growth,
+    keywords: c.keywords,
+    sources: c.sources || [],
+    stage: c.stage,
+    disposition: c.disposition,
+    passReason: c.passReason,
+    passReasonLabel: c.passReason ? reasonLabel(c.passStage, c.passReason) : null,
+    passStage: c.passStage,
+    passNote: c.passNote || null,
+    sourcedAt: c.sourcedAt,
+    score: sc.score,
+    band: sc.band,
+    gated: !sc.gate.passes,
+    gateReasons: sc.gate.reasons,
+    matchedScreen: sc.matchedScreen,
+    screenRec: screenRecommendation(c)
+  };
+}
+
+// Funnel "reached" math: a candidate at stage S (or pursued) reached S. Passed/
+// parked candidates reached their passStage. Segments are monotonic survivors.
+const REACHED = { O2: 2, O3: 3, O4: 4, pursued: 5 };
+function reachedIndex(c) {
+  if (c.disposition === 'pursued') return 5;
+  if (c.disposition === 'passed' || c.disposition === 'parked') return REACHED[c.passStage] ?? candStageIndex(c.stage) + 2;
+  return REACHED[c.stage] ?? 2;
+}
+
+export function getStage1Funnel() {
+  const all = candidates;
+  const reachedAtLeast = (n) => all.filter((c) => reachedIndex(c) >= n).length;
+  const activeAt = (s) => all.filter((c) => c.disposition === 'active' && c.stage === s).length;
   return {
     fundName: fund.name,
     fundStrategy: fund.strategy,
-    selectedScreens: scored.selectedCount,
-    discovered: scored.discoveredCount,
+    selectedScreens: selectedScreens().length,
+    discovered: 0,
+    counts: {
+      total: all.length,
+      active: all.filter((c) => c.disposition === 'active').length,
+      passed: all.filter((c) => c.disposition === 'passed').length,
+      parked: all.filter((c) => c.disposition === 'parked').length,
+      pursued: all.filter((c) => c.disposition === 'pursued').length
+    },
     funnel: [
-      { key: 'O1', step: 'Deal Sourcing', label: 'Sourced', count: sourced },
-      { key: 'O2', step: 'Auto Screen', label: 'Mandate-fit', count: mandateFit },
-      { key: 'O3', step: 'Triage', label: 'Triaged', count: triaged },
-      { key: 'O4', step: 'Screening Gate', label: 'Gate-ready', count: gateReady }
+      { key: 'O1', step: 'Deal Sourcing', label: 'Sourced', count: reachedAtLeast(2), active: activeAt('O2') },
+      { key: 'O2', step: 'Auto Screen', label: 'Screened', count: reachedAtLeast(3), active: activeAt('O2') },
+      { key: 'O3', step: 'Triage', label: 'Triaged', count: reachedAtLeast(4), active: activeAt('O3') },
+      { key: 'O4', step: 'Screening Gate', label: 'Gate-ready', count: reachedAtLeast(5), active: activeAt('O4') }
     ]
   };
 }
 
-// ---- Deal lifecycle: screen (gate) → launch (workspace) → diligence ----------
+// Backward-compatible alias for the top-bar/home funnel (same {key,label,count}).
+export function getPipelineFunnel() {
+  return getStage1Funnel();
+}
 
-// Gate-ready targets for the O4 Screening Gate desk. Scores the full sourcing
-// desk (strong-band), each flagged if a deal with that company already exists.
-export function getGateTargets() {
-  const sel = selectedScreens();
-  const scored = scoreTargets(desk, sel, fund);
-  const strong = scored.filter((t) => !t.gated && t.band === 'strong');
-  const existing = new Set(deals.map((d) => d.company.toLowerCase()));
+// The actionable cohort at a stage — active candidates awaiting the step action.
+export function getCohort(stage) {
+  const list = candidates
+    .filter((c) => c.disposition === 'active' && c.stage === stage)
+    .map(publicCandidate);
+  // O3 is a relative-ranking activity — sort by score desc and attach a rank.
+  if (stage === 'O3' || stage === 'O4') {
+    list.sort((a, b) => b.score - a.score);
+    list.forEach((c, i) => { c.rank = i + 1; });
+  }
+  return { stage, fundName: fund.name, candidates: list };
+}
+
+// The whole Stage-1 pipeline (for the Pipeline page).
+export function getPipeline() {
   return {
     fundName: fund.name,
-    targets: strong.map((t) => ({
-      id: t.id,
-      name: t.name,
-      sector: t.sector,
-      region: t.region,
-      country: t.country,
-      dealSize: t.dealSize,
-      ownership: t.ownership,
-      score: t.score,
-      matchedScreen: t.matchedScreen,
-      pursued: existing.has(t.name.toLowerCase())
-    }))
+    funnel: getStage1Funnel().funnel,
+    candidates: candidates.map(publicCandidate)
   };
 }
 
-// PURSUE — record the Screening-Gate decision, converting a gate-ready target
-// into a SCREENED deal (passed the gate, awaiting diligence launch).
-export function pursueTarget(targetId) {
-  const sel = selectedScreens();
-  const scored = scoreTargets(desk, sel, fund);
-  const t = scored.find((x) => x.id === targetId);
-  if (!t) return { error: 'target-not-found' };
-  if (deals.some((d) => d.company.toLowerCase() === t.name.toLowerCase())) {
-    return { error: 'already-pursued' };
-  }
-  const id = `screened-${dealSeq++}-${t.id}`;
-  const deal = {
-    id,
-    company: t.name,
-    sector: t.sector,
-    subSector: t.matchedScreen ? t.matchedScreen.name : t.sector,
-    hq: t.country || t.region,
-    dealSize: t.dealSize,
-    currency: 'EUR',
-    stage: 'SCR',
-    status: 'screened',
-    screenedAt: new Date().toISOString(),
-    sponsorPersona: 'partner',
-    leadAnalyst: 'analyst',
-    targetICDate: new Date(Date.now() + 42 * DAY).toISOString(),
-    baselineDays: 45,
-    thesis: `Cleared the Screening Gate with a mandate-fit score of ${t.score}. Awaiting diligence launch.`,
-    keyFigures: [],
-    workstreams: [
-      { lane: 'commercial', owner: 'retail-md', status: 'not_started', progress: 0, findings: [] },
-      { lane: 'techai', owner: 'ai-md', status: 'not_started', progress: 0, findings: [] },
-      { lane: 'operations', owner: 'supply-md', status: 'not_started', progress: 0, findings: [] }
-    ],
-    documents: [{ name: 'Investment Screen.pdf', type: 'Screen', pages: 6, status: 'parsed' }],
-    memoSections: [
-      { key: 'thesis', title: 'Investment thesis', status: 'draft', content: `${t.name} — ${t.sector}. (Screen.)`, citations: ['Screen'] },
-      { key: 'market', title: 'Market & commercial', status: 'empty', content: '', citations: [] },
-      { key: 'value-creation', title: 'Value creation plan', status: 'empty', content: '', citations: [] },
-      { key: 'risks', title: 'Key risks & mitigants', status: 'empty', content: '', citations: [] },
-      { key: 'recommendation', title: 'Recommendation', status: 'empty', content: '', citations: [] }
-    ],
-    compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
-    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at the Screening Gate', when: new Date().toISOString() }],
-    hoursSaved: 0
-  };
-  deals.push(deal);
-  return { deal: getDeal(id) };
+export function getPassReasons() {
+  return { pass: PASS_REASONS, park: PARK_REASONS };
 }
+
+// Move a candidate from one stage to the next (or pass/park it) with a reason.
+function transition(cand, fromStage, action, reason, note) {
+  if (action === 'pass') {
+    cand.disposition = 'passed';
+    cand.passStage = fromStage;
+    cand.passReason = reason || 'conviction';
+    if (note) cand.passNote = note;
+    return;
+  }
+  if (action === 'park') {
+    cand.disposition = 'parked';
+    cand.passStage = fromStage;
+    cand.passReason = reason || 'monitor';
+    if (note) cand.passNote = note;
+    return;
+  }
+  // advance
+  const next = { O2: 'O3', O3: 'O4' };
+  cand.stage = next[fromStage] || fromStage;
+  cand.disposition = 'active';
+  cand.passStage = null;
+  cand.passReason = null;
+  cand.passNote = null;
+}
+
+export function screenCandidate(id, action, reason, note) {
+  const c = candidates.find((x) => x.id === id);
+  if (!c || c.stage !== 'O2' || c.disposition !== 'active') return { error: 'not-actionable' };
+  transition(c, 'O2', action, reason, note);
+  return { ok: true, candidate: publicCandidate(c) };
+}
+
+export function triageCandidate(id, action, reason, note) {
+  const c = candidates.find((x) => x.id === id);
+  if (!c || c.stage !== 'O3' || c.disposition !== 'active') return { error: 'not-actionable' };
+  transition(c, 'O3', action, reason, note);
+  return { ok: true, candidate: publicCandidate(c) };
+}
+
+// O4 gate: advance === PURSUE (create the screened deal); pass/park otherwise.
+export function gateCandidate(id, action, reason, note) {
+  const c = candidates.find((x) => x.id === id);
+  if (!c || c.stage !== 'O4' || c.disposition !== 'active') return { error: 'not-actionable' };
+  if (action === 'advance' || action === 'pursue') {
+    if (deals.some((d) => d.company.toLowerCase() === c.company.toLowerCase())) {
+      return { error: 'already-pursued' };
+    }
+    c.disposition = 'pursued';
+    c.stage = 'pursued';
+    c.passStage = null;
+    c.passReason = null;
+    const deal = makeScreenedDeal(c, new Date().toISOString());
+    deals.push(deal);
+    return { ok: true, candidate: publicCandidate(c), deal: getDeal(deal.id) };
+  }
+  transition(c, 'O4', action, reason, note);
+  return { ok: true, candidate: publicCandidate(c) };
+}
+
+// Option A — promote a discovered O1 desk target into the funnel at O2.
+export function sendToScreening(deskId) {
+  const d = desk.find((x) => x.id === deskId);
+  if (!d) return { error: 'target-not-found' };
+  if (candidates.some((c) => c.company.toLowerCase() === d.name.toLowerCase())) {
+    return { error: 'already-in-funnel' };
+  }
+  const c = {
+    id: `cand-new-${candSeq++}`,
+    deskId: d.id,
+    company: d.name,
+    sector: d.sector,
+    subSector: d.sector,
+    region: d.region,
+    country: d.country,
+    hq: d.country,
+    dealSize: d.dealSize,
+    ownership: d.ownership,
+    revenue: d.revenue,
+    ebitda: d.ebitda,
+    ebitdaMargin: d.ebitdaMargin,
+    growth: d.growth,
+    keywords: d.keywords || [],
+    sources: d.sources || ['news'],
+    stage: 'O2',
+    disposition: 'active',
+    passReason: null,
+    passStage: null,
+    sourcedAt: new Date().toISOString()
+  };
+  candidates.push(c);
+  return { ok: true, candidate: publicCandidate(c) };
+}
+
+// ---- Deal lifecycle: launch (workspace) → diligence -------------------------
 
 // LAUNCH — the Launch Orchestration (D1) action. Provisions the deal workspace
 // (Teams + SharePoint + DD checklist + templates + swimlanes) and moves the deal
@@ -638,6 +829,9 @@ export function resetStore() {
   screens = clone(seedScreens);
   screenSeq = 1;
   dealSeq = 1;
+  candSeq = 1;
+  candidates = clone(seedCandidates);
   desk = clone(deskCompanies);
   sources = clone(SOURCES);
+  initScreenedFromCandidates();
 }

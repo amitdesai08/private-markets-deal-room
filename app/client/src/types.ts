@@ -183,21 +183,56 @@ export interface Workspace {
 export interface ChecklistStats { total: number; reviewed: number; received: number; requested: number; pct: number }
 export interface MdOption { id: string; name: string; title: string }
 
-export interface GateTarget {
+// Stage-1 candidate (the origination cohort that flows through the funnel).
+export type Disposition = 'active' | 'passed' | 'parked' | 'pursued';
+
+export interface ScreenRec {
+  action: 'advance' | 'pass';
+  knockouts: { reason: string; detail: string }[];
+}
+
+export interface Candidate {
   id: string;
-  name: string;
+  company: string;
   sector: string;
+  subSector: string;
   region: string;
   country: string;
+  hq: string;
   dealSize: number;
   ownership: string;
+  revenue: number;
+  ebitda: number;
+  ebitdaMargin: number;
+  growth: number;
+  keywords: string[];
+  sources: string[];
+  stage: string;                // 'O2' | 'O3' | 'O4' | 'pursued'
+  disposition: Disposition;
+  passReason: string | null;
+  passReasonLabel: string | null;
+  passStage: string | null;
+  passNote: string | null;
+  sourcedAt: string;
   score: number;
+  band: 'strong' | 'moderate' | 'weak' | 'excluded';
+  gated: boolean;
+  gateReasons: string[];
   matchedScreen: { id: string; name: string } | null;
-  pursued: boolean;
+  screenRec: ScreenRec;
+  rank?: number;
 }
-export interface GateTargets {
+
+export interface Cohort {
+  stage: string;
   fundName: string;
-  targets: GateTarget[];
+  candidates: Candidate[];
+}
+
+export interface ReasonOption { id: string; label: string }
+export interface PassReasons {
+  pass: Record<string, ReasonOption[]>;   // keyed by stage O2/O3/O4
+  park: ReasonOption[];
 }
 
 export interface Deal extends DealSummary {
@@ -215,12 +250,21 @@ export interface Deal extends DealSummary {
   checklistStats?: ChecklistStats | null;
 }
 
-// Stage-1 origination funnel (real, derived counts — not a single deal).
+// Stage-1 origination funnel (real cohort counts — survivors through each step).
 export interface FunnelStage {
   key: string;
   step: string;
   label: string;
   count: number;
+  active: number;
+}
+
+export interface FunnelCounts {
+  total: number;
+  active: number;
+  passed: number;
+  parked: number;
+  pursued: number;
 }
 
 export interface PipelineFunnel {
@@ -228,7 +272,14 @@ export interface PipelineFunnel {
   fundStrategy: string;
   selectedScreens: number;
   discovered: number;
+  counts?: FunnelCounts;
   funnel: FunnelStage[];
+}
+
+export interface Pipeline {
+  fundName: string;
+  funnel: FunnelStage[];
+  candidates: Candidate[];
 }
 
 
@@ -538,6 +589,7 @@ export interface ScoredTarget {
   band: 'strong' | 'moderate' | 'weak' | 'excluded';
   matchedScreen: { id: string; name: string } | null;
   parts: ScoreParts | null;
+  inFunnel?: boolean;
 }
 
 export interface ScoredTargets {

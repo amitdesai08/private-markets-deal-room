@@ -13,6 +13,33 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.6.1',
+    date: '2026-07-02',
+    image: 'dealroom-app:v9',
+    revision: 'ca-dealroom-orch-dev-swc--0000005',
+    title: 'Cleaner left-nav: clickable stage headers',
+    tag: 'improvement',
+    highlights: [
+      'The Stage 1 and Stage 2 headers in the left spine are now clickable — Stage 1 opens the full pipeline of Stage-1 candidates, Stage 2 opens the Deals Launched roster.',
+      'Removed the redundant PURSUE box, the Pipeline sub-item, and the standalone Deals Launched item from the nav; each is now reached from its stage header.',
+      'Each stage header shows a live hint (all Stage-1 candidates · N launched) and an active state when its page is open.'
+    ]
+  },
+  {
+    version: 'v0.6.0',
+    date: '2026-07-02',
+    image: 'dealroom-app:v8',
+    revision: 'ca-dealroom-orch-dev-swc--0000004',
+    title: 'Stage 1 rebuilt as a cohort funnel',
+    tag: 'feature',
+    highlights: [
+      'Stage 1 is now a real origination funnel — a cohort of ~16 candidates flows through O2 Auto Screen → O3 Triage → O4 Screening Gate, filtered at each step (advance / pass / park) rather than walking one deal end-to-end.',
+      'Per-item decisions with the agent proposing knockouts at O2 and ranking at O3; every pass or park captures a reason code (institutional memory).',
+      'New Pipeline page lists every Stage-1 candidate with stage, disposition, score and pass reason; the funnel bar is now clickable and deep-links into it.',
+      'O1 targets are promoted into the funnel with “Send to screening”; PURSUE at O4 creates a screened deal; Launch moved onto the gate; step 5 is now “Deals Launched”.'
+    ]
+  },
+  {
     version: 'v0.5.0',
     date: '2026-07-01',
     image: 'dealroom-app:v6',

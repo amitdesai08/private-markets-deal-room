@@ -8,6 +8,7 @@ interface Props {
   deals: DealSummary[];
   onNavigate: (viewKey: string) => void;
   onGoToDeal: (id: string, stepKey: string) => void;
+  onOpenPipeline: (stage?: string) => void;
 }
 
 const STEP_TITLES: Record<string, string> = {
@@ -21,16 +22,17 @@ const STEP_TITLES: Record<string, string> = {
 // The landing page — a command centre that ties the two stages together so a
 // refresh drops you here (not into whatever step the first deal happens to be
 // on). Stage 1 is the sourcing funnel; Stage 2 is the deals in flight.
-export function Home({ config, pipeline, deals, onNavigate, onGoToDeal }: Props) {
+export function Home({ config, pipeline, deals, onNavigate, onGoToDeal, onOpenPipeline }: Props) {
   const diligence = deals.filter((d) => d.stageId === 'diligence');
   const live = diligence.filter((d) => d.stage !== 'D5');
+  const counts = pipeline?.counts;
   const sourced = pipeline?.funnel[0]?.count ?? 0;
   const gateReady = pipeline?.funnel[pipeline.funnel.length - 1]?.count ?? 0;
-  const avgReadiness = live.length ? Math.round(live.reduce((s, d) => s + d.readiness, 0) / live.length) : 0;
+  const activeInFunnel = counts?.active ?? 0;
+  const passedParked = (counts?.passed ?? 0) + (counts?.parked ?? 0);
   const nearest = live
     .filter((d) => d.daysToIC > 0)
     .reduce((m, d) => (m == null || d.daysToIC < m ? d.daysToIC : m), null as number | null);
-  const valueInDiligence = live.reduce((s, d) => s + d.dealSize, 0);
 
   const dSteps = [
     { key: 'D1', label: 'Launch' },
@@ -64,12 +66,12 @@ export function Home({ config, pipeline, deals, onNavigate, onGoToDeal }: Props)
 
       {/* KPI tiles */}
       <div className="home-kpis">
-        <Kpi v={sourced} l="In pipeline" s="candidates sourced" />
-        <Kpi v={gateReady} l="Gate-ready" s="shortlist to pursue" accent="violet" />
-        <Kpi v={live.length} l="In diligence" s="active deals" accent="blue" />
-        <Kpi v={`${avgReadiness}`} l="Avg IC-readiness" s="across active deals" accent="green" />
+        <Kpi v={sourced} l="Sourced" s="candidates in pipeline" />
+        <Kpi v={activeInFunnel} l="Active in funnel" s="awaiting a decision" accent="blue" />
+        <Kpi v={gateReady} l="Gate-ready" s="pursued to date" accent="violet" />
+        <Kpi v={passedParked} l="Passed / parked" s="killed or watchlisted" accent="red" />
+        <Kpi v={live.length} l="In diligence" s="active deals" accent="green" />
         <Kpi v={nearest == null ? '—' : `${nearest}d`} l="Nearest IC" s="days to committee" accent={nearest != null && nearest <= 7 ? 'red' : undefined} />
-        <Kpi v={`€${valueInDiligence}M`} l="Value in diligence" s="enterprise value" />
       </div>
 
       {/* Two-stage cards */}
@@ -80,17 +82,17 @@ export function Home({ config, pipeline, deals, onNavigate, onGoToDeal }: Props)
               <span className="hc-tag stage1">Stage 1</span>
               <h3>Origination funnel</h3>
             </div>
-            <button className="hc-cta" onClick={() => onNavigate('O1')}>Open sourcing desk →</button>
+            <button className="hc-cta" onClick={() => onOpenPipeline()}>View pipeline →</button>
           </div>
-          <p className="hc-sub">Signals → mandate gate → screen ranking. The screening funnel narrows many candidates to a gate-ready shortlist.</p>
+          <p className="hc-sub">Sourced → screened → triaged → gate. Click a stage to open the pipeline filtered to it.</p>
           <div className="hc-funnel">
             {(pipeline?.funnel ?? []).map((f, i) => (
               <div className="hcf-wrap" key={f.key}>
-                <div className={`hcf-stage ${f.key.toLowerCase()}`}>
+                <button className={`hcf-stage clickable ${f.key.toLowerCase()}`} onClick={() => onOpenPipeline(f.key)}>
                   <div className="hcf-count">{f.count}</div>
                   <div className="hcf-label">{f.label}</div>
                   <div className="hcf-step">{f.key} · {f.step}</div>
-                </div>
+                </button>
                 {i < (pipeline?.funnel.length ?? 0) - 1 && <span className="hcf-arrow">›</span>}
               </div>
             ))}

@@ -30,8 +30,14 @@ import {
   createScreen,
   getScoredTargets,
   getPipelineFunnel,
-  getGateTargets,
-  pursueTarget,
+  getStage1Funnel,
+  getCohort,
+  getPipeline,
+  getPassReasons,
+  screenCandidate,
+  triageCandidate,
+  gateCandidate,
+  sendToScreening,
   launchDeal,
   getMdOptions,
   assignSwimlane,
@@ -72,14 +78,32 @@ api.get('/stages', (_req, res) => res.json(getStages()));
 api.get('/flow', (_req, res) => res.json(getFlow()));
 api.get('/deals', (_req, res) => res.json(listDeals()));
 api.get('/analytics', (_req, res) => res.json(portfolioStats()));
-api.get('/pipeline', (_req, res) => res.json(getPipelineFunnel()));
+api.get('/pipeline', (_req, res) => res.json(getPipelineFunnel())); // alias (funnel)
 
-// O4 · Screening Gate — gate-ready targets + PURSUE decision
-api.get('/gate/targets', (_req, res) => res.json(getGateTargets()));
-api.post('/gate/pursue', (req, res) => {
-  const r = pursueTarget(req.body?.targetId);
-  if (r.error) return res.status(r.error === 'already-pursued' ? 409 : 404).json(r);
-  res.status(201).json(r.deal);
+// Stage-1 origination cohort funnel
+api.get('/stage1/funnel', (_req, res) => res.json(getStage1Funnel()));
+api.get('/stage1/pipeline', (_req, res) => res.json(getPipeline()));
+api.get('/stage1/cohort/:stage', (req, res) => res.json(getCohort(req.params.stage)));
+api.get('/stage1/pass-reasons', (_req, res) => res.json(getPassReasons()));
+api.post('/candidates/:id/screen', (req, res) => {
+  const r = screenCandidate(req.params.id, req.body?.action, req.body?.reason, req.body?.note);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+api.post('/candidates/:id/triage', (req, res) => {
+  const r = triageCandidate(req.params.id, req.body?.action, req.body?.reason, req.body?.note);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+api.post('/candidates/:id/gate', (req, res) => {
+  const r = gateCandidate(req.params.id, req.body?.action, req.body?.reason, req.body?.note);
+  if (r.error) return res.status(r.error === 'already-pursued' ? 409 : 400).json(r);
+  res.json(r);
+});
+api.post('/candidates/send-to-screening', (req, res) => {
+  const r = sendToScreening(req.body?.deskId);
+  if (r.error) return res.status(r.error === 'already-in-funnel' ? 409 : 404).json(r);
+  res.status(201).json(r);
 });
 
 // D1 · Launch Orchestration — workspace provisioning + swimlane / checklist ops

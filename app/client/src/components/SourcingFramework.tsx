@@ -16,12 +16,13 @@ const TIER_BADGE: Record<number, { label: string; cls: string; role: string }> =
   3: { label: 'RANK', cls: 'rank', role: 'scored screening criteria' }
 };
 
-export function SourcingFramework() {
+export function SourcingFramework({ onSentToScreening }: { onSentToScreening?: () => void } = {}) {
   const [fw, setFw] = useState<Framework | null>(null);
   const [scored, setScored] = useState<ScoredTargets | null>(null);
   const [expanded, setExpanded] = useState<string | null>('fund-iv');
   const [editing, setEditing] = useState<string | null>(null);
   const [creatingUnder, setCreatingUnder] = useState<string | null>(null);
+  const [sending, setSending] = useState<string | null>(null);
 
   async function refresh() {
     const [f, s] = await Promise.all([api.framework(), api.scoredTargets()]);
@@ -41,6 +42,16 @@ export function SourcingFramework() {
   async function toggleTheme(t: Theme, selected: boolean) {
     await api.selectTheme(t.id, selected);
     await refresh();
+  }
+  async function sendToScreening(deskId: string) {
+    setSending(deskId);
+    try {
+      await api.sendToScreening(deskId);
+      await refresh();
+      onSentToScreening?.();
+    } finally {
+      setSending(null);
+    }
   }
 
   return (
@@ -101,7 +112,7 @@ export function SourcingFramework() {
               Select one or more screens (or a theme) to rank targets.
             </div>
           )}
-          {scored?.targets.map((t) => <ScoredRow key={t.id} t={t} />)}
+          {scored?.targets.map((t) => <ScoredRow key={t.id} t={t} onSend={sendToScreening} sending={sending === t.id} />)}
         </div>
       </div>
     </div>
@@ -402,7 +413,7 @@ const PART_KEYS: { k: keyof NonNullable<ScoredTarget['parts']>; label: string }[
   { k: 'growth', label: 'Grw' }
 ];
 
-function ScoredRow({ t }: { t: ScoredTarget }) {
+function ScoredRow({ t, onSend, sending }: { t: ScoredTarget; onSend: (deskId: string) => void; sending: boolean }) {
   if (t.gated) {
     return (
       <div className="scored-row gated">
@@ -446,6 +457,15 @@ function ScoredRow({ t }: { t: ScoredTarget }) {
           </div>
         ) : (
           <div className="scored-match none">no screen selected</div>
+        )}
+      </div>
+      <div className="scored-send">
+        {t.inFunnel ? (
+          <span className="in-funnel" title="Already in the Stage-1 funnel">in funnel ✓</span>
+        ) : (
+          <button className="btn tiny primary" disabled={sending} onClick={() => onSend(t.id)}>
+            {sending ? '…' : '→ Send to screening'}
+          </button>
         )}
       </div>
     </div>

@@ -15,7 +15,10 @@ import type {
   ScoredTargets,
   ScreenMutationError,
   PipelineFunnel,
-  GateTargets,
+  Cohort,
+  Pipeline,
+  PassReasons,
+  Candidate,
   MdOption
 } from './types';
 
@@ -67,8 +70,18 @@ export const api = {
   flow: () => get<Flow>('/api/flow'),
   deals: () => get<DealSummary[]>('/api/deals'),
   pipeline: () => get<PipelineFunnel>('/api/pipeline'),
-  gateTargets: () => get<GateTargets>('/api/gate/targets'),
-  pursueTarget: (targetId: string) => post<Deal>('/api/gate/pursue', { targetId }),
+  stage1Funnel: () => get<PipelineFunnel>('/api/stage1/funnel'),
+  stage1Pipeline: () => get<Pipeline>('/api/stage1/pipeline'),
+  cohort: (stage: string) => get<Cohort>(`/api/stage1/cohort/${stage}`),
+  passReasons: () => get<PassReasons>('/api/stage1/pass-reasons'),
+  screenCandidate: (id: string, action: string, reason?: string, note?: string) =>
+    post<{ candidate: Candidate }>(`/api/candidates/${id}/screen`, { action, reason, note }),
+  triageCandidate: (id: string, action: string, reason?: string, note?: string) =>
+    post<{ candidate: Candidate }>(`/api/candidates/${id}/triage`, { action, reason, note }),
+  gateCandidate: (id: string, action: string, reason?: string, note?: string) =>
+    post<{ candidate: Candidate; deal?: Deal }>(`/api/candidates/${id}/gate`, { action, reason, note }),
+  sendToScreening: (deskId: string) =>
+    post<{ candidate: Candidate }>('/api/candidates/send-to-screening', { deskId }),
   mdOptions: () => get<MdOption[]>('/api/md-options'),
   launchDeal: (id: string) => post<Deal>(`/api/deals/${id}/launch`, {}),
   assignSwimlane: (id: string, lane: string, md: string) =>

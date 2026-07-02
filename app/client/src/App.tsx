@@ -6,12 +6,14 @@ import { DealBar } from './components/DealBar';
 import { Station } from './components/Station';
 import { Home } from './components/Home';
 import { DealsReady } from './components/DealsReady';
+import { Pipeline } from './components/Pipeline';
 import { CxoSignals } from './components/CxoSignals';
 import { NewsFilings } from './components/NewsFilings';
 import { AnalystReports } from './components/AnalystReports';
 
 const HOME = 'HOME';
 const READY = 'READY';
+const PIPELINE = 'PIPELINE';
 
 export default function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -22,6 +24,7 @@ export default function App() {
   const [mdOptions, setMdOptions] = useState<MdOption[]>([]);
   const [launchingId, setLaunchingId] = useState<string | null>(null);
   const [viewStep, setViewStep] = useState<string>(HOME);
+  const [pipelineStage, setPipelineStage] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [gate, setGate] = useState(false);
   const [signalsOpen, setSignalsOpen] = useState(false);
@@ -48,10 +51,10 @@ export default function App() {
   }, []);
 
   // Keep the origination funnel fresh whenever a Stage-1 view (Home / O-steps /
-  // Deals Ready) is showing — discovery in the explorers changes the counts.
+  // Deals Launched / Pipeline) is showing — cohort actions change the counts.
   useEffect(() => {
     if (!flow || !viewStep) return;
-    if (viewStep === HOME || viewStep === READY) { api.pipeline().then(setPipeline).catch(() => {}); return; }
+    if (viewStep === HOME || viewStep === READY || viewStep === PIPELINE) { api.pipeline().then(setPipeline).catch(() => {}); return; }
     const s = flow.steps.find((x) => x.key === viewStep);
     if (s?.stage === 'origination') api.pipeline().then(setPipeline).catch(() => {});
   }, [viewStep, flow, signalsOpen, newsOpen, researchOpen]);
@@ -75,6 +78,12 @@ export default function App() {
     closeOverlays();
   }
 
+  function openPipeline(stage?: string) {
+    setPipelineStage(stage ?? null);
+    setViewStep(PIPELINE);
+    closeOverlays();
+  }
+
   async function refreshDeal(id: string) {
     const [d, ds] = await Promise.all([api.deal(id), api.deals()]);
     setDeal(d);
@@ -82,10 +91,10 @@ export default function App() {
     return d;
   }
 
-  // O4 PURSUE created/changed screened deals — refresh roster + funnel.
-  async function onGateChanged() {
-    const [ds] = await Promise.all([api.deals()]);
-    setDeals(ds);
+  // A Stage-1 cohort action (screen/triage/gate/pursue/send) changed the funnel
+  // and/or created a screened deal — refresh the roster + funnel counts.
+  async function onCohortChanged() {
+    setDeals(await api.deals());
     api.pipeline().then(setPipeline).catch(() => {});
   }
 
@@ -162,9 +171,10 @@ export default function App() {
 
   const isHome = viewStep === HOME;
   const isReady = viewStep === READY;
+  const isPipeline = viewStep === PIPELINE;
   const step = flow.steps.find((s) => s.key === viewStep) || flow.steps[0];
   const stage = flow.stages.find((s) => s.id === step.stage) || flow.stages[0];
-  const barStageId = isReady ? 'origination' : step.stage;
+  const barStageId = (isReady || isPipeline) ? 'origination' : step.stage;
   const viewIdx = flow.steps.findIndex((s) => s.key === viewStep);
   const relation: 'done' | 'current' | 'upcoming' =
     viewIdx < deal.stepIndex ? 'done' : viewIdx === deal.stepIndex ? 'current' : 'upcoming';
@@ -178,16 +188,19 @@ export default function App() {
         viewStep={viewStep}
         onSelect={navigate}
         onPickDeal={pickDeal}
+        onOpenPipeline={() => openPipeline()}
         config={config}
       />
       <div className="main">
         {isHome ? (
-          <Home config={config} pipeline={pipeline} deals={deals} onNavigate={navigate} onGoToDeal={goToDeal} />
+          <Home config={config} pipeline={pipeline} deals={deals} onNavigate={navigate} onGoToDeal={goToDeal} onOpenPipeline={openPipeline} />
         ) : (
           <>
-            <DealBar deals={deals} deal={deal} stageId={barStageId} pipeline={pipeline} flow={flow} />
-            {isReady ? (
-              <DealsReady deals={deals} launchingId={launchingId} onGoToDeal={goToDeal} onLaunch={launchDeal} />
+            <DealBar deals={deals} deal={deal} stageId={barStageId} pipeline={pipeline} flow={flow} onFunnelClick={(k) => openPipeline(k)} />
+            {isPipeline ? (
+              <Pipeline initialStage={pipelineStage} />
+            ) : isReady ? (
+              <DealsReady deals={deals} onGoToDeal={goToDeal} />
             ) : signalsOpen ? (
               <CxoSignals onBack={() => setSignalsOpen(false)} />
             ) : newsOpen ? (
@@ -198,6 +211,7 @@ export default function App() {
               <Station
                 flow={flow}
                 deal={deal}
+                deals={deals}
                 step={step}
                 stage={stage}
                 relation={relation}
@@ -214,7 +228,10 @@ export default function App() {
                 onCycleChecklist={cycleChecklist}
                 onLaunchDeal={() => launchDeal(deal.id)}
                 launching={launchingId === deal.id}
-                onGateChanged={onGateChanged}
+                launchingId={launchingId}
+                onCohortChanged={onCohortChanged}
+                onLaunchScreened={launchDeal}
+                onOpenPipeline={() => openPipeline()}
               />
             )}
           </>

@@ -1,73 +1,59 @@
-import { useEffect, useState } from 'react';
-import type { GateTargets, GateTarget } from '../types';
-import { api } from '../api';
+import type { DealSummary } from '../types';
+import { CohortDesk } from './CohortDesk';
 
 interface Props {
-  onPursued: () => void;
+  deals: DealSummary[];
+  launchingId: string | null;
+  onChanged: () => void;
+  onLaunch: (id: string) => void;
 }
 
-// The Screening Gate (O4) decision desk — the MD reviews the gate-ready
-// shortlist and records PURSUE on each target worth taking into diligence.
-// PURSUE creates a *screened* deal that then appears in "Deals Ready".
-export function ScreeningGate({ onPursued }: Props) {
-  const [gate, setGate] = useState<GateTargets | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-
-  async function refresh() {
-    setGate(await api.gateTargets());
-  }
-  useEffect(() => {
-    refresh();
-  }, []);
-
-  async function pursue(t: GateTarget) {
-    setBusy(t.id);
-    try {
-      await api.pursueTarget(t.id);
-      await refresh();
-      onPursued();
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  if (!gate) return <div className="panel"><div className="pb"><div className="finding empty">Loading gate-ready targets…</div></div></div>;
-
-  const pursuable = gate.targets.filter((t) => !t.pursued).length;
+// O4 · Screening Gate — the MD's decision desk. The gate cohort (candidates that
+// survived triage) is Pursued / Passed / Parked. PURSUE creates a screened deal,
+// shown below in the "Screened — awaiting launch" bucket with the Launch action.
+export function ScreeningGate({ deals, launchingId, onChanged, onLaunch }: Props) {
+  const screened = deals.filter((d) => d.status === 'screened');
 
   return (
-    <div className="panel gate-panel">
-      <div className="ph">
-        <span className="ic">⚖</span>
-        <h3>Screening Gate · decision desk</h3>
-        <span className="sub" style={{ marginLeft: 'auto', color: 'var(--muted)', fontSize: 11.5, textTransform: 'none', letterSpacing: 0 }}>
-          {gate.targets.length} gate-ready · {pursuable} to decide
-        </span>
-      </div>
-      <div className="pb">
-        <div className="gate-note">
-          The MD reviews the gate-ready shortlist (strong mandate fit) and records <b>PURSUE</b> on the targets
-          worth taking forward. Pursuing a target passes the gate and creates a deal in <b>Deals Ready → Screened</b>,
-          awaiting a diligence launch.
+    <div>
+      <CohortDesk
+        stage="O4"
+        title="Screening Gate · decision desk"
+        subtitle="The MD reviews the triaged shortlist and records PURSUE, Pass or Park. PURSUE passes the gate and creates a screened deal below, awaiting a diligence launch."
+        advanceLabel="⚡ PURSUE →"
+        advanceClass="gate"
+        agent="Gateway Orchestration"
+        onChanged={onChanged}
+      />
+
+      <div className="panel screened-panel" style={{ marginTop: 16 }}>
+        <div className="ph">
+          <span className="ic">🚀</span>
+          <h3>Screened — awaiting launch</h3>
+          <span className="sub" style={{ marginLeft: 'auto', color: 'var(--muted)', fontSize: 11.5, textTransform: 'none', letterSpacing: 0 }}>
+            {screened.length} pursued · not yet launched
+          </span>
         </div>
-        <div className="gate-list">
-          {gate.targets.length === 0 && <div className="finding empty">No gate-ready targets yet — source & screen in O1 first.</div>}
-          {gate.targets.map((t) => (
-            <div className={`gate-row ${t.pursued ? 'pursued' : ''}`} key={t.id}>
-              <div className="gate-score">{t.score}</div>
-              <div className="gate-main">
-                <div className="gate-name">{t.name}</div>
-                <div className="gate-meta">{t.sector} · {t.region} · €{t.dealSize}M · {t.ownership}{t.matchedScreen ? ` · screen: ${t.matchedScreen.name}` : ''}</div>
-              </div>
-              {t.pursued ? (
-                <span className="gate-done">✓ Pursued</span>
-              ) : (
-                <button className="btn gate-btn" onClick={() => pursue(t)} disabled={busy === t.id}>
-                  {busy === t.id ? 'Recording…' : '⚡ PURSUE →'}
+        <div className="pb">
+          {screened.length === 0 && <div className="finding empty">No screened deals yet — record PURSUE above.</div>}
+          <div className="scr-list">
+            {screened.map((d) => (
+              <div className="scr-row" key={d.id}>
+                <span className="rr-badge scr">SCR</span>
+                <div className="scr-main">
+                  <div className="scr-co">{d.company}</div>
+                  <div className="scr-meta">{d.currency} {d.dealSize}M · {d.sector} · {d.hq}</div>
+                </div>
+                <div className="scr-ic">
+                  <div className={`scr-icv ${d.daysToIC <= 7 ? 'warn' : ''}`}>{d.daysToIC}</div>
+                  <div className="scr-icl">days to IC</div>
+                </div>
+                <button className="btn primary" onClick={() => onLaunch(d.id)} disabled={launchingId === d.id}>
+                  {launchingId === d.id ? 'Launching…' : '🚀 Launch Diligence & Approval'}
                 </button>
-              )}
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

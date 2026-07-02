@@ -6,6 +6,7 @@ interface Props {
   stageId: string;
   pipeline: PipelineFunnel | null;
   flow: Flow;
+  onFunnelClick?: (stageKey: string) => void;
 }
 
 // The top bar is stage-aware:
@@ -14,15 +15,15 @@ interface Props {
 //   Stage 2 (diligence) is about DEALS in flight — so it shows how many deals
 //   sit in each diligence step, with the active deal highlighted. The deal
 //   selector itself lives in the left nav.
-export function DealBar({ deals, deal, stageId, pipeline, flow }: Props) {
+export function DealBar({ deals, deal, stageId, pipeline, flow, onFunnelClick }: Props) {
   if (stageId === 'origination') {
-    return <PipelineBar pipeline={pipeline} />;
+    return <PipelineBar pipeline={pipeline} onFunnelClick={onFunnelClick} />;
   }
   return <StageTwoBar deals={deals} deal={deal} flow={flow} />;
 }
 
 /* ---------------- Stage 1 · Origination funnel ---------------- */
-function PipelineBar({ pipeline }: { pipeline: PipelineFunnel | null }) {
+function PipelineBar({ pipeline, onFunnelClick }: { pipeline: PipelineFunnel | null; onFunnelClick?: (k: string) => void }) {
   if (!pipeline) {
     return (
       <div className="dealbar pipeline">
@@ -34,19 +35,19 @@ function PipelineBar({ pipeline }: { pipeline: PipelineFunnel | null }) {
     <div className="dealbar pipeline">
       <div className="pl-fund">
         <div className="co">{pipeline.fundName}</div>
-        <div className="mt">Origination funnel · scoped to the fund mandate</div>
+        <div className="mt">Origination funnel · click a stage to open the pipeline</div>
       </div>
 
       <div className="grow" />
 
-      <div className="funnel" title="The screening funnel filters many candidates down to a gate-ready shortlist">
+      <div className="funnel" title="The screening funnel filters many candidates down to a gate-ready shortlist — click a stage to filter the pipeline">
         {pipeline.funnel.map((f, i) => (
           <div className="fn-wrap" key={f.key}>
-            <div className={`fn-stage ${f.key.toLowerCase()}`}>
+            <button className={`fn-stage clickable ${f.key.toLowerCase()}`} onClick={() => onFunnelClick?.(f.key)}>
               <div className="fn-count">{f.count}</div>
               <div className="fn-label">{f.label}</div>
-              <div className="fn-step">{f.key} · {f.step}</div>
-            </div>
+              <div className="fn-step">{f.key} · {f.step}{typeof f.active === 'number' && f.active > 0 ? ` · ${f.active} active` : ''}</div>
+            </button>
             {i < pipeline.funnel.length - 1 && <span className="fn-arrow">›</span>}
           </div>
         ))}

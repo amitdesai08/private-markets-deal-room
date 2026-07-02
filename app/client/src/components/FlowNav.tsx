@@ -8,15 +8,14 @@ interface Props {
   viewStep: string;
   onSelect: (key: string) => void;
   onPickDeal: (id: string) => void;
+  onOpenPipeline: () => void;
   config: AppConfig | null;
 }
 
-export function FlowNav({ flow, deal, deals, viewStep, onSelect, onPickDeal, config }: Props) {
+export function FlowNav({ flow, deal, deals, viewStep, onSelect, onPickDeal, onOpenPipeline, config }: Props) {
   const stepKeys = flow.steps.map((s) => s.key);
   const currentIdx = deal.stepIndex;
-  const gateIdx = stepKeys.indexOf(flow.gate.afterStep);
   const stage2Deals = deals.filter((d) => d.stageId === 'diligence');
-  const postGateCount = deals.filter((d) => d.status === 'screened' || d.stageId === 'diligence').length;
 
   const stateOf = (key: string) => {
     const i = stepKeys.indexOf(key);
@@ -42,13 +41,23 @@ export function FlowNav({ flow, deal, deals, viewStep, onSelect, onPickDeal, con
 
       {flow.stages.map((stage) => {
         const steps = flow.steps.filter((s) => s.stage === stage.id);
+        // The stage header doubles as a page link: Stage 1 → the origination
+        // pipeline, Stage 2 → the Deals-Launched roster.
+        const headerActive = (stage.id === 'origination' && viewStep === 'PIPELINE')
+          || (stage.id === 'diligence' && viewStep === 'READY');
+        const onHeader = stage.id === 'origination' ? onOpenPipeline : () => onSelect('READY');
+        const headerHint = stage.id === 'origination'
+          ? 'all Stage-1 candidates'
+          : `${stage2Deals.length} launched`;
         return (
           <div key={stage.id}>
             <div className="spine-stage">
-              <div className="spine-stage-hd">
+              <button className={`spine-stage-hd link ${headerActive ? 'active' : ''}`} onClick={onHeader}>
                 <span className="sn" style={{ background: stage.accent }}>Stage {stage.num}</span>
                 <span className="st">{stage.name}</span>
-              </div>
+                <span className="stage-hint">{headerHint}</span>
+                <span className="stage-go">›</span>
+              </button>
 
               {stage.id === 'diligence' && (
                 <DealSelect deals={stage2Deals} deal={deal} onPick={onPickDeal} />
@@ -73,26 +82,6 @@ export function FlowNav({ flow, deal, deals, viewStep, onSelect, onPickDeal, con
                 );
               })}
             </div>
-
-            {stage.id === 'origination' && (
-              <>
-                <div className={`spine-gate ${currentIdx > gateIdx ? 'passed' : ''}`}>
-                  <span className="bolt">⚡</span>
-                  {flow.gate.label}
-                  <span className="gx">{currentIdx > gateIdx ? 'space live' : 'gate'}</span>
-                </div>
-                <button
-                  className={`spine-step ready ${viewStep === 'READY' ? 'current' : ''}`}
-                  onClick={() => onSelect('READY')}
-                >
-                  <span className="node">5</span>
-                  <span className="lab">
-                    <span className="t">Deals Ready</span>
-                    <span className="o">post-gate roster · {postGateCount}</span>
-                  </span>
-                </button>
-              </>
-            )}
           </div>
         );
       })}

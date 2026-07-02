@@ -1,13 +1,15 @@
-import type { Flow, FlowStep, FlowStage, Deal, MdOption } from '../types';
+import type { Flow, FlowStep, FlowStage, Deal, DealSummary, MdOption } from '../types';
 import { Md } from './Markdown';
 import { timeAgo } from './Bits';
 import { SourcingFramework } from './SourcingFramework';
 import { ScreeningGate } from './ScreeningGate';
+import { CohortDesk } from './CohortDesk';
 import { Workspace } from './Workspace';
 
 interface Props {
   flow: Flow;
   deal: Deal;
+  deals: DealSummary[];
   step: FlowStep;
   stage: FlowStage;
   relation: 'done' | 'current' | 'upcoming';
@@ -24,7 +26,10 @@ interface Props {
   onCycleChecklist: (itemId: string) => void;
   onLaunchDeal: () => void;
   launching: boolean;
-  onGateChanged: () => void;
+  launchingId: string | null;
+  onCohortChanged: () => void;
+  onLaunchScreened: (id: string) => void;
+  onOpenPipeline: () => void;
 }
 
 const LANE_META: Record<string, { label: string; color: string }> = {
@@ -33,12 +38,15 @@ const LANE_META: Record<string, { label: string; color: string }> = {
   operations: { label: 'Operations', color: '#ea580c' }
 };
 
-export function Station({ flow, deal, step, stage, relation, running, onRun, onAdvance, onBack, onJumpCurrent, onOpenSignals, onOpenNews, onOpenResearch, mdOptions, onAssignSwimlane, onCycleChecklist, onLaunchDeal, launching, onGateChanged }: Props) {
+export function Station({ flow, deal, deals, step, stage, relation, running, onRun, onAdvance, onBack, onJumpCurrent, onOpenSignals, onOpenNews, onOpenResearch, mdOptions, onAssignSwimlane, onCycleChecklist, onLaunchDeal, launching, launchingId, onCohortChanged, onLaunchScreened, onOpenPipeline }: Props) {
   const run = deal.stepRuns[step.key];
   const produced = relation === 'done' || !!run;
   const idx = flow.steps.findIndex((s) => s.key === step.key);
   const nextStep = flow.steps[idx + 1];
   const pillLabel = relation === 'done' ? 'Completed' : relation === 'current' ? 'In progress' : 'Upcoming';
+  // Stage-1 origination steps are COHORT desks (a list is filtered), not a
+  // single-deal walk — so we suppress the single-deal agent/deliverables/advance.
+  const isOrigination = step.stage === 'origination';
 
   return (
     <div className="station">
@@ -124,15 +132,48 @@ export function Station({ flow, deal, step, stage, relation, running, onRun, onA
             </span>
           </div>
           <div className="pb" style={{ padding: 0 }}>
-            <SourcingFramework />
+            <SourcingFramework onSentToScreening={onCohortChanged} />
           </div>
         </div>
       )}
 
-      {/* Screening Gate decision desk (O4 only) */}
+      {/* O2 · Auto Screen — cohort hard-knockout desk */}
+      {step.key === 'O2' && (
+        <div style={{ marginBottom: 18 }}>
+          <CohortDesk
+            stage="O2"
+            title="Auto Screen · hard knockouts"
+            subtitle="The agent proposes advance/pass on the fund's hard criteria. Confirm each candidate — advance survivors to Triage, or pass/park with a reason."
+            advanceLabel="Advance to Triage →"
+            agent="Target-Screening Agent"
+            onChanged={onCohortChanged}
+          />
+        </div>
+      )}
+
+      {/* O3 · Triage — cohort relative-ranking desk */}
+      {step.key === 'O3' && (
+        <div style={{ marginBottom: 18 }}>
+          <CohortDesk
+            stage="O3"
+            title="Triage · relative ranking"
+            subtitle="Candidates ranked by mandate fit. Decide which deserve the gate — advance the strongest, pass or park the rest with a reason."
+            advanceLabel="Advance to Gate →"
+            agent="Pipeline-Prioritization Agent"
+            onChanged={onCohortChanged}
+          />
+        </div>
+      )}
+
+      {/* O4 · Screening Gate decision desk + screened-awaiting-launch bucket */}
       {step.key === 'O4' && (
         <div style={{ marginBottom: 18 }}>
-          <ScreeningGate onPursued={onGateChanged} />
+          <ScreeningGate
+            deals={deals}
+            launchingId={launchingId}
+            onChanged={onCohortChanged}
+            onLaunch={onLaunchScreened}
+          />
         </div>
       )}
 
@@ -159,93 +200,107 @@ export function Station({ flow, deal, step, stage, relation, running, onRun, onA
         </div>
       )}
 
-      {/* Agent action */}
-      <div className="agent-card">
-        <div className="agent-top">
-          <div className="agent-ic">✦</div>
-          <div className="who">
-            <div className="l">Orchestration agent</div>
-            <div className="n">{step.agent}</div>
-          </div>
-          {relation !== 'upcoming' ? (
-            <button className={`runbtn ${produced ? 'ghost' : ''}`} onClick={onRun} disabled={running}>
-              {running ? 'Running…' : produced ? '↻ Re-run' : `▶ ${step.actionLabel}`}
-            </button>
-          ) : (
-            <button className="runbtn ghost" disabled>Locked</button>
-          )}
+      {/* Stage-1 cohort footer — no single-deal chrome; link to the pipeline */}
+      {isOrigination && (
+        <div className="advance cohort-foot">
+          <div className="nexthint">Stage 1 is a cohort funnel — actions filter the candidate list.</div>
+          <div className="grow" />
+          <button className="btn primary" onClick={onOpenPipeline}>View full pipeline →</button>
         </div>
+      )}
 
-        {running && <div className="agent-out"><div className="typing"><i /><i /><i /></div></div>}
+      {/* Single-deal chrome — diligence steps only (D1–D5) */}
+      {!isOrigination && (
+        <>
+          {/* Agent action */}
+          <div className="agent-card">
+            <div className="agent-top">
+              <div className="agent-ic">✦</div>
+              <div className="who">
+                <div className="l">Orchestration agent</div>
+                <div className="n">{step.agent}</div>
+              </div>
+              {relation !== 'upcoming' ? (
+                <button className={`runbtn ${produced ? 'ghost' : ''}`} onClick={onRun} disabled={running}>
+                  {running ? 'Running…' : produced ? '↻ Re-run' : `▶ ${step.actionLabel}`}
+                </button>
+              ) : (
+                <button className="runbtn ghost" disabled>Locked</button>
+              )}
+            </div>
 
-        {!running && run && (
-          <div className="agent-out">
-            <Md text={run.markdown} />
-            {run.artifacts?.length > 0 && (
-              <div className="cites">
-                {run.artifacts.map((a) => <span className="cite" key={a}>{a}</span>)}
+            {running && <div className="agent-out"><div className="typing"><i /><i /><i /></div></div>}
+
+            {!running && run && (
+              <div className="agent-out">
+                <Md text={run.markdown} />
+                {run.artifacts?.length > 0 && (
+                  <div className="cites">
+                    {run.artifacts.map((a) => <span className="cite" key={a}>{a}</span>)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!running && !run && (
+              <div className="agent-hint">
+                {relation === 'upcoming'
+                  ? 'This step unlocks when the deal reaches it.'
+                  : `Run the ${step.agent} to produce this step's deliverables and advance the record.`}
               </div>
             )}
           </div>
-        )}
 
-        {!running && !run && (
-          <div className="agent-hint">
-            {relation === 'upcoming'
-              ? 'This step unlocks when the deal reaches it.'
-              : `Run the ${step.agent} to produce this step's deliverables and advance the record.`}
-          </div>
-        )}
-      </div>
-
-      {/* Deliverables */}
-      <div className="panel" style={{ marginBottom: 18 }}>
-        <div className="ph"><span className="ic">◈</span><h3>Deliverables</h3></div>
-        <div className="pb">
-          <div className="deliverables">
-            {step.produces.map((p) => (
-              <div className={`deliv ${produced ? 'made' : 'wait'}`} key={p}>
-                <span className="dot">{produced ? '✓' : ''}</span>
-                <span className="nm">{p}</span>
-                {produced && <span className="made-tag">produced</span>}
+          {/* Deliverables */}
+          <div className="panel" style={{ marginBottom: 18 }}>
+            <div className="ph"><span className="ic">◈</span><h3>Deliverables</h3></div>
+            <div className="pb">
+              <div className="deliverables">
+                {step.produces.map((p) => (
+                  <div className={`deliv ${produced ? 'made' : 'wait'}`} key={p}>
+                    <span className="dot">{produced ? '✓' : ''}</span>
+                    <span className="nm">{p}</span>
+                    {produced && <span className="made-tag">produced</span>}
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Step-specific data panel */}
-      {step.panel && <DataPanel deal={deal} panel={step.panel} />}
+          {/* Step-specific data panel */}
+          {step.panel && <DataPanel deal={deal} panel={step.panel} />}
 
-      {/* Advance bar */}
-      <div className="advance">
-        {relation === 'current' ? (
-          <>
-            {idx > 0 && <button className="btn" onClick={onBack}>← Back</button>}
-            <div className="grow" />
-            {nextStep ? (
+          {/* Advance bar */}
+          <div className="advance">
+            {relation === 'current' ? (
               <>
-                <div className="nexthint">
-                  {step.isGate ? 'Crossing the gate spins up the collaboration space' : <>Next · <b>{nextStep.title}</b></>}
-                </div>
-                <button className={`btn ${step.isGate ? 'gate' : 'primary'}`} onClick={onAdvance}>
-                  {step.isGate ? `⚡ ${flow.gate.label} — advance →` : `Advance to ${nextStep.title} →`}
-                </button>
+                {idx > 0 && <button className="btn" onClick={onBack}>← Back</button>}
+                <div className="grow" />
+                {nextStep ? (
+                  <>
+                    <div className="nexthint">
+                      {step.isGate ? 'Crossing the gate spins up the collaboration space' : <>Next · <b>{nextStep.title}</b></>}
+                    </div>
+                    <button className={`btn ${step.isGate ? 'gate' : 'primary'}`} onClick={onAdvance}>
+                      {step.isGate ? `⚡ ${flow.gate.label} — advance →` : `Advance to ${nextStep.title} →`}
+                    </button>
+                  </>
+                ) : (
+                  <div className="nexthint"><b>Deal archived</b> — journey complete</div>
+                )}
               </>
             ) : (
-              <div className="nexthint"><b>Deal archived</b> — journey complete</div>
+              <>
+                <div className="nexthint">
+                  {relation === 'done' ? 'This step is complete.' : 'This step is upcoming.'}
+                </div>
+                <div className="grow" />
+                <button className="btn primary" onClick={onJumpCurrent}>Go to current step →</button>
+              </>
             )}
-          </>
-        ) : (
-          <>
-            <div className="nexthint">
-              {relation === 'done' ? 'This step is complete.' : 'This step is upcoming.'}
-            </div>
-            <div className="grow" />
-            <button className="btn primary" onClick={onJumpCurrent}>Go to current step →</button>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

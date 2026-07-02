@@ -21,7 +21,7 @@
 // deep links out to the tenant. buildWorkspace() is the single seam where live
 // Graph calls would slot in.
 
-const TENANT = 'mngenvmcap856239';
+const TENANT = 'mngenvmcap336646';
 
 // The MDs a lane can be assigned to (the dropdown options).
 export const MD_OPTIONS = [
