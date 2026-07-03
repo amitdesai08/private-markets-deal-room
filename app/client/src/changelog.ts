@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.8.0',
+    date: '2026-07-03',
+    image: 'dealroom-app:v11',
+    revision: 'ca-dealroom-orch-dev-swc--0000007',
+    title: 'Converse-with-agent chat + cleaner cohort desk',
+    tag: 'feature',
+    highlights: [
+      'Each O2/O3 candidate now has a “Converse with Agent” button that opens a persistent floating chat window — dig into the recommendation, risks, comps or next-step diligence in a multi-turn conversation grounded in the candidate record; the thread is saved and resumes when reopened.',
+      'Rebuilt the cohort row as a clean vertical card — the per-candidate assessment no longer overlaps adjacent rows (it was inheriting a stray global “advance” sticky style).',
+      'Advance / Pass / Park are now equal-sized buttons, and the agent’s recommended action lights up in its own colour — green for advance, amber for park, red for pass.'
+    ]
+  },
+  {
     version: 'v0.7.0',
     date: '2026-07-03',
     image: 'dealroom-app:v10',

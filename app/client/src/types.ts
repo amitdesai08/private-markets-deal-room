@@ -242,6 +242,20 @@ export interface Cohort {
   candidates: Candidate[];
 }
 
+export interface ChatMessage {
+  role: 'user' | 'agent';
+  content: string;
+  at: string;
+  source?: 'live' | 'demo';
+}
+export interface CandidateChatLog {
+  id: string;
+  company: string;
+  stage: string;
+  agent: string;
+  log: ChatMessage[];
+}
+
 export interface ReasonOption { id: string; label: string }
 export interface PassReasons {
   pass: Record<string, ReasonOption[]>;   // keyed by stage O2/O3/O4

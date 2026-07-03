@@ -498,3 +498,60 @@ Return the strict JSON now.`;
   if (parsed) return { ...parsed, ...stamp, source: 'live', model: getModelInfo().model };
   return { ...assessMock(stage, knowledge), ...stamp, source: 'demo', model: null };
 }
+
+export function agentForStage(stage) {
+  return ASSESS_META[stage]?.agent || 'Screening Agent';
+}
+
+// ---------------------------------------------------------------------------
+// Candidate conversation — a persistent back-and-forth with the step's agent
+// about ONE candidate. Same grounding as the assessment (fund mandate + record
+// + the agent's current recommendation), but free-form so the analyst can dig
+// into the "why", risks, comps, and next-step diligence. Live model when
+// configured; a grounded seeded reply otherwise.
+// ---------------------------------------------------------------------------
+
+const STAGE_DESC = {
+  O2: "Auto Screen — applying the fund's hard knockout criteria",
+  O3: 'Triage — relative ranking and prioritisation for a scarce gate slot'
+};
+
+function candidateChatMock(knowledge, assessment, message) {
+  const k = knowledge;
+  const q = (message || '').toLowerCase();
+  const name = k.candidateSummary.split(' — ')[0];
+  if (assessment && (q.includes('why') || q.includes('recommend') || q.includes('reason') || q.includes('rationale'))) {
+    return `${assessment.rationale} That's why I lean ${assessment.action.toUpperCase()} (confidence ${Math.round(assessment.confidence * 100)}%). Push me on any figure — EV €${k.dealSize}M, EBITDA €${k.ebitda}M at ${k.ebitdaMargin}% margin, ${k.growth >= 0 ? '+' : ''}${k.growth}% growth — and I'll re-weigh it.`;
+  }
+  if (q.includes('risk') || q.includes('concern') || q.includes('worry')) {
+    return `Main things I'd watch on ${name}: ${k.knockouts.length ? k.knockouts.map((x) => x.detail).join('; ') : `durability of the ${k.growth >= 0 ? '+' : ''}${k.growth}% growth, the ${k.ebitdaMargin}% margin quality, and how defensible the ${k.sector} position is`}. None are fully resolvable from the screen — they'd be diligence items.`;
+  }
+  if (q.includes('comp') || q.includes('valuation') || q.includes('multiple') || q.includes('price') || q.includes('entry')) {
+    return `I don't have live comps in the record — I'd pull ${k.sector} precedents for an EV/EBITDA range against the implied entry on €${k.ebitda}M EBITDA. On mandate fit it scores ${k.score}/100 (${k.band}).`;
+  }
+  if (q.includes('diligence') || q.includes('next') || q.includes('advance') || q.includes('proceed')) {
+    return `If we advance ${name}, first diligence: validate the ${k.ebitdaMargin}% margin and ${k.growth >= 0 ? '+' : ''}${k.growth}% growth, confirm the ${k.sector} thesis, and test ownership appetite. Fit is ${k.band} (${k.score}/100) against the mandate.`;
+  }
+  return `On ${name}: ${k.scoreSummary} ${k.gateSummary} Ask me about the recommendation, the risks, comps/valuation, or what diligence I'd run next.`;
+}
+
+export async function chatCandidate({ stage, agent, knowledge, assessment, message, history = [] }) {
+  const nm = agent || agentForStage(stage);
+  const system = `You are the ${nm} inside "The Deal Room", the AI deal-flow workspace of a European mid-market private-equity fund (Fund IV).
+You are discussing ONE origination-funnel candidate with a deal analyst at step ${stage} (${STAGE_DESC[stage] || 'screening'}).
+Answer the analyst's questions about this candidate: mandate fit, the screen and any knockouts, comps and valuation, risks, what would change your recommendation, and what diligence to run next.
+Ground every point in the provided candidate record and fund mandate; be specific and quantitative; if something isn't in the record, say what you'd need to see. Keep replies tight and conversational (<= 130 words). No markdown headings.`;
+  const ctx = `FUND MANDATE:\n${knowledge.mandate}\n\nHARD-GATE: ${knowledge.gateSummary}\nQUANT FIT: ${knowledge.scoreSummary}\nKNOCKOUT FLAGS: ${knowledge.knockoutSummary}\n\nCANDIDATE RECORD:\n${knowledge.candidateSummary}` +
+    (assessment ? `\n\nYOUR CURRENT RECOMMENDATION: ${assessment.action.toUpperCase()}${assessment.reasonCode ? ` (${assessment.reasonCode})` : ''} — ${assessment.rationale} [confidence ${Math.round(assessment.confidence * 100)}%]` : '');
+  const transcript = history.map((m) => `${m.role === 'user' ? 'Analyst' : 'Agent'}: ${m.content}`).join('\n');
+  const user = `${ctx}\n\nCONVERSATION SO FAR:\n${transcript || '(none yet)'}\n\nAnalyst: ${message}\n\nReply as the ${nm}, grounded in the record:`;
+  let reply = null;
+  try {
+    reply = await complete({ system, user, maxTokens: 320, temperature: 0.4 });
+  } catch {
+    reply = null;
+  }
+  const source = reply ? 'live' : 'demo';
+  if (!reply) reply = candidateChatMock(knowledge, assessment, message);
+  return { reply, source };
+}

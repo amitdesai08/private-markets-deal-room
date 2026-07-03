@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Candidate, Cohort, PassReasons, Assessment } from '../types';
 import { api } from '../api';
+import { CandidateChat } from './CandidateChat';
 
 type StageKey = 'O2' | 'O3' | 'O4';
 
@@ -30,6 +31,7 @@ export function CohortDesk({ stage, title, subtitle, advanceLabel, advanceClass,
   const [menu, setMenu] = useState<{ id: string; kind: 'pass' | 'park' } | null>(null);
   const [assessing, setAssessing] = useState(false);
   const [reassessing, setReassessing] = useState<string | null>(null);
+  const [chatFor, setChatFor] = useState<Candidate | null>(null);
 
   async function load() {
     if (assess) {
@@ -119,58 +121,61 @@ export function CohortDesk({ stage, title, subtitle, advanceLabel, advanceClass,
           {cohort.candidates.map((c) => {
             const a: Assessment | null | undefined = c.assessment;
             const rec = a?.action;
+            const menuOpen = menu && menu.id === c.id;
             return (
             <div className={`cohort-row ${c.band}`} key={c.id}>
-              {typeof c.rank === 'number' ? (
-                <div className="co-rank" title="Relative rank in this cohort">#{c.rank}</div>
-              ) : (
-                <div className={`co-score ${c.band}`}>{c.score}</div>
-              )}
-
-              <div className="co-main">
-                <div className="co-name">
-                  {c.company}
-                  <span className={`co-band ${c.band}`}>{BAND_LABEL[c.band]}</span>
-                  {typeof c.rank === 'number' && <span className="co-scoretag">{c.score}</span>}
-                </div>
-                <div className="co-meta">{c.sector} · {c.region} · €{c.dealSize}M · {c.ownership}</div>
-                <div className="co-fin">
-                  <span>rev €{c.revenue}M</span><span>EBITDA €{c.ebitda}M</span>
-                  <span>{c.ebitdaMargin}% margin</span><span>{c.growth >= 0 ? '+' : ''}{c.growth}% growth</span>
-                </div>
-
-                {assess && (
-                  reassessing === c.id ? (
-                    <div className="co-assess loading"><span className="typing"><i /><i /><i /></span> {agent} re-assessing…</div>
-                  ) : a ? (
-                    <div className={`co-assess ${a.action}`}>
-                      <div className="ca-head">
-                        <span className={`ca-badge ${a.action}`}>{ACTION_ICON[a.action]} recommends {ACTION_LABEL[a.action]}</span>
-                        {a.reasonCode && <span className="ca-reason">{labelFor(a.reasonCode)}</span>}
-                        <span className="ca-conf" title="Agent confidence">{Math.round(a.confidence * 100)}%</span>
-                        <span className={`ca-src ${a.source}`}>{a.source === 'live' ? `Live · ${a.model}` : 'Seeded'}</span>
-                        <button className="ca-reassess" title="Re-assess this candidate" onClick={() => reassess(c)}>↻</button>
-                      </div>
-                      <div className="ca-why">{a.rationale}</div>
-                    </div>
-                  ) : (
-                    <div className="co-assess loading"><span className="typing"><i /><i /><i /></span> awaiting assessment…</div>
-                  )
+              <div className="co-top">
+                {typeof c.rank === 'number' ? (
+                  <div className="co-rank" title="Relative rank in this cohort">#{c.rank}</div>
+                ) : (
+                  <div className={`co-score ${c.band}`}>{c.score}</div>
                 )}
 
-                {!assess && stage === 'O2' && (
-                  <div className={`co-rec ${c.screenRec.action}`}>
-                    <b>Agent:</b> {c.screenRec.action === 'advance'
-                      ? 'clears the hard knockouts — advance'
-                      : `flag — ${c.screenRec.knockouts.map((k) => k.detail).join('; ')}`}
+                <div className="co-main">
+                  <div className="co-name">
+                    {c.company}
+                    <span className={`co-band ${c.band}`}>{BAND_LABEL[c.band]}</span>
+                    {typeof c.rank === 'number' && <span className="co-scoretag">{c.score}</span>}
                   </div>
-                )}
+                  <div className="co-meta">{c.sector} · {c.region} · €{c.dealSize}M · {c.ownership}</div>
+                  <div className="co-fin">
+                    <span>rev €{c.revenue}M</span><span>EBITDA €{c.ebitda}M</span>
+                    <span>{c.ebitdaMargin}% margin</span><span>{c.growth >= 0 ? '+' : ''}{c.growth}% growth</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="co-actions">
-                {menu && menu.id === c.id ? (
-                  <div className="co-reason">
-                    <span className="co-reason-h">{menu.kind === 'pass' ? 'Pass — reason' : 'Park — reason'}</span>
+              {assess && (
+                reassessing === c.id ? (
+                  <div className="co-assess loading"><span className="typing"><i /><i /><i /></span> {agent} re-assessing…</div>
+                ) : a ? (
+                  <div className={`co-assess a-${a.action}`}>
+                    <div className="ca-head">
+                      <span className={`ca-badge a-${a.action}`}>{ACTION_ICON[a.action]} recommends {ACTION_LABEL[a.action]}</span>
+                      {a.reasonCode && <span className="ca-reason">{labelFor(a.reasonCode)}</span>}
+                      <span className="ca-conf" title="Agent confidence">{Math.round(a.confidence * 100)}%</span>
+                      <span className={`ca-src ${a.source}`}>{a.source === 'live' ? `Live · ${a.model}` : 'Seeded'}</span>
+                      <button className="ca-reassess" title="Re-assess this candidate" onClick={() => reassess(c)}>↻</button>
+                    </div>
+                    <div className="ca-why">{a.rationale}</div>
+                  </div>
+                ) : (
+                  <div className="co-assess loading"><span className="typing"><i /><i /><i /></span> awaiting assessment…</div>
+                )
+              )}
+
+              {!assess && stage === 'O2' && (
+                <div className={`co-rec a-${c.screenRec.action}`}>
+                  <b>Agent:</b> {c.screenRec.action === 'advance'
+                    ? 'clears the hard knockouts — advance'
+                    : `flag — ${c.screenRec.knockouts.map((k) => k.detail).join('; ')}`}
+                </div>
+              )}
+
+              {menuOpen ? (
+                <div className="co-reason">
+                  <span className="co-reason-h">{menu.kind === 'pass' ? 'Pass — reason' : 'Park — reason'}</span>
+                  <div className="co-reason-row">
                     <select
                       id={`rsn-${c.id}`}
                       defaultValue={rec === menu.kind && a?.reasonCode && (menu.kind === 'pass' ? passPool : parkPool).some((r) => r.id === a.reasonCode) ? a.reasonCode : ''}
@@ -181,36 +186,53 @@ export function CohortDesk({ stage, title, subtitle, advanceLabel, advanceClass,
                         <option key={r.id} value={r.id}>{r.label}</option>
                       ))}
                     </select>
-                    <div className="co-reason-btns">
-                      <button className="btn tiny" onClick={() => setMenu(null)} disabled={busy === c.id}>Cancel</button>
-                      <button
-                        className={`btn tiny ${menu.kind === 'pass' ? 'danger' : 'warn'}`}
-                        disabled={busy === c.id}
-                        onClick={() => {
-                          const sel = document.getElementById(`rsn-${c.id}`) as HTMLSelectElement | null;
-                          if (!sel || !sel.value) return;
-                          act(c, menu.kind === 'pass' ? 'pass' : 'park', sel.value);
-                        }}
-                      >
-                        {busy === c.id ? '…' : `Confirm ${menu.kind}`}
-                      </button>
-                    </div>
+                    <button className="btn" onClick={() => setMenu(null)} disabled={busy === c.id}>Cancel</button>
+                    <button
+                      className={`btn ${menu.kind === 'pass' ? 'danger' : 'warn'}`}
+                      disabled={busy === c.id}
+                      onClick={() => {
+                        const sel = document.getElementById(`rsn-${c.id}`) as HTMLSelectElement | null;
+                        if (!sel || !sel.value) return;
+                        act(c, menu.kind === 'pass' ? 'pass' : 'park', sel.value);
+                      }}
+                    >
+                      {busy === c.id ? '…' : `Confirm ${menu.kind}`}
+                    </button>
                   </div>
-                ) : (
-                  <>
-                    <button className={`btn co-adv ${advanceClass || 'primary'} ${rec === 'advance' ? 'reco' : ''}`} disabled={busy === c.id} onClick={() => act(c, 'advance')}>
+                </div>
+              ) : (
+                <>
+                  <div className="co-actbar">
+                    <button className={`co-act a-advance ${advanceClass === 'gate' ? 'gate' : ''} ${rec === 'advance' ? 'reco' : ''}`} disabled={busy === c.id} onClick={() => act(c, 'advance')}>
                       {advanceLabel}
                     </button>
-                    <button className={`btn co-pass ${rec === 'pass' ? 'reco' : ''}`} disabled={busy === c.id} onClick={() => setMenu({ id: c.id, kind: 'pass' })}>Pass</button>
-                    <button className={`btn co-park ${rec === 'park' ? 'reco' : ''}`} disabled={busy === c.id} onClick={() => setMenu({ id: c.id, kind: 'park' })}>Park</button>
-                  </>
-                )}
-              </div>
+                    <button className={`co-act a-pass ${rec === 'pass' ? 'reco' : ''}`} disabled={busy === c.id} onClick={() => setMenu({ id: c.id, kind: 'pass' })}>Pass</button>
+                    <button className={`co-act a-park ${rec === 'park' ? 'reco' : ''}`} disabled={busy === c.id} onClick={() => setMenu({ id: c.id, kind: 'park' })}>Park</button>
+                  </div>
+                  {assess && (
+                    <button
+                      className={`co-converse ${chatFor?.id === c.id ? 'open' : ''}`}
+                      onClick={() => setChatFor(chatFor?.id === c.id ? null : c)}
+                    >
+                      💬 Converse with Agent
+                    </button>
+                  )}
+                </>
+              )}
             </div>
             );
           })}
         </div>
       </div>
+
+      {chatFor && (
+        <CandidateChat
+          key={chatFor.id}
+          candidate={chatFor}
+          agent={agent}
+          onClose={() => setChatFor(null)}
+        />
+      )}
     </div>
   );
 }

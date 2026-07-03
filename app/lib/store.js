@@ -8,7 +8,7 @@ import { runStep as runStepAgent } from './agents.js';
 import { mailbox, companiesWithSignals, crmForCompany } from '../data/signals.js';
 import { SOURCES, catalysts, catalystById, deskCompanies } from '../data/news.js';
 import { researchFor } from '../data/research.js';
-import { classifyCatalyst, assessCandidate } from './agents.js';
+import { classifyCatalyst, assessCandidate, chatCandidate, agentForStage } from './agents.js';
 import { fundMandate, seedThemes, seedScreens } from '../data/mandates.js';
 import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scoring.js';
 import { buildWorkspace, checklistStats, MD_OPTIONS } from '../data/workspace.js';
@@ -673,6 +673,31 @@ export async function assessCandidateById(id, force = true) {
   if (!c || c.disposition !== 'active' || !ASSESSABLE.has(c.stage)) return { error: 'not-actionable' };
   const a = await ensureAssessment(c, force);
   return { ok: true, assessment: a, candidate: publicCandidate(c) };
+}
+
+// Persistent per-candidate conversation with the step's agent (O2/O3). History
+// is stored on the candidate so reopening the popup shows the prior thread.
+export function getCandidateChat(id) {
+  const c = candidates.find((x) => x.id === id);
+  if (!c) return { error: 'not-found' };
+  return { id: c.id, company: c.company, stage: c.stage, agent: agentForStage(c.stage), log: c.chatLog || [] };
+}
+
+export async function chatCandidateById(id, message) {
+  const c = candidates.find((x) => x.id === id);
+  if (!c) return { error: 'not-found' };
+  const text = (message || '').toString().trim().slice(0, 1000);
+  if (!text) return { error: 'message-required' };
+  c.chatLog = c.chatLog || [];
+  c.chatLog.push({ role: 'user', content: text, at: new Date().toISOString() });
+  const knowledge = candidateKnowledge(c);
+  const assessment = (c.assessments && c.assessments[c.stage]) || null;
+  const history = c.chatLog.slice(0, -1).map((m) => ({ role: m.role, content: m.content }));
+  const out = await chatCandidate({
+    stage: c.stage, agent: agentForStage(c.stage), knowledge, assessment, message: text, history
+  });
+  c.chatLog.push({ role: 'agent', content: out.reply, at: new Date().toISOString(), source: out.source });
+  return { reply: out.reply, source: out.source, log: c.chatLog };
 }
 
 // The whole Stage-1 pipeline (for the Pipeline page).

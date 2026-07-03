@@ -20,6 +20,8 @@ import type {
   PassReasons,
   Candidate,
   Assessment,
+  ChatMessage,
+  CandidateChatLog,
   MdOption
 } from './types';
 
@@ -78,6 +80,9 @@ export const api = {
     post<Cohort>(`/api/stage1/cohort/${stage}/assess`, { force }),
   assessCandidate: (id: string) =>
     post<{ assessment: Assessment; candidate: Candidate }>(`/api/candidates/${id}/assess`, {}),
+  candidateChat: (id: string) => get<CandidateChatLog>(`/api/candidates/${id}/chat`),
+  sendCandidateChat: (id: string, message: string) =>
+    post<{ reply: string; source: 'live' | 'demo'; log: ChatMessage[] }>(`/api/candidates/${id}/chat`, { message }),
   passReasons: () => get<PassReasons>('/api/stage1/pass-reasons'),
   screenCandidate: (id: string, action: string, reason?: string, note?: string) =>
     post<{ candidate: Candidate }>(`/api/candidates/${id}/screen`, { action, reason, note }),

@@ -36,6 +36,8 @@ import {
   getPassReasons,
   assessCohort,
   assessCandidateById,
+  getCandidateChat,
+  chatCandidateById,
   screenCandidate,
   triageCandidate,
   gateCandidate,
@@ -109,6 +111,22 @@ api.post('/candidates/:id/assess', async (req, res) => {
     res.json(r);
   } catch (err) {
     res.status(500).json({ error: 'assess failed', detail: String(err?.message || err) });
+  }
+});
+
+// Persistent per-candidate conversation with the step's agent (O2/O3).
+api.get('/candidates/:id/chat', (req, res) => {
+  const r = getCandidateChat(req.params.id);
+  if (r.error) return res.status(404).json(r);
+  res.json(r);
+});
+api.post('/candidates/:id/chat', async (req, res) => {
+  try {
+    const r = await chatCandidateById(req.params.id, req.body?.message);
+    if (r.error) return res.status(400).json(r);
+    res.json(r);
+  } catch (err) {
+    res.status(500).json({ error: 'chat failed', detail: String(err?.message || err) });
   }
 });
 

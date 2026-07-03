@@ -1056,10 +1056,11 @@ button.src-row:hover:not(.src-th) { background: var(--canvas); }
 /* ===== Stage-1 cohort desks (O2 Auto Screen / O3 Triage / O4 Gate) ===== */
 .cohort-panel .cohort-note { font-size: 11.5px; color: var(--ink-2); background: var(--canvas); border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; margin-bottom: 12px; line-height: 1.5; }
 .cohort-list { display: flex; flex-direction: column; gap: 9px; }
-.cohort-row { display: flex; align-items: center; gap: 13px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); }
+.cohort-row { display: flex; flex-direction: column; gap: 10px; padding: 12px 13px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); }
 .cohort-row.strong { border-left: 3px solid var(--positive); }
 .cohort-row.moderate { border-left: 3px solid var(--amber); }
 .cohort-row.weak { border-left: 3px solid #94a3b8; }
+.co-top { display: flex; align-items: flex-start; gap: 13px; }
 .co-score { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-size: 15px; font-weight: 800; color: #fff; flex-shrink: 0; }
 .co-score.strong { background: var(--positive); } .co-score.moderate { background: var(--amber); } .co-score.weak { background: #94a3b8; } .co-score.excluded { background: #e2e8f0; color: #64748b; }
 .co-rank { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-size: 14px; font-weight: 800; color: var(--ink); background: var(--canvas-2); flex-shrink: 0; }
@@ -1072,48 +1073,78 @@ button.src-row:hover:not(.src-th) { background: var(--canvas); }
 .co-fin { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 10.5px; color: var(--ink-2); margin-top: 5px; }
 .co-fin span { background: var(--canvas); border: 1px solid var(--line-2); border-radius: 6px; padding: 1px 6px; }
 .co-rec { font-size: 10.5px; margin-top: 6px; padding: 5px 8px; border-radius: 7px; line-height: 1.4; }
-.co-rec.advance { background: var(--positive-tint); color: #0b6b60; }
-.co-rec.pass { background: var(--amber-tint); color: var(--amber); }
-.co-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; min-width: 150px; }
-.btn.tiny { font-size: 11px; padding: 5px 10px; }
-.btn.tiny.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
-.btn.tiny.warn { background: var(--amber); color: #fff; border-color: var(--amber); }
-.co-adv { white-space: nowrap; }
-.co-adv.gate { background: #0b1220; color: #fff; border: none; }
-.co-pass, .co-park { font-size: 11px; padding: 5px 10px; }
-.co-actions .co-adv { width: 100%; }
-.co-actions > button:not(.co-adv) { display: inline-block; }
+.co-rec.a-advance { background: var(--positive-tint); color: #0b6b60; }
+.co-rec.a-pass { background: var(--amber-tint); color: var(--amber); }
+
+/* Equal Advance / Pass / Park action bar — the recommended one lights up
+   green (advance) · yellow (park) · red (pass); the rest stay neutral. */
+.co-actbar { display: flex; gap: 8px; }
+.co-act { flex: 1; text-align: center; font-family: inherit; font-size: 12.5px; font-weight: 700; padding: 9px 12px; border-radius: 9px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; white-space: nowrap; transition: background .12s, border-color .12s, box-shadow .12s, color .12s; }
+.co-act:hover:not(:disabled) { border-color: var(--muted); color: var(--ink); }
+.co-act:disabled { opacity: .55; cursor: default; }
+.co-act.reco.a-advance { background: #16a34a; border-color: #16a34a; color: #fff; box-shadow: 0 3px 11px rgba(22,163,74,.30); }
+.co-act.reco.a-park { background: #d97706; border-color: #d97706; color: #fff; box-shadow: 0 3px 11px rgba(217,119,6,.28); }
+.co-act.reco.a-pass { background: #dc2626; border-color: #dc2626; color: #fff; box-shadow: 0 3px 11px rgba(220,38,38,.26); }
+.co-act.gate { background: #0b1220; border-color: #0b1220; color: #fff; }
+.co-act.gate:hover:not(:disabled) { background: #1e293b; color: #fff; }
+
+.co-converse { width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px; font-family: inherit; font-size: 11.5px; font-weight: 650; padding: 8px 10px; border-radius: 9px; border: 1px dashed var(--line-2); background: transparent; color: var(--muted); cursor: pointer; transition: color .12s, border-color .12s, background .12s; }
+.co-converse:hover, .co-converse.open { color: var(--primary); border-color: var(--primary); background: rgba(37,99,235,.06); }
 
 /* Per-candidate agent assessment (O2 Auto Screen · O3 Triage) */
-.co-assess { margin-top: 8px; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--canvas); }
-.co-assess.advance { border-left: 3px solid var(--positive); }
-.co-assess.pass { border-left: 3px solid var(--danger); }
-.co-assess.park { border-left: 3px solid var(--amber); }
+.co-assess { margin-top: 0; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--canvas); }
+.co-assess.a-advance { border-left: 3px solid #16a34a; }
+.co-assess.a-pass { border-left: 3px solid var(--danger); }
+.co-assess.a-park { border-left: 3px solid var(--amber); }
 .co-assess.loading { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
 .ca-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ca-badge { font-size: 10px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; padding: 2px 8px; border-radius: 6px; color: #fff; }
-.ca-badge.advance { background: var(--positive); }
-.ca-badge.pass { background: var(--danger); }
-.ca-badge.park { background: var(--amber); }
+.ca-badge { font-size: 10px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; padding: 2px 8px; border-radius: 6px; color: #fff; white-space: nowrap; }
+.ca-badge.a-advance { background: #16a34a; }
+.ca-badge.a-pass { background: var(--danger); }
+.ca-badge.a-park { background: var(--amber); }
 .ca-reason { font-size: 10.5px; font-weight: 700; color: var(--ink); background: var(--surface); border: 1px solid var(--line); padding: 2px 7px; border-radius: 6px; }
 .ca-conf { font-size: 10px; font-weight: 700; color: var(--muted); }
-.ca-src { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 6px; border-radius: 5px; }
+.ca-src { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 2px 6px; border-radius: 5px; white-space: nowrap; }
 .ca-src.live { background: var(--positive-tint); color: #0b6b60; }
 .ca-src.demo { background: var(--line); color: var(--muted); }
 .ca-reassess { margin-left: auto; background: none; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; font-size: 12px; line-height: 1; padding: 2px 6px; color: var(--muted); }
 .ca-reassess:hover { color: var(--ink); border-color: var(--muted); }
-.ca-why { font-size: 11.5px; line-height: 1.5; color: var(--ink); margin-top: 6px; }
+.ca-why { font-size: 11.5px; line-height: 1.5; color: var(--ink); margin-top: 7px; }
 
-/* Recommended action gets a subtle ring so the agent's call reads at a glance */
-.btn.reco { box-shadow: 0 0 0 2px rgba(37,99,235,.28); position: relative; }
-.btn.co-adv.reco { box-shadow: 0 0 0 2px rgba(16,185,129,.35); }
-.btn.co-pass.reco { box-shadow: 0 0 0 2px rgba(220,38,38,.28); }
-.btn.co-park.reco { box-shadow: 0 0 0 2px rgba(245,158,11,.32); }
-.co-reason { background: var(--canvas); border: 1px solid var(--line); border-radius: 9px; padding: 8px; width: 200px; }
+/* Pass/Park reason picker — full-width inline row below the assessment */
+.co-reason { background: var(--canvas); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; }
 .co-reason-h { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
-.co-reason-sel { width: 100%; font-family: inherit; font-size: 11.5px; border: 1px solid var(--line); border-radius: 7px; padding: 5px 7px; margin: 5px 0; }
-.co-reason-btns { display: flex; gap: 6px; justify-content: flex-end; }
+.co-reason-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.co-reason-sel { flex: 1; font-family: inherit; font-size: 11.5px; border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; background: var(--surface); }
+.co-reason-row .btn { white-space: nowrap; }
+.co-reason-row .btn.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+.co-reason-row .btn.warn { background: var(--amber); color: #fff; border-color: var(--amber); }
 .cohort-foot.advance { margin-top: 4px; }
+
+/* Converse-with-agent floating chat popup (persistent) */
+.cchat { position: fixed; right: 22px; bottom: 22px; width: 380px; max-width: calc(100vw - 44px); max-height: min(560px, 78vh); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 54px rgba(2,6,23,.30); z-index: 200; overflow: hidden; }
+.cchat-head { display: flex; align-items: center; gap: 10px; padding: 11px 13px; background: #0b1220; color: #fff; }
+.cchat-id { flex: 1; min-width: 0; }
+.cchat-agent { font-size: 12.5px; font-weight: 750; }
+.cchat-co { font-size: 10.5px; color: #93a4bd; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cchat-x { background: rgba(255,255,255,.12); border: none; color: #fff; width: 26px; height: 26px; border-radius: 7px; cursor: pointer; font-size: 11px; flex-shrink: 0; }
+.cchat-x:hover { background: rgba(255,255,255,.22); }
+.cchat-body { flex: 1; overflow-y: auto; padding: 13px; display: flex; flex-direction: column; gap: 10px; background: var(--canvas); }
+.cchat-note { font-size: 12px; color: var(--muted); }
+.cchat-intro { font-size: 12px; color: var(--ink-2); line-height: 1.55; }
+.cchat-starters { display: flex; flex-direction: column; gap: 6px; margin-top: 11px; }
+.cchat-starters button { text-align: left; font-family: inherit; font-size: 11.5px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; cursor: pointer; color: var(--ink); }
+.cchat-starters button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.cchat-msg { display: flex; }
+.cchat-msg.user { justify-content: flex-end; }
+.cchat-bubble { max-width: 84%; font-size: 12px; line-height: 1.5; padding: 8px 11px; border-radius: 12px; white-space: pre-wrap; word-wrap: break-word; }
+.cchat-msg.user .cchat-bubble { background: var(--primary); color: #fff; border-bottom-right-radius: 4px; }
+.cchat-msg.agent .cchat-bubble { background: var(--surface); border: 1px solid var(--line); color: var(--ink); border-bottom-left-radius: 4px; }
+.cchat-bubble.typing { display: flex; gap: 5px; padding: 10px 12px; }
+.cchat-input { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); background: var(--surface); align-items: flex-end; }
+.cchat-input textarea { flex: 1; resize: none; font-family: inherit; font-size: 12px; line-height: 1.4; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; max-height: 96px; }
+.cchat-input textarea:focus { outline: none; border-color: var(--primary); }
+.cchat-input .btn { padding: 8px 14px; }
 
 /* Screened-awaiting-launch bucket on the O4 gate */
 .scr-list { display: flex; flex-direction: column; gap: 8px; }
