@@ -1,7 +1,7 @@
 """Provision the standalone Bing-grounded news-scout agent in Foundry Agent Service.
 
 Creates (or updates) a prompt agent on proj-dealroom-dev that uses Grounding with
-Bing Search to find real, recent M&A catalysts about mid-market European companies
+Bing Search to find real, recent M&A catalysts about mid-market US companies
 matching the fund mandate, and returns STRICT JSON the Deal Room can ingest.
 
 NOTE: gpt-4o is retired in this environment (mid-2026) and cannot be deployed, so
@@ -33,19 +33,20 @@ BING_CONNECTION_ID = os.environ.get(
 MODEL = os.environ.get("NEWS_AGENT_MODEL", "gpt-5-mini")
 AGENT_NAME = "deal-room-news-scout"
 
-INSTRUCTIONS = """You are the Deal Room News Scout — a sourcing analyst for a European mid-market
-private-equity fund. Given a fund mandate (permitted sectors, geographies, enterprise-value band)
-and optional focus themes, use Grounding with Bing Search to find REAL, RECENT public catalysts
-about actual companies that could become buyout or structured-minority targets.
+INSTRUCTIONS = """You are the Deal Room News Scout — a sourcing analyst for a US mid-market
+private-equity fund. Given a fund mandate (permitted sectors, enterprise-value band) and optional
+focus themes, use Grounding with Bing Search to find REAL, RECENT public catalysts about actual
+US-based companies that could become buyout or structured-minority targets.
 
 Focus on these catalyst types: ownership/succession, sponsor-exit clock, strategic review/carve-out,
-distress, leadership change, capital event, regulatory/macro tailwind.
+take-private, distress, leadership change, capital event, regulatory/macro tailwind.
 
 Process (follow exactly):
 1. ALWAYS call the Bing search tool at least twice with different queries before answering.
-2. From what you actually retrieved, select the best 3-6 real companies that plausibly fit the
-   mandate's sectors and geographies. Mandate fit is best-effort, not a hard filter — prefer
-   founder/family-owned or sponsor-held mid-market businesses in the permitted sectors/regions.
+2. From what you actually retrieved, select the best 3-6 real US companies that plausibly fit the
+   mandate's sectors. Prefer companies covered in US business media (WSJ, Bloomberg, CNBC, Reuters
+   US, Axios, PE Hub). Return ONLY US-headquartered companies. Mandate fit is best-effort, not a
+   hard filter — prefer founder/family-owned, sponsor-held, or public take-private candidates.
 3. If the enterprise value isn't stated in a source, put your best estimate (or null) in dealSize —
    do NOT drop a good, grounded company just because EV is uncertain.
 4. Ground every company in at least one real source you retrieved via Bing. Never invent a company,
@@ -55,11 +56,11 @@ Respond with STRICT JSON ONLY — no prose, no markdown fences — an array of u
 {
   "name": "<company legal/common name>",
   "sector": "<one of the permitted sectors, best fit>",
-  "region": "<one of the permitted geographies>",
-  "country": "<country>",
-  "hq": "<city, country>",
+  "region": "<US region or state, e.g. Northeast, California, Texas>",
+  "country": "United States",
+  "hq": "<city, state, USA>",
   "ownership": "founder|family|sponsor|public|unknown",
-  "dealSize": <approx enterprise value in EUR millions as integer, or null if unknown>,
+  "dealSize": <approx enterprise value in USD millions as integer, or null if unknown>,
   "catalyst": "ownership|sponsor-exit|strategic-review|distress|leadership|capital|regulatory",
   "why": "<= 20 word why-now",
   "findings": [
@@ -79,7 +80,7 @@ def main() -> None:
                 BingGroundingSearchConfiguration(
                     project_connection_id=BING_CONNECTION_ID,
                     count=10,
-                    market="en-GB",
+                    market="en-US",
                 )
             ]
         )

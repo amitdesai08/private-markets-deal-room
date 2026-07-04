@@ -119,8 +119,8 @@ function toDeskCompany(raw, idx) {
     id: `live-${slug(raw?.name)}-${idx}`,
     name: raw?.name || 'Unnamed target',
     sector: raw?.sector || 'Business Services',
-    region: raw?.region || 'DACH',
-    country: raw?.country || raw?.region || '—',
+    region: raw?.region || 'US',
+    country: raw?.country || 'United States',
     dealSize: ev,
     ownership: raw?.ownership || 'unknown',
     keywords: [catalyst],
@@ -159,16 +159,15 @@ function toDeskCompany(raw, idx) {
 
 function buildQuery(mandate, focus) {
   const sectors = (mandate?.sectorsPermitted || []).join(', ');
-  const geos = (mandate?.geographies || []).join(', ');
   const evLo = mandate?.evMin ?? 100;
   const evHi = mandate?.evMax ?? 800;
   const excl = (mandate?.sectorsExcluded || []).join(', ');
   return [
-    `Fund mandate: ${mandate?.name || 'European mid-market buyout fund'}.`,
+    `Fund mandate: US mid-market buyout fund (${mandate?.name || 'US mid-market buyout'}).`,
     `Permitted sectors: ${sectors}. Excluded: ${excl}.`,
-    `Geographies: ${geos}. Enterprise value EUR ${evLo}-${evHi}M.`,
-    focus ? `Focus themes: ${focus}.` : 'Focus: ownership/succession and sponsor-exit catalysts.',
-    'Find mid-market European target companies with recent public catalysts that fit this mandate.'
+    `Geography: United States. Enterprise value USD ${evLo}-${evHi}M.`,
+    focus ? `Focus themes: ${focus}.` : 'Focus: ownership/succession, sponsor-exit, take-private and carve-out catalysts.',
+    'Find US-based mid-market target companies with recent catalysts covered in US business news (e.g. WSJ, Bloomberg, CNBC, Reuters US, Axios, PE Hub). Return only US companies.'
   ].join(' ');
 }
 

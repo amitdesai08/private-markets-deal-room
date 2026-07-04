@@ -321,7 +321,7 @@ const port = process.env.PORT || 8080;
 
 // Rehydrate persisted state from Cosmos before accepting traffic (P1/P5).
 hydrate()
-  .then((h) => console.log(`Datastore: ${h.mode} — ${h.companies ?? 0} companies, ${h.deals ?? 0} deals`))
+  .then((h) => console.log(`Datastore: ${h.mode} — ${h.companies ?? 0} companies, ${h.deals ?? 0} deals, ${h.signals ?? 0} signals`))
   .catch((e) => console.log(`Datastore init issue: ${String(e?.message || e)}`))
   .finally(() => {
     app.listen(port, () => {

@@ -8,7 +8,7 @@ import { seedSourcing } from '../data/deals.js';
 import { personas } from '../data/personas.js';
 import { STAGES, STEPS, STEP_KEYS, FLOW, GATE, stepByKey, stepIndex } from '../data/flow.js';
 import { runStep as runStepAgent } from './agents.js';
-import { mailbox, companiesWithSignals, crmForCompany } from '../data/signals.js';
+import { messagesToSignals } from './ingest/signals.js';
 import { SOURCES, catalysts, catalystById } from '../data/news.js';
 import { researchFor } from '../data/research.js';
 import { classifyCatalyst, assessCandidate, chatCandidate, agentForStage } from './agents.js';
@@ -22,7 +22,7 @@ import {
   reasonLabel,
   stageIndex as candStageIndex
 } from '../data/candidates.js';
-import { initRepo, repoMode, companies as coRepo, deals as dealRepo, recordEvent } from './repo/index.js';
+import { initRepo, repoMode, companies as coRepo, deals as dealRepo, signals as sigRepo, recordEvent } from './repo/index.js';
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 
@@ -56,6 +56,7 @@ let dealSeq = 1;
 let candSeq = 1;
 let candidates = [];
 let desk = [];
+let signalCompanies = [];              // O1 CxO signal companies (from M365 ingestion)
 let sources = clone(SOURCES);         // news-desk source connectors (config)
 
 // ---- persistence seam (P1 / P5) -------------------------------------------
@@ -73,6 +74,9 @@ function persistCand(c) {
 function persistDeal(d) {
   dealRepo.upsert(d).catch(() => {});
 }
+function persistSignal(c) {
+  sigRepo.upsert({ ...c, kind: 'signal' }).catch(() => {});
+}
 function logEvent(companyId, type, detail) {
   recordEvent({ companyId, type, detail }).catch(() => {});
 }
@@ -87,10 +91,11 @@ export async function hydrate() {
     candidates = cos.filter((c) => c.kind === 'candidate');
     const ds = await dealRepo.list();
     deals = attachWorkspaces(ds);
+    signalCompanies = await sigRepo.list();
   } catch {
     /* keep empty in-memory state on a read failure */
   }
-  return { mode: 'cosmos', companies: desk.length + candidates.length, deals: deals.length };
+  return { mode: 'cosmos', companies: desk.length + candidates.length, deals: deals.length, signals: signalCompanies.length };
 }
 
 
@@ -309,16 +314,60 @@ export function getFlow() {
 }
 
 // ---- O1 CxO signals explorer ------------------------------------------------
+// Signal companies are ingested from the analyst's M365 mailbox (real CxO
+// emails) via lib/ingest/signals and persisted to Cosmos. The raw "mailbox"
+// left-hand view is derived by flattening the per-company embedded items, so
+// there is no separate seeded mailbox — it starts empty and fills from real
+// signals only.
+const bySignalId = (id) => signalCompanies.find((c) => c.id === id);
+
 export function getMailbox() {
-  return mailbox;
+  const flat = (kind) =>
+    signalCompanies
+      .flatMap((c) => c[kind] || [])
+      .sort((a, b) => new Date(b.when) - new Date(a.when));
+  return { emails: flat('emails'), chats: flat('chats'), meetings: flat('meetings') };
 }
 
 export function getSignalCompanies() {
-  return companiesWithSignals();
+  return signalCompanies.map((c) => {
+    const emails = c.emails || [];
+    const chats = c.chats || [];
+    const meetings = c.meetings || [];
+    return {
+      id: c.id,
+      name: c.name,
+      sector: c.sector,
+      hq: c.hq,
+      summary: c.summary,
+      intent: c.intent,
+      counts: { emails: emails.length, chats: chats.length, meetings: meetings.length, total: emails.length + chats.length + meetings.length },
+      hasCrm: !!(c.crm && c.crm.exists),
+      signals: { emails, chats, meetings }
+    };
+  });
 }
 
 export function getCrm(companyId) {
-  return crmForCompany(companyId);
+  const c = bySignalId(companyId);
+  if (!c) return null;
+  return { companyId: c.id, company: c.name, ...(c.crm || { exists: false, note: 'No CRM record — net-new target.' }) };
+}
+
+// Ingest raw Microsoft Graph / WorkIQ messages into CxO signal companies:
+// transform -> upsert to Cosmos -> refresh the in-memory view. Returns a summary.
+// The FETCH is environment-specific (WorkIQ MCP today, a Graph job later); this
+// is the shared persist step both paths call.
+export function ingestSignals(messages) {
+  const docs = messagesToSignals(messages || []);
+  for (const doc of docs) {
+    const idx = signalCompanies.findIndex((c) => c.id === doc.id);
+    if (idx >= 0) signalCompanies[idx] = doc;
+    else signalCompanies.push(doc);
+    persistSignal(doc);
+    logEvent(doc.id, 'signal-ingested', { name: doc.name, emails: doc.emails.length });
+  }
+  return { ingested: docs.length, companies: docs.map((d) => ({ id: d.id, name: d.name, emails: d.emails.length })) };
 }
 
 // ---- O1 News & filings desk ------------------------------------------------

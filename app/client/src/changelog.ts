@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.12.0',
+    date: '2026-07-04',
+    image: 'dealroom-app:v17',
+    revision: 'ca-dealroom-orch-dev-swc--0000013',
+    title: 'US refocus · live CxO signal ingestion from M365',
+    tag: 'feature',
+    highlights: [
+      'CxO Signals (O1) now ingests REAL executive emails from the analyst\u2019s M365 mailbox and persists them to Cosmos \u2014 grouped by company, with the signatory, title, and intent parsed from each message. All seeded/fake emails, chats, and meeting notes were removed; the explorer starts empty and fills only from real signals.',
+      'Seeded three live US targets from CxO outreach \u2014 Peloton, Allbirds, and Fairway Market \u2014 each with two executive emails (CEO/CFO/COO) signalling take-private, growth-partner, or recapitalization/succession intent.',
+      'The live news scout was refocused on the United States: the Bing-grounded agent (v4) and query now target US-headquartered mid-market companies covered in US business media (WSJ, Bloomberg, CNBC, Reuters US, Axios, PE Hub), returning USD enterprise values. Verified live (e.g. Denny\u2019s take-private interest, a BMC Helix carve-out, Resonant Clinical Solutions).',
+      'New ingestion seam: lib/ingest/signals.js (message\u2192signal transform) + a dedicated signals Cosmos container + a reusable ingest script, all over the managed-identity repository. The news desk was reset to an empty, US-first start.'
+    ]
+  },
+  {
     version: 'v0.11.0',
     date: '2026-07-04',
     image: 'dealroom-app:v16',
