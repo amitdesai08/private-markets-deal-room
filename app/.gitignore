@@ -4,3 +4,5 @@ client/dist/
 .env
 .env.local
 *.log
+data/oauth/
+scripts/news-agent.env
