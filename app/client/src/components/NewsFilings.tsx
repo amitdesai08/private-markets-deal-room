@@ -15,6 +15,7 @@ export function NewsFilings({ onBack }: Props) {
   const [qualityRun, setQualityRun] = useState<Set<string>>(new Set());
   const [runningQuality, setRunningQuality] = useState<string | null>(null);
   const [findingMore, setFindingMore] = useState(false);
+  const [scanningFormD, setScanningFormD] = useState(false);
   const [editing, setEditing] = useState<{ finding: DeskNews; companyId: string } | null>(null);
 
   useEffect(() => {
@@ -86,6 +87,18 @@ export function NewsFilings({ onBack }: Props) {
       }
     } finally {
       setFindingMore(false);
+    }
+  }
+
+  // Scan recent US Reg D private placements (SEC Form D) for new private targets.
+  async function scanFormD() {
+    if (scanningFormD) return;
+    setScanningFormD(true);
+    try {
+      const r = await api.scanFormD();
+      setDesk(r.desk);
+    } finally {
+      setScanningFormD(false);
     }
   }
 
@@ -199,6 +212,9 @@ export function NewsFilings({ onBack }: Props) {
             <button className="find-more" onClick={findMore} disabled={findingMore}>
               {findingMore ? '✦ Scouting the live web (Bing-grounded agent)…' : '↻ Find more news'}
             </button>
+            <button className="find-more formd" onClick={scanFormD} disabled={scanningFormD}>
+              {scanningFormD ? '⚑ Scanning SEC Form D private placements…' : '⚑ Scan Form D (private raises)'}
+            </button>
           </div>
         </div>
 
@@ -227,15 +243,17 @@ export function NewsFilings({ onBack }: Props) {
                       {c.filings.length === 0 && (
                         <div className="finding empty">
                           {c.filingsChecked
-                            ? 'No public SEC EDGAR filings — this is a private company. Filings become available if it registers with the SEC.'
+                            ? 'No SEC filings found — no public 10-K/10-Q/8-K and no recent Reg D private placement (Form D) on EDGAR for this company.'
                             : 'Checking SEC EDGAR for filings…'}
                         </div>
                       )}
-                      {c.filings.map((f) => (
+                      {c.filings.map((f) => {
+                        const isEdgar = f.source === 'edgar' || f.source === 'edgar-formd';
+                        return (
                         <div className="filing-find" key={f.id}>
                           <div className="nf-top">
                             <span className="filing-type">{f.filingType}</span>
-                            <span className={`src-badge sm ${f.source === 'edgar' ? 'morningstar' : ''}`}>{f.source === 'edgar' ? 'SEC EDGAR' : sourceName(desk.sources, f.source)}</span>
+                            <span className={`src-badge sm ${isEdgar ? 'morningstar' : ''}`}>{isEdgar ? 'SEC EDGAR' : sourceName(desk.sources, f.source)}</span>
                             <span className="nf-when">{timeAgo(f.when)}</span>
                           </div>
                           <div className="nf-headline">{f.headline}</div>
@@ -245,7 +263,8 @@ export function NewsFilings({ onBack }: Props) {
                           )}
                           <div className="confirms">✓ confirms <b>{catById[f.confirms]?.label}</b></div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

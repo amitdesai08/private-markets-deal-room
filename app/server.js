@@ -24,6 +24,7 @@ import {
   setFindingCatalyst,
   runMorningstarQuality,
   runFilings,
+  scanFormDTargets,
   morningstarReady,
   getAnalystResearch,
   getFramework,
@@ -238,6 +239,15 @@ api.post('/news/companies/:id/filings', async (req, res) => {
     res.json(out);
   } catch (err) {
     res.status(500).json({ error: 'filings pull failed', detail: String(err?.message || err) });
+  }
+});
+// Discovery scan: recent US private-company Reg D private placements (Form D).
+api.post('/news/scan-formd', async (req, res) => {
+  try {
+    const out = await scanFormDTargets(req.body || {});
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: 'Form D scan failed', detail: String(err?.message || err) });
   }
 });
 

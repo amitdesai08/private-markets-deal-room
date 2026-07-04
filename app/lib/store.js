@@ -14,7 +14,7 @@ import { researchFor } from '../data/research.js';
 import { classifyCatalyst, assessCandidate, chatCandidate, agentForStage } from './agents.js';
 import { scoutNews, newsAgentConfigured } from './newsAgent.js';
 import { morningstarConfigured, quality as morningstarQuality } from './mcp/morningstar.js';
-import { fetchFilings } from './filings.js';
+import { fetchFilings, fetchFormD, scanFormD } from './filings.js';
 import { markSync } from './connectors.js';
 import { fundMandate, seedThemes, seedScreens } from '../data/mandates.js';
 import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scoring.js';
@@ -501,6 +501,38 @@ export function setFindingCatalyst(findingId, catalystId) {
   return null;
 }
 
+// Discovery scan: surface recent US private companies that just filed a Reg D
+// private placement (SEC Form D) as new desk targets, ranked into the fund's
+// permitted sectors. Free + US-only. De-dupes against the desk by entity key.
+export async function scanFormDTargets({ perSector, days, minRaise } = {}) {
+  let found = [];
+  try {
+    found = await scanFormD({ perSector, days, minRaise });
+  } catch (err) {
+    return { source: 'error', error: String(err?.message || err), discoveredCount: 0, desk: getSourcingDesk() };
+  }
+  const known = new Set(desk.map((c) => entityKey(c.name)));
+  const fresh = [];
+  for (const c of found) {
+    const key = entityKey(c.name);
+    if (!key || known.has(key)) continue;
+    known.add(key);
+    fresh.push(c);
+  }
+  for (const c of fresh) {
+    desk.push(c);
+    persistDesk(c);
+    logEvent(c.id, 'discovered', { via: 'form-d', name: c.name });
+  }
+  if (fresh.length) markSync('edgar');
+  return {
+    source: 'formd',
+    discoveredCount: fresh.length,
+    revealed: fresh.map(publicCompany),
+    desk: getSourcingDesk()
+  };
+}
+
 // Live Morningstar quality check for a desk company. Maps the company to its
 // Morningstar security, pulls analyst/quantitative research, and stores a real
 // DeskQuality on the company (persisted to Cosmos). Falls back to the existing
@@ -528,19 +560,31 @@ export function morningstarReady() {
 }
 
 // Live SEC EDGAR filings pull for a desk company. Resolves the company to its
-// EDGAR CIK and attaches real recent filings (with clickable sec.gov URLs);
-// private targets return no public filings (honest — they don't file with SEC).
+// EDGAR CIK and attaches real recent filings (with clickable sec.gov URLs). For
+// PUBLIC companies that's 10-K/10-Q/8-K/proxy; for PRIVATE companies (no ticker
+// match) it falls through to Form D — the free Reg D private-placement notice —
+// so a private target surfaces its capital raises instead of just "no filings".
 export async function runFilings(deskId) {
   const c = desk.find((x) => x.id === deskId);
   if (!c) return null;
   try {
     const res = await fetchFilings(c.name, c.ticker || null);
-    c.filings = res.filings;
+    let filings = res.filings;
+    let kind = res.matched ? 'public' : 'none';
+    // Private / not-a-public-filer → look for a Reg D private placement (Form D).
+    if (!res.matched || filings.length === 0) {
+      const fd = await fetchFormD(c.name).catch(() => ({ matched: false, filings: [] }));
+      if (fd.matched && fd.filings.length) {
+        filings = fd.filings;
+        kind = 'formd';
+      }
+    }
+    c.filings = filings;
     c.filingsChecked = true;
     persistDesk(c);
     markSync('edgar');
-    logEvent(c.id, 'edgar-filings', { matched: res.matched, count: res.filings.length });
-    return { matched: res.matched, cik: res.cik || null, secName: res.name || null, filings: res.filings };
+    logEvent(c.id, 'edgar-filings', { kind, count: filings.length });
+    return { matched: filings.length > 0, kind, cik: res.cik || null, secName: res.name || null, filings };
   } catch (err) {
     return { matched: false, error: String(err?.message || err), filings: c.filings || [] };
   }

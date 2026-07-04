@@ -536,6 +536,7 @@ button.src-row:hover:not(.src-th) { background: var(--canvas); }
 .nf-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
 .src-badge { font-size: 9.5px; font-weight: 800; padding: 2px 8px; border-radius: 12px; letter-spacing: .2px; background: var(--canvas-2); color: var(--ink-2); }
 .src-badge.web, .src-badge.pitchbook { background: #dbeafe; color: #1d4ed8; }
+.src-badge.formd { background: #ccfbf1; color: #0f766e; }
 .src-badge.factset, .src-badge.capitaliq { background: #ede9fe; color: #6d28d9; }
 .src-badge.morningstar { background: #ccfbf1; color: #0f766e; }
 .src-badge.sm { font-size: 9px; padding: 1px 7px; }
@@ -584,6 +585,8 @@ button.src-row:hover:not(.src-th) { background: var(--canvas); }
 .find-more { width: 100%; background: var(--surface); border: 1.5px dashed #c7d6ff; color: var(--primary); border-radius: 11px; padding: 11px; font-size: 12.5px; font-weight: 700; margin-top: 4px; }
 .find-more:hover:not(:disabled) { background: var(--primary-tint); }
 .find-more:disabled { opacity: .6; }
+.find-more.formd { border-color: #b8ddc9; color: #0f766e; margin-top: 8px; }
+.find-more.formd:hover:not(:disabled) { background: #ecfdf5; }
 
 /* Catalyst modal */
 .cat-overlay { position: fixed; inset: 0; background: rgba(11,18,32,.6); display: grid; place-items: center; z-index: 200; padding: 30px; animation: fade .15s; }

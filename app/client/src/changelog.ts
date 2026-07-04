@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.17.0',
+    date: '2026-07-04',
+    image: 'dealroom-app:v22',
+    revision: 'ca-dealroom-orch-dev-swc--0000018',
+    title: 'SEC Form D — free private-company deal signals',
+    tag: 'feature',
+    highlights: [
+      'Private companies now get real filings too: when a desk target isn’t a public SEC filer, the Quantify-with-Filings step falls through to its SEC Form D — the free Regulation D private-placement notice — surfacing the raise size, minimum check, industry and named principals with a clickable SEC.gov link.',
+      'New “Scan Form D” sourcing action on the News desk: pulls recent US private companies that just filed a Reg D private placement, ranked into the fund’s permitted sectors and filtered to meaningful raises (≥ $10M) so micro-SPVs don’t clutter the desk — a genuinely new, free private-deal origination signal.',
+      'Form D is a capital-event SIGNAL (who is raising money, how much, and who’s behind it), not financial statements — so it powers sourcing of private US targets, complementing the public-company 10-K/10-Q path.',
+      'All via SEC EDGAR’s free, keyless APIs (full-text search + submissions), with pacing to respect SEC rate limits and graceful degradation when a query returns nothing.'
+    ]
+  },
+  {
     version: 'v0.16.0',
     date: '2026-07-04',
     image: 'dealroom-app:v21',
