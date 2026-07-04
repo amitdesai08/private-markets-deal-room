@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.15.0',
+    date: '2026-07-04',
+    image: 'dealroom-app:v20',
+    revision: 'ca-dealroom-orch-dev-swc--0000016',
+    title: 'Connect MCP data sources from the website',
+    tag: 'feature',
+    highlights: [
+      'You can now connect a provider MCP data source directly from the website — no terminal script. Each connectable source shows a \u201cConnect\u201d button that runs the OAuth sign-in (authorization_code + PKCE) in your browser and stores the refresh token server-side; the token never touches the browser.',
+      'Morningstar supports fully self-service in-app sign-in (open dynamic client registration). LSEG and Moody\u2019s require a client pre-registered with the vendor (their sign-in registration is closed) \u2014 the Connect flow now detects this and tells you exactly which redirect URI to register and which env vars to set, then works identically once configured.',
+      'Connector tokens are persisted durably in Cosmos (connectors container) and re-materialized on container start, so a captured or rotated refresh token survives restarts and cold starts.',
+      'Discovery handles all three providers\u2019 OAuth styles: Morningstar (RFC 8414), LSEG (RFC 9728 \u2192 Refinitiv CIAM) and Moody\u2019s (protected-resource metadata) \u2014 all verified against the live servers.'
+    ]
+  },
+  {
     version: 'v0.14.0',
     date: '2026-07-04',
     image: 'dealroom-app:v19',

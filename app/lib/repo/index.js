@@ -13,7 +13,7 @@ import { DefaultAzureCredential } from '@azure/identity';
 
 const ENDPOINT = process.env.COSMOS_ENDPOINT || '';
 const DATABASE = process.env.COSMOS_DATABASE || 'dealroom';
-const COLLECTIONS = ['companies', 'deals', 'events', 'signals'];
+const COLLECTIONS = ['companies', 'deals', 'events', 'signals', 'connectors'];
 
 let mode = 'memory';
 const containers = {};
@@ -146,4 +146,10 @@ export const signals = {
   upsert: (d) => upsert('signals', d),
   list: () => list('signals'),
   remove: (id) => remove('signals', id)
+};
+export const connectors = {
+  get: (id) => get('connectors', id),
+  upsert: (d) => upsert('connectors', d),
+  list: () => list('connectors'),
+  remove: (id) => remove('connectors', id)
 };

@@ -15,6 +15,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { connectors as connRepo } from '../repo/index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TOKEN_DIR = path.resolve(HERE, '..', '..', 'data', 'oauth');
@@ -44,7 +45,8 @@ async function resourceMetadataUri(mcpUrl) {
   try {
     const resp = await fetch(mcpUrl, { method: 'GET' });
     const challenge = resp.headers.get('www-authenticate') || '';
-    const m = challenge.match(/resource_metadata_uri="([^"]+)"/);
+    // RFC 9728: LSEG uses resource_metadata_uri=, Moody's uses resource_metadata=.
+    const m = challenge.match(/resource_metadata(?:_uri)?="([^"]+)"/);
     return m ? m[1] : null;
   } catch {
     return null;
@@ -57,7 +59,8 @@ function parseAuthServer(data) {
     authorizationEndpoint: data.authorization_endpoint,
     tokenEndpoint: data.token_endpoint,
     registrationEndpoint: data.registration_endpoint || null,
-    scopesSupported: data.scopes_supported || ['offline_access', 'openid']
+    scopesSupported: data.scopes_supported || ['offline_access', 'openid'],
+    tokenAuthMethods: data.token_endpoint_auth_methods_supported || ['client_secret_post']
   };
 }
 
@@ -93,9 +96,13 @@ export async function discover(mcpUrl) {
   throw new OAuthError(`Could not discover OAuth metadata for ${mcpUrl}.`);
 }
 
-// Dynamically register a client (RFC 7591). Returns { clientId, clientSecret }.
+// Dynamically register a client (RFC 7591). Returns { clientId, clientSecret,
+// authMethod }. Adapts to public clients (e.g. Moody's supports only 'none').
 export async function registerClient(meta, redirectUri, clientName) {
   if (!meta.registrationEndpoint) throw new OAuthError('Provider does not support dynamic client registration.');
+  const authMethod = (meta.tokenAuthMethods || []).includes('client_secret_post')
+    ? 'client_secret_post'
+    : (meta.tokenAuthMethods || [])[0] || 'client_secret_post';
   const resp = await fetch(meta.registrationEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -104,13 +111,13 @@ export async function registerClient(meta, redirectUri, clientName) {
       redirect_uris: [redirectUri],
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
-      token_endpoint_auth_method: 'client_secret_post',
+      token_endpoint_auth_method: authMethod,
       scope: meta.scopesSupported.join(' ')
     })
   });
   if (!resp.ok) throw new OAuthError(`Client registration failed (${resp.status}): ${await resp.text()}`);
   const reg = await resp.json();
-  return { clientId: reg.client_id, clientSecret: reg.client_secret || null };
+  return { clientId: reg.client_id, clientSecret: reg.client_secret || null, authMethod };
 }
 
 export function pkcePair() {
@@ -167,11 +174,13 @@ async function refresh(tokenEndpoint, clientId, clientSecret, refreshToken) {
 }
 
 // ---- token store ----------------------------------------------------------
-// Local dev/login uses an on-disk file (data/oauth/<provider>.json, gitignored).
-// Deployed environments (no writable secret file) can inject the token record as
-// JSON via <PROVIDER>_TOKEN_JSON (e.g. MORNINGSTAR_TOKEN_JSON) — wired as a
-// Container App secret. The env record bootstraps the refresh_token; short-lived
-// access tokens are then refreshed in-process.
+// Three durable layers, checked in order for reads:
+//   1. on-disk file  data/oauth/<provider>.json  (local dev + login flow)
+//   2. env bootstrap <PROVIDER>_TOKEN_JSON (raw or base64) — Container App secret
+//   3. Cosmos `connectors` container — durable across container restarts, and the
+//      write target for tokens captured by the in-app login + rotated refresh
+//      tokens. primeTokenCache() re-materializes Cosmos records to disk at boot
+//      so the sync fs-based reads (hasLogin/loadTokens) stay durable in prod.
 function storePath(provider) {
   return path.join(TOKEN_DIR, `${provider}.json`);
 }
@@ -189,6 +198,25 @@ export function hasLogin(provider) {
   return fs.existsSync(storePath(provider)) || !!envTokenJson(provider);
 }
 
+// Re-materialize any Cosmos-persisted connector tokens to local disk so the sync
+// reads see them. Called once at startup (after the repo connects).
+export async function primeTokenCache() {
+  try {
+    const docs = await connRepo.list();
+    for (const doc of docs) {
+      if (!doc?.id || !doc.record) continue;
+      if (fs.existsSync(storePath(doc.id))) continue; // don't clobber a fresher local login
+      try {
+        fs.mkdirSync(TOKEN_DIR, { recursive: true });
+        fs.writeFileSync(storePath(doc.id), JSON.stringify(doc.record, null, 2), 'utf8');
+      } catch { /* read-only FS: getAccessToken will still refresh in-process */ }
+    }
+    return docs.length;
+  } catch {
+    return 0;
+  }
+}
+
 export function saveTokens(provider, record) {
   try {
     fs.mkdirSync(TOKEN_DIR, { recursive: true });
@@ -196,6 +224,9 @@ export function saveTokens(provider, record) {
   } catch {
     /* read-only FS (e.g. container): in-process refresh still works this run */
   }
+  // Durable mirror (best-effort) so tokens + rotated refresh tokens survive a
+  // container restart / cold start.
+  connRepo.upsert({ id: provider, record, updatedAt: new Date().toISOString() }).catch(() => {});
 }
 
 export function loadTokens(provider) {

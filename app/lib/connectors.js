@@ -38,7 +38,7 @@ export const CONNECTORS = [
     id: 'moodys', name: "Moody's", kind: 'mcp', provider: 'moodys', role: 'quality',
     primaryJob: 'Credit ratings, research & risk assessment',
     sweetSpot: 'Credit & default-risk cross-check',
-    mcpUrl: process.env.MOODYS_MCP_URL || 'https://mcp.moodys.com/mcp'
+    mcpUrl: process.env.MOODYS_MCP_URL || 'https://mcp.moodys.com/genai-ready-data/mcp'
   },
   {
     id: 'pitchbook', name: 'PitchBook', kind: 'database', role: 'discover',
@@ -58,6 +58,12 @@ export const CONNECTORS = [
 ];
 
 const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
+
+// Provider → MCP config for the in-app OAuth login routes.
+export function mcpProviderConfig(provider) {
+  const c = CONNECTORS.find((x) => x.kind === 'mcp' && x.provider === provider);
+  return c ? { provider, name: c.name, mcpUrl: c.mcpUrl } : null;
+}
 
 // Last successful sync per connector (updated by real tests AND real use, e.g. a
 // Morningstar quality check or a web news search). In-memory: honest "never" on

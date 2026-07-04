@@ -17,13 +17,26 @@ export function ConnectivityPanel() {
   const [tests, setTests] = useState<Record<string, ConnectorTest>>({});
   const [testing, setTesting] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   useEffect(() => {
+    // Surface the result of an in-app connector sign-in (callback redirects here
+    // with ?connected=<provider> or ?connect_error=<msg>), then clean the URL.
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get('connected');
+    const err = params.get('connect_error');
+    let justConnected: string | null = null;
+    if (connected) {
+      justConnected = connected;
+      setNotice({ kind: 'ok', text: `${connected} connected.` });
+    } else if (err) {
+      setNotice({ kind: 'err', text: `Sign-in failed: ${err}` });
+    }
+    if (connected || err) window.history.replaceState({}, '', window.location.pathname);
+
     api.connectors().then((cs) => {
       setConnectors(cs);
-      // Auto-run a real test for every testable connector so the panel shows
-      // live status without a manual click.
-      cs.filter((c) => c.testable).forEach((c) => runTest(c.id));
+      cs.filter((c) => c.testable || c.id === justConnected).forEach((c) => runTest(c.id));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -57,6 +70,13 @@ export function ConnectivityPanel() {
         </div>
         <span className="conn-panel-count">{liveCount} / {connectors.length} connected</span>
       </div>
+
+      {notice && (
+        <div className={`conn-notice ${notice.kind}`}>
+          {notice.kind === 'ok' ? '✓' : '⚠'} {notice.text}
+          <button className="conn-notice-x" onClick={() => setNotice(null)}>✕</button>
+        </div>
+      )}
 
       <div className="src-table conn-table">
         <div className="src-row src-th">
@@ -123,14 +143,18 @@ function ConnectorRow({ c, test, testing, expanded, onToggle, onTest }: {
             <span><i>Last sync</i>{lastSync ? timeAgo(lastSync) : 'never'}</span>
           </div>
           <div className="src-detail-actions">
-            {c.testable ? (
+            {c.testable && (
               <button className="btn" onClick={onTest} disabled={testing}>
                 {testing ? 'Testing…' : '⚡ Test connectivity'}
               </button>
-            ) : c.kind === 'database' ? (
+            )}
+            {c.connectable && status !== 'connected' && (
+              <a className="conn-connect" href={`/api/connectors/${c.provider}/login?returnTo=/`}>
+                🔗 Connect {c.name}
+              </a>
+            )}
+            {c.kind === 'database' && (
               <span className="conn-note">Integration not wired — no live connection.</span>
-            ) : (
-              <span className="conn-note">Sign-in required to enable this source.</span>
             )}
             {test && (
               <span className={`test-result ${test.ok ? 'ok' : 'warn'}`}>{test.ok ? '✓' : '⚠'} {test.message}</span>

@@ -59,6 +59,7 @@ import { runAction, chat } from './lib/agents.js';
 import { getModelInfo } from './lib/ai.js';
 import { newsAgentConfigured } from './lib/newsAgent.js';
 import { listConnectors, testConnector } from './lib/connectors.js';
+import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 
@@ -199,6 +200,8 @@ api.post('/connectors/:id/test', async (req, res) => {
     res.status(500).json({ error: 'connectivity test failed', detail: String(err?.message || err) });
   }
 });
+// In-app OAuth sign-in for MCP connectors: /connectors/:provider/login|callback
+api.use('/connectors', connectorLoginRouter);
 
 // O1 · Deal Sourcing — News & filings desk
 api.get('/news/desk', (_req, res) => res.json(getSourcingDesk()));

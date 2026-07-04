@@ -25,6 +25,7 @@ import {
   stageIndex as candStageIndex
 } from '../data/candidates.js';
 import { initRepo, repoMode, companies as coRepo, deals as dealRepo, signals as sigRepo, recordEvent } from './repo/index.js';
+import { primeTokenCache } from './mcp/oauth.js';
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 
@@ -87,6 +88,7 @@ function logEvent(companyId, type, detail) {
 export async function hydrate() {
   const info = await initRepo();
   if (repoMode() !== 'cosmos') return { mode: repoMode(), companies: 0, deals: 0 };
+  await primeTokenCache().catch(() => {});
   try {
     const cos = await coRepo.list();
     desk = cos.filter((c) => c.kind === 'desk');
