@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.22.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v28',
+    revision: 'ca-dealroom-orch-dev-swc--0000024',
+    title: 'M365 sign-in needs no admin approval · a Team per deal',
+    tag: 'improvement',
+    highlights: [
+      'Connecting M365 no longer hits Entra’s “Need admin approval” wall: the app now requests only user-consentable Graph scopes, so you can sign in and consent yourself (no tenant-admin needed).',
+      'To make that possible, each deal now gets its OWN Microsoft Teams team (“Deal - <company>”), created with the user-consentable Team.Create permission — instead of a channel in a shared team, which required the admin-only Channel.Create. The workspace “Microsoft Teams” button opens that deal’s Team (its channel).',
+      'The deal’s Team is still provisioned at launch (off the Screening Gate) when M365 is connected, and on demand from the workspace button otherwise — idempotent, so re-opening always returns the same Team rather than creating duplicates.',
+      'Scopes are now: User.Read, Team.ReadBasic.All, Team.Create (+ offline_access/openid/profile/email) — all self-consentable; Channel.Create and ChannelMessage.Send were removed.'
+    ]
+  },
+  {
     version: 'v0.21.0',
     date: '2026-07-06',
     image: 'dealroom-app:v27',

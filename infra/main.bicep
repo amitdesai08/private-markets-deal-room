@@ -138,9 +138,6 @@ param m365TenantId string = ''
 @secure()
 param m365ClientSecret string = ''
 
-@description('Optional pinned parent Teams team ID that holds one channel per deal. Empty = find/create "The Deal Room".')
-param m365TeamId string = ''
-
 @description('Container Registry SKU.')
 @allowed([
   'Basic'
@@ -517,7 +514,6 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'MCP_REQUIRED_SCOPE', value: mcpRequiredScope }
             { name: 'M365_CLIENT_ID', value: m365ClientId }
             { name: 'M365_TENANT_ID', value: empty(m365TenantId) ? entraTenantId : m365TenantId }
-            { name: 'M365_TEAM_ID', value: m365TeamId }
             { name: 'M365_CLIENT_SECRET', secretRef: 'm365-client-secret' }
           ]
         }

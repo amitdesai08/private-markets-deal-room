@@ -1158,14 +1158,14 @@ export async function launchDeal(id) {
   return { deal: getDeal(id) };
 }
 
-// Create/attach the deal's live Teams channel and reflect it onto the workspace
-// (teamsUrl → real channel webUrl, teamsProvisioned flag, teamsChannel record).
-// Idempotent: reuses an existing channel for the deal.
+// Create/attach the deal's live Teams team and reflect it onto the workspace
+// (teamsUrl → the team's webUrl, teamsProvisioned flag, teamsChannel record).
+// Idempotent: reuses the deal's existing team instead of creating duplicates.
 async function provisionDealChannel(deal) {
   const channel = await ensureDealChannel(deal, deal.teamsChannel);
   deal.teamsChannel = channel;
   if (deal.workspace) {
-    deal.workspace.teamsUrl = channel.webUrl;
+    if (channel.webUrl) deal.workspace.teamsUrl = channel.webUrl;
     deal.workspace.teamsProvisioned = true;
     deal.workspace.teamsChannelName = channel.displayName;
   }
