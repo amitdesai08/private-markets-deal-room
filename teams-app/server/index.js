@@ -18,6 +18,8 @@ import { exchangeOnBehalfOf, identityFromSsoToken } from './sso.js';
 import { personaForUser } from './sharedLib.js';
 import { initBot } from './bot.js';
 import { postDealEvent } from './notifications.js';
+import { siteProxy, TEAMS_BOOTSTRAP_JS } from './siteProxy.js';
+import { startEventPoller } from './eventPoller.js';
 
 validateConfig();
 
@@ -68,18 +70,33 @@ app.post('/api/messages', async (req, res) => {
 // Everything else under /api forwards to the shared backend (single data source).
 app.use('/api', proxyToBackend);
 
-// Serve the built tab with SPA fallback.
-const tabDist = join(__dirname, '..', 'tab', 'dist');
-if (existsSync(tabDist)) {
-  app.use(express.static(tabDist));
-  app.get('*', (_req, res) => res.sendFile(join(tabDist, 'index.html')));
+// Teams bootstrap injected into the embedded dashboard (theme sync + SSO notify).
+app.get('/teams-bootstrap.js', (_req, res) => {
+  res.setHeader('content-type', 'application/javascript; charset=utf-8');
+  res.send(TEAMS_BOOTSTRAP_JS);
+});
+
+if (isBackendLive()) {
+  // Channel Tab = the REAL Deal Room dashboard, served from the shared backend
+  // through this origin (single data source, zero component duplication).
+  app.get('*', siteProxy);
 } else {
-  app.get('*', (_req, res) =>
-    res
-      .status(200)
-      .send('<h1>The Deal Room — Teams</h1><p>Tab not built yet. Run <code>npm run build:tab</code>.</p>')
-  );
+  // Demo mode — serve the local status tab (or a hint if not built).
+  const tabDist = join(__dirname, '..', 'tab', 'dist');
+  if (existsSync(tabDist)) {
+    app.use(express.static(tabDist));
+    app.get('*', (_req, res) => res.sendFile(join(tabDist, 'index.html')));
+  } else {
+    app.get('*', (_req, res) =>
+      res
+        .status(200)
+        .send('<h1>The Deal Room — Teams</h1><p>Set SHARED_BACKEND_URL to embed the dashboard, or run <code>npm run build:tab</code> for the demo status tab.</p>')
+    );
+  }
 }
 
 const port = config.server.port;
-app.listen(port, () => console.log(`Deal Room Teams app listening on :${port} — mode: ${isDemoMode() ? 'demo' : 'live'}`));
+app.listen(port, () => {
+  console.log(`Deal Room Teams app listening on :${port} — mode: ${isDemoMode() ? 'demo' : 'live'}`);
+  if (startEventPoller()) console.log('[teams] deal-event notifier active (polling shared backend signals).');
+});
