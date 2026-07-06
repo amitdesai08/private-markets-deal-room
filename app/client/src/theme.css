@@ -967,6 +967,8 @@ button.src-row:hover:not(.src-th) { background: var(--canvas); }
 .wsp-link.teams { color: #4b53bc; border-color: #c7c9ef; }
 .wsp-link.spo { color: #036c70; border-color: #b6dcdc; }
 .wsp-link:hover { filter: brightness(.97); }
+.wsp-link:disabled { opacity: .6; cursor: default; }
+.wsp-teams-note { margin: -4px 0 12px; padding: 8px 12px; font-size: 12px; font-weight: 600; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; }
 
 .wsp-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
 .wsp-tabs button { font-size: 11.5px; font-weight: 650; color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 11px; display: inline-flex; align-items: center; gap: 6px; }

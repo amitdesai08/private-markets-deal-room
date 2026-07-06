@@ -19,6 +19,7 @@ import { markSync } from './connectors.js';
 import { fundMandate, seedThemes, seedScreens } from '../data/mandates.js';
 import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scoring.js';
 import { buildWorkspace, checklistStats, MD_OPTIONS } from '../data/workspace.js';
+import { ensureDealChannel, m365Connected } from './m365/graph.js';
 import {
   PASS_REASONS,
   PARK_REASONS,
@@ -1125,7 +1126,7 @@ export function sendToScreening(deskId) {
 // LAUNCH — the Launch Orchestration (D1) action. Provisions the deal workspace
 // (Teams + SharePoint + DD checklist + templates + swimlanes) and moves the deal
 // into Stage-2 diligence.
-export function launchDeal(id) {
+export async function launchDeal(id) {
   const deal = getDealRaw(id);
   if (!deal) return { error: 'not-found' };
   if (deal.status !== 'screened') return { error: 'already-launched' };
@@ -1142,7 +1143,52 @@ export function launchDeal(id) {
   );
   persistDeal(deal);
   logEvent(deal.id, 'launch', { company: deal.company });
+
+  // Provision the REAL Teams channel for this deal (best-effort). When M365 is
+  // connected this creates a live channel the workspace map button opens; if not
+  // connected (or Graph errors) the deep-link workspace still stands and the
+  // channel can be provisioned later via ensureDealTeamsChannel().
+  if (m365Connected()) {
+    try {
+      await provisionDealChannel(deal);
+    } catch (err) {
+      logEvent(deal.id, 'teams-provision-error', { error: String(err?.message || err).slice(0, 200) });
+    }
+  }
   return { deal: getDeal(id) };
+}
+
+// Create/attach the deal's live Teams channel and reflect it onto the workspace
+// (teamsUrl → real channel webUrl, teamsProvisioned flag, teamsChannel record).
+// Idempotent: reuses an existing channel for the deal.
+async function provisionDealChannel(deal) {
+  const channel = await ensureDealChannel(deal, deal.teamsChannel);
+  deal.teamsChannel = channel;
+  if (deal.workspace) {
+    deal.workspace.teamsUrl = channel.webUrl;
+    deal.workspace.teamsProvisioned = true;
+    deal.workspace.teamsChannelName = channel.displayName;
+  }
+  persistDeal(deal);
+  logEvent(deal.id, 'teams-provisioned', { channel: channel.displayName, webUrl: channel.webUrl });
+  return channel;
+}
+
+// On-demand Teams provisioning for a launched deal (used by the workspace Teams
+// button when the deal was launched while M365 was disconnected, and as a retry).
+export async function ensureDealTeamsChannel(id) {
+  const deal = getDealRaw(id);
+  if (!deal) return { error: 'not-found' };
+  if (!deal.workspace) return { error: 'not-launched' };
+  if (!m365Connected()) {
+    return { ok: false, provisioned: false, connected: false, teamsUrl: deal.workspace.teamsUrl, error: 'm365-not-connected' };
+  }
+  try {
+    const channel = await provisionDealChannel(deal);
+    return { ok: true, provisioned: true, connected: true, teamsUrl: channel.webUrl, channel };
+  } catch (err) {
+    return { ok: false, provisioned: false, connected: true, teamsUrl: deal.workspace.teamsUrl, error: String(err?.message || err).slice(0, 200) };
+  }
 }
 
 export function getMdOptions() {

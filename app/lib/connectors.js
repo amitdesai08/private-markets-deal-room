@@ -16,8 +16,15 @@ import { newsAgentConfigured } from './newsAgent.js';
 import { McpSession } from './mcp/morningstar.js';
 import { hasLogin } from './mcp/oauth.js';
 import { testFilings, filingsConfigured } from './filings.js';
+import { m365Configured, m365Connected, me as m365Me } from './m365/graph.js';
 
 export const CONNECTORS = [
+  {
+    id: 'm365', name: 'M365 Login', kind: 'm365', role: 'identity',
+    primaryJob: 'Microsoft 365 sign-in — Teams, SharePoint & mailbox (delegated)',
+    sweetSpot: 'One delegated connection reused by every M365-powered step',
+    loginUrl: '/api/m365/login'
+  },
   {
     id: 'web', name: 'Web', kind: 'web', role: 'discover',
     primaryJob: 'Live web & news search (Bing-grounded agent)',
@@ -87,6 +94,7 @@ function isConfigured(c) {
   if (c.kind === 'web') return newsAgentConfigured();
   if (c.kind === 'mcp') return hasLogin(c.provider);
   if (c.kind === 'edgar') return filingsConfigured();
+  if (c.kind === 'm365') return m365Connected();
   return false;
 }
 
@@ -141,6 +149,21 @@ async function testEdgar(c) {
   }
 }
 
+async function testM365(c) {
+  if (!m365Connected()) {
+    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Not connected — sign in with your Microsoft 365 account to enable Teams, SharePoint and mailbox steps.' });
+  }
+  const t0 = Date.now();
+  try {
+    const who = await m365Me();
+    const latencyMs = Date.now() - t0;
+    markSync(c.id);
+    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Connected as ${who.displayName} (${who.upn}) · Graph reachable in ${latencyMs}ms` });
+  } catch (e) {
+    return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Signed in but Graph errored · ${String(e.message || e).slice(0, 90)}` });
+  }
+}
+
 // Run a real connectivity test for one connector. Databases (unwired) always
 // report disconnected. Soft-cached for CACHE_MS unless force=true.
 export async function testConnector(id, { force = false } = {}) {
@@ -152,6 +175,7 @@ export async function testConnector(id, { force = false } = {}) {
   if (c.kind === 'web') return testWeb(c);
   if (c.kind === 'mcp') return testMcp(c);
   if (c.kind === 'edgar') return testEdgar(c);
+  if (c.kind === 'm365') return testM365(c);
   return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Integration not wired — no live connection.' });
 }
 
@@ -167,11 +191,12 @@ export function listConnectors() {
       kind: c.kind,
       provider: c.provider || null,
       role: c.role,
+      loginUrl: c.loginUrl || null,
       primaryJob: c.primaryJob,
       sweetSpot: c.sweetSpot,
       configured,
-      testable: c.kind === 'web' || c.kind === 'edgar' ? true : c.kind === 'mcp' ? configured : false,
-      connectable: c.kind === 'mcp',                 // can be signed-in via OAuth
+      testable: c.kind === 'web' || c.kind === 'edgar' ? true : c.kind === 'mcp' || c.kind === 'm365' ? configured : false,
+      connectable: c.kind === 'mcp' || c.kind === 'm365', // can be signed-in via OAuth
       status: cached ? cached.status : c.kind === 'database' ? 'disconnected' : configured ? 'unknown' : 'disconnected',
       latencyMs: cached ? cached.latencyMs : null,
       lastSync: getLastSync(c.id),

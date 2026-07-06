@@ -128,6 +128,19 @@ param mcpAudience string = ''
 @description('Optional delegated scope / app role the MCP token must carry (e.g. deals.read). Empty = audience+tenant only.')
 param mcpRequiredScope string = ''
 
+@description('Entra app (client) ID for the in-app M365 delegated login. Empty disables the M365 connector.')
+param m365ClientId string = ''
+
+@description('Entra tenant ID for the M365 delegated login (defaults to entraTenantId when set).')
+param m365TenantId string = ''
+
+@description('Client secret for the M365 delegated login app registration.')
+@secure()
+param m365ClientSecret string = ''
+
+@description('Optional pinned parent Teams team ID that holds one channel per deal. Empty = find/create "The Deal Room".')
+param m365TeamId string = ''
+
 @description('Container Registry SKU.')
 @allowed([
   'Basic'
@@ -463,6 +476,11 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
     managedEnvironmentId: caEnv.id
     configuration: {
       activeRevisionsMode: 'Single'
+      secrets: [
+        // Non-empty placeholder keeps the template valid when M365 isn't configured;
+        // the app gates the M365 connector on M365_CLIENT_ID, so the placeholder is inert.
+        { name: 'm365-client-secret', value: empty(m365ClientSecret) ? 'unset' : m365ClientSecret }
+      ]
       ingress: {
         external: true
         targetPort: containerTargetPort
@@ -497,6 +515,10 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'ENTRA_TENANT_ID', value: entraTenantId }
             { name: 'MCP_AUDIENCE', value: mcpAudience }
             { name: 'MCP_REQUIRED_SCOPE', value: mcpRequiredScope }
+            { name: 'M365_CLIENT_ID', value: m365ClientId }
+            { name: 'M365_TENANT_ID', value: empty(m365TenantId) ? entraTenantId : m365TenantId }
+            { name: 'M365_TEAM_ID', value: m365TeamId }
+            { name: 'M365_CLIENT_SECRET', secretRef: 'm365-client-secret' }
           ]
         }
       ]

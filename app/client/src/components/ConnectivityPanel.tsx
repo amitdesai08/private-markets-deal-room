@@ -4,10 +4,14 @@ import { api } from '../api';
 import { timeAgo } from './Bits';
 
 const ROLE_META: Record<string, { tag: string; color: string }> = {
+  identity: { tag: 'Identity', color: '#4b53bc' },
   discover: { tag: 'Discover', color: '#2563eb' },
   confirm: { tag: 'Confirm', color: '#7c3aed' },
   quality: { tag: 'Quality', color: '#0d9488' }
 };
+
+// Friendly display names for the post-sign-in notice (?connected=<id>).
+const CONNECTOR_LABELS: Record<string, string> = { m365: 'Microsoft 365' };
 
 // Home connectivity panel — the real status of every data source. Web and the
 // MCP connectors (Morningstar, LSEG, Moody's) are tested for real; unwired
@@ -28,7 +32,7 @@ export function ConnectivityPanel() {
     let justConnected: string | null = null;
     if (connected) {
       justConnected = connected;
-      setNotice({ kind: 'ok', text: `${connected} connected.` });
+      setNotice({ kind: 'ok', text: `${CONNECTOR_LABELS[connected] ?? connected} connected.` });
     } else if (err) {
       setNotice({ kind: 'err', text: `Sign-in failed: ${err}` });
     }
@@ -149,7 +153,7 @@ function ConnectorRow({ c, test, testing, expanded, onToggle, onTest }: {
               </button>
             )}
             {c.connectable && status !== 'connected' && (
-              <a className="conn-connect" href={`/api/connectors/${c.provider}/login?returnTo=/`}>
+              <a className="conn-connect" href={`${c.loginUrl ?? `/api/connectors/${c.provider}/login`}?returnTo=/`}>
                 🔗 Connect {c.name}
               </a>
             )}

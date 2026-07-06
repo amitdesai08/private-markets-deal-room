@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.21.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v27',
+    revision: 'ca-dealroom-orch-dev-swc--0000023',
+    title: 'M365 login connector · real Teams channel per deal',
+    tag: 'feature',
+    highlights: [
+      'New “M365 Login” connector at the top of the Home Data-source connectivity panel (above Web): a real Microsoft Entra delegated sign-in. The dashboard stays open as an admin/monitoring UI — connecting M365 is opt-in and does not put the app behind a login. Its connectivity test shows who you’re signed in as (real Graph /me).',
+      'The single M365 connection is reused by every M365-powered step. First use: Launch Orchestration now provisions a REAL Microsoft Teams channel for each deal — created via Graph when the deal is launched off the Screening Gate — so the “Microsoft Teams” button on the deal workspace map opens that deal’s live channel (one channel per deal, under a shared “The Deal Room” team).',
+      'Idempotent and resilient: the channel is created once at launch and reused (no duplicates); if a deal was launched while M365 was disconnected, the Teams button provisions it on demand once you connect. If M365 isn’t connected, the button prompts you to connect on the Home page rather than failing.',
+      'Delegated Graph token (offline_access) is captured server-side via authorization-code + PKCE and never reaches the browser; the client secret is stored as a Container App secret. Scopes: User.Read, Team.ReadBasic.All, Team.Create, Channel.Create, ChannelMessage.Send.'
+    ]
+  },
+  {
     version: 'v0.20.0',
     date: '2026-07-06',
     image: 'dealroom-app:v26',

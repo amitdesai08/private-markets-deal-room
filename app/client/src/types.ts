@@ -173,6 +173,8 @@ export interface Workspace {
   provisionedBy: string;
   icDate: string;
   teamsUrl: string;
+  teamsProvisioned?: boolean;
+  teamsChannelName?: string | null;
   sharePointUrl: string;
   channels: WorkspaceChannel[];
   folders: WorkspaceFolder[];
@@ -479,9 +481,10 @@ export interface SourceTestResult {
 export interface Connector {
   id: string;
   name: string;
-  kind: 'web' | 'mcp' | 'database';
+  kind: 'web' | 'mcp' | 'database' | 'edgar' | 'm365';
   provider: string | null;
-  role: 'discover' | 'confirm' | 'quality';
+  role: 'discover' | 'confirm' | 'quality' | 'identity';
+  loginUrl?: string | null;
   primaryJob: string;
   sweetSpot: string;
   configured: boolean;

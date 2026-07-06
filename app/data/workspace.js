@@ -206,6 +206,8 @@ export function buildWorkspace(deal, opts = {}) {
     provisionedBy: 'Gate-Orchestration Agent · Power Automate',
     icDate: deal.targetICDate,
     teamsUrl,
+    teamsProvisioned: false,
+    teamsChannelName: null,
     sharePointUrl,
     channels: CHANNELS.map((c) => ({ ...c, url: `${teamsUrl}&channel=${encodeURIComponent(c.name)}` })),
     folders: FOLDERS.map((f) => ({ name: f, url: `${sharePointUrl}/Shared%20Documents/${encodeURIComponent(f)}` })),

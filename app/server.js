@@ -47,6 +47,7 @@ import {
   gateCandidate,
   sendToScreening,
   launchDeal,
+  ensureDealTeamsChannel,
   getMdOptions,
   assignSwimlane,
   cycleChecklistItem,
@@ -65,6 +66,8 @@ import { dealMcpHandler, dealMcpMethodNotAllowed, dealMcpInfo } from './lib/mcp/
 import { mcpAuthMiddleware, mcpAuthInfo } from './lib/mcp/entraAuth.js';
 import { listConnectors, testConnector } from './lib/connectors.js';
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
+import m365LoginRouter from './lib/m365/loginRoutes.js';
+import { m365Configured, m365Connected } from './lib/m365/graph.js';
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 
@@ -89,6 +92,7 @@ api.get('/config', (_req, res) => {
     newsAgent: newsAgentConfigured() ? 'live' : 'demo',
     dealAgent: dealAgentInfo().configured ? 'live' : 'demo',
     dealMcp: { ...dealMcpInfo(), auth: mcpAuthInfo() },
+    m365: { configured: m365Configured(), connected: m365Connected() },
     morningstar: morningstarReady() ? 'live' : 'demo',
     datastore: repoMode()
   });
@@ -170,10 +174,18 @@ api.post('/candidates/send-to-screening', (req, res) => {
 
 // D1 · Launch Orchestration — workspace provisioning + swimlane / checklist ops
 api.get('/md-options', (_req, res) => res.json(getMdOptions()));
-api.post('/deals/:id/launch', (req, res) => {
-  const r = launchDeal(req.params.id);
+api.post('/deals/:id/launch', async (req, res) => {
+  const r = await launchDeal(req.params.id);
   if (r.error) return res.status(r.error === 'not-found' ? 404 : 409).json(r);
   res.json(r.deal);
+});
+// Ensure (create-or-reuse) the deal's live Teams channel; used by the workspace
+// Teams button and as a retry when the deal was launched while M365 was offline.
+api.post('/deals/:id/teams/ensure', async (req, res) => {
+  const r = await ensureDealTeamsChannel(req.params.id);
+  if (r.error === 'not-found') return res.status(404).json(r);
+  if (r.error === 'not-launched') return res.status(409).json(r);
+  res.json(r);
 });
 api.patch('/deals/:id/swimlanes/:lane', (req, res) => {
   const r = assignSwimlane(req.params.id, req.params.lane, req.body?.md);
@@ -209,6 +221,8 @@ api.post('/connectors/:id/test', async (req, res) => {
 });
 // In-app OAuth sign-in for MCP connectors: /connectors/:provider/login|callback
 api.use('/connectors', connectorLoginRouter);
+// In-app Microsoft 365 (Entra) delegated sign-in: /m365/login|callback
+api.use('/m365', m365LoginRouter);
 
 // O1 · Deal Sourcing — News & filings desk
 api.get('/news/desk', (_req, res) => res.json(getSourcingDesk()));
