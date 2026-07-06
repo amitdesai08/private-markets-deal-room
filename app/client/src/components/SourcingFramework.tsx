@@ -598,9 +598,80 @@ function FilingRow({ targetId, f, kind }: { targetId: string; f: DeskFiling; kin
   );
 }
 
-function TargetDetailBody({ d }: { d: TargetDetail }) {
-  const q = d.quality;
+// Morningstar quality panel with an in-place retry. The Morningstar MCP read can
+// hit a transient "fetch failed"; because the target detail is cached, that stale
+// failure would otherwise persist until a full refresh. This panel owns its
+// quality state and offers a Retry button that re-pulls ONLY Morningstar (server
+// also refreshes its cached detail), so a one-off failure recovers without
+// regenerating filings or the analyst report.
+function MorningstarPanel({ targetId, isPublic, ticker, quality }: {
+  targetId: string;
+  isPublic: boolean;
+  ticker: string | null;
+  quality: TargetDetail['quality'];
+}) {
+  const [q, setQ] = useState(quality);
+  const [retrying, setRetrying] = useState(false);
   const qBand = (q.score ?? 0) >= 7 ? 'strong' : (q.score ?? 0) >= 5 ? 'moderate' : 'weak';
+  const failed = !q.rating || q.rating === 'Pending';
+  const canRetry = isPublic && q.configured !== false;
+  // An auth/sign-in failure won't self-heal on retry — the login must be renewed.
+  const authIssue = /refresh token|invalid_grant|\b401\b|not connected|sign.?in|log ?in|re-run the login/i.test(String(q.error || q.note || ''));
+
+  const retry = () => {
+    setRetrying(true);
+    api.retryQuality(targetId)
+      .then((res) => setQ(res.quality))
+      .catch(() => {})
+      .finally(() => setRetrying(false));
+  };
+
+  return (
+    <div className="td-panel">
+      <div className="td-panel-hd"><span className="td-ic">★</span>Morningstar rating
+        {isPublic ? <span className="td-hd-tag">{ticker}</span> : <span className="td-hd-tag priv">private</span>}
+        {canRetry && (
+          <button className="td-retry" disabled={retrying} onClick={retry} title="Re-pull the Morningstar quality read">
+            {retrying ? '↻ Retrying…' : '↻ Retry'}
+          </button>
+        )}
+      </div>
+      {!isPublic ? (
+        <div className="td-empty">Private company — no public Morningstar coverage. The quality read applies to listed names only.</div>
+      ) : q.configured === false ? (
+        <div className="td-empty">{q.note || 'Morningstar not connected.'}</div>
+      ) : failed ? (
+        <div className="td-empty">
+          {retrying
+            ? 'Re-pulling the Morningstar quality read…'
+            : authIssue
+              ? <>Morningstar sign-in has expired — re-connect Morningstar on the <b>Home</b> page (Data Source Connectivity), then hit ↻ Retry.</>
+              : q.error
+                ? `Morningstar read failed: ${q.error}. This is usually a transient network hiccup — hit ↻ Retry.`
+                : 'Morningstar quality read pending — hit ↻ Retry to pull it now.'}
+        </div>
+      ) : (
+        <div className="quality-card">
+          <div className="q-top">
+            <div className={`q-score ${qBand}`}>{(q.score ?? 0).toFixed(1)}</div>
+            <div>
+              <div className="q-rating">{q.rating}</div>
+              <div className={`q-trend ${q.trend}`}>{q.trend === 'improving' ? '↑' : q.trend === 'weakening' ? '↓' : '→'} {q.trend}</div>
+            </div>
+            <span className="src-badge sm morningstar" style={{ marginLeft: 'auto' }}>Morningstar</span>
+          </div>
+          <div className="q-bar"><i className={qBand} style={{ width: `${Math.round(((q.score ?? 0) / 10) * 100)}%` }} /></div>
+          {(q.flags?.length ?? 0) > 0 && (
+            <div className="q-flags">{q.flags!.map((f) => <span className="q-flag" key={f}>⚑ {f}</span>)}</div>
+          )}
+          {q.note && <div className="q-note">{q.note}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TargetDetailBody({ d }: { d: TargetDetail }) {
   const r = d.report;
   const stance = STANCE_META[r.sectorOutlook.stance] || STANCE_META.neutral;
   return (
@@ -622,34 +693,7 @@ function TargetDetailBody({ d }: { d: TargetDetail }) {
       </div>
 
       {/* Morningstar (public only) */}
-      <div className="td-panel">
-        <div className="td-panel-hd"><span className="td-ic">★</span>Morningstar rating
-          {d.isPublic ? <span className="td-hd-tag">{d.ticker}</span> : <span className="td-hd-tag priv">private</span>}
-        </div>
-        {!d.isPublic ? (
-          <div className="td-empty">Private company — no public Morningstar coverage. The quality read applies to listed names only.</div>
-        ) : q.configured === false ? (
-          <div className="td-empty">{q.note || 'Morningstar not connected.'}</div>
-        ) : !q.rating || q.rating === 'Pending' ? (
-          <div className="td-empty">{q.error ? `Morningstar read failed: ${q.error}` : 'Morningstar quality read pending.'}</div>
-        ) : (
-          <div className="quality-card">
-            <div className="q-top">
-              <div className={`q-score ${qBand}`}>{(q.score ?? 0).toFixed(1)}</div>
-              <div>
-                <div className="q-rating">{q.rating}</div>
-                <div className={`q-trend ${q.trend}`}>{q.trend === 'improving' ? '↑' : q.trend === 'weakening' ? '↓' : '→'} {q.trend}</div>
-              </div>
-              <span className="src-badge sm morningstar" style={{ marginLeft: 'auto' }}>Morningstar</span>
-            </div>
-            <div className="q-bar"><i className={qBand} style={{ width: `${Math.round(((q.score ?? 0) / 10) * 100)}%` }} /></div>
-            {(q.flags?.length ?? 0) > 0 && (
-              <div className="q-flags">{q.flags!.map((f) => <span className="q-flag" key={f}>⚑ {f}</span>)}</div>
-            )}
-            {q.note && <div className="q-note">{q.note}</div>}
-          </div>
-        )}
-      </div>
+      <MorningstarPanel targetId={d.id} isPublic={d.isPublic} ticker={d.ticker} quality={d.quality} />
 
       {/* Generated analyst report */}
       <div className="td-panel wide">

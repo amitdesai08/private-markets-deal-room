@@ -126,6 +126,8 @@ export const api = {
   framework: () => get<Framework>('/api/framework'),
   scoredTargets: () => get<ScoredTargets>('/api/targets/scored'),
   targetDetail: (id: string) => post<TargetDetail>(`/api/targets/${id}/detail`, {}),
+  retryQuality: (id: string) =>
+    post<{ id: string; name: string; ticker: string | null; isPublic: boolean; quality: TargetDetail['quality'] }>(`/api/targets/${id}/quality`, {}),
   saveFiling: (targetId: string, filingId: string) =>
     post<SavedFiling & { targetId: string; filingId: string }>(`/api/targets/${targetId}/filings/${filingId}/save`, {}),
   filingDownloadUrl: (path: string, name?: string) =>

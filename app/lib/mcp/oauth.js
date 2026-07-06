@@ -217,16 +217,33 @@ export async function primeTokenCache() {
   }
 }
 
-export function saveTokens(provider, record) {
+function writeDisk(provider, record) {
   try {
     fs.mkdirSync(TOKEN_DIR, { recursive: true });
     fs.writeFileSync(storePath(provider), JSON.stringify(record, null, 2), 'utf8');
   } catch {
     /* read-only FS (e.g. container): in-process refresh still works this run */
   }
+}
+
+export function saveTokens(provider, record) {
+  writeDisk(provider, record);
   // Durable mirror (best-effort) so tokens + rotated refresh tokens survive a
   // container restart / cold start.
   connRepo.upsert({ id: provider, record, updatedAt: new Date().toISOString() }).catch(() => {});
+}
+
+// Durable save: awaits the Cosmos mirror so a rotated, single-use refresh_token
+// is persisted BEFORE we rely on it. Without this, a fire-and-forget write can be
+// lost when the container is torn down (redeploy), leaving the next container
+// with an already-consumed refresh_token → "refresh token does not exist".
+export async function saveTokensDurable(provider, record) {
+  writeDisk(provider, record);
+  try {
+    await connRepo.upsert({ id: provider, record, updatedAt: new Date().toISOString() });
+  } catch {
+    /* best-effort; disk still holds it for this run */
+  }
 }
 
 export function loadTokens(provider) {
@@ -236,6 +253,23 @@ export function loadTokens(provider) {
   if (env) return env;
   throw new NotLoggedInError(`No stored login for '${provider}'. Run: node scripts/${provider}_login.mjs`);
 }
+
+async function reloadRecord(provider) {
+  try {
+    const doc = await connRepo.get(provider);
+    return doc?.record || null;
+  } catch {
+    return null;
+  }
+}
+
+function isInvalidGrant(err) {
+  return /invalid_grant|refresh token does not exist/i.test(String(err?.message || ''));
+}
+
+// Coalesce concurrent refreshes per provider so two callers never fire the same
+// single-use refresh_token in parallel (which would self-invalidate the token).
+const refreshInFlight = {};
 
 // Return a valid access token, refreshing via the stored refresh_token if needed.
 export async function getAccessToken(provider) {
@@ -247,10 +281,40 @@ export async function getAccessToken(provider) {
   if (!record.refresh_token) {
     throw new NotLoggedInError(`No refresh_token for '${provider}'. Re-run the login.`);
   }
+  if (!refreshInFlight[provider]) {
+    refreshInFlight[provider] = refreshFlow(provider, record)
+      .finally(() => { delete refreshInFlight[provider]; });
+  }
+  return refreshInFlight[provider];
+}
+
+async function refreshFlow(provider, record) {
+  try {
+    return await refreshAndPersist(provider, record);
+  } catch (err) {
+    // The refresh_token we tried may already have been rotated + persisted by an
+    // earlier writer. Reload the durable record and, if it's fresher, adopt it.
+    if (isInvalidGrant(err)) {
+      const fresh = await reloadRecord(provider);
+      if (fresh?.refresh_token && fresh.refresh_token !== record.refresh_token) {
+        writeDisk(provider, fresh);
+        const now = Date.now() / 1000;
+        if (fresh.access_token && (fresh.expires_at || 0) > now + ACCESS_TOKEN_SKEW_SECONDS) {
+          return fresh.access_token;
+        }
+        return await refreshAndPersist(provider, fresh);
+      }
+    }
+    throw err;
+  }
+}
+
+async function refreshAndPersist(provider, record) {
   const tok = await refresh(record.token_endpoint, record.client_id, record.client_secret, record.refresh_token);
   record.access_token = tok.access_token;
-  record.expires_at = now + Number(tok.expires_in || 3600);
+  record.expires_at = Date.now() / 1000 + Number(tok.expires_in || 3600);
   if (tok.refresh_token) record.refresh_token = tok.refresh_token; // rotating refresh tokens
-  saveTokens(provider, record);
+  await saveTokensDurable(provider, record);
   return record.access_token;
 }
+

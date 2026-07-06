@@ -236,8 +236,41 @@ function noCoverage(name) {
   };
 }
 
-// Run a live Morningstar quality check for a company name or ticker.
-export async function quality(nameOrTicker, ticker = null) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// A transient failure is a network/transport hiccup (undici "fetch failed",
+// socket resets, DNS blips, connection drops) — worth retrying with a fresh MCP
+// session. Auth (401) and real MCP errors are NOT transient and surface at once.
+const TRANSIENT_RE = /fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|socket|UND_ERR|network|terminated|other side closed|premature close/i;
+function isTransient(err) {
+  if (/\b401\b/.test(String(err?.message || ''))) return false; // auth — re-login needed
+  const parts = [err?.message, err?.cause?.message, err?.cause?.code, err?.code];
+  return TRANSIENT_RE.test(parts.filter(Boolean).join(' '));
+}
+
+// Run a live Morningstar quality check for a company name or ticker. Retries
+// transient network failures (each attempt opens a fresh MCP session) so a
+// one-off "fetch failed" self-heals instead of surfacing to the desk.
+export async function quality(nameOrTicker, ticker = null, { retries = 2 } = {}) {
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await runQuality(nameOrTicker, ticker);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries && isTransient(err)) {
+        await sleep(350 * (attempt + 1));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
+// One quality attempt: id-lookup -> analyst research -> parse. A dropped session
+// can't be reused, so each attempt (via quality() above) starts a fresh connect.
+async function runQuality(nameOrTicker, ticker = null) {
   const session = await connect('morningstar');
   const ids = [nameOrTicker, ticker].filter(Boolean);
   const look = await session.callTool('morningstar-id-lookup-tool', { investment_identifiers: ids });

@@ -888,6 +888,25 @@ export async function getTargetDetail(id, { force = false } = {}) {
   return detail;
 }
 
+// Re-pull ONLY the Morningstar quality for a target (powers the in-panel "Retry
+// Morningstar" button). Runs the resilient quality read and writes the result
+// back into the cached detail so re-opening the row shows the fresh read rather
+// than a stale transient failure. Returns the updated quality (or null if the
+// target is unknown).
+export async function retryTargetQuality(id) {
+  const t = findSourcingTarget(id);
+  if (!t) return null;
+  const deskCompany = desk.find((x) => x.id === id) || null;
+  const quality = await targetQuality(t, deskCompany);
+  const cached = targetDetailCache.get(id);
+  if (cached) {
+    cached.quality = quality;
+    targetDetailCache.set(id, cached);
+  }
+  logEvent(id, 'target-quality-retry', { public: quality.public, ok: !quality.error });
+  return { id: t.id, name: t.name, ticker: t.ticker || null, isPublic: !!t.ticker, quality };
+}
+
 // ---- Save the ENTIRE filing (every document) to the deal room's own store ----
 // Resolves a filing surfaced on a ranked target back to its EDGAR cik+accession,
 // pulls down every document in the accession (primary doc + exhibits + complete

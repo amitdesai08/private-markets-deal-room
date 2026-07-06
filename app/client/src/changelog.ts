@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.25.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v38',
+    revision: 'ca-dealroom-orch-dev-swc--0000034',
+    title: 'Resilient Morningstar pull + in-panel Retry on ranked targets',
+    tag: 'improvement',
+    highlights: [
+      'Fixed the intermittent “Morningstar read failed: fetch failed” on a ranked target’s expanded view. The cause was a transient network hiccup on the Morningstar MCP tool call that then got stuck in the cached detail — so re-opening the row kept showing the stale failure with no way to recover.',
+      'The Morningstar quality pull is now resilient: transient network failures (dropped sockets, DNS blips, connection resets) are automatically retried with a fresh MCP session and backoff, so a one-off failure self-heals instead of surfacing to the desk. Auth failures still surface immediately so you know to re-connect.',
+      'Added a “↻ Retry” button right in the Morningstar panel of the expanded target. It re-pulls only the Morningstar read (no filings re-fetch, no analyst-report regeneration), updates the panel in place, and refreshes the server-side cached detail so the fresh rating sticks when you re-open the row.',
+      'Hardened the OAuth token store so a Morningstar (or LSEG/Moody’s) login survives redeploys: rotated single-use refresh tokens are now persisted durably to Cosmos before use, concurrent refreshes are coalesced, and an already-rotated token self-heals from the durable copy — eliminating the “refresh token does not exist” failures after a restart. When a sign-in genuinely expires, the panel now tells you to re-connect on Home instead of implying a retry will help.'
+    ]
+  },
+  {
     version: 'v0.24.0',
     date: '2026-07-06',
     image: 'dealroom-app:v36',

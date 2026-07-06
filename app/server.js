@@ -34,6 +34,7 @@ import {
   createScreen,
   getScoredTargets,
   getTargetDetail,
+  retryTargetQuality,
   saveFilingArchive,
   getSavedFilingManifest,
   getSavedFilingFile,
@@ -290,6 +291,19 @@ api.post('/targets/:id/detail', async (req, res) => {
     res.json(detail);
   } catch (err) {
     res.status(500).json({ error: 'target detail failed', detail: String(err?.message || err) });
+  }
+});
+
+// Retry ONLY the Morningstar quality pull for a target (in-panel retry button).
+// Transient MCP "fetch failed" errors are retried inside the pull; this re-runs
+// it on demand and refreshes the cached detail.
+api.post('/targets/:id/quality', async (req, res) => {
+  try {
+    const out = await retryTargetQuality(req.params.id);
+    if (!out) return res.status(404).json({ error: 'target not found' });
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: 'quality retry failed', detail: String(err?.message || err) });
   }
 });
 
