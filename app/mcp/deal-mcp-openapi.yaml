@@ -1,0 +1,43 @@
+swagger: '2.0'
+info:
+  title: Deal Room MCP
+  description: >-
+    Streamable MCP server exposing the fund's deals (list_deals, get_deal,
+    search_deals) to Copilot Studio, so a partner-MD agent can read live deal
+    records — thesis, key figures, diligence workstreams, memo and compliance
+    status, and top risks. Backed by Azure Cosmos DB; access is gated by Entra ID.
+  version: 1.0.0
+host: ca-dealroom-orch-dev-swc.proudsand-8d4a01d0.swedencentral.azurecontainerapps.io
+basePath: /
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /mcp:
+    post:
+      summary: Deal Room MCP server
+      description: >-
+        Streamable HTTP MCP endpoint. Tools: list_deals (all deals as summaries),
+        get_deal (one deal as a bounded analyst view), search_deals (keyword
+        search across company/sector/thesis).
+      x-ms-agentic-protocol: mcp-streamable-1.0
+      operationId: InvokeMCP
+      responses:
+        '200':
+          description: Success
+securityDefinitions:
+  # OAuth 2.0 (Microsoft Entra ID). In Copilot Studio's MCP wizard choose
+  # OAuth 2.0 -> Manual and supply the values in mcp/README-copilot-studio.md.
+  oauth2_auth:
+    type: oauth2
+    flow: accessCode
+    authorizationUrl: https://login.microsoftonline.com/301fb807-bdbc-4bac-802f-39b67f298b6c/oauth2/v2.0/authorize
+    tokenUrl: https://login.microsoftonline.com/301fb807-bdbc-4bac-802f-39b67f298b6c/oauth2/v2.0/token
+    scopes:
+      api://bd01fa3f-550b-4a69-bf50-f9cd74578fd7/deals.read: Read the fund's deals
+security:
+  - oauth2_auth:
+      - api://bd01fa3f-550b-4a69-bf50-f9cd74578fd7/deals.read

@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.20.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v26',
+    revision: 'ca-dealroom-orch-dev-swc--0000022',
+    title: 'Deal MCP server — Entra-secured, for Copilot Studio',
+    tag: 'feature',
+    highlights: [
+      'New Model Context Protocol (MCP) server at /mcp that exposes the fund’s deals — list_deals, get_deal and search_deals — to Copilot Studio, so a teammate can build a partner-MD decision agent grounded in live deal data (thesis, key figures, diligence, memo, compliance and risks).',
+      'The three MCP tools reuse the in-app analyst’s exact contracts (refactored into a shared lib/dealTools.js), so the Copilot Studio agent and the in-app Foundry analyst return identical, size-bounded deal views — both reading from the same Cosmos DB store via managed identity.',
+      'Entra ID secures access to the MCP endpoint only — the rest of the app (SPA and /api) stays anonymous. Every request’s bearer token is validated against the tenant (signature via JWKS, issuer, audience, tenant, and an optional required scope/role); it’s fail-closed, returning 401/403/503 rather than ever serving deals unauthenticated.',
+      'Uses the Streamable HTTP transport (the only transport Copilot Studio supports) in stateless mode, so it scales across replicas. Ships with an OpenAPI spec and a step-by-step Copilot Studio connection guide (mcp/), plus a registered Entra app exposing a deals.read scope.'
+    ]
+  },
+  {
     version: 'v0.19.0',
     date: '2026-07-06',
     image: 'dealroom-app:v25',

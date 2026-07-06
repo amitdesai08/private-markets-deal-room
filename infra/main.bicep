@@ -119,6 +119,15 @@ param appModelDeployment string = 'gpt-5-mini'
 @description('Name of the Foundry "Deal Room Analyst" agent (all-deals access, per-deal scoping).')
 param dealAgentName string = 'deal-room-analyst'
 
+@description('Entra tenant ID that gates the Deal MCP server (/mcp). Empty leaves /mcp fail-closed (503).')
+param entraTenantId string = ''
+
+@description('Accepted audiences for the Deal MCP server bearer token (comma-separated: client ID and/or api:// URI).')
+param mcpAudience string = ''
+
+@description('Optional delegated scope / app role the MCP token must carry (e.g. deals.read). Empty = audience+tenant only.')
+param mcpRequiredScope string = ''
+
 @description('Container Registry SKU.')
 @allowed([
   'Basic'
@@ -485,6 +494,9 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
             { name: 'DEAL_AGENT_NAME', value: dealAgentName }
             { name: 'DEAL_AGENT_MODEL', value: appModelDeployment }
+            { name: 'ENTRA_TENANT_ID', value: entraTenantId }
+            { name: 'MCP_AUDIENCE', value: mcpAudience }
+            { name: 'MCP_REQUIRED_SCOPE', value: mcpRequiredScope }
           ]
         }
       ]

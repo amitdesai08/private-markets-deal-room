@@ -61,6 +61,8 @@ import { runAction, chat } from './lib/agents.js';
 import { getModelInfo } from './lib/ai.js';
 import { newsAgentConfigured } from './lib/newsAgent.js';
 import { chatDealAgent, dealAgentInfo } from './lib/dealAgent.js';
+import { dealMcpHandler, dealMcpMethodNotAllowed, dealMcpInfo } from './lib/mcp/dealServer.js';
+import { mcpAuthMiddleware, mcpAuthInfo } from './lib/mcp/entraAuth.js';
 import { listConnectors, testConnector } from './lib/connectors.js';
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import { repoMode } from './lib/repo/index.js';
@@ -86,6 +88,7 @@ api.get('/config', (_req, res) => {
     appName: 'The Deal Room',
     newsAgent: newsAgentConfigured() ? 'live' : 'demo',
     dealAgent: dealAgentInfo().configured ? 'live' : 'demo',
+    dealMcp: { ...dealMcpInfo(), auth: mcpAuthInfo() },
     morningstar: morningstarReady() ? 'live' : 'demo',
     datastore: repoMode()
   });
@@ -371,6 +374,14 @@ api.post('/deals/:id/back', (req, res) => {
 });
 
 app.use('/api', api);
+
+// ---- Deal MCP server (for Copilot Studio) ----
+// Entra-guarded, separate from the anonymous /api and SPA. Streamable HTTP over POST;
+// GET/DELETE aren't used in stateless mode. The auth middleware enforces Entra on
+// access to this endpoint only — the rest of the app stays anonymous by design.
+app.post('/mcp', mcpAuthMiddleware, dealMcpHandler);
+app.get('/mcp', mcpAuthMiddleware, dealMcpMethodNotAllowed);
+app.delete('/mcp', mcpAuthMiddleware, dealMcpMethodNotAllowed);
 
 // ---- Static client ----
 const clientDist = join(__dirname, 'client', 'dist');
