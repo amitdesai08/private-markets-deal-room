@@ -14,7 +14,8 @@ import { researchFor } from '../data/research.js';
 import { classifyCatalyst, assessCandidate, chatCandidate, agentForStage } from './agents.js';
 import { scoutNews, newsAgentConfigured } from './newsAgent.js';
 import { morningstarConfigured, quality as morningstarQuality } from './mcp/morningstar.js';
-import { fetchFilings, fetchFormD, scanFormD } from './filings.js';
+import { fetchFilings, fetchFormD, scanFormD, downloadEntireFiling } from './filings.js';
+import { uploadFiles as uploadFilingFiles, getFile as getBlobFile } from './blob.js';
 import { markSync } from './connectors.js';
 import { fundMandate, seedThemes, seedScreens } from '../data/mandates.js';
 import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scoring.js';
@@ -865,6 +866,13 @@ export async function getTargetDetail(id, { force = false } = {}) {
   }
   const report = await generateAnalystReport(t, { filings: filings.filings, kind: filings.kind, quality });
 
+  // Re-attach any saved-filing manifests so a re-opened/refreshed row still shows
+  // "saved" state (the underlying blobs persist regardless of this in-memory map).
+  for (const f of filings.filings) {
+    const m = savedFilingManifests.get(`${t.id}::${f.id}`);
+    if (m && !f.saved) f.saved = m;
+  }
+
   const detail = {
     id: t.id,
     name: t.name,
@@ -878,6 +886,83 @@ export async function getTargetDetail(id, { force = false } = {}) {
   targetDetailCache.set(id, detail);
   logEvent(id, 'target-detail', { filings: filings.filings.length, public: detail.isPublic, report: report.generated ? 'ai' : 'fallback' });
   return detail;
+}
+
+// ---- Save the ENTIRE filing (every document) to the deal room's own store ----
+// Resolves a filing surfaced on a ranked target back to its EDGAR cik+accession,
+// pulls down every document in the accession (primary doc + exhibits + complete
+// submission) and persists them to blob (prod) or disk (dev). Records a `saved`
+// manifest on the filing so the UI shows saved state and can serve the documents
+// back from our own store rather than only linking out to sec.gov.
+const savedFilingManifests = new Map(); // `${targetId}::${filingId}` -> saved manifest
+
+function resolveTargetFilings(targetId) {
+  const cached = targetDetailCache.get(targetId);
+  const deskCompany = desk.find((x) => x.id === targetId) || null;
+  if (cached?.filings?.length) return { filings: cached.filings, deskCompany, cached };
+  if (deskCompany?.filings?.length) return { filings: deskCompany.filings, deskCompany, cached: null };
+  return { filings: [], deskCompany, cached: null };
+}
+
+export async function saveFilingArchive(targetId, filingId) {
+  let { filings, deskCompany, cached } = resolveTargetFilings(targetId);
+  if (!filings.length) {
+    const detail = await getTargetDetail(targetId).catch(() => null);
+    if (detail) {
+      filings = detail.filings || [];
+      cached = targetDetailCache.get(targetId);
+      deskCompany = desk.find((x) => x.id === targetId) || null;
+    }
+  }
+  const filing = filings.find((f) => f.id === filingId);
+  if (!filing) throw new Error('filing not found for target');
+  if (!filing.cik || !filing.accession) throw new Error('filing has no EDGAR accession to download');
+
+  const dl = await downloadEntireFiling(filing.cik, filing.accession);
+  const prefix = `${dl.cik}/${dl.accNoDash}`;
+  const up = await uploadFilingFiles(prefix, dl.files);
+
+  const primaryName = filing.primaryDocument || null;
+  const files = up.files.map((f) => ({ ...f, primary: primaryName ? f.name === primaryName : false }));
+  const saved = {
+    savedAt: new Date().toISOString(),
+    mode: up.mode,
+    container: up.container,
+    prefix: up.prefix,
+    count: files.length,
+    totalBytes: files.reduce((s, f) => s + (f.size || 0), 0),
+    primary: (files.find((f) => f.primary) || files[0])?.path || null,
+    files,
+    skipped: dl.skipped || []
+  };
+
+  filing.saved = saved;
+  savedFilingManifests.set(`${targetId}::${filingId}`, saved);
+  if (cached?.filings) {
+    const cf = cached.filings.find((f) => f.id === filingId);
+    if (cf) cf.saved = saved;
+  }
+  if (deskCompany?.filings) {
+    const df = deskCompany.filings.find((f) => f.id === filingId);
+    if (df) df.saved = saved;
+    persistDesk(deskCompany);
+  }
+  markSync('edgar');
+  logEvent(targetId, 'filing-saved', { filingId, count: saved.count, bytes: saved.totalBytes, mode: saved.mode });
+  return { targetId, filingId, ...saved };
+}
+
+export function getSavedFilingManifest(targetId, filingId) {
+  return savedFilingManifests.get(`${targetId}::${filingId}`) || null;
+}
+
+// Blob paths for saved filings are strictly `{cik}/{accNoDash}/{filename}` — a
+// tight allow-list that blocks traversal/SSRF. The filings container only ever
+// holds public SEC documents, so serving any existing object under it is safe.
+const SAFE_BLOB_PATH = /^\d{1,10}\/\d{18}\/[A-Za-z0-9._-]+$/;
+export async function getSavedFilingFile(blobPath) {
+  if (!SAFE_BLOB_PATH.test(String(blobPath || ''))) return null;
+  return getBlobFile(blobPath);
 }
 
 // ===========================================================================

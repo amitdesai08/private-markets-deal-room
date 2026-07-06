@@ -17,6 +17,7 @@ import type {
   Screen,
   ScoredTargets,
   TargetDetail,
+  SavedFiling,
   ScreenMutationError,
   PipelineFunnel,
   Cohort,
@@ -125,6 +126,10 @@ export const api = {
   framework: () => get<Framework>('/api/framework'),
   scoredTargets: () => get<ScoredTargets>('/api/targets/scored'),
   targetDetail: (id: string) => post<TargetDetail>(`/api/targets/${id}/detail`, {}),
+  saveFiling: (targetId: string, filingId: string) =>
+    post<SavedFiling & { targetId: string; filingId: string }>(`/api/targets/${targetId}/filings/${filingId}/save`, {}),
+  filingDownloadUrl: (path: string, name?: string) =>
+    `/api/filings/download?path=${encodeURIComponent(path)}${name ? `&name=${encodeURIComponent(name)}` : ''}`,
   selectScreen: (id: string, selected: boolean) => post<Screen>(`/api/screens/${id}/select`, { selected }),
   selectTheme: (id: string, selected: boolean) =>
     post<{ themeId: string; selected: boolean; screenIds: string[] }>(`/api/themes/${id}/select`, { selected }),

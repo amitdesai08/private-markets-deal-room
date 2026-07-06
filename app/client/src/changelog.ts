@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.24.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v36',
+    revision: 'ca-dealroom-orch-dev-swc--0000032',
+    title: 'Save the entire filing — full EDGAR documents pulled into the deal room',
+    tag: 'feature',
+    highlights: [
+      'Every filing on a ranked target’s detail panel now has a “Save entire filing” action: instead of only linking out to SEC.gov, the deal room pulls down the complete EDGAR accession — the primary document, every exhibit, the XBRL data and the full submission text — and saves them as a durable, self-contained copy.',
+      'Saved documents are persisted to the deal room’s own Azure Blob storage (the ADLS Gen2 data account, written by the app’s managed identity) and served back from our store, so the source filings survive even if the SEC link ever moves. Works for both public 10-K/10-Q/8-K filings and private-company Reg D Form D notices.',
+      'The row shows a saved badge (document count + total size), an “Open saved primary” link, and an expandable list of every saved document with individual download links. Downloads are served through a tight allow-listed path so only saved SEC documents are ever exposed.',
+      'Pulls are paced and size-capped to respect SEC EDGAR’s fair-access guidance; a local on-disk store keeps the feature fully testable in development.'
+    ]
+  },
+  {
     version: 'v0.23.0',
     date: '2026-07-06',
     image: 'dealroom-app:v35',

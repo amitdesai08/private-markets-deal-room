@@ -1273,6 +1273,18 @@ button.src-row:hover:not(.src-th) { background: var(--canvas); }
 .td-filing-top { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
 .td-filing-head { font-size: 12px; font-weight: 650; color: var(--ink); }
 .td-filing-detail { font-size: 11px; color: var(--ink-2); line-height: 1.45; margin-top: 2px; }
+.td-filing-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+.filing-saved-tag { font-size: 9.5px; font-weight: 800; letter-spacing: .3px; color: #047857; background: #d1fae5; border: 1px solid #a7f3d0; border-radius: 5px; padding: 1px 6px; margin-left: auto; }
+.td-filing-note { font-size: 10.5px; color: var(--muted); font-style: italic; }
+.nf-source.strong { font-weight: 700; }
+.td-filing-err { font-size: 10.5px; color: #b91c1c; margin-top: 4px; }
+.td-filing-files { margin-top: 6px; }
+.td-filing-files > summary { font-size: 10.5px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.td-filing-filelist { display: flex; flex-direction: column; gap: 2px; margin-top: 5px; padding-left: 4px; }
+.td-saved-file { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 10.5px; color: var(--ink-2); text-decoration: none; padding: 2px 4px; border-radius: 5px; }
+.td-saved-file:hover { background: var(--canvas-2); color: var(--ink); }
+.td-saved-file .sf-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-saved-file .sf-size { color: var(--muted); white-space: nowrap; }
 .td-report { display: flex; flex-direction: column; gap: 9px; }
 .td-report-summary { font-size: 12.5px; font-weight: 600; color: var(--ink); line-height: 1.5; background: var(--primary-tint); border: 1px solid #d6e2ff; border-radius: 9px; padding: 9px 11px; }
 .td-report-row { display: grid; grid-template-columns: 130px 1fr; gap: 12px; align-items: start; font-size: 11.5px; }

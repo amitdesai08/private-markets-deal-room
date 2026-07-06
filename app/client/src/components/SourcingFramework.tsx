@@ -7,7 +7,9 @@ import type {
   ScoredTargets,
   ScoredTarget,
   ScreenMutationError,
-  TargetDetail
+  TargetDetail,
+  DeskFiling,
+  SavedFiling
 } from '../types';
 import { api } from '../api';
 
@@ -526,6 +528,76 @@ const STANCE_META: Record<string, { label: string; color: string; tint: string }
   caution: { label: 'Caution', color: '#b45309', tint: 'var(--amber-tint)' }
 };
 
+function fmtBytes(n: number): string {
+  if (!n) return '0 B';
+  if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  if (n >= 1024) return `${Math.round(n / 1024)} KB`;
+  return `${n} B`;
+}
+
+// A single filing row with a "Save entire filing" action. Saving pulls down every
+// document in the EDGAR accession and persists it to the deal room's own store;
+// once saved, the row offers the documents back from our store (not just SEC.gov).
+function FilingRow({ targetId, f, kind }: { targetId: string; f: DeskFiling; kind: TargetDetail['filingsKind'] }) {
+  const [saved, setSaved] = useState<SavedFiling | undefined>(f.saved);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const canSave = !!(f.cik && f.accession);
+
+  const doSave = () => {
+    setSaving(true);
+    setErr(null);
+    api.saveFiling(targetId, f.id)
+      .then((m) => setSaved(m))
+      .catch((e) => setErr(String(e?.message || e)))
+      .finally(() => setSaving(false));
+  };
+
+  const primaryFile = saved?.files.find((x) => x.primary) || saved?.files[0];
+
+  return (
+    <div className="td-filing">
+      <div className="td-filing-top">
+        <span className="filing-type">{f.filingType}</span>
+        <span className="src-badge sm morningstar">{kind === 'formd' ? 'Form D' : 'SEC EDGAR'}</span>
+        {saved && (
+          <span className="filing-saved-tag" title={`Saved ${saved.count} document(s) · ${fmtBytes(saved.totalBytes)}${saved.mode === 'disk' ? ' (local dev store)' : ''}`}>
+            ✓ saved · {saved.count} doc{saved.count === 1 ? '' : 's'} · {fmtBytes(saved.totalBytes)}
+          </span>
+        )}
+      </div>
+      <div className="td-filing-head">{f.headline}</div>
+      {f.detail && <div className="td-filing-detail">{f.detail}</div>}
+      <div className="td-filing-actions">
+        {f.url && <a className="nf-source" href={f.url} target="_blank" rel="noreferrer">🔗 View on SEC.gov</a>}
+        {!saved && canSave && (
+          <button className="btn tiny" disabled={saving} onClick={doSave}>
+            {saving ? 'Saving entire filing…' : '⬇ Save entire filing'}
+          </button>
+        )}
+        {!saved && !canSave && <span className="td-filing-note">no downloadable accession</span>}
+        {saved && primaryFile && (
+          <a className="nf-source strong" href={api.filingDownloadUrl(primaryFile.path, primaryFile.name)} target="_blank" rel="noreferrer">📄 Open saved primary</a>
+        )}
+      </div>
+      {saved && saved.files.length > 1 && (
+        <details className="td-filing-files">
+          <summary>{saved.count} saved documents</summary>
+          <div className="td-filing-filelist">
+            {saved.files.map((sf) => (
+              <a key={sf.path} className="td-saved-file" href={api.filingDownloadUrl(sf.path, sf.name)} target="_blank" rel="noreferrer">
+                <span className="sf-name">{sf.primary ? '★ ' : ''}{sf.name}</span>
+                <span className="sf-size">{fmtBytes(sf.size)}</span>
+              </a>
+            ))}
+          </div>
+        </details>
+      )}
+      {err && <div className="td-filing-err">Save failed: {err}</div>}
+    </div>
+  );
+}
+
 function TargetDetailBody({ d }: { d: TargetDetail }) {
   const q = d.quality;
   const qBand = (q.score ?? 0) >= 7 ? 'strong' : (q.score ?? 0) >= 5 ? 'moderate' : 'weak';
@@ -543,15 +615,7 @@ function TargetDetailBody({ d }: { d: TargetDetail }) {
         ) : (
           <div className="td-filings">
             {d.filings.slice(0, 6).map((f) => (
-              <div className="td-filing" key={f.id}>
-                <div className="td-filing-top">
-                  <span className="filing-type">{f.filingType}</span>
-                  <span className="src-badge sm morningstar">{d.filingsKind === 'formd' ? 'Form D' : 'SEC EDGAR'}</span>
-                </div>
-                <div className="td-filing-head">{f.headline}</div>
-                {f.detail && <div className="td-filing-detail">{f.detail}</div>}
-                {f.url && <a className="nf-source" href={f.url} target="_blank" rel="noreferrer">🔗 View on SEC.gov</a>}
-              </div>
+              <FilingRow key={f.id} targetId={d.id} f={f} kind={d.filingsKind} />
             ))}
           </div>
         )}

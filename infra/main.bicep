@@ -265,7 +265,7 @@ resource dataBlob 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = 
 }
 
 resource dataContainers 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = [
-  for c in [ 'landing', 'bronze', 'silver', 'gold' ]: {
+  for c in [ 'landing', 'bronze', 'silver', 'gold', 'filings' ]: {
     parent: dataBlob
     name: c
   }
@@ -506,6 +506,8 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AZURE_OPENAI_API_VERSION', value: '2024-12-01-preview' }
             { name: 'AZURE_CLIENT_ID', value: uami.properties.clientId }
             { name: 'DEAL_ROOM_REGION', value: location }
+            { name: 'DEAL_BLOB_ENDPOINT', value: dataStorage.properties.primaryEndpoints.blob }
+            { name: 'DEAL_FILINGS_CONTAINER', value: 'filings' }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
             { name: 'DEAL_AGENT_NAME', value: dealAgentName }
             { name: 'DEAL_AGENT_MODEL', value: appModelDeployment }

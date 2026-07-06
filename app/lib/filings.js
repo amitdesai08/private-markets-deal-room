@@ -102,6 +102,9 @@ export async function fetchFilings(name, ticker = null, { limit = 6 } = {}) {
       confirms: meta.confirms,
       detail: `${data.name} filed a ${form}${recent.primaryDescription?.[i] ? ` — ${recent.primaryDescription[i]}` : ''} with the SEC on ${recent.filingDate[i]}.`,
       url,
+      cik: hit.cik,
+      accession: acc,
+      primaryDocument: doc || null,
       live: true
     });
   }
@@ -115,6 +118,73 @@ export async function testFilings() {
   const latencyMs = Date.now() - t0;
   if (!r.ok) throw new Error(`EDGAR ${r.status}`);
   return { latencyMs };
+}
+
+// ---- Pull the ENTIRE filing down (every document in an accession) ----------
+// EDGAR exposes, for each accession folder, an index.json listing every file in
+// the filing — the primary document, all exhibits, R-files, graphics, and the
+// complete submission .txt. This downloads them all (paced + size-capped) so the
+// deal room keeps a durable, self-contained copy of the source filing rather
+// than just a link that can rot. Returns { files: [{ name, contentType, buffer }] }.
+
+const CT_BY_EXT = {
+  htm: 'text/html', html: 'text/html', xml: 'application/xml', txt: 'text/plain',
+  json: 'application/json', pdf: 'application/pdf', csv: 'text/csv',
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+  xsd: 'application/xml', xbrl: 'application/xml', css: 'text/css', js: 'text/javascript'
+};
+const ctFor = (name) => CT_BY_EXT[String(name).split('.').pop()?.toLowerCase()] || 'application/octet-stream';
+
+async function fetchBinary(url) {
+  const r = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(30000) });
+  if (!r.ok) throw new Error(`EDGAR file ${r.status}`);
+  return Buffer.from(await r.arrayBuffer());
+}
+
+export async function downloadEntireFiling(cik, accession, {
+  maxFiles = 40,
+  maxFileBytes = 25 * 1024 * 1024,
+  maxTotalBytes = 75 * 1024 * 1024
+} = {}) {
+  if (!cik || !accession) throw new Error('cik and accession are required');
+  const cikNum = String(Number(cik));
+  const accNoDash = String(accession).replace(/-/g, '');
+  const baseUrl = `https://www.sec.gov/Archives/edgar/data/${cikNum}/${accNoDash}`;
+
+  // The accession folder's manifest.
+  const ir = await fetch(`${baseUrl}/index.json`, { headers: HEADERS, signal: AbortSignal.timeout(20000) });
+  if (!ir.ok) throw new Error(`EDGAR index ${ir.status}`);
+  const idx = await ir.json();
+  const items = (idx?.directory?.item || [])
+    .filter((it) => it?.name && !it.name.endsWith('/') && it.type !== 'folder.gif');
+
+  // Ensure the complete submission .txt is included even if not enumerated.
+  const dashAcc = String(accession).includes('-')
+    ? String(accession)
+    : `${accNoDash.slice(0, 10)}-${accNoDash.slice(10, 12)}-${accNoDash.slice(12)}`;
+  const names = new Set(items.map((it) => it.name));
+  const wanted = [...items.map((it) => it.name)];
+  if (!names.has(`${dashAcc}.txt`)) wanted.push(`${dashAcc}.txt`);
+
+  const files = [];
+  let total = 0;
+  const skipped = [];
+  for (const name of wanted.slice(0, maxFiles)) {
+    const declared = Number(items.find((it) => it.name === name)?.size) || 0;
+    if (declared && declared > maxFileBytes) { skipped.push({ name, size: declared, reason: 'too-large' }); continue; }
+    if (total >= maxTotalBytes) { skipped.push({ name, reason: 'total-cap' }); continue; }
+    try {
+      const buffer = await fetchBinary(`${baseUrl}/${encodeURIComponent(name)}`);
+      if (buffer.length > maxFileBytes) { skipped.push({ name, size: buffer.length, reason: 'too-large' }); continue; }
+      total += buffer.length;
+      files.push({ name, contentType: ctFor(name), buffer });
+    } catch (err) {
+      skipped.push({ name, reason: String(err?.message || err) });
+    }
+    await sleep(120); // pace under EDGAR's ~10 req/s guidance
+  }
+  if (!files.length) throw new Error('no documents could be downloaded for this filing');
+  return { cik: pad10(cik), accession: dashAcc, accNoDash, baseUrl, files, totalBytes: total, count: files.length, skipped };
 }
 
 // ---- Form D — private-company capital-raise signals ------------------------
@@ -256,6 +326,9 @@ function formDFiling(hit, p) {
     confirms: 'capital',
     detail: `${p.entityName || hit.name} filed a Form D with the SEC${p.industry ? ` (${p.industry})` : ''}${bits.length ? ` — ${bits.join(' · ')}` : ''}.`,
     url: formDDocUrl(hit.cik, hit.adsh),
+    cik: hit.cik,
+    accession: hit.adsh,
+    primaryDocument: 'primary_doc.xml',
     live: true
   };
 }

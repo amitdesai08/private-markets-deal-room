@@ -420,6 +420,26 @@ export interface DeskNews {
   live?: boolean;
 }
 
+export interface SavedFilingFile {
+  name: string;
+  path: string;
+  size: number;
+  contentType: string;
+  primary?: boolean;
+}
+
+export interface SavedFiling {
+  savedAt: string;
+  mode: 'blob' | 'disk';
+  container: string;
+  prefix: string;
+  count: number;
+  totalBytes: number;
+  primary: string | null;
+  files: SavedFilingFile[];
+  skipped?: { name: string; reason: string; size?: number }[];
+}
+
 export interface DeskFiling {
   id: string;
   source: string;
@@ -429,6 +449,10 @@ export interface DeskFiling {
   confirms: string;
   detail: string;
   url?: string | null;
+  cik?: string | null;
+  accession?: string | null;
+  primaryDocument?: string | null;
+  saved?: SavedFiling;
   live?: boolean;
 }
 

@@ -34,6 +34,9 @@ import {
   createScreen,
   getScoredTargets,
   getTargetDetail,
+  saveFilingArchive,
+  getSavedFilingManifest,
+  getSavedFilingFile,
   getPipelineFunnel,
   getStage1Funnel,
   getCohort,
@@ -287,6 +290,39 @@ api.post('/targets/:id/detail', async (req, res) => {
     res.json(detail);
   } catch (err) {
     res.status(500).json({ error: 'target detail failed', detail: String(err?.message || err) });
+  }
+});
+
+// Pull the ENTIRE filing down (every document in the EDGAR accession) and save
+// it to the deal room's own blob store, returning a manifest of saved objects.
+api.post('/targets/:id/filings/:filingId/save', async (req, res) => {
+  try {
+    const out = await saveFilingArchive(req.params.id, req.params.filingId);
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: 'filing save failed', detail: String(err?.message || err) });
+  }
+});
+
+// Known saved-filing manifest for a target's filing (in-memory; blobs persist).
+api.get('/targets/:id/filings/:filingId/saved', (req, res) => {
+  const m = getSavedFilingManifest(req.params.id, req.params.filingId);
+  if (!m) return res.status(404).json({ error: 'not saved' });
+  res.json({ targetId: req.params.id, filingId: req.params.filingId, ...m });
+});
+
+// Stream a saved filing document back from our own store (path is allow-listed).
+api.get('/filings/download', async (req, res) => {
+  try {
+    const blobPath = String(req.query.path || '');
+    const file = await getSavedFilingFile(blobPath);
+    if (!file) return res.status(404).json({ error: 'file not found' });
+    const name = String(req.query.name || blobPath.split('/').pop() || 'filing');
+    res.setHeader('Content-Type', file.contentType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${name.replace(/[^A-Za-z0-9._-]/g, '_')}"`);
+    res.send(file.buffer);
+  } catch (err) {
+    res.status(500).json({ error: 'download failed', detail: String(err?.message || err) });
   }
 });
 
