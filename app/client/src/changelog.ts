@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.19.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v25',
+    revision: 'ca-dealroom-orch-dev-swc--0000021',
+    title: 'Deal Room Analyst — a Foundry agent with all-deals access',
+    tag: 'feature',
+    highlights: [
+      'New Foundry Agent Service agent “deal-room-analyst” (gpt-5-mini) that can answer questions about the fund’s deals — either portfolio-wide (list, search and compare every deal) or locked to a single deal for a focused conversation.',
+      'The agent reaches the deals through three function tools — list_deals, get_deal and search_deals — that the app executes against its live Cosmos DB datastore and returns as JSON. So the agent has real, current access to all deals without ever touching the database directly: data-plane access stays scoped to the app’s managed identity.',
+      'Per-deal scoping is enforced server-side, not just by prompt: in single-deal mode every tool is hard-filtered to the focused deal, so no other deal’s data can leak into the conversation — even if asked directly. Portfolio mode unlocks cross-deal comparison.',
+      'Quota-efficient by design: the focused deal (or the portfolio summary) is pre-loaded into the first turn, so the common question is answered in a single model call, with the tool loop reserved for drill-down and multi-deal compare. Falls back cleanly to a direct read of the pipeline if the model is momentarily rate-limited.',
+      'The deals themselves live in Azure Cosmos DB for NoSQL (container “deals”); three real US targets (Allbirds, Dart Transit Group, National CineMedia) were advanced through the gate into launched diligence deals so the analyst has a live portfolio to reason over.'
+    ]
+  },
+  {
     version: 'v0.18.0',
     date: '2026-07-05',
     image: 'dealroom-app:v24',

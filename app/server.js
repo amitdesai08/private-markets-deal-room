@@ -60,6 +60,7 @@ import { personaById } from './data/personas.js';
 import { runAction, chat } from './lib/agents.js';
 import { getModelInfo } from './lib/ai.js';
 import { newsAgentConfigured } from './lib/newsAgent.js';
+import { chatDealAgent, dealAgentInfo } from './lib/dealAgent.js';
 import { listConnectors, testConnector } from './lib/connectors.js';
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import { repoMode } from './lib/repo/index.js';
@@ -84,6 +85,7 @@ api.get('/config', (_req, res) => {
     region: process.env.DEAL_ROOM_REGION || 'swedencentral',
     appName: 'The Deal Room',
     newsAgent: newsAgentConfigured() ? 'live' : 'demo',
+    dealAgent: dealAgentInfo().configured ? 'live' : 'demo',
     morningstar: morningstarReady() ? 'live' : 'demo',
     datastore: repoMode()
   });
@@ -322,6 +324,27 @@ api.post('/deals/:id/chat', async (req, res) => {
     res.json(out);
   } catch (err) {
     res.status(500).json({ error: 'chat failed', detail: String(err?.message || err) });
+  }
+});
+
+// Deal Room Analyst — the Foundry agent with access to ALL deals.
+api.get('/deal-agent', (_req, res) => res.json(dealAgentInfo()));
+
+// Portfolio-wide or single-deal-scoped chat with the analyst agent.
+// Body: { message, dealId?, scope? ('portfolio'|'deal'), previousResponseId? }.
+// Pass a dealId (or scope:'deal') to LOCK the conversation to one deal.
+api.post('/deal-agent/chat', async (req, res) => {
+  const message = (req.body?.message || '').toString().slice(0, 2000);
+  if (!message) return res.status(400).json({ error: 'message required' });
+  const dealId = req.body?.dealId ? String(req.body.dealId) : undefined;
+  const scope = req.body?.scope === 'deal' || req.body?.scope === 'portfolio' ? req.body.scope : undefined;
+  const previousResponseId = req.body?.previousResponseId ? String(req.body.previousResponseId) : undefined;
+  try {
+    const out = await chatDealAgent({ message, dealId, scope, previousResponseId });
+    if (out?.error) return res.status(400).json(out);
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: 'deal-agent chat failed', detail: String(err?.message || err) });
   }
 });
 

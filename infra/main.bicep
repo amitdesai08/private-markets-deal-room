@@ -116,6 +116,9 @@ param containerTargetPort int = 8080
 @description('Model deployment name the orchestrator app calls for chat/agents.')
 param appModelDeployment string = 'gpt-5-mini'
 
+@description('Name of the Foundry "Deal Room Analyst" agent (all-deals access, per-deal scoping).')
+param dealAgentName string = 'deal-room-analyst'
+
 @description('Container Registry SKU.')
 @allowed([
   'Basic'
@@ -480,6 +483,8 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AZURE_CLIENT_ID', value: uami.properties.clientId }
             { name: 'DEAL_ROOM_REGION', value: location }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
+            { name: 'DEAL_AGENT_NAME', value: dealAgentName }
+            { name: 'DEAL_AGENT_MODEL', value: appModelDeployment }
           ]
         }
       ]
