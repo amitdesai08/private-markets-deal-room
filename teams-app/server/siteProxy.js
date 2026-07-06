@@ -42,8 +42,7 @@ export async function siteProxy(req, res) {
 
 // The injected bootstrap: initialize Teams, map theme onto the Deal Room client's
 // :root CSS variables, and signal the tab loaded successfully.
-export const TEAMS_BOOTSTRAP_JS = `(function () {
-  function applyTheme(theme) {
+export const TEAMS_BOOTSTRAP_JS = `(function () {  function applyTheme(theme) {
     var r = document.documentElement;
     r.setAttribute('data-teams-theme', theme || 'default');
     if (theme === 'dark') {
@@ -69,3 +68,48 @@ export const TEAMS_BOOTSTRAP_JS = `(function () {
     }
   } catch (e) {}
 })();`;
+
+// Channel-tab configuration page. Teams loads this when adding the tab; it
+// auto-configures the content URL to this app's embedded dashboard so the user
+// only has to click Save.
+export const TEAMS_CONFIG_HTML = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Configure The Deal Room</title>
+    <script src="https://res.cdn.office.net/teams-js/2.31.1/js/MicrosoftTeams.min.js"></script>
+    <style>
+      body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 24px; color: #242424; }
+      h3 { margin: 0 0 8px; }
+      p { color: #616161; }
+    </style>
+  </head>
+  <body>
+    <h3>The Deal Room</h3>
+    <p>Add the Deal Room dashboard to this channel. Click <b>Save</b> to finish.</p>
+    <script>
+      (function () {
+        function ready() {
+          var origin = window.location.origin;
+          microsoftTeams.pages.config.registerOnSaveHandler(function (saveEvent) {
+            microsoftTeams.pages.config
+              .setConfig({
+                entityId: 'dealroom-dashboard',
+                contentUrl: origin + '/',
+                websiteUrl: origin + '/',
+                suggestedDisplayName: 'Deal Room'
+              })
+              .then(function () { saveEvent.notifySuccess(); })
+              .catch(function () { saveEvent.notifyFailure('config failed'); });
+          });
+          microsoftTeams.pages.config.setValidityState(true);
+          microsoftTeams.app.notifySuccess();
+        }
+        try {
+          microsoftTeams.app.initialize().then(ready).catch(function () {});
+        } catch (e) {}
+      })();
+    </script>
+  </body>
+</html>`;

@@ -18,7 +18,7 @@ import { exchangeOnBehalfOf, identityFromSsoToken } from './sso.js';
 import { personaForUser } from './sharedLib.js';
 import { initBot } from './bot.js';
 import { postDealEvent } from './notifications.js';
-import { siteProxy, TEAMS_BOOTSTRAP_JS } from './siteProxy.js';
+import { siteProxy, TEAMS_BOOTSTRAP_JS, TEAMS_CONFIG_HTML } from './siteProxy.js';
 import { startEventPoller } from './eventPoller.js';
 
 validateConfig();
@@ -74,6 +74,12 @@ app.use('/api', proxyToBackend);
 app.get('/teams-bootstrap.js', (_req, res) => {
   res.setHeader('content-type', 'application/javascript; charset=utf-8');
   res.send(TEAMS_BOOTSTRAP_JS);
+});
+
+// Channel-tab configuration page (required to add the tab to a channel).
+app.get('/config', (_req, res) => {
+  res.setHeader('content-type', 'text/html; charset=utf-8');
+  res.send(TEAMS_CONFIG_HTML);
 });
 
 if (isBackendLive()) {
