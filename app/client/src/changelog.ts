@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.29.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v42',
+    revision: 'ca-dealroom-orch-dev-swc--0000038',
+    title: 'Real SharePoint data room — the deal’s VDR folders are now provisioned for real',
+    tag: 'feature',
+    highlights: [
+      'Launching a deal now provisions a real SharePoint data room, not just a link. Every Teams deal space is backed by a SharePoint document library; at launch the app resolves that library and creates the full standard VDR folder taxonomy inside it, so the “SharePoint” button opens an actual indexed data room.',
+      'Reviewed the folder taxonomy against standard M&A practice (Datasite/Ansarada-style indexes) and completed it: added a dedicated Insurance folder — the one standard section that was missing — for a clean 14-folder index (Administration, Corporate & Legal, Financials, Commercial & Sales, Tax, IP, Real Property & Assets, Contracts, Employment & HR, IT & Technology, Operations, Insurance, Environmental & Regulatory, IC Materials).',
+      'Provisioning is idempotent (existing folders are reused, never duplicated) and best-effort — it never blocks the Teams provisioning or the deal launch. The real folder URLs replace the previously-constructed deep links across the workspace map, the folder chips and each swimlane’s SharePoint folder.',
+      'Uses the user-consentable Files.ReadWrite.All delegated scope (no tenant-admin approval needed). Existing M365 connections should re-connect once on the Home page to grant the new scope; after that, launching (or the workspace Teams button) creates the folders live.'
+    ]
+  },
+  {
     version: 'v0.28.0',
     date: '2026-07-06',
     image: 'dealroom-app:v41',

@@ -92,7 +92,9 @@ export function Workspace({ deal, mdOptions, onAssign, onCycleChecklist, onLaunc
           <button className="wsp-link teams" onClick={openTeams} disabled={teamsBusy}>
             {teamsBusy ? 'Creating Team…' : teamsProvisioned ? 'Open in Teams ↗' : 'Create Teams space ↗'}
           </button>
-          <button className="wsp-link spo" onClick={() => openExt(ws.sharePointUrl)}>Open SharePoint ↗</button>
+          <button className="wsp-link spo" onClick={() => openExt(ws.sharePointUrl)}>
+            {ws.sharePointProvisioned ? 'Open SharePoint ✓ ↗' : 'Open SharePoint ↗'}
+          </button>
         </div>
       </div>
 
@@ -140,7 +142,7 @@ function Overview({ ws, onOpenExt, onOpenTeams, teamsProvisioned, onGo }: { ws: 
   const CX = 480, CY = 205;
   const nodes = [
     { id: 'teams', label: 'Microsoft Teams', sub: teamsProvisioned ? (ws.teamsChannelName || 'deal team') : 'create deal team', x: 205, y: 70, color: '#4b53bc', act: onOpenTeams },
-    { id: 'spo', label: 'SharePoint · VDR', sub: `${ws.folders.length} folders`, x: 755, y: 70, color: '#036c70', act: () => onOpenExt(ws.sharePointUrl) },
+    { id: 'spo', label: 'SharePoint · VDR', sub: `${ws.folders.length} folders${ws.sharePointProvisioned ? ' · live' : ''}`, x: 755, y: 70, color: '#036c70', act: () => onOpenExt(ws.sharePointUrl) },
     { id: 'checklist', label: 'DD Checklist', sub: 'request list', x: 120, y: 205, color: '#2563eb', act: () => onGo({ kind: 'checklist' }) },
     { id: 'templates', label: 'Templates', sub: `${ws.templates.length} docs`, x: 840, y: 205, color: '#b45309', act: () => onGo({ kind: 'templates' }) },
     ...ws.swimlanes.map((s, i) => ({

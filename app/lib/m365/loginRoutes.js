@@ -25,13 +25,14 @@ const CLIENT_ID = process.env.M365_CLIENT_ID || '';
 const CLIENT_SECRET = process.env.M365_CLIENT_SECRET || '';
 const AUTHORIZE = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/authorize`;
 const TOKEN = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/token`;
-// Delegated Graph scopes: identity + a Teams SPACE (team) per deal. All scopes
-// here are USER-consentable (no admin approval needed): a deal gets its own Team
-// via Team.Create, and the button opens that team's channel. offline_access
-// yields the refresh token used for headless reuse by later steps.
+// Delegated Graph scopes: identity + a Teams SPACE (team) per deal + files. All
+// scopes here are USER-consentable (no admin approval needed): a deal gets its own
+// Team via Team.Create, its backing SharePoint document library is populated with
+// the standard VDR folder taxonomy via Files.ReadWrite.All, and the button opens
+// that team's channel. offline_access yields the refresh token for headless reuse.
 const SCOPE = [
   'offline_access', 'openid', 'profile', 'email',
-  'User.Read', 'Team.ReadBasic.All', 'Team.Create'
+  'User.Read', 'Team.ReadBasic.All', 'Team.Create', 'Files.ReadWrite.All'
 ].join(' ');
 
 // Pending authorizations keyed by state (short-lived).

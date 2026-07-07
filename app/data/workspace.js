@@ -45,13 +45,16 @@ const CHANNELS = [
   { name: 'IC Prep', purpose: 'IC memo + deck + compliance pack' }
 ];
 
-// SharePoint / VDR folder taxonomy (Datasite/Ansarada-style index).
+// SharePoint / VDR folder taxonomy (Datasite/Ansarada-style index). Standard
+// M&A data-room sections — corporate, financials, tax, commercial, contracts, IP,
+// real property, HR, IT, operations, insurance, environmental/regulatory — plus an
+// internal IC-materials folder for the deal team's own workspace.
 const FOLDERS = [
   '00_Administration', '01_Corporate & Legal', '02_Financial Information',
   '03_Commercial & Sales', '04_Tax', '05_Intellectual Property',
   '06_Real Property & Assets', '07_Contracts', '08_Employment & HR',
-  '09_IT & Technology', '10_Operations', '11_Environmental & Regulatory',
-  '12_IC Materials'
+  '09_IT & Technology', '10_Operations', '11_Insurance',
+  '12_Environmental & Regulatory', '13_IC Materials'
 ];
 
 // Playbook templates instantiated at kickoff.
