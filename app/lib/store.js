@@ -56,21 +56,27 @@ function attachWorkspaces(list) {
   return list;
 }
 
-// Repair fabricated Teams channel deep-links once a REAL deal team exists. The
-// standard team template yields a single General channel; the per-workstream
-// `&channel=<name>` links buildWorkspace() constructs are placeholders that 404.
-// When a deal has a real, provisioned team webUrl (not the `groupId=deal-<slug>`
-// placeholder), point every channel + swimlane channel link at the real team so
-// nothing 404s — self-healing at boot without needing an M365 reconnect. Creating
-// distinct per-workstream channels needs admin-consent-gated Channel.Create; until
-// then workstream separation lives in the SharePoint VDR folders.
+// Repair fabricated Teams links once a REAL deal team exists, and collapse the
+// channel list to the single channel that actually exists — General.
+//
+// The standard team template yields exactly ONE channel (General). The
+// per-workstream channels buildWorkspace() used to construct were placeholders
+// that 404, and creating real ones needs admin-consent-gated Channel.Create
+// (users in this tenant can only consent to low-impact scopes). So rather than
+// show workstream channels that don't exist, we surface ONLY General, pointed at
+// the real team webUrl. Workstream discussion happens in the deal team; each
+// workstream's documents live in its SharePoint VDR folder. Self-heals at boot
+// without an M365 reconnect. Idempotent.
 function normalizeTeamsLinks(d) {
   const w = d.workspace;
   if (!w || !w.teamsProvisioned || !w.teamsUrl) return;
   if (w.teamsUrl.includes('groupId=deal-')) return; // teamsUrl itself is still a placeholder
   const real = w.teamsUrl;
   let changed = false;
-  w.channels = (w.channels || []).map((c) => (c.url === real ? c : (changed = true, { ...c, url: real })));
+  // Collapse to the single real channel (General), pointed at the real team.
+  const general = (w.channels || []).find((c) => c.name === 'General') || { name: 'General', purpose: 'Deal team — all workstream discussion, IC updates & sponsor comms' };
+  const collapsed = [{ ...general, url: real }];
+  if ((w.channels || []).length !== 1 || w.channels[0].url !== real) { w.channels = collapsed; changed = true; }
   w.swimlanes = (w.swimlanes || []).map((s) => (s.channelUrl === real ? s : (changed = true, { ...s, channelUrl: real })));
   if (!w.channelsProvisioned) { w.channelsProvisioned = true; changed = true; }
   if (changed) persistDeal(d);
@@ -1522,8 +1528,17 @@ async function provisionDealChannel(deal) {
     // replaces the fabricated `&channel=<name>` deep links that 404'd. If an
     // admin later grants Channel.Create, this is the seam to create + link real
     // channels here instead.
+    // Point Teams at the REAL deal team and collapse to the single channel that
+    // actually exists — General. The standard team template provisions only
+    // General; creating per-workstream channels needs Channel.Create, which is
+    // admin-consent-gated in this tenant. Rather than show channels that don't
+    // exist, we keep only General (pointed at the real team) and separate
+    // workstreams via the SharePoint VDR folders below. Replaces the fabricated
+    // `&channel=<name>` links that 404'd.
     if (channel.webUrl) {
-      deal.workspace.channels = (deal.workspace.channels || []).map((c) => ({ ...c, url: channel.webUrl }));
+      const general = (deal.workspace.channels || []).find((c) => c.name === 'General')
+        || { name: 'General', purpose: 'Deal team — all workstream discussion, IC updates & sponsor comms' };
+      deal.workspace.channels = [{ ...general, url: channel.webUrl }];
       deal.workspace.swimlanes = (deal.workspace.swimlanes || []).map((s) => ({ ...s, channelUrl: channel.webUrl }));
       deal.workspace.channelsProvisioned = true;
     }
@@ -1535,7 +1550,7 @@ async function provisionDealChannel(deal) {
       const names = (deal.workspace.folders || []).map((f) => f.name);
       const sp = await provisionDealFolders(channel.teamId, names);
       const byName = new Map(sp.folders.map((f) => [f.name, f.url]));
-      if (sp.driveWebUrl) deal.workspace.sharePointUrl = sp.driveWebUrl;
+      if (sp.driveWebUrl) { deal.workspace.sharePointUrl = sp.driveWebUrl; deal.workspace.sharePointUrlResolved = true; }
       deal.workspace.sharePointProvisioned = true;
       // Reflect the REAL folder web URLs (fall back to the constructed link).
       deal.workspace.folders = (deal.workspace.folders || []).map((f) => ({ ...f, url: byName.get(f.name) || f.url }));

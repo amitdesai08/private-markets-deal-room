@@ -33,16 +33,16 @@ export const MD_OPTIONS = [
 
 export const mdName = (id) => (MD_OPTIONS.find((m) => m.id === id) || {}).name || 'Unassigned';
 
-// Teams channels — one per workstream (mirrors real deal-space structure).
+// Teams channels. A deal gets its own Team, created via the user-consentable
+// Team.Create scope; the standard team template provisions exactly ONE channel:
+// General. Creating additional per-workstream channels needs Channel.Create,
+// which is admin-consent-gated in this tenant (users can only consent to
+// low-impact scopes). Rather than present workstream channels that don't exist
+// (a false impression), we surface only the real General channel — all
+// workstream discussion happens in the deal team, and each workstream's
+// documents live in its own SharePoint VDR folder.
 const CHANNELS = [
-  { name: 'General', purpose: 'IC updates, sponsor comms, timeline' },
-  { name: 'Commercial DD', purpose: 'CDD advisor coordination + findings', lane: 'commercial' },
-  { name: 'Financial DD / QoE', purpose: 'Big-4 quality-of-earnings coordination' },
-  { name: 'Legal', purpose: 'Counsel coordination + issues log' },
-  { name: 'Tech / AI DD', purpose: 'Tech advisor + AI-readiness findings', lane: 'techai' },
-  { name: 'Operations DD', purpose: 'ODD advisor + supply-chain findings', lane: 'operations' },
-  { name: 'Tax', purpose: 'Tax structuring advisor' },
-  { name: 'IC Prep', purpose: 'IC memo + deck + compliance pack' }
+  { name: 'General', purpose: 'Deal team — all workstream discussion, IC updates & sponsor comms' }
 ];
 
 // SharePoint / VDR folder taxonomy (Datasite/Ansarada-style index). Standard

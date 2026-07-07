@@ -63,15 +63,22 @@ export function Workspace({ deal, mdOptions, onAssign, onCycleChecklist, onLaunc
   const [note, setNote] = useState<string | null>(null);
   const teamsProvisioned = !!ws.teamsProvisioned && !!ws.teamsUrl;
   const spProvisioned = !!ws.sharePointProvisioned;
+  // The site root is "real" when either the VDR folders were provisioned, or the
+  // deal's SharePoint document-library URL has been resolved out-of-band.
+  const spSiteReal = spProvisioned || !!ws.sharePointUrlResolved;
 
   // Provision (idempotent) and merge the refreshed workspace into local state.
   async function ensure(): Promise<Deal['workspace'] | undefined> {
     const r = await api.ensureDealTeams(deal.id);
     if (r.workspace) setWs(r.workspace);
     if (!r.connected) {
-      setNote('Connect Microsoft 365 on the Home page, then reopen — this provisions the deal’s Teams space and SharePoint data room.');
+      setNote('Connect Microsoft 365 on the Home page, then reopen — this creates the deal’s Teams space.');
     } else if (!r.sharePointProvisioned) {
-      setNote('Reconnect Microsoft 365 on the Home page to grant SharePoint file access, then reopen — the data-room folders will be created.');
+      // Connected, but the indexed folders couldn’t be created. In this tenant the
+      // Graph file scope (Files.ReadWrite.All) isn’t user-consentable — it needs a
+      // one-time tenant-admin approval — so a reconnect can’t fix it. Be honest and
+      // send the user to where documents actually live: the deal team’s Files.
+      setNote('The indexed SharePoint data-room folders need a one-time tenant-admin approval (Microsoft Graph file access) — a user reconnect can’t grant it in this tenant. Opening the deal team’s Files, where documents live.');
     }
     return r.workspace;
   }
@@ -89,16 +96,21 @@ export function Workspace({ deal, mdOptions, onAssign, onCycleChecklist, onLaunc
     finally { setBusy(false); }
   }
 
-  // SharePoint: open a real folder/site/template URL — only once the data room is
-  // really provisioned. Otherwise provision on demand, then open the real URL.
+  // SharePoint: open something REAL — never a fabricated 404.
+  //  • folders provisioned      → open the specific real folder/template URL (pick)
+  //  • site root resolved only  → open the real document-library root
+  //  • neither (admin-gated)    → open the deal team (its Files tab IS the library)
   async function openSp(pick: (w: NonNullable<Deal['workspace']>) => string | undefined) {
     if (spProvisioned) { openExt(pick(ws)); return; }
+    if (spSiteReal) { openExt(ws.sharePointUrl); return; }
     setBusy(true); setNote(null);
     try {
       const fresh = await ensure();
-      if (fresh?.sharePointProvisioned) openExt(pick(fresh));
-      // else: ensure() has already set an actionable note.
-    } catch { setNote('Could not reach the server to provision SharePoint.'); }
+      if (fresh?.sharePointProvisioned) { openExt(pick(fresh)); return; }
+      if (fresh?.sharePointUrlResolved) { openExt(fresh.sharePointUrl); return; }
+      // Still not resolvable → honest fallback to the real deal team (Files live there).
+      if (fresh?.teamsProvisioned && fresh.teamsUrl) openExt(fresh.teamsUrl);
+    } catch { setNote('Could not reach the server to open the data room.'); }
     finally { setBusy(false); }
   }
 
@@ -115,7 +127,7 @@ export function Workspace({ deal, mdOptions, onAssign, onCycleChecklist, onLaunc
             {busy ? 'Working…' : teamsProvisioned ? 'Open in Teams ↗' : 'Create Teams space ↗'}
           </button>
           <button className="wsp-link spo" onClick={() => openSp((w) => w.sharePointUrl)} disabled={busy}>
-            {busy ? 'Working…' : spProvisioned ? 'Open SharePoint ✓ ↗' : 'Provision SharePoint ↗'}
+            {busy ? 'Working…' : spProvisioned ? 'Open SharePoint ✓ ↗' : 'Open data room ↗'}
           </button>
         </div>
       </div>
@@ -165,7 +177,7 @@ function Overview({ ws, openTeams, openSp, teamsProvisioned, spProvisioned, onGo
   const CX = 480, CY = 205;
   const nodes = [
     { id: 'teams', label: 'Microsoft Teams', sub: teamsProvisioned ? (ws.teamsChannelName || 'deal team') : 'create deal team', x: 205, y: 70, color: '#4b53bc', act: openTeams },
-    { id: 'spo', label: 'SharePoint · VDR', sub: `${ws.folders.length} folders${spProvisioned ? ' · live' : ' · provision'}`, x: 755, y: 70, color: '#036c70', act: () => openSp((w) => w.sharePointUrl) },
+    { id: 'spo', label: 'SharePoint · VDR', sub: `${ws.folders.length} folders${spProvisioned ? ' · live' : ' · template'}`, x: 755, y: 70, color: '#036c70', act: () => openSp((w) => w.sharePointUrl) },
     { id: 'checklist', label: 'DD Checklist', sub: 'request list', x: 120, y: 205, color: '#2563eb', act: () => onGo({ kind: 'checklist' }) },
     { id: 'templates', label: 'Templates', sub: `${ws.templates.length} docs`, x: 840, y: 205, color: '#b45309', act: () => onGo({ kind: 'templates' }) },
     ...ws.swimlanes.map((s, i) => ({
@@ -208,13 +220,13 @@ function Overview({ ws, openTeams, openSp, teamsProvisioned, spProvisioned, onGo
       {/* resource strips */}
       <div className="wsp-res">
         <div className="wsp-res-col">
-          <div className="wsp-res-h"><b>Teams channels</b><span onClick={openTeams} className="wsp-res-open">open ↗</span></div>
+          <div className="wsp-res-h"><b>Teams channel</b><span onClick={openTeams} className="wsp-res-open">open ↗</span></div>
           <div className="wsp-chips">
             {ws.channels.map((c) => (
               <button key={c.name} className="wsp-chip" title={`${c.purpose} — opens the deal team`} onClick={openTeams}>#{c.name}</button>
             ))}
           </div>
-          <div className="wsp-res-note">Chips open the deal team. Per-workstream channels require tenant-admin consent; workstream discussion runs in the deal team and workstream documents live in the SharePoint folders →</div>
+          <div className="wsp-res-note">The deal team’s single General channel carries all workstream discussion. Per-workstream channels aren’t created — that needs tenant-admin consent — so each workstream is separated by its own SharePoint folder instead →</div>
         </div>
         <div className="wsp-res-col">
           <div className="wsp-res-h"><b>SharePoint data room</b><span onClick={() => openSp((w) => w.sharePointUrl)} className="wsp-res-open">open ↗</span></div>
@@ -223,7 +235,7 @@ function Overview({ ws, openTeams, openSp, teamsProvisioned, spProvisioned, onGo
               <button key={f.name} className="wsp-chip folder" onClick={() => openSp((w) => w.folders.find((x) => x.name === f.name)?.url)}>📁 {f.name}</button>
             ))}
           </div>
-          {!spProvisioned && <div className="wsp-res-note">Connect Microsoft 365 on Home to provision these {ws.folders.length} folders as a real, indexed data room.</div>}
+          {!spProvisioned && <div className="wsp-res-note">This is the standard {ws.folders.length}-folder VDR taxonomy. Creating them as real, indexed SharePoint folders needs a one-time tenant-admin approval (Graph file access); until then the links open the deal team’s document library, where files live.</div>}
         </div>
       </div>
     </div>
