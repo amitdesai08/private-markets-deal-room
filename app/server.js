@@ -57,6 +57,7 @@ import {
   ensureDealTeamsChannel,
   getMdOptions,
   assignSwimlane,
+  recordContribution,
   cycleChecklistItem,
   advanceDeal,
   regressDeal,
@@ -209,6 +210,21 @@ api.post('/deals/:id/teams/ensure', async (req, res) => {
 api.patch('/deals/:id/swimlanes/:lane', (req, res) => {
   const r = assignSwimlane(req.params.id, req.params.lane, req.body?.md);
   if (r.error) return res.status(r.error === 'invalid-md' ? 422 : 404).json(r);
+  res.json(r.deal);
+});
+// Record an MD contribution (guidance | value_add | diligence) into a lane. This
+// is the dashboard-side entrypoint mirroring the MCP record_contribution tool.
+// `md` is the contributing MD's persona id (defaults to the lane's assigned MD);
+// the display name is resolved from the MD options.
+api.post('/deals/:id/contributions', (req, res) => {
+  const { lane, kind, text, severity, source, md } = req.body || {};
+  if (!lane || !text) return res.status(422).json({ error: 'lane-and-text-required' });
+  const mdName = (getMdOptions().find((m) => m.id === md) || {}).name || null;
+  const r = recordContribution(req.params.id, lane, { kind, text, severity, source, by: mdName, persona: md });
+  if (r.error) {
+    const code = r.error === 'not-found' || r.error === 'lane-not-found' ? 404 : 422;
+    return res.status(code).json(r);
+  }
   res.json(r.deal);
 });
 api.post('/deals/:id/checklist/:itemId/cycle', (req, res) => {

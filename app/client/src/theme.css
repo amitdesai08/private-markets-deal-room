@@ -1070,6 +1070,37 @@ button.src-row:hover:not(.src-th) { background: var(--canvas); }
 .wsp-lane-item:last-child { border-bottom: none; }
 .wsp-lane-none { font-size: 11px; color: var(--muted); font-style: italic; }
 
+/* MD input entrypoint (guidance / value-add / diligence) */
+.wsp-mdin { margin-top: 14px; border: 1px solid var(--line); border-left-width: 3px; border-radius: 12px; padding: 14px 16px; background: var(--surface); }
+.wsp-mdin-head { margin-bottom: 10px; }
+.wsp-mdin-t { font-size: 13px; font-weight: 750; color: var(--ink); }
+.wsp-mdin-s { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.wsp-mdin-kinds { display: flex; gap: 6px; flex-wrap: wrap; }
+.wsp-mdin-kind { font-size: 12px; font-weight: 650; color: var(--ink-2); background: var(--canvas); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; transition: all .12s; }
+.wsp-mdin-kind:hover { border-color: var(--primary); }
+.wsp-mdin-kind.on { background: var(--primary-tint); color: var(--primary); border-color: var(--primary); }
+.wsp-mdin-blurb { font-size: 11px; color: var(--muted); margin: 8px 2px 6px; }
+.wsp-mdin-txt { width: 100%; min-height: 66px; resize: vertical; font: inherit; font-size: 13px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--canvas); color: var(--ink); box-sizing: border-box; }
+.wsp-mdin-txt:focus { outline: none; border-color: var(--primary); }
+.wsp-mdin-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 9px; }
+.wsp-mdin-sev { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); margin-right: auto; }
+.wsp-mdin-sev select { font: inherit; font-size: 12px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--canvas); color: var(--ink); }
+.wsp-mdin-go { font-size: 12.5px; }
+.wsp-mdin-log { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 11px; }
+.wsp-mdin-log-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--ink-2); margin-bottom: 8px; }
+.wsp-mdin-log-h span { color: var(--muted); background: var(--canvas-2); border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
+.wsp-mdin-row { display: flex; gap: 9px; padding: 7px 0; border-bottom: 1px dashed var(--line); }
+.wsp-mdin-row:last-child { border-bottom: none; }
+.wsp-mdin-row-k { font-size: 14px; flex-shrink: 0; }
+.wsp-mdin-row-txt { font-size: 12.5px; color: var(--ink); line-height: 1.4; }
+.wsp-mdin-row-meta { font-size: 10.5px; color: var(--muted); margin-top: 3px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.wsp-sevb { padding: 0 6px; border-radius: 8px; font-weight: 650; }
+.wsp-sevb.pos { background: rgba(34,197,94,.14); color: #15803d; }
+.wsp-sevb.neu { background: var(--canvas-2); color: var(--muted); }
+.wsp-sevb.cau { background: rgba(234,179,8,.16); color: #a16207; }
+.wsp-sevb.neg { background: rgba(239,68,68,.12); color: #b91c1c; }
+.wsp-sevb.risk { background: rgba(239,68,68,.18); color: #991b1b; }
+
 /* ===== Home changelog (collapsible, starts collapsed) ===== */
 .changelog { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 14px; }
 .cl-toggle { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 11px; padding: 12px 14px; box-shadow: var(--shadow); }

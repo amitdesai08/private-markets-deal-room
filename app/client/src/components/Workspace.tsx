@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import type { Deal, MdOption, Swimlane, ChecklistSection } from '../types';
+import type { Deal, MdOption, Swimlane, ChecklistSection, Contribution, ContributionKind } from '../types';
 import { api } from '../api';
 
 interface Props {
   deal: Deal;
   mdOptions: MdOption[];
   onAssign: (lane: string, md: string) => void;
+  onContribute: (body: { lane: string; kind: string; text: string; severity?: string; source?: string; md?: string }) => void | Promise<void>;
   onCycleChecklist: (itemId: string) => void;
   onLaunch: () => void;
   launching: boolean;
@@ -24,7 +25,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   reviewed: { label: 'Reviewed', cls: 'rev' }
 };
 
-export function Workspace({ deal, mdOptions, onAssign, onCycleChecklist, onLaunch, launching }: Props) {
+export function Workspace({ deal, mdOptions, onAssign, onContribute, onCycleChecklist, onLaunch, launching }: Props) {
   const [sub, setSub] = useState<Sub>({ kind: 'overview' });
   const [ws, setWs] = useState<Deal['workspace']>(deal.workspace);
   // Re-seed local workspace when navigating between deals.
@@ -160,6 +161,7 @@ export function Workspace({ deal, mdOptions, onAssign, onCycleChecklist, onLaunc
           deal={deal}
           mdOptions={mdOptions}
           onAssign={onAssign}
+          onContribute={onContribute}
           openTeams={openTeams}
           openSp={openSp}
         />
@@ -291,11 +293,25 @@ function Templates({ ws, openSp }: { ws: NonNullable<Deal['workspace']>; openSp:
 }
 
 /* ---------------- Swimlane subpage ---------------- */
-function LanePage({ swimlane, deal, mdOptions, onAssign, openTeams, openSp }: {
+const KIND_META: Record<ContributionKind, { label: string; icon: string; blurb: string }> = {
+  guidance: { label: 'Guidance', icon: '🧭', blurb: 'Steer the lane — what to probe, how to frame it' },
+  value_add: { label: 'Value-add', icon: '➕', blurb: 'A value-creation lever or thesis input' },
+  diligence: { label: 'Diligence', icon: '🔎', blurb: 'A finding from the workstream' }
+};
+const SEV_META: Record<string, { label: string; cls: string }> = {
+  positive: { label: 'Positive', cls: 'pos' },
+  neutral: { label: 'Neutral', cls: 'neu' },
+  caution: { label: 'Caution', cls: 'cau' },
+  negative: { label: 'Negative', cls: 'neg' },
+  risk: { label: 'Risk', cls: 'risk' }
+};
+
+function LanePage({ swimlane, deal, mdOptions, onAssign, onContribute, openTeams, openSp }: {
   swimlane: Swimlane;
   deal: Deal;
   mdOptions: MdOption[];
   onAssign: (lane: string, md: string) => void;
+  onContribute: (body: { lane: string; kind: string; text: string; severity?: string; source?: string; md?: string }) => void | Promise<void>;
   openTeams: () => void;
   openSp: (pick: (w: NonNullable<Deal['workspace']>) => string | undefined) => void;
 }) {
@@ -342,6 +358,92 @@ function LanePage({ swimlane, deal, mdOptions, onAssign, openTeams, openSp }: {
             </div>
           ))}
         </div>
+      </div>
+
+      <MdInput swimlane={swimlane} ws={ws} mdOptions={mdOptions} color={color} onContribute={onContribute} />
+    </div>
+  );
+}
+
+/* ---------------- MD input entrypoint (guidance / value-add / diligence) ---------------- */
+function MdInput({ swimlane, ws, mdOptions, color, onContribute }: {
+  swimlane: Swimlane;
+  ws?: Deal['workstreams'][number];
+  mdOptions: MdOption[];
+  color: string;
+  onContribute: (body: { lane: string; kind: string; text: string; severity?: string; source?: string; md?: string }) => void | Promise<void>;
+}) {
+  const [kind, setKind] = useState<ContributionKind>('guidance');
+  const [text, setText] = useState('');
+  const [severity, setSeverity] = useState('neutral');
+  const [busy, setBusy] = useState(false);
+  const mdName = (mdOptions.find((m) => m.id === swimlane.md) || {}).name || 'the lane MD';
+  const contributions: Contribution[] = ws?.contributions || [];
+
+  async function submit() {
+    const t = text.trim();
+    if (!t || busy) return;
+    setBusy(true);
+    try {
+      await onContribute({ lane: swimlane.lane, kind, text: t, severity: kind === 'diligence' ? severity : undefined, md: swimlane.md });
+      setText('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="wsp-mdin" style={{ borderColor: color }}>
+      <div className="wsp-mdin-head">
+        <div className="wsp-mdin-t">MD input · <b style={{ color }}>{mdName}</b></div>
+        <div className="wsp-mdin-s">Contribute to the {swimlane.label} lane — surfaced here and to this MD’s agent over the MCP seam.</div>
+      </div>
+      <div className="wsp-mdin-kinds">
+        {(Object.keys(KIND_META) as ContributionKind[]).map((k) => (
+          <button key={k} className={`wsp-mdin-kind ${kind === k ? 'on' : ''}`} onClick={() => setKind(k)} title={KIND_META[k].blurb}>
+            <span>{KIND_META[k].icon} {KIND_META[k].label}</span>
+          </button>
+        ))}
+      </div>
+      <div className="wsp-mdin-blurb">{KIND_META[kind].blurb}</div>
+      <textarea
+        className="wsp-mdin-txt"
+        value={text}
+        maxLength={600}
+        placeholder={kind === 'guidance' ? 'e.g. Prioritise the top-10 customer interviews on renewal intent before the SPA.' : kind === 'value_add' ? 'e.g. Cross-sell the analytics module into the existing base — +$4M ARR lever.' : 'e.g. Customer concentration: top-3 = 41% of revenue, all up for renewal in FY26.'}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <div className="wsp-mdin-actions">
+        {kind === 'diligence' && (
+          <label className="wsp-mdin-sev">
+            <span>Severity</span>
+            <select value={severity} onChange={(e) => setSeverity(e.target.value)}>
+              {Object.keys(SEV_META).map((s) => <option key={s} value={s}>{SEV_META[s].label}</option>)}
+            </select>
+          </label>
+        )}
+        <button className="btn primary wsp-mdin-go" onClick={submit} disabled={busy || !text.trim()}>
+          {busy ? 'Adding…' : `Add ${KIND_META[kind].label.toLowerCase()}`}
+        </button>
+      </div>
+
+      <div className="wsp-mdin-log">
+        <div className="wsp-mdin-log-h">Lane contributions <span>{contributions.length}</span></div>
+        {contributions.length === 0 && <div className="wsp-lane-none">No contributions yet — add guidance, a value-add lever, or a finding above.</div>}
+        {contributions.slice(0, 12).map((c, i) => (
+          <div className="wsp-mdin-row" key={i}>
+            <span className="wsp-mdin-row-k" title={KIND_META[c.kind]?.label}>{KIND_META[c.kind]?.icon}</span>
+            <div className="wsp-mdin-row-body">
+              <div className="wsp-mdin-row-txt">{c.text}</div>
+              <div className="wsp-mdin-row-meta">
+                <span>{KIND_META[c.kind]?.label}</span>
+                {c.kind === 'diligence' && <span className={`wsp-sevb ${SEV_META[c.severity]?.cls || 'neu'}`}>{SEV_META[c.severity]?.label || c.severity}</span>}
+                {c.by && <span>· {c.by}</span>}
+                <span>· {new Date(c.at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

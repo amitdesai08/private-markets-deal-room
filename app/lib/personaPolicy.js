@@ -45,6 +45,7 @@ export const ACTIONS = {
   launch_deal: { label: 'Launch diligence — provision the workspace (screened → D1)', personas: ['analyst', 'partner'] },
   run_step: { label: 'Run a diligence step to produce its deliverable', personas: ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'] },
   record_finding: { label: 'Record a diligence finding into a workstream lane', personas: ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'], laneScoped: true },
+  record_contribution: { label: 'Contribute guidance, a value-add lever, or a diligence finding into a lane', personas: ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'], laneScoped: true },
   assign_lane: { label: 'Assign a diligence lane to an MD', personas: ['analyst', 'partner'] },
   advance_deal: { label: 'Advance the deal to the next diligence step', personas: ['analyst', 'partner'] },
   approve_ic: { label: 'Record the IC approval and advance past the IC gate (D4)', personas: ['partner'] }
@@ -60,9 +61,9 @@ export function can(persona, action, { lane } = {}) {
     return { ok: false, reason: `The ${PERSONA_LABEL[persona]} is not authorized to ${spec.label.toLowerCase()}. This is reserved for: ${spec.personas.map((p) => PERSONA_LABEL[p]).join(', ')}.` };
   }
   if (spec.laneScoped && PERSONA_LANE[persona]) {
-    // A sector MD may only act on its own lane.
+    // A sector MD may only contribute to its own lane.
     if (lane && lane !== PERSONA_LANE[persona]) {
-      return { ok: false, reason: `The ${PERSONA_LABEL[persona]} owns the ${LANE_LABEL[PERSONA_LANE[persona]]} lane and cannot record findings in the ${LANE_LABEL[lane] || lane} lane.` };
+      return { ok: false, reason: `The ${PERSONA_LABEL[persona]} owns the ${LANE_LABEL[PERSONA_LANE[persona]]} lane and cannot contribute to the ${LANE_LABEL[lane] || lane} lane.` };
     }
   }
   return { ok: true };
@@ -80,9 +81,9 @@ export function nextActions(persona, { kind, stage } = {}) {
     else if (stage === 'O4') out.push(...allow('gate_candidate'));
   } else if (kind === 'deal') {
     if (stage === 'SCR') out.push(...allow('launch_deal'));
-    else if (stage === 'D1') out.push(...allow('advance_deal'), ...allow('run_step'), ...allow('assign_lane'));
-    else if (stage === 'D2') out.push(...allow('record_finding'), ...allow('run_step'), ...allow('advance_deal'));
-    else if (stage === 'D3') out.push(...allow('run_step'), ...allow('advance_deal'));
+    else if (stage === 'D1') out.push(...allow('advance_deal'), ...allow('run_step'), ...allow('assign_lane'), ...allow('record_contribution'));
+    else if (stage === 'D2') out.push(...allow('record_contribution'), ...allow('record_finding'), ...allow('run_step'), ...allow('advance_deal'));
+    else if (stage === 'D3') out.push(...allow('record_contribution'), ...allow('run_step'), ...allow('advance_deal'));
     else if (stage === 'D4') out.push(...allow('approve_ic'), ...allow('advance_deal'));
     else if (stage === 'D5') out.push(...allow('run_step'));
   }

@@ -33,7 +33,7 @@ import { resolvePersona, PERSONAS } from '../personaPolicy.js';
 
 const SERVER_INFO = { name: 'deal-room-mcp', version: '2.0.0' };
 const READ_TOOLS = ['list_deals', 'get_deal', 'search_deals', 'list_pipeline', 'get_candidate', 'get_candidate_artifact', 'get_deal_artifact', 'get_next_actions'];
-const ACTION_TOOLS = ['send_to_screening', 'screen_candidate', 'triage_candidate', 'gate_candidate', 'launch_deal', 'advance_deal', 'approve_ic', 'run_step', 'assign_lane', 'record_finding'];
+const ACTION_TOOLS = ['send_to_screening', 'screen_candidate', 'triage_candidate', 'gate_candidate', 'launch_deal', 'advance_deal', 'approve_ic', 'run_step', 'assign_lane', 'record_finding', 'record_contribution'];
 const TOOL_NAMES = [...READ_TOOLS, ...ACTION_TOOLS];
 
 // Optional extra scope required for ACTION (write) tools, beyond the base /mcp auth.
@@ -140,6 +140,14 @@ export function buildDealMcpServer(auth = { mode: 'disabled' }) {
   action('record_finding',
     { deal_id: z.string(), lane: z.enum(['commercial', 'techai', 'operations']).optional().describe('Lane; defaults to your own lane for sector MDs.'), text: z.string().describe('The finding.'), severity: z.enum(['positive', 'neutral', 'caution', 'negative', 'risk']).optional(), source: z.string().optional() },
     (a) => ({ deal_id: a.deal_id, lane: a.lane, text: a.text, severity: a.severity, source: a.source }));
+  action('record_contribution',
+    { deal_id: z.string(),
+      lane: z.enum(['commercial', 'techai', 'operations']).optional().describe('Lane; defaults to your own lane for sector MDs.'),
+      kind: z.enum(['guidance', 'value_add', 'diligence']).describe('guidance | value_add | diligence.'),
+      text: z.string().describe('The contribution text.'),
+      severity: z.enum(['positive', 'neutral', 'caution', 'negative', 'risk']).optional().describe('For kind=diligence only.'),
+      source: z.string().optional() },
+    (a) => ({ deal_id: a.deal_id, lane: a.lane, kind: a.kind, text: a.text, severity: a.severity, source: a.source }));
 
   return server;
 }

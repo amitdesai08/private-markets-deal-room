@@ -1620,26 +1620,51 @@ export function cycleChecklistItem(id, itemId) {
   return { error: 'item-not-found' };
 }
 
-// Record a diligence FINDING into a workstream lane (used by the sector-MD agents).
-// Bumps the lane's progress and marks it in-progress; the persona/lane authorization
+// Record an MD CONTRIBUTION into a workstream lane through one of three lenses:
+//   • guidance   — the MD's steer/direction for the lane (what to probe, how to frame)
+//   • value_add  — a value-creation lever / thesis input the MD brings
+//   • diligence  — a diligence finding (the original record_finding behaviour)
+// Contributions are the single, coherent entrypoint an MD (or its agent) uses to
+// give input on a deal; they're surfaced in BOTH the dashboard lane panel and the
+// MCP seam. Bumps lane progress and marks it in-progress. Persona/lane authorization
 // is enforced upstream (personaPolicy) before this is called.
 const VALID_SEVERITY = new Set(['positive', 'neutral', 'caution', 'negative', 'risk']);
-export function recordFinding(id, lane, { text, severity = 'neutral', source = 'Diligence', by } = {}) {
+const CONTRIBUTION_KINDS = new Set(['guidance', 'value_add', 'diligence']);
+const KIND_LABEL = { guidance: 'guidance', value_add: 'value-add', diligence: 'finding' };
+const KIND_PROGRESS = { guidance: 8, value_add: 8, diligence: 15 };
+
+export function recordContribution(id, lane, { kind = 'diligence', text, severity = 'neutral', source, by, persona } = {}) {
   const deal = getDealRaw(id);
   if (!deal) return { error: 'not-found' };
   const ws = (deal.workstreams || []).find((w) => w.lane === lane);
   if (!ws) return { error: 'lane-not-found' };
+  const k = CONTRIBUTION_KINDS.has(kind) ? kind : 'diligence';
   const t = String(text || '').trim().slice(0, 600);
   if (!t) return { error: 'text-required' };
-  const sev = VALID_SEVERITY.has(severity) ? severity : 'neutral';
-  ws.findings = ws.findings || [];
-  ws.findings.unshift({ text: t, severity: sev, source: String(source || 'Diligence').slice(0, 60) });
+  // Severity only applies to a diligence finding; guidance/value-add are neutral.
+  const sev = k === 'diligence' ? (VALID_SEVERITY.has(severity) ? severity : 'neutral') : 'neutral';
+  const src = String(source || (k === 'diligence' ? 'Diligence' : KIND_LABEL[k])).slice(0, 60);
+  const at = new Date().toISOString();
+
+  ws.contributions = ws.contributions || [];
+  ws.contributions.unshift({ kind: k, text: t, severity: sev, source: src, by: by || null, persona: persona || null, at });
+  // A diligence contribution is also a finding, so the D2 findings view still shows it.
+  if (k === 'diligence') {
+    ws.findings = ws.findings || [];
+    ws.findings.unshift({ text: t, severity: sev, source: src });
+  }
   ws.status = ws.status === 'not_started' ? 'in_progress' : ws.status;
-  ws.progress = Math.min(100, (ws.progress || 0) + 15);
-  deal.activity.unshift({ actor: by || 'Diligence agent', action: `Recorded a ${sev} finding in the ${lane} lane`, when: new Date().toISOString() });
+  ws.progress = Math.min(100, (ws.progress || 0) + (KIND_PROGRESS[k] || 10));
+  const verb = k === 'diligence' ? `Recorded a ${sev} finding` : `Added ${KIND_LABEL[k]}`;
+  deal.activity.unshift({ actor: by || 'Diligence agent', action: `${verb} in the ${lane} lane`, when: at });
   persistDeal(deal);
-  logEvent(deal.id, 'finding-recorded', { lane, severity: sev, by: by || null });
+  logEvent(deal.id, 'contribution-recorded', { lane, kind: k, severity: sev, by: by || null, persona: persona || null });
   return { ok: true, deal: getDeal(id) };
+}
+
+// Back-compat wrapper — a diligence finding is a diligence-kind contribution.
+export function recordFinding(id, lane, { text, severity = 'neutral', source = 'Diligence', by } = {}) {
+  return recordContribution(id, lane, { kind: 'diligence', text, severity, source, by });
 }
 
 export function advanceDeal(id) {

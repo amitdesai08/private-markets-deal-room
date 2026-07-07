@@ -12,7 +12,7 @@ import {
   listDeals, getDeal,
   getPipeline, getCandidatePublic, getCandidateArtifact, getDealArtifact,
   sendToScreening, screenCandidate, triageCandidate, gateCandidate,
-  launchDeal, advanceDeal, runStep, assignSwimlane, recordFinding
+  launchDeal, advanceDeal, runStep, assignSwimlane, recordFinding, recordContribution
 } from './store.js';
 import { can, nextActions, PERSONA_LANE } from './personaPolicy.js';
 
@@ -243,8 +243,10 @@ function actor(persona) {
 export async function dispatchAction(name, args = {}, { persona } = {}) {
   if (!persona) return { error: 'persona-required', detail: 'No persona resolved for this caller; an action needs a persona.' };
 
-  // Lane is only relevant to record_finding; derive it for the authz check.
-  const lane = name === 'record_finding' ? (args.lane || PERSONA_LANE[persona]) : undefined;
+  // Lane matters for the lane-scoped contribution actions; derive it for authz.
+  const lane = (name === 'record_finding' || name === 'record_contribution')
+    ? (args.lane || PERSONA_LANE[persona])
+    : undefined;
   const verdict = can(persona, name, { lane });
   if (!verdict.ok) return { error: 'forbidden', action: name, persona, detail: verdict.reason };
 
@@ -270,6 +272,8 @@ export async function dispatchAction(name, args = {}, { persona } = {}) {
         return withAudit(assignSwimlane(args.deal_id, args.lane, args.md), { name, persona });
       case 'record_finding':
         return withAudit(recordFinding(args.deal_id, lane, { text: args.text, severity: args.severity, source: args.source, by }), { name, persona });
+      case 'record_contribution':
+        return withAudit(recordContribution(args.deal_id, lane, { kind: args.kind, text: args.text, severity: args.severity, source: args.source, by, persona }), { name, persona });
       default:
         return { error: 'unknown-action', name };
     }
@@ -343,6 +347,10 @@ export const TOOL_DESCRIPTIONS = {
   assign_lane: 'Assign a diligence lane (commercial | techai | operations) to an MD. Analyst/Partner only.',
   record_finding:
     'Record a diligence finding into a workstream lane (text, severity = positive|neutral|caution|negative|risk). ' +
-    'Sector MDs may only record into their own lane; Analyst/Partner into any lane.'
+    'Sector MDs may only record into their own lane; Analyst/Partner into any lane.',
+  record_contribution:
+    'Contribute MD input into a workstream lane through one of three lenses: kind = guidance (steer/direction for the lane), ' +
+    'value_add (a value-creation lever/thesis input), or diligence (a finding, with severity = positive|neutral|caution|negative|risk). ' +
+    'Sector MDs may only contribute to their own lane; Analyst/Partner to any lane. This is the MD input entrypoint.'
 };
 

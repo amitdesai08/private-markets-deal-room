@@ -122,6 +122,12 @@ export default function App() {
     setDeal(d);
   }
 
+  async function recordContribution(body: { lane: string; kind: string; text: string; severity?: string; source?: string; md?: string }) {
+    if (!deal) return;
+    const d = await api.recordContribution(deal.id, body);
+    setDeal(d);
+  }
+
   async function cycleChecklist(itemId: string) {
     if (!deal) return;
     const d = await api.cycleChecklistItem(deal.id, itemId);
@@ -228,6 +234,7 @@ export default function App() {
                 onOpenNews={() => setNewsOpen(true)}
                 mdOptions={mdOptions}
                 onAssignSwimlane={assignSwimlane}
+                onContribute={recordContribution}
                 onCycleChecklist={cycleChecklist}
                 onLaunchDeal={() => deal && launchDeal(deal.id)}
                 launching={!!deal && launchingId === deal.id}

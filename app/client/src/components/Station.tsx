@@ -24,6 +24,7 @@ interface Props {
   onOpenNews: () => void;
   mdOptions: MdOption[];
   onAssignSwimlane: (lane: string, md: string) => void;
+  onContribute: (body: { lane: string; kind: string; text: string; severity?: string; source?: string; md?: string }) => void;
   onCycleChecklist: (itemId: string) => void;
   onLaunchDeal: () => void;
   launching: boolean;
@@ -39,7 +40,7 @@ const LANE_META: Record<string, { label: string; color: string }> = {
   operations: { label: 'Operations', color: '#ea580c' }
 };
 
-export function Station({ flow, deal, deals, step, stage, relation, running, onRun, onAdvance, onBack, onJumpCurrent, onOpenSignals, onOpenNews, mdOptions, onAssignSwimlane, onCycleChecklist, onLaunchDeal, launching, launchingId, onCohortChanged, onLaunchScreened, onOpenPipeline }: Props) {
+export function Station({ flow, deal, deals, step, stage, relation, running, onRun, onAdvance, onBack, onJumpCurrent, onOpenSignals, onOpenNews, mdOptions, onAssignSwimlane, onContribute, onCycleChecklist, onLaunchDeal, launching, launchingId, onCohortChanged, onLaunchScreened, onOpenPipeline }: Props) {
   const run = deal?.stepRuns[step.key];
   const produced = relation === 'done' || !!run;
   const idx = flow.steps.findIndex((s) => s.key === step.key);
@@ -202,6 +203,7 @@ export function Station({ flow, deal, deals, step, stage, relation, running, onR
               deal={deal!}
               mdOptions={mdOptions}
               onAssign={onAssignSwimlane}
+              onContribute={onContribute}
               onCycleChecklist={onCycleChecklist}
               onLaunch={onLaunchDeal}
               launching={launching}

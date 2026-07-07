@@ -64,12 +64,25 @@ export interface Finding {
   source: string;
 }
 
+export type ContributionKind = 'guidance' | 'value_add' | 'diligence';
+
+export interface Contribution {
+  kind: ContributionKind;
+  text: string;
+  severity: 'positive' | 'neutral' | 'caution' | 'negative' | 'risk';
+  source: string;
+  by?: string | null;
+  persona?: string | null;
+  at: string;
+}
+
 export interface Workstream {
   lane: string;
   owner?: string;
   status: string;
   progress: number;
   findings: Finding[];
+  contributions?: Contribution[];
 }
 
 export interface DealDocument {

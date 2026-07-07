@@ -108,6 +108,8 @@ export const api = {
     post<{ ok?: boolean; provisioned: boolean; connected: boolean; teamsUrl: string; sharePointProvisioned?: boolean; workspace?: Workspace; error?: string }>(`/api/deals/${id}/teams/ensure`, {}),
   assignSwimlane: (id: string, lane: string, md: string) =>
     patchReq<Deal>(`/api/deals/${id}/swimlanes/${lane}`, { md }),
+  recordContribution: (id: string, body: { lane: string; kind: string; text: string; severity?: string; source?: string; md?: string }) =>
+    post<Deal>(`/api/deals/${id}/contributions`, body),
   cycleChecklistItem: (id: string, itemId: string) =>
     post<Deal>(`/api/deals/${id}/checklist/${itemId}/cycle`, {}),
   deal: (id: string) => get<Deal>(`/api/deals/${id}`),
