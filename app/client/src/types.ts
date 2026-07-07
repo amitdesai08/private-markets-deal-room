@@ -6,6 +6,7 @@ export interface AppConfig {
   region: string;
   appName: string;
   fabric?: FabricInfo;
+  onelake?: OneLakeStatus;
   datastore?: string;
 }
 
@@ -439,6 +440,38 @@ export interface PassReasons {
   park: ReasonOption[];
 }
 
+export interface OneLakeFilingSaved {
+  form: string;
+  filed: string;
+  accession: string;
+  cik: string;
+  folder: string;
+  count: number;
+  bytes: number;
+  primaryDocument: string | null;
+}
+export interface OneLakeFilingManifest {
+  at: string;
+  company: string;
+  cik: string;
+  secName: string;
+  filingsPath: string;
+  saved: OneLakeFilingSaved[];
+  errors: { accession: string; form: string; error: string }[];
+}
+export interface OneLakeStatus {
+  configured: boolean;
+  host: string;
+  workspace: string | null;
+  lakehouse: string | null;
+  filingsPath: string;
+  fabricUrl?: string | null;
+  connected?: boolean | null;
+  lastWrite?: { at: string; folder: string; count: number; bytes: number } | null;
+  lastError?: { at: string; message: string } | null;
+  probeError?: string;
+}
+
 export interface Deal extends DealSummary {
   keyFigures: KeyFigure[];
   workstreams: Workstream[];
@@ -455,6 +488,7 @@ export interface Deal extends DealSummary {
   issues?: DealIssue[];
   conditions?: ICCondition[];
   assumptionSnapshots?: AssumptionSnapshot[];
+  onelakeFilings?: OneLakeFilingManifest;
 }
 
 // ---- IC Readiness Cockpit + operational diligence --------------------------

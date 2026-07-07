@@ -38,6 +38,11 @@ import {
   saveFilingArchive,
   getSavedFilingManifest,
   getSavedFilingFile,
+  archiveDealFilingsToOneLake,
+  backfillOneLakeFilings,
+  oneLakeStatus,
+  oneLakeProbe,
+  listOneLakeFilings,
   getPipelineFunnel,
   getStage1Funnel,
   getCohort,
@@ -121,6 +126,7 @@ api.get('/config', (_req, res) => {
     m365: { configured: m365Configured(), connected: m365Connected(), files: m365FilesScope() },
     morningstar: morningstarReady() ? 'live' : 'demo',
     fabric: fabricStatus(),
+    onelake: oneLakeStatus(),
     datastore: repoMode()
   });
 });
@@ -486,6 +492,36 @@ api.get('/filings/download', async (req, res) => {
     res.send(file.buffer);
   } catch (err) {
     res.status(500).json({ error: 'download failed', detail: String(err?.message || err) });
+  }
+});
+
+// ---- Fabric OneLake filing archive (Files/Filings) --------------------------
+// Auto-download a sourced deal's SEC filings and write them into the Fabric
+// lakehouse's Files/Filings folder. Honest status + explicit errors (the app's
+// managed identity must hold a workspace role that permits OneLake writes).
+api.get('/onelake', async (_req, res) => res.json(await oneLakeProbe()));
+api.get('/onelake/filings', async (req, res) => {
+  const files = await listOneLakeFilings(String(req.query.subfolder || ''));
+  res.json({ path: oneLakeStatus().filingsPath, count: files.length, files });
+});
+api.post('/deals/:id/filings/onelake', async (req, res) => {
+  try {
+    const out = await archiveDealFilingsToOneLake(req.params.id, { limit: Number(req.body?.limit) || 4 });
+    if (out.error === 'not-found') return res.status(404).json(out);
+    if (out.error === 'onelake-not-configured') return res.status(503).json(out);
+    if (out.error) return res.status(502).json(out); // edgar/onelake write failure — surfaced, not hidden
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: 'onelake-archive-failed', detail: String(err?.message || err) });
+  }
+});
+api.post('/filings/onelake/backfill', async (req, res) => {
+  try {
+    const out = await backfillOneLakeFilings({ limit: Number(req.body?.limit) || 3 });
+    if (out.error) return res.status(503).json(out);
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: 'onelake-backfill-failed', detail: String(err?.message || err) });
   }
 });
 

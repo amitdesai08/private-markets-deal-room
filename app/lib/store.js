@@ -16,6 +16,7 @@ import { scoutNews, newsAgentConfigured } from './newsAgent.js';
 import { morningstarConfigured, quality as morningstarQuality } from './mcp/morningstar.js';
 import { fetchFilings, fetchFormD, scanFormD, downloadEntireFiling } from './filings.js';
 import { uploadFiles as uploadFilingFiles, getFile as getBlobFile } from './blob.js';
+import { writeFilingSet, listFilings, onelakeInfo, onelakeStatusSync, onelakeConfigured } from './onelake.js';
 import { markSync } from './connectors.js';
 import { fundMandate, seedThemes, seedScreens } from '../data/mandates.js';
 import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scoring.js';
@@ -1133,6 +1134,76 @@ export async function getSavedFilingFile(blobPath) {
   return getBlobFile(blobPath);
 }
 
+// ---- Auto-archive SEC filings into Fabric OneLake (Files/Filings) -------------
+// For a sourced deal (public company), resolve its EDGAR CIK, pull each recent
+// filing's documents from SEC, and write them into the Fabric lakehouse's
+// Files/Filings folder — organised by company/filing — so the fund's analysts see
+// the real regulatory source documents in Fabric alongside the market-intelligence
+// tables. Uses the app's identity (managed identity in prod); fails LOUDLY with the
+// real reason when OneLake isn't reachable/authorized (no silent success).
+
+const filingSlug = (s) => String(s || '').replace(/[^A-Za-z0-9 ()&-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+
+// Archive a single deal/company's filings to OneLake. Returns a per-filing summary.
+export async function archiveDealFilingsToOneLake(dealId, { limit = 4 } = {}) {
+  if (!onelakeConfigured()) return { error: 'onelake-not-configured', detail: 'ONELAKE_WORKSPACE_ID / ONELAKE_LAKEHOUSE_ID are not set.' };
+  const deal = getDealRaw(dealId);
+  const company = deal ? deal.company : dealId;
+  if (!company) return { error: 'not-found' };
+  const ticker = deal?.ticker || canonicalCompany(deal?.id)?.ticker || null;
+
+  const res = await fetchFilings(company, ticker, { limit }).catch((e) => ({ error: String(e?.message || e) }));
+  if (res.error) return { error: 'edgar-failed', detail: res.error };
+  if (!res.matched || !res.filings.length) return { company, matched: false, saved: [], note: 'No SEC coverage for this company (likely private).' };
+
+  const folderCo = filingSlug(company);
+  const saved = [];
+  const errors = [];
+  for (const f of res.filings) {
+    if (!f.cik || !f.accession) continue;
+    try {
+      const dl = await downloadEntireFiling(f.cik, f.accession);
+      const folder = `${folderCo}/${f.filingType || 'FILING'}_${f.when || ''}_${dl.accNoDash}`.replace(/_+/g, '_');
+      const out = await writeFilingSet(folder, dl.files);
+      saved.push({ form: f.filingType, filed: f.when, accession: f.accession, cik: f.cik, folder: out.folder, count: out.files.length, bytes: out.files.reduce((s, x) => s + x.size, 0), primaryDocument: f.primaryDocument || null });
+    } catch (err) {
+      errors.push({ accession: f.accession, form: f.filingType, error: String(err?.message || err).slice(0, 240) });
+    }
+  }
+
+  const manifest = { at: new Date().toISOString(), company, cik: res.cik, secName: res.name, filingsPath: onelakeStatusSync().filingsPath, saved, errors };
+  if (deal) {
+    deal.onelakeFilings = manifest;
+    persistDeal(deal);
+    logEvent(deal.id, 'onelake-filings-archived', { company, cik: res.cik, saved: saved.length, errors: errors.length });
+  }
+  markSync('edgar');
+  return { company, matched: true, cik: res.cik, secName: res.name, saved, errors, ...(errors.length && !saved.length ? { error: 'onelake-write-failed', detail: errors[0].error } : {}) };
+}
+
+// Backfill every sourced deal's filings into OneLake (best-effort per deal).
+export async function backfillOneLakeFilings({ limit = 3 } = {}) {
+  if (!onelakeConfigured()) return { error: 'onelake-not-configured' };
+  const results = [];
+  for (const d of deals) {
+    const r = await archiveDealFilingsToOneLake(d.id, { limit }).catch((e) => ({ error: String(e?.message || e) }));
+    results.push({ deal: d.company, dealId: d.id, matched: !!r.matched, saved: (r.saved || []).length, errors: (r.errors || []).length, error: r.error || null });
+  }
+  const totalSaved = results.reduce((s, r) => s + r.saved, 0);
+  return { deals: results.length, totalFilingsSaved: totalSaved, results };
+}
+
+// Honest OneLake status for /api/config + a connectivity probe endpoint.
+export function oneLakeStatus() {
+  return onelakeStatusSync();
+}
+export async function oneLakeProbe() {
+  return onelakeInfo({ probe: true });
+}
+export async function listOneLakeFilings(subfolder = '') {
+  return listFilings(subfolder);
+}
+
 // ---- Stage-2 deal artifact: the real PE deliverable per diligence step --------
 // D1 Diligence Plan · D2 Findings/Red-Flag Report · D3 Final IC Memo ·
 // D4 Execution Pack · D5 Close-out & 100-Day Plan. Deterministic core
@@ -1647,6 +1718,15 @@ export async function launchDeal(id) {
     } catch (err) {
       logEvent(deal.id, 'teams-provision-error', { error: String(err?.message || err).slice(0, 200) });
     }
+  }
+
+  // Auto-archive the company's SEC filings into Fabric OneLake (Files/Filings) in
+  // the background — never block the launch response on the SEC download. Logs the
+  // outcome (incl. the real reason if the identity can't yet write to OneLake).
+  if (onelakeConfigured()) {
+    archiveDealFilingsToOneLake(deal.id, { limit: 3 })
+      .then((r) => logEvent(deal.id, 'onelake-filings-archived', { saved: (r.saved || []).length, matched: !!r.matched, error: r.error || null }))
+      .catch((err) => logEvent(deal.id, 'onelake-archive-error', { error: String(err?.message || err).slice(0, 200) }));
   }
   return { deal: getDeal(id) };
 }

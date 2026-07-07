@@ -136,6 +136,9 @@ export const api = {
   snapshotAssumptions: (id: string, body: { label?: string; md?: string }) =>
     post<Deal>(`/api/deals/${id}/assumption-snapshot`, body),
   marketIntel: () => get<MarketIntel>('/api/market-intel'),
+  archiveOneLake: (id: string, limit = 4) =>
+    post<import('./types').OneLakeFilingManifest & { company: string; matched: boolean; saved: import('./types').OneLakeFilingSaved[]; errors: unknown[]; error?: string }>(`/api/deals/${id}/filings/onelake`, { limit }),
+  onelakeProbe: () => get<import('./types').OneLakeStatus>('/api/onelake'),
   companies: (inFunnel?: boolean) => get<import('./types').CanonicalCompanies>(`/api/companies${inFunnel === undefined ? '' : `?inFunnel=${inFunnel}`}`),
   runStep: (id: string, stepKey: string) =>
     post<StepRunResult>(`/api/deals/${id}/steps/${stepKey}/run`, {}),

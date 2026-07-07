@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.33.0',
+    date: '2026-07-07',
+    image: 'dealroom-app:v54',
+    revision: 'ca-dealroom-orch-dev-swc--0000050',
+    title: 'Auto-archive SEC filings into Fabric OneLake for sourced deals',
+    tag: 'feature',
+    highlights: [
+      'Sourced deals now have their SEC filings automatically pulled from EDGAR and written into the Fabric lakehouse’s Files/Filings folder — organized by company and filing (e.g. National CineMedia Inc / 10-Q_2026-05-12_.../ …), the complete document set per accession. Analysts see the real regulatory source documents in Fabric right next to the market-intelligence tables.',
+      'OneLake is written through its ADLS Gen2 DFS API using the app’s identity; a new panel on the deal workspace shows what was archived (form, date, doc count, size), a live connectivity status and an “Open in Fabric” link. Endpoints: POST /api/deals/:id/filings/onelake, POST /api/filings/onelake/backfill, GET /api/onelake, GET /api/onelake/filings, plus onelake status in /api/config.',
+      'Honest by design: writes use the managed identity at runtime and fail loudly with the real reason when it isn’t yet authorized — writing to this workspace needs a one-time Contributor/Member grant to the app identity, surfaced clearly in the panel until it lands. The current sourced deals were backfilled for real (National CineMedia and XBP Global; Sound United and Allbirds have no SEC coverage).',
+      'Fixed a company-resolution bug this surfaced: the EDGAR name matcher could resolve a company on a single generic shared word (it once matched “Sound United” to IBM on “business”). Resolution now requires a genuine multi-token overlap (or a distinctive single-token full-name match), so a weak match reports “no coverage” instead of archiving the wrong company’s filings.'
+    ]
+  },
+  {
     version: 'v0.32.0',
     date: '2026-07-07',
     image: 'dealroom-app:v53',

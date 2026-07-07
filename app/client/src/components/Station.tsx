@@ -7,6 +7,7 @@ import { CohortDesk } from './CohortDesk';
 import { Workspace } from './Workspace';
 import { DealArtifactPanel } from './DealArtifacts';
 import { ICCockpit } from './ICCockpit';
+import { OneLakeFilings } from './OneLakeFilings';
 import { CxoSummary, NewsSummary } from './SourcingSummaries';
 
 interface Props {
@@ -215,6 +216,22 @@ export function Station({ flow, deal, deals, step, stage, relation, running, onR
               onLaunch={onLaunchDeal}
               launching={launching}
             />
+          </div>
+        </div>
+      )}
+
+      {/* SEC filings → Fabric OneLake archive (launched deals) */}
+      {deal && deal.status !== 'screened' && step.stage === 'diligence' && step.key === 'D1' && (
+        <div className="panel" style={{ marginBottom: 18 }}>
+          <div className="ph">
+            <span className="ic">◆</span>
+            <h3>SEC filings · Fabric OneLake</h3>
+            <span className="sub" style={{ marginLeft: 'auto', color: 'var(--muted)', fontSize: 11.5, textTransform: 'none', letterSpacing: 0 }}>
+              auto-archived to the lakehouse Files/Filings
+            </span>
+          </div>
+          <div className="pb" style={{ padding: 0 }}>
+            <OneLakeFilings deal={deal} onDealUpdate={onDealUpdate} />
           </div>
         </div>
       )}
