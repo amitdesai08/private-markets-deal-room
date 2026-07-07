@@ -12,6 +12,7 @@ Usage:
 import argparse
 import json
 import os
+import shutil
 import struct
 import uuid
 import zipfile
@@ -50,7 +51,7 @@ def outline_icon(x, y):
     return WHITE if (x < 2 or x >= 30 or y < 2 or y >= 30) else CLEAR
 
 
-def build(host: str, sso_client_id=None, bot_id=None) -> None:
+def build(host: str, sso_client_id=None, bot_id=None, copilot=False, oauth_ref_id=None) -> None:
     os.makedirs(OUT, exist_ok=True)
     base = f"https://{host}"
     # Stable app id derived from the host (idempotent rebuilds).
@@ -106,6 +107,12 @@ def build(host: str, sso_client_id=None, bot_id=None) -> None:
             }
         ]
 
+    # M365 Copilot declarative agent (reads deals via the Entra-secured /mcp).
+    if copilot:
+        manifest["copilotAgents"] = {
+            "declarativeAgents": [{"id": "dealRoomAnalyst", "file": "declarativeAgent.json"}]
+        }
+
     with open(os.path.join(OUT, "manifest.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
     with open(os.path.join(OUT, "color.png"), "wb") as f:
@@ -113,9 +120,22 @@ def build(host: str, sso_client_id=None, bot_id=None) -> None:
     with open(os.path.join(OUT, "outline.png"), "wb") as f:
         f.write(_png(32, 32, outline_icon))
 
+    files_to_zip = ["manifest.json", "color.png", "outline.png"]
+    if copilot:
+        src_dir = os.path.join(HERE, "..", "declarative-agent")
+        shutil.copy(os.path.join(src_dir, "declarativeAgent.json"), os.path.join(OUT, "declarativeAgent.json"))
+        shutil.copy(os.path.join(src_dir, "deal-mcp-openapi.yaml"), os.path.join(OUT, "deal-mcp-openapi.yaml"))
+        with open(os.path.join(src_dir, "apiPlugin.json"), "r", encoding="utf-8") as f:
+            plugin = f.read()
+        if oauth_ref_id:
+            plugin = plugin.replace("<OAUTH_REGISTRATION_ID>", oauth_ref_id)
+        with open(os.path.join(OUT, "apiPlugin.json"), "w", encoding="utf-8") as f:
+            f.write(plugin)
+        files_to_zip += ["declarativeAgent.json", "apiPlugin.json", "deal-mcp-openapi.yaml"]
+
     zip_path = os.path.join(OUT, "deal-room-teams.zip")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
-        for name in ("manifest.json", "color.png", "outline.png"):
+        for name in files_to_zip:
             z.write(os.path.join(OUT, name), name)
 
     print(f"app id : {app_id}")
@@ -128,5 +148,7 @@ if __name__ == "__main__":
     p.add_argument("--host", required=True, help="Teams app FQDN (no scheme), e.g. ca-dealhub-teams-...azurecontainerapps.io")
     p.add_argument("--sso-client-id", default=None, help="Entra SSO app (client) id to emit webApplicationInfo for per-user SSO.")
     p.add_argument("--bot-id", default=None, help="Azure Bot app id to emit the bots block for Adaptive Card notifications.")
+    p.add_argument("--copilot", action="store_true", help="Bundle the M365 Copilot declarative agent + emit copilotAgents.")
+    p.add_argument("--oauth-ref-id", default=None, help="Teams Developer Portal OAuth registration id to fill into apiPlugin.json.")
     args = p.parse_args()
-    build(args.host, args.sso_client_id, args.bot_id)
+    build(args.host, args.sso_client_id, args.bot_id, args.copilot, args.oauth_ref_id)

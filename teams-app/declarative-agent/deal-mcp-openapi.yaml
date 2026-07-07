@@ -1,0 +1,45 @@
+# Deal Room MCP — OpenAPI (Swagger 2.0) for the M365 Copilot declarative agent.
+# Filled for the dev deployment. The OAuth client registration (reference_id in
+# apiPlugin.json) is created in the Teams Developer Portal against client
+# 043b18b9-a0d7-45e6-ae39-f03728cae2e5 with scope api://043b18b9.../deals.read.
+swagger: '2.0'
+info:
+  title: Deal Room MCP
+  description: >-
+    Streamable MCP server exposing the fund's deals (list_deals, get_deal,
+    search_deals) to Copilot, so a partner-MD agent can read live deal records —
+    thesis, key figures, diligence workstreams, memo and compliance status, and
+    top risks. Backed by Azure Cosmos DB; access is gated by Microsoft Entra ID.
+  version: 1.0.0
+host: ca-dealhub-orch-dev-swc.ambitiousforest-08192d93.swedencentral.azurecontainerapps.io
+basePath: /
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /mcp:
+    post:
+      summary: Deal Room MCP server
+      description: >-
+        Streamable HTTP MCP endpoint. Tools: list_deals (all deals as summaries),
+        get_deal (one deal as a bounded analyst view), search_deals (keyword
+        search across company/sector/thesis).
+      x-ms-agentic-protocol: mcp-streamable-1.0
+      operationId: InvokeMCP
+      responses:
+        '200':
+          description: Success
+securityDefinitions:
+  oauth2_auth:
+    type: oauth2
+    flow: accessCode
+    authorizationUrl: https://login.microsoftonline.com/301fb807-bdbc-4bac-802f-39b67f298b6c/oauth2/v2.0/authorize
+    tokenUrl: https://login.microsoftonline.com/301fb807-bdbc-4bac-802f-39b67f298b6c/oauth2/v2.0/token
+    scopes:
+      api://043b18b9-a0d7-45e6-ae39-f03728cae2e5/deals.read: Read the fund's deals
+security:
+  - oauth2_auth:
+      - api://043b18b9-a0d7-45e6-ae39-f03728cae2e5/deals.read
