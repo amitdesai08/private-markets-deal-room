@@ -25,14 +25,18 @@ const CLIENT_ID = process.env.M365_CLIENT_ID || '';
 const CLIENT_SECRET = process.env.M365_CLIENT_SECRET || '';
 const AUTHORIZE = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/authorize`;
 const TOKEN = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/token`;
-// Delegated Graph scopes: identity + a Teams SPACE (team) per deal + files. All
-// scopes here are USER-consentable (no admin approval needed): a deal gets its own
-// Team via Team.Create, its backing SharePoint document library is populated with
-// the standard VDR folder taxonomy via Files.ReadWrite.All, and the button opens
-// that team's channel. offline_access yields the refresh token for headless reuse.
+// Delegated Graph scopes: identity + a Teams SPACE (team) per deal. These are
+// the scopes user3 can actually consent to in this tenant (whose user-consent
+// policy is "recommended"). NOTE: SharePoint file scopes (Files.ReadWrite.All /
+// Sites.ReadWrite.All) require tenant-ADMIN consent here — they were tried and
+// produce a "Need admin approval" wall — so they are deliberately NOT requested;
+// including them blocks the entire sign-in (even Teams). Provisioning the deal
+// SharePoint data-room folders from the app therefore requires a one-time admin
+// consent that isn't available; see the workspace note. offline_access yields
+// the refresh token for headless reuse.
 const SCOPE = [
   'offline_access', 'openid', 'profile', 'email',
-  'User.Read', 'Team.ReadBasic.All', 'Team.Create', 'Files.ReadWrite.All'
+  'User.Read', 'Team.ReadBasic.All', 'Team.Create'
 ].join(' ');
 
 // Pending authorizations keyed by state (short-lived).
@@ -75,14 +79,11 @@ router.get('/login', (req, res) => {
     state,
     code_challenge: challenge,
     code_challenge_method: 'S256',
-    // Force the consent screen. All scopes here are USER-consentable in this
-    // tenant (the signed-in user self-consents — no admin approval), but when a
-    // NEW scope is added to an already-connected app, `prompt=select_account`
-    // lets Entra silently reissue the previously-consented scope set and drop the
-    // new one (this is exactly why Files.ReadWrite.All wasn't landing). Forcing
-    // consent makes the incremental grant deterministic so the SharePoint data
-    // room provisions for real.
-    prompt: 'consent'
+    // Let the user pick the account; do NOT force `prompt=consent`. All requested
+    // scopes are user-consentable, so a returning user is not re-prompted. (Forcing
+    // consent is only needed to add a new scope — and the only scope we'd want to
+    // add, Files.ReadWrite.All, is admin-gated in this tenant, so we don't request it.)
+    prompt: 'select_account'
   });
   res.redirect(`${AUTHORIZE}?${params.toString()}`);
 });

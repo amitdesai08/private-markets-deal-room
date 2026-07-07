@@ -69,13 +69,14 @@ export function Workspace({ deal, mdOptions, onAssign, onCycleChecklist, onLaunc
     const r = await api.ensureDealTeams(deal.id);
     if (r.workspace) setWs(r.workspace);
     if (!r.connected) {
-      setNote('Connect Microsoft 365 on the Home page, then reopen — this creates the deal’s Teams space and SharePoint data room.');
+      setNote('Connect Microsoft 365 on the Home page, then reopen — this creates the deal’s Teams space.');
     } else if (!r.sharePointProvisioned) {
-      // Connected, but the data-room folders aren’t created — the delegated token
-      // is missing the SharePoint file scope (Files.ReadWrite.All). That scope IS
-      // user-consentable in this tenant (no admin): reconnecting M365 re-prompts
-      // for consent and grants it, after which the folders provision for real.
-      setNote('The SharePoint data room isn’t set up yet. Reconnect Microsoft 365 on the Home page and approve file access when prompted (no admin needed), then reopen — the data-room folders will be created.');
+      // Connected, but the data-room folders can’t be created from the app: the
+      // SharePoint file scope (Files.ReadWrite.All) requires tenant-ADMIN consent
+      // in this tenant, which isn’t available. Be honest — the app can’t provision
+      // the folders; the deal team can add them in SharePoint directly, or an admin
+      // can grant consent to enable auto-provisioning.
+      setNote('The SharePoint data room can’t be set up automatically here — creating the folders needs a one-time tenant-admin consent (Microsoft Graph file access) that isn’t available on this account. The deal team can add these folders directly in SharePoint, or an admin can grant consent to enable auto-provisioning.');
     }
     return r.workspace;
   }
@@ -123,7 +124,7 @@ export function Workspace({ deal, mdOptions, onAssign, onCycleChecklist, onLaunc
             {busy ? 'Working…' : teamsProvisioned ? 'Open in Teams ↗' : 'Create Teams space ↗'}
           </button>
           <button className="wsp-link spo" onClick={() => openSp((w) => w.sharePointUrl)} disabled={busy}>
-            {busy ? 'Working…' : spProvisioned ? 'Open SharePoint ✓ ↗' : 'Set up data room ↗'}
+            {busy ? 'Working…' : spProvisioned ? 'Open SharePoint ✓ ↗' : 'Data room ↗'}
           </button>
         </div>
       </div>
@@ -231,7 +232,7 @@ function Overview({ ws, openTeams, openSp, teamsProvisioned, spProvisioned, onGo
               <button key={f.name} className="wsp-chip folder" onClick={() => openSp((w) => w.folders.find((x) => x.name === f.name)?.url)}>📁 {f.name}</button>
             ))}
           </div>
-          {!spProvisioned && <div className="wsp-res-note">This is the standard {ws.folders.length}-folder VDR taxonomy — not set up yet. Reconnect Microsoft 365 on the Home page and approve file access when prompted (no admin needed); the folders are then created as a real, indexed SharePoint data room.</div>}
+          {!spProvisioned && <div className="wsp-res-note">This is the standard {ws.folders.length}-folder VDR taxonomy. The app can’t create these as SharePoint folders automatically — that needs a one-time tenant-admin consent (Graph file access) that isn’t available on this account. The deal team can add them directly in the deal’s SharePoint site, or an admin can grant consent to enable auto-provisioning.</div>}
         </div>
       </div>
     </div>
