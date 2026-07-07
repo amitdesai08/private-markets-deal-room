@@ -7,18 +7,59 @@ Deal Room (SPA + `/api/*`) stays anonymous by design.
 
 ## What it exposes (tools)
 
-The three tools reuse the in-app analyst's exact contracts (`lib/dealTools.js`), so a
-Copilot Studio agent sees the same bounded, size-capped views as the in-app analyst:
+The tools reuse the in-app analyst's exact contracts (`lib/dealTools.js`), so a Copilot
+Studio agent sees the same bounded, size-capped views as the in-app analyst — and can
+**move deals forward** under a per-persona governance policy.
+
+### Read tools (all personas)
 
 | Tool | Args | Returns |
 |---|---|---|
-| `list_deals` | — | Every deal as a compact summary (id, company, sector, stage, status, size, IC readiness, days-to-IC, thesis) |
-| `get_deal` | `deal_id` (string), `sections?` (array) | One deal as a bounded analyst view: key figures, diligence workstreams + status, memo/compliance status, top risks. `sections` ⊆ `summary, financials, workstreams, memo, compliance, risks, activity` |
-| `search_deals` | `query` (string) | Matching deal summaries (company / sector / thesis keyword search) |
+| `list_deals` | — | Every Stage-2 deal as a compact summary |
+| `get_deal` | `deal_id`, `sections?` | One deal as a bounded analyst view (`sections` ⊆ `summary, financials, workstreams, memo, compliance, risks, activity`) |
+| `search_deals` | `query` | Matching deal summaries (company / sector / thesis) |
+| `list_pipeline` | — | The Stage-1 origination funnel: every candidate (O2/O3/O4) + funnel counts |
+| `get_candidate` | `candidate_id` | One Stage-1 candidate: financials, fit score, stage, screening assessment |
+| `get_candidate_artifact` | `candidate_id` | The candidate's deliverable — O2 Investment-Criteria Scorecard, O3 Triage Scorecard, or O4 IC Pre-Screen Memo |
+| `get_deal_artifact` | `deal_id`, `step` (D1–D5) | The diligence-step deliverable — D1 Plan, D2 Findings, D3 Final IC Memo, D4 Execution Pack, D5 Close-out & 100-Day Plan |
+| `get_next_actions` | `persona`, `deal_id?` / `candidate_id?` | The actions **your persona** may take right now on that entity — call this before acting |
 
-Data lives in **Azure Cosmos DB for NoSQL** (database `dealroom`, container `deals`);
-the server reads it via the Container App's managed identity (RBAC-only). The agent
-never touches Cosmos directly.
+### Action tools (persona-governed writes)
+
+Every action takes a **`persona`** argument and is authorization-checked server-side, so a
+tool call can never exceed the caller's persona powers.
+
+| Tool | Args | Allowed personas |
+|---|---|---|
+| `send_to_screening` | `target_id` | analyst, partner |
+| `screen_candidate` | `candidate_id`, `action` (advance/pass/park), `reason?` | analyst, partner |
+| `triage_candidate` | `candidate_id`, `action`, `reason?` | analyst, partner |
+| `gate_candidate` | `candidate_id`, `action` (advance = **PURSUE**), `reason?` | **partner only** |
+| `launch_deal` | `deal_id` | analyst, partner |
+| `advance_deal` | `deal_id` | analyst, partner |
+| `approve_ic` | `deal_id` | **partner only** |
+| `run_step` | `deal_id`, `step` | analyst, partner, sector MDs |
+| `assign_lane` | `deal_id`, `lane`, `md` | analyst, partner |
+| `record_finding` | `deal_id`, `lane?`, `text`, `severity?`, `source?` | any — but **sector MDs only into their own lane** |
+
+### The five personas & their powers
+
+| Persona (`persona` arg) | Role | Can do |
+|---|---|---|
+| `analyst` | Deal Associate | Run the funnel (screen/triage), launch diligence, run steps, record findings (any lane), advance deals |
+| `partner` | Deal Sponsor | Everything the analyst can, **plus** the O4 gate PURSUE and the D4 IC approval |
+| `retail-md` | Commercial-lane MD | Record findings + run steps in the **commercial** lane |
+| `ai-md` | Tech/AI-lane MD | Record findings + run steps in the **techai** lane |
+| `supply-md` | Operations-lane MD | Record findings + run steps in the **operations** lane |
+
+Separation of duties (grounded in the real fund): only the **partner** may PURSUE a deal at
+the Screening Gate and approve it at the IC; each **sector MD** may only touch its own
+diligence lane; the **analyst** runs the top of the funnel.
+
+Data lives in **Azure Cosmos DB for NoSQL** (database `dealroom`, containers `deals` +
+`companies`); the server reads/writes it via the Container App's managed identity
+(RBAC-only). The agent never touches Cosmos directly. The store is pinned to a single
+replica so the persona agents + the dashboard stay a consistent single-writer.
 
 ## Endpoint
 
@@ -87,15 +128,46 @@ Set on the Container App (already wired in `infra/main.bicep`):
 |---|---|---|
 | `ENTRA_TENANT_ID` | `<ENTRA_TENANT_ID>` | Issuer + JWKS |
 | `MCP_AUDIENCE` | `<MCP_CLIENT_ID>,api://<MCP_CLIENT_ID>` | Accepted audiences |
-| `MCP_REQUIRED_SCOPE` | *(optional)* `deals.read` | Extra gate: require the delegated scope |
+| `MCP_REQUIRED_SCOPE` | *(optional)* `deals.read` | Extra gate: require the delegated scope on every `/mcp` call |
+| `MCP_WRITE_SCOPE` | *(optional)* `deals.act` | Extra gate: require this scope/role specifically for the **action** tools |
+| `MCP_DEFAULT_PERSONA` | *(optional)* e.g. `analyst` | Fallback persona when a call omits one |
+| `MCP_PERSONA_BY_APPID` | *(optional)* `appid1=partner,appid2=supply-md` | Bind persona to the calling app registration (Option 2 hardening) |
 | `MCP_AUTH_DISABLED` | *(local dev only)* `true` | Bypass validation for local testing |
 
 Fail-closed: if auth isn't explicitly disabled and tenant/audience aren't configured,
 `/mcp` returns **503** rather than serving deals unauthenticated.
 
+## Persona identity — how each agent proves who it is
+
+Each of the five agents declares its persona via the **`persona` tool argument** (Option 1:
+fastest to wire up — one connection config, the persona is set in the agent's instructions).
+This is a **governance guardrail** among trusted first-party agents, not a hard security
+boundary. Instruct each agent to always pass its own persona, e.g. the Supply-Chain MD agent
+always sends `persona: "supply-md"`.
+
+To **harden** later without changing any tools, use the `resolvePersona()` seam
+(`lib/personaPolicy.js`):
+- **Option 2** — give each agent its own app registration and set
+  `MCP_PERSONA_BY_APPID` so the server binds persona to the verified `appid` claim (persona
+  no longer self-asserted).
+- **Option 3** — delegated user identity + a user→persona directory for true attribution.
+
+Add a **`deals.act`** delegated scope (or app role) to the app registration and set
+`MCP_WRITE_SCOPE=deals.act` to require agents to hold write consent before any action tool
+runs — reads stay available with only `deals.read`.
+
+## How agents move deals forward (recommended agent loop)
+
+1. `list_pipeline` / `list_deals` (or `search_deals`) to find the entity.
+2. `get_candidate_artifact` / `get_deal_artifact` to read the current deliverable.
+3. `get_next_actions(persona, deal_id|candidate_id)` — the allowed, stage-valid moves.
+4. Call the chosen action tool (e.g. `record_finding`, `gate_candidate`, `advance_deal`)
+   with the agent's `persona`. Denied moves return `{ "error": "forbidden", "detail": … }`
+   explaining why — surface that to the user rather than retrying.
+
 ## Scoping the agent to one deal
 
-The MCP tools run in portfolio scope (any deal reachable by id) — the natural contract
+The read tools run in portfolio scope (any deal reachable by id) — the natural contract
 for an orchestrated agent. To focus a Copilot Studio conversation on a single deal, do it
 in the **agent's instructions/topic** (resolve the deal via `search_deals`/`list_deals`,
 then pin `get_deal(<that id>)`). The in-app Foundry analyst's hard per-deal lock

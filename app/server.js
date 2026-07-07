@@ -33,6 +33,11 @@ import {
   updateScreen,
   createScreen,
   getScoredTargets,
+  getTargetDetail,
+  retryTargetQuality,
+  saveFilingArchive,
+  getSavedFilingManifest,
+  getSavedFilingFile,
   getPipelineFunnel,
   getStage1Funnel,
   getCohort,
@@ -41,12 +46,14 @@ import {
   assessCohort,
   assessCandidateById,
   getCandidateChat,
+  getCandidateArtifact,
   chatCandidateById,
   screenCandidate,
   triageCandidate,
   gateCandidate,
   sendToScreening,
   launchDeal,
+  getDealArtifact,
   ensureDealTeamsChannel,
   getMdOptions,
   assignSwimlane,
@@ -151,6 +158,18 @@ api.post('/candidates/:id/chat', async (req, res) => {
     res.json(r);
   } catch (err) {
     res.status(500).json({ error: 'chat failed', detail: String(err?.message || err) });
+  }
+});
+
+// Stage artifact — the real PE deliverable for the candidate's funnel step:
+// O2 Investment-Criteria Scorecard · O3 Triage Scorecard · O4 IC Pre-Screen Memo.
+api.post('/candidates/:id/artifact', async (req, res) => {
+  try {
+    const r = await getCandidateArtifact(req.params.id, { force: !!req.body?.force });
+    if (!r) return res.status(404).json({ error: 'candidate not found' });
+    res.json(r);
+  } catch (err) {
+    res.status(500).json({ error: 'artifact failed', detail: String(err?.message || err) });
   }
 });
 
@@ -280,6 +299,64 @@ api.get('/research', (_req, res) => res.json(getAnalystResearch()));
 api.get('/framework', (_req, res) => res.json(getFramework()));
 api.get('/targets/scored', (_req, res) => res.json(getScoredTargets()));
 
+// Expandable ranked-target detail: real SEC filings + Morningstar quality (if
+// public) + a generated analyst report. Works for desk and CxO-signal targets.
+api.post('/targets/:id/detail', async (req, res) => {
+  try {
+    const detail = await getTargetDetail(req.params.id, { force: !!req.body?.force });
+    if (!detail) return res.status(404).json({ error: 'target not found' });
+    res.json(detail);
+  } catch (err) {
+    res.status(500).json({ error: 'target detail failed', detail: String(err?.message || err) });
+  }
+});
+
+// Retry ONLY the Morningstar quality pull for a target (in-panel retry button).
+// Transient MCP "fetch failed" errors are retried inside the pull; this re-runs
+// it on demand and refreshes the cached detail.
+api.post('/targets/:id/quality', async (req, res) => {
+  try {
+    const out = await retryTargetQuality(req.params.id);
+    if (!out) return res.status(404).json({ error: 'target not found' });
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: 'quality retry failed', detail: String(err?.message || err) });
+  }
+});
+
+// Pull the ENTIRE filing down (every document in the EDGAR accession) and save
+// it to the deal room's own blob store, returning a manifest of saved objects.
+api.post('/targets/:id/filings/:filingId/save', async (req, res) => {
+  try {
+    const out = await saveFilingArchive(req.params.id, req.params.filingId);
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: 'filing save failed', detail: String(err?.message || err) });
+  }
+});
+
+// Known saved-filing manifest for a target's filing (in-memory; blobs persist).
+api.get('/targets/:id/filings/:filingId/saved', (req, res) => {
+  const m = getSavedFilingManifest(req.params.id, req.params.filingId);
+  if (!m) return res.status(404).json({ error: 'not saved' });
+  res.json({ targetId: req.params.id, filingId: req.params.filingId, ...m });
+});
+
+// Stream a saved filing document back from our own store (path is allow-listed).
+api.get('/filings/download', async (req, res) => {
+  try {
+    const blobPath = String(req.query.path || '');
+    const file = await getSavedFilingFile(blobPath);
+    if (!file) return res.status(404).json({ error: 'file not found' });
+    const name = String(req.query.name || blobPath.split('/').pop() || 'filing');
+    res.setHeader('Content-Type', file.contentType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${name.replace(/[^A-Za-z0-9._-]/g, '_')}"`);
+    res.send(file.buffer);
+  } catch (err) {
+    res.status(500).json({ error: 'download failed', detail: String(err?.message || err) });
+  }
+});
+
 api.post('/screens/:id/select', (req, res) => {
   const s = setScreenSelected(req.params.id, req.body?.selected);
   if (!s) return res.status(404).json({ error: 'screen not found' });
@@ -382,6 +459,19 @@ api.post('/deals/:id/advance', (req, res) => {
   const deal = advanceDeal(req.params.id);
   if (!deal) return res.status(404).json({ error: 'deal not found' });
   res.json(deal);
+});
+
+// Stage-2 deal artifact — the real PE deliverable for a diligence step:
+// D1 Diligence Plan · D2 Findings/Red-Flag Report · D3 Final IC Memo ·
+// D4 Execution Pack · D5 Close-out & 100-Day Plan.
+api.post('/deals/:id/artifact/:step', async (req, res) => {
+  try {
+    const out = await getDealArtifact(req.params.id, req.params.step, { force: !!req.body?.force });
+    if (!out) return res.status(404).json({ error: 'deal not found' });
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: 'deal artifact failed', detail: String(err?.message || err) });
+  }
 });
 
 api.post('/deals/:id/back', (req, res) => {

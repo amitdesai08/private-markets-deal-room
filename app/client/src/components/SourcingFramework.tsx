@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type {
   Framework,
   FundMandate,
@@ -7,11 +7,11 @@ import type {
   ScoredTargets,
   ScoredTarget,
   ScreenMutationError,
-  AnalystResearch,
-  CompanyResearch
+  TargetDetail,
+  DeskFiling,
+  SavedFiling
 } from '../types';
 import { api } from '../api';
-import { ResearchDetail } from './AnalystReports';
 
 const TIER_BADGE: Record<number, { label: string; cls: string; role: string }> = {
   1: { label: 'GATE', cls: 'gate', role: 'binding LPA constraints' },
@@ -22,7 +22,6 @@ const TIER_BADGE: Record<number, { label: string; cls: string; role: string }> =
 export function SourcingFramework({ onSentToScreening }: { onSentToScreening?: () => void } = {}) {
   const [fw, setFw] = useState<Framework | null>(null);
   const [scored, setScored] = useState<ScoredTargets | null>(null);
-  const [research, setResearch] = useState<AnalystResearch | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [creatingUnder, setCreatingUnder] = useState<string | null>(null);
@@ -36,16 +35,7 @@ export function SourcingFramework({ onSentToScreening }: { onSentToScreening?: (
   }
   useEffect(() => {
     refresh();
-    api.research().then(setResearch).catch(() => {});
   }, []);
-
-  // Analyst research keyed by target id (scored targets and research share the
-  // same desk-company id), for the inline expandable detail on each ranked target.
-  const researchById = useMemo(() => {
-    const m: Record<string, CompanyResearch> = {};
-    for (const c of research?.companies ?? []) m[c.id] = c.research;
-    return m;
-  }, [research]);
 
   if (!fw) return <div className="framework"><div className="finding empty">Loading framework…</div></div>;
 
@@ -130,8 +120,8 @@ export function SourcingFramework({ onSentToScreening }: { onSentToScreening?: (
           </span>
         </div>
         <div className="scored-sub">
-          {scored?.totalCount ?? 0} companies discovered on the News &amp; filings desk —
-          gated by the <b>Fund Mandate</b>, then ranked by your selected <b>screens</b>.
+          {scored?.totalCount ?? 0} companies surfaced from <b>News Signals</b> &amp; <b>CxO Signals</b> —
+          gated by the <b>Fund Mandate</b>, then ranked by your selected <b>screens</b>. Expand a row for filings, Morningstar &amp; a generated analyst report.
           {(scored?.gatedCount ?? 0) > 0 && (
             <span className="disc-note gated"> · {scored!.gatedCount} excluded by the gate</span>
           )}
@@ -145,7 +135,7 @@ export function SourcingFramework({ onSentToScreening }: { onSentToScreening?: (
           </div>
         )}
         {scored?.targets.map((t) => (
-          <ScoredRow key={t.id} t={t} onSend={sendToScreening} sending={sending === t.id} research={researchById[t.id]} />
+          <ScoredRow key={t.id} t={t} onSend={sendToScreening} sending={sending === t.id} />
         ))}
       </div>
     </div>
@@ -446,8 +436,23 @@ const PART_KEYS: { k: keyof NonNullable<ScoredTarget['parts']>; label: string }[
   { k: 'growth', label: 'Grw' }
 ];
 
-function ScoredRow({ t, onSend, sending, research }: { t: ScoredTarget; onSend: (deskId: string) => void; sending: boolean; research?: CompanyResearch }) {
+function ScoredRow({ t, onSend, sending }: { t: ScoredTarget; onSend: (deskId: string) => void; sending: boolean }) {
   const [open, setOpen] = useState(false);
+  const [detail, setDetail] = useState<TargetDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Lazily load the target's filings + Morningstar + generated analyst report the
+  // first time the row is expanded (cached server-side per target).
+  useEffect(() => {
+    if (!open || detail || loading) return;
+    setLoading(true);
+    api.targetDetail(t.id)
+      .then(setDetail)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   if (t.gated) {
     return (
       <div className="scored-row gated">
@@ -493,11 +498,9 @@ function ScoredRow({ t, onSend, sending, research }: { t: ScoredTarget; onSend: 
           ) : (
             <div className="scored-match none">no screen selected</div>
           )}
-          {research && (
-            <button className="scored-research-toggle" onClick={() => setOpen((v) => !v)}>
-              {open ? '▾' : '▸'} Analyst research · sector outlook · competitive rank · sell-side view
-            </button>
-          )}
+          <button className="scored-research-toggle" onClick={() => setOpen((v) => !v)}>
+            {open ? '▾' : '▸'} Filings · Morningstar rating · generated analyst report
+          </button>
         </div>
         <div className="scored-send">
           {t.inFunnel ? (
@@ -509,11 +512,220 @@ function ScoredRow({ t, onSend, sending, research }: { t: ScoredTarget; onSend: 
           )}
         </div>
       </div>
-      {research && open && (
-        <div className="scored-research">
-          <ResearchDetail r={research} />
+      {open && (
+        <div className="scored-detail">
+          {loading && !detail && <div className="finding empty">Pulling filings, Morningstar & generating the analyst report…</div>}
+          {detail && <TargetDetailBody d={detail} />}
         </div>
       )}
+    </div>
+  );
+}
+
+const STANCE_META: Record<string, { label: string; color: string; tint: string }> = {
+  positive: { label: 'Positive', color: '#0d9488', tint: 'var(--positive-tint)' },
+  neutral: { label: 'Neutral', color: '#64748b', tint: 'var(--canvas-2)' },
+  caution: { label: 'Caution', color: '#b45309', tint: 'var(--amber-tint)' }
+};
+
+function fmtBytes(n: number): string {
+  if (!n) return '0 B';
+  if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  if (n >= 1024) return `${Math.round(n / 1024)} KB`;
+  return `${n} B`;
+}
+
+// A single filing row with a "Save entire filing" action. Saving pulls down every
+// document in the EDGAR accession and persists it to the deal room's own store;
+// once saved, the row offers the documents back from our store (not just SEC.gov).
+function FilingRow({ targetId, f, kind }: { targetId: string; f: DeskFiling; kind: TargetDetail['filingsKind'] }) {
+  const [saved, setSaved] = useState<SavedFiling | undefined>(f.saved);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const canSave = !!(f.cik && f.accession);
+
+  const doSave = () => {
+    setSaving(true);
+    setErr(null);
+    api.saveFiling(targetId, f.id)
+      .then((m) => setSaved(m))
+      .catch((e) => setErr(String(e?.message || e)))
+      .finally(() => setSaving(false));
+  };
+
+  const primaryFile = saved?.files.find((x) => x.primary) || saved?.files[0];
+
+  return (
+    <div className="td-filing">
+      <div className="td-filing-top">
+        <span className="filing-type">{f.filingType}</span>
+        <span className="src-badge sm morningstar">{kind === 'formd' ? 'Form D' : 'SEC EDGAR'}</span>
+        {saved && (
+          <span className="filing-saved-tag" title={`Saved ${saved.count} document(s) · ${fmtBytes(saved.totalBytes)}${saved.mode === 'disk' ? ' (local dev store)' : ''}`}>
+            ✓ saved · {saved.count} doc{saved.count === 1 ? '' : 's'} · {fmtBytes(saved.totalBytes)}
+          </span>
+        )}
+      </div>
+      <div className="td-filing-head">{f.headline}</div>
+      {f.detail && <div className="td-filing-detail">{f.detail}</div>}
+      <div className="td-filing-actions">
+        {f.url && <a className="nf-source" href={f.url} target="_blank" rel="noreferrer">🔗 View on SEC.gov</a>}
+        {!saved && canSave && (
+          <button className="btn tiny" disabled={saving} onClick={doSave}>
+            {saving ? 'Saving entire filing…' : '⬇ Save entire filing'}
+          </button>
+        )}
+        {!saved && !canSave && <span className="td-filing-note">no downloadable accession</span>}
+        {saved && primaryFile && (
+          <a className="nf-source strong" href={api.filingDownloadUrl(primaryFile.path, primaryFile.name)} target="_blank" rel="noreferrer">📄 Open saved primary</a>
+        )}
+      </div>
+      {saved && saved.files.length > 1 && (
+        <details className="td-filing-files">
+          <summary>{saved.count} saved documents</summary>
+          <div className="td-filing-filelist">
+            {saved.files.map((sf) => (
+              <a key={sf.path} className="td-saved-file" href={api.filingDownloadUrl(sf.path, sf.name)} target="_blank" rel="noreferrer">
+                <span className="sf-name">{sf.primary ? '★ ' : ''}{sf.name}</span>
+                <span className="sf-size">{fmtBytes(sf.size)}</span>
+              </a>
+            ))}
+          </div>
+        </details>
+      )}
+      {err && <div className="td-filing-err">Save failed: {err}</div>}
+    </div>
+  );
+}
+
+// Morningstar quality panel with an in-place retry. The Morningstar MCP read can
+// hit a transient "fetch failed"; because the target detail is cached, that stale
+// failure would otherwise persist until a full refresh. This panel owns its
+// quality state and offers a Retry button that re-pulls ONLY Morningstar (server
+// also refreshes its cached detail), so a one-off failure recovers without
+// regenerating filings or the analyst report.
+function MorningstarPanel({ targetId, isPublic, ticker, quality }: {
+  targetId: string;
+  isPublic: boolean;
+  ticker: string | null;
+  quality: TargetDetail['quality'];
+}) {
+  const [q, setQ] = useState(quality);
+  const [retrying, setRetrying] = useState(false);
+  const qBand = (q.score ?? 0) >= 7 ? 'strong' : (q.score ?? 0) >= 5 ? 'moderate' : 'weak';
+  const failed = !q.rating || q.rating === 'Pending';
+  const canRetry = isPublic && q.configured !== false;
+  // An auth/sign-in failure won't self-heal on retry — the login must be renewed.
+  const authIssue = /refresh token|invalid_grant|\b401\b|not connected|sign.?in|log ?in|re-run the login/i.test(String(q.error || q.note || ''));
+
+  const retry = () => {
+    setRetrying(true);
+    api.retryQuality(targetId)
+      .then((res) => setQ(res.quality))
+      .catch(() => {})
+      .finally(() => setRetrying(false));
+  };
+
+  return (
+    <div className="td-panel">
+      <div className="td-panel-hd"><span className="td-ic">★</span>Morningstar rating
+        {isPublic ? <span className="td-hd-tag">{ticker}</span> : <span className="td-hd-tag priv">private</span>}
+        {canRetry && (
+          <button className="td-retry" disabled={retrying} onClick={retry} title="Re-pull the Morningstar quality read">
+            {retrying ? '↻ Retrying…' : '↻ Retry'}
+          </button>
+        )}
+      </div>
+      {!isPublic ? (
+        <div className="td-empty">Private company — no public Morningstar coverage. The quality read applies to listed names only.</div>
+      ) : q.configured === false ? (
+        <div className="td-empty">{q.note || 'Morningstar not connected.'}</div>
+      ) : failed ? (
+        <div className="td-empty">
+          {retrying
+            ? 'Re-pulling the Morningstar quality read…'
+            : authIssue
+              ? <>Morningstar sign-in has expired — re-connect Morningstar on the <b>Home</b> page (Data Source Connectivity), then hit ↻ Retry.</>
+              : q.error
+                ? `Morningstar read failed: ${q.error}. This is usually a transient network hiccup — hit ↻ Retry.`
+                : 'Morningstar quality read pending — hit ↻ Retry to pull it now.'}
+        </div>
+      ) : (
+        <div className="quality-card">
+          <div className="q-top">
+            <div className={`q-score ${qBand}`}>{(q.score ?? 0).toFixed(1)}</div>
+            <div>
+              <div className="q-rating">{q.rating}</div>
+              <div className={`q-trend ${q.trend}`}>{q.trend === 'improving' ? '↑' : q.trend === 'weakening' ? '↓' : '→'} {q.trend}</div>
+            </div>
+            <span className="src-badge sm morningstar" style={{ marginLeft: 'auto' }}>Morningstar</span>
+          </div>
+          <div className="q-bar"><i className={qBand} style={{ width: `${Math.round(((q.score ?? 0) / 10) * 100)}%` }} /></div>
+          {(q.flags?.length ?? 0) > 0 && (
+            <div className="q-flags">{q.flags!.map((f) => <span className="q-flag" key={f}>⚑ {f}</span>)}</div>
+          )}
+          {q.note && <div className="q-note">{q.note}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TargetDetailBody({ d }: { d: TargetDetail }) {
+  const r = d.report;
+  const stance = STANCE_META[r.sectorOutlook.stance] || STANCE_META.neutral;
+  return (
+    <div className="td-grid">
+      {/* Filings */}
+      <div className="td-panel">
+        <div className="td-panel-hd"><span className="td-ic">📄</span>Filings
+          <span className="td-hd-tag">{d.filingsKind === 'formd' ? 'SEC Form D' : d.filingsKind === 'public' ? 'SEC EDGAR' : 'none'}</span>
+        </div>
+        {d.filings.length === 0 ? (
+          <div className="td-empty">No SEC filings — no public 10-K/10-Q/8-K and no recent Reg D private placement (Form D) on EDGAR for this company.</div>
+        ) : (
+          <div className="td-filings">
+            {d.filings.slice(0, 6).map((f) => (
+              <FilingRow key={f.id} targetId={d.id} f={f} kind={d.filingsKind} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Morningstar (public only) */}
+      <MorningstarPanel targetId={d.id} isPublic={d.isPublic} ticker={d.ticker} quality={d.quality} />
+
+      {/* Generated analyst report */}
+      <div className="td-panel wide">
+        <div className="td-panel-hd"><span className="td-ic">📝</span>Analyst report
+          <span className={`td-hd-tag ${r.generated ? 'ai' : ''}`}>{r.generated ? '✦ AI-generated' : 'grounded'}</span>
+          <span className="td-report-src">{r.sources.join(' · ')}</span>
+        </div>
+        <div className="td-report">
+          <div className="td-report-summary">💡 {r.summary}</div>
+          <div className="td-report-row">
+            <span className="td-report-k">Sector outlook</span>
+            <span className="td-report-v">
+              <span className="td-stance" style={{ background: stance.tint, color: stance.color }}>{stance.label}</span>
+              {r.sectorOutlook.text}
+            </span>
+          </div>
+          <div className="td-report-row">
+            <span className="td-report-k">Competitive position</span>
+            <span className="td-report-v">{r.competitivePosition}</span>
+          </div>
+          <div className="td-report-row">
+            <span className="td-report-k">Key risks</span>
+            <span className="td-report-v">
+              <ul className="td-risks">{r.keyRisks.map((k, i) => <li key={i}>{k}</li>)}</ul>
+            </span>
+          </div>
+          <div className="td-report-row rec">
+            <span className="td-report-k">Recommendation</span>
+            <span className="td-report-v">{r.recommendation}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

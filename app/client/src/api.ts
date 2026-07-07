@@ -16,9 +16,13 @@ import type {
   Framework,
   Screen,
   ScoredTargets,
+  TargetDetail,
+  SavedFiling,
   ScreenMutationError,
   PipelineFunnel,
   Cohort,
+  CandidateArtifact,
+  DealArtifact,
   Pipeline,
   PassReasons,
   Candidate,
@@ -83,6 +87,8 @@ export const api = {
     post<Cohort>(`/api/stage1/cohort/${stage}/assess`, { force }),
   assessCandidate: (id: string) =>
     post<{ assessment: Assessment; candidate: Candidate }>(`/api/candidates/${id}/assess`, {}),
+  candidateArtifact: (id: string, force = false) =>
+    post<CandidateArtifact>(`/api/candidates/${id}/artifact`, { force }),
   candidateChat: (id: string) => get<CandidateChatLog>(`/api/candidates/${id}/chat`),
   sendCandidateChat: (id: string, message: string) =>
     post<{ reply: string; source: 'live' | 'demo'; log: ChatMessage[] }>(`/api/candidates/${id}/chat`, { message }),
@@ -104,6 +110,8 @@ export const api = {
   cycleChecklistItem: (id: string, itemId: string) =>
     post<Deal>(`/api/deals/${id}/checklist/${itemId}/cycle`, {}),
   deal: (id: string) => get<Deal>(`/api/deals/${id}`),
+  dealArtifact: (id: string, step: string, force = false) =>
+    post<DealArtifact>(`/api/deals/${id}/artifact/${step}`, { force }),
   runStep: (id: string, stepKey: string) =>
     post<StepRunResult>(`/api/deals/${id}/steps/${stepKey}/run`, {}),
   advance: (id: string) => post<Deal>(`/api/deals/${id}/advance`, {}),
@@ -123,6 +131,13 @@ export const api = {
   research: () => get<AnalystResearch>('/api/research'),
   framework: () => get<Framework>('/api/framework'),
   scoredTargets: () => get<ScoredTargets>('/api/targets/scored'),
+  targetDetail: (id: string) => post<TargetDetail>(`/api/targets/${id}/detail`, {}),
+  retryQuality: (id: string) =>
+    post<{ id: string; name: string; ticker: string | null; isPublic: boolean; quality: TargetDetail['quality'] }>(`/api/targets/${id}/quality`, {}),
+  saveFiling: (targetId: string, filingId: string) =>
+    post<SavedFiling & { targetId: string; filingId: string }>(`/api/targets/${targetId}/filings/${filingId}/save`, {}),
+  filingDownloadUrl: (path: string, name?: string) =>
+    `/api/filings/download?path=${encodeURIComponent(path)}${name ? `&name=${encodeURIComponent(name)}` : ''}`,
   selectScreen: (id: string, selected: boolean) => post<Screen>(`/api/screens/${id}/select`, { selected }),
   selectTheme: (id: string, selected: boolean) =>
     post<{ themeId: string; selected: boolean; screenIds: string[] }>(`/api/themes/${id}/select`, { selected }),

@@ -11,15 +11,19 @@ import { runStep as runStepAgent } from './agents.js';
 import { messagesToSignals } from './ingest/signals.js';
 import { SOURCES, catalysts, catalystById } from '../data/news.js';
 import { researchFor } from '../data/research.js';
-import { classifyCatalyst, assessCandidate, chatCandidate, agentForStage } from './agents.js';
+import { classifyCatalyst, assessCandidate, chatCandidate, agentForStage, generateTriageBrief, generateScreeningMemo, generateFinalMemo, generateFindingsSynthesis } from './agents.js';
 import { scoutNews, newsAgentConfigured } from './newsAgent.js';
 import { morningstarConfigured, quality as morningstarQuality } from './mcp/morningstar.js';
-import { fetchFilings, fetchFormD, scanFormD } from './filings.js';
+import { fetchFilings, fetchFormD, scanFormD, downloadEntireFiling } from './filings.js';
+import { uploadFiles as uploadFilingFiles, getFile as getBlobFile } from './blob.js';
 import { markSync } from './connectors.js';
 import { fundMandate, seedThemes, seedScreens } from '../data/mandates.js';
 import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scoring.js';
+import { buildScorecard, buildTriageScore, buildMemoBase } from './screening.js';
+import { buildDiligencePlan, buildFindingsReport, buildFinalMemoBase, buildExecutionPack, buildCloseoutPlan } from './diligence.js';
 import { buildWorkspace, checklistStats, MD_OPTIONS } from '../data/workspace.js';
 import { ensureDealChannel, m365Connected } from './m365/graph.js';
+import { generateAnalystReport } from './analystReport.js';
 import {
   PASS_REASONS,
   PARK_REASONS,
@@ -98,10 +102,26 @@ export async function hydrate() {
     const ds = await dealRepo.list();
     deals = attachWorkspaces(ds);
     signalCompanies = await sigRepo.list();
+    reseedSequences();
   } catch {
     /* keep empty in-memory state on a read failure */
   }
   return { mode: 'cosmos', companies: desk.length + candidates.length, deals: deals.length, signals: signalCompanies.length };
+}
+
+// Re-initialize the id sequence counters from the hydrated records so a freshly
+// booted container never mints an id that collides with an existing candidate/
+// deal/screen (a collision would push a duplicate in memory and overwrite the
+// existing document in Cosmos on the next persist). Sets each counter to
+// max(existing numeric suffix) + 1.
+function reseedSequences() {
+  const maxSuffix = (arr, re) => arr.reduce((m, x) => {
+    const mm = String(x.id || '').match(re);
+    return mm ? Math.max(m, Number(mm[1])) : m;
+  }, 0);
+  candSeq = maxSuffix(candidates, /^cand-new-(\d+)$/) + 1;
+  dealSeq = maxSuffix(deals, /^screened-(\d+)-/) + 1;
+  screenSeq = maxSuffix(screens, /^screen-custom-(\d+)$/) + 1;
 }
 
 
@@ -791,6 +811,252 @@ export function getScoredTargets() {
   };
 }
 
+// ---- Ranked-target expandable detail: filings + Morningstar + analyst report --
+// One consolidated read for a ranked target's expandable panel on Deal Sourcing.
+// Works for BOTH news-desk companies and CxO-signal targets (via findSourcingTarget),
+// so filings/quality resolve from the company's name + ticker regardless of origin.
+// Session-cached per target id so re-opening a row is instant; pass force to refresh.
+const targetDetailCache = new Map();
+
+// Real SEC EDGAR filings for a target (public → 10-K/10-Q/8-K; private → Reg D Form D
+// or none). Persists onto the desk company when the target lives on the desk.
+async function targetFilings(t, deskCompany) {
+  try {
+    const res = await fetchFilings(t.name, t.ticker || null);
+    let filings = res.filings;
+    let kind = res.matched ? 'public' : 'none';
+    if (!res.matched || filings.length === 0) {
+      const fd = await fetchFormD(t.name).catch(() => ({ matched: false, filings: [] }));
+      if (fd.matched && fd.filings.length) {
+        filings = fd.filings;
+        kind = 'formd';
+      }
+    }
+    if (deskCompany) {
+      deskCompany.filings = filings;
+      deskCompany.filingsChecked = true;
+      persistDesk(deskCompany);
+    }
+    markSync('edgar');
+    return { filings, kind };
+  } catch (err) {
+    return { filings: deskCompany?.filings || [], kind: 'none', error: String(err?.message || err) };
+  }
+}
+
+// Morningstar quality for a target — only meaningful for PUBLIC names (a ticker).
+// Private targets return { public:false } so the UI shows "no public coverage".
+async function targetQuality(t, deskCompany) {
+  if (!t.ticker) return { public: false, note: 'Private company — no public Morningstar coverage.' };
+  if (!morningstarConfigured()) {
+    return { public: true, configured: false, rating: 'Pending', score: 0, trend: 'stable', flags: [], note: 'Morningstar MCP not connected — sign in on Home to enable the quality read.' };
+  }
+  try {
+    const q = await morningstarQuality(t.name, t.ticker);
+    if (deskCompany) {
+      deskCompany.quality = q;
+      persistDesk(deskCompany);
+    }
+    markSync('morningstar');
+    return { public: true, configured: true, ...q };
+  } catch (err) {
+    return { public: true, configured: true, rating: 'Pending', score: 0, trend: 'stable', flags: [], note: 'Morningstar read failed.', error: String(err?.message || err) };
+  }
+}
+
+export async function getTargetDetail(id, { force = false } = {}) {
+  const cached = targetDetailCache.get(id);
+  // Serve cache only when it holds a real AI-generated report; a prior fallback
+  // (e.g. a transient model 429) is re-attempted so it can self-heal.
+  if (!force && cached && cached.report?.generated) return cached;
+
+  const t = findSourcingTarget(id);
+  if (!t) return null;
+  const deskCompany = desk.find((x) => x.id === id) || null;
+
+  // Reuse already-fetched filings/quality when we're only re-attempting the report.
+  let filings, quality;
+  if (!force && cached) {
+    filings = { filings: cached.filings, kind: cached.filingsKind };
+    quality = cached.quality;
+  } else {
+    [filings, quality] = await Promise.all([targetFilings(t, deskCompany), targetQuality(t, deskCompany)]);
+  }
+  const report = await generateAnalystReport(t, { filings: filings.filings, kind: filings.kind, quality });
+
+  // Re-attach any saved-filing manifests so a re-opened/refreshed row still shows
+  // "saved" state (the underlying blobs persist regardless of this in-memory map).
+  for (const f of filings.filings) {
+    const m = savedFilingManifests.get(`${t.id}::${f.id}`);
+    if (m && !f.saved) f.saved = m;
+  }
+
+  const detail = {
+    id: t.id,
+    name: t.name,
+    ticker: t.ticker || null,
+    isPublic: !!t.ticker,
+    filings: filings.filings,
+    filingsKind: filings.kind,
+    quality,
+    report
+  };
+  targetDetailCache.set(id, detail);
+  logEvent(id, 'target-detail', { filings: filings.filings.length, public: detail.isPublic, report: report.generated ? 'ai' : 'fallback' });
+  return detail;
+}
+
+// Re-pull ONLY the Morningstar quality for a target (powers the in-panel "Retry
+// Morningstar" button). Runs the resilient quality read and writes the result
+// back into the cached detail so re-opening the row shows the fresh read rather
+// than a stale transient failure. Returns the updated quality (or null if the
+// target is unknown).
+export async function retryTargetQuality(id) {
+  const t = findSourcingTarget(id);
+  if (!t) return null;
+  const deskCompany = desk.find((x) => x.id === id) || null;
+  const quality = await targetQuality(t, deskCompany);
+  const cached = targetDetailCache.get(id);
+  if (cached) {
+    cached.quality = quality;
+    targetDetailCache.set(id, cached);
+  }
+  logEvent(id, 'target-quality-retry', { public: quality.public, ok: !quality.error });
+  return { id: t.id, name: t.name, ticker: t.ticker || null, isPublic: !!t.ticker, quality };
+}
+
+// ---- Save the ENTIRE filing (every document) to the deal room's own store ----
+// Resolves a filing surfaced on a ranked target back to its EDGAR cik+accession,
+// pulls down every document in the accession (primary doc + exhibits + complete
+// submission) and persists them to blob (prod) or disk (dev). Records a `saved`
+// manifest on the filing so the UI shows saved state and can serve the documents
+// back from our own store rather than only linking out to sec.gov.
+const savedFilingManifests = new Map(); // `${targetId}::${filingId}` -> saved manifest
+
+function resolveTargetFilings(targetId) {
+  const cached = targetDetailCache.get(targetId);
+  const deskCompany = desk.find((x) => x.id === targetId) || null;
+  if (cached?.filings?.length) return { filings: cached.filings, deskCompany, cached };
+  if (deskCompany?.filings?.length) return { filings: deskCompany.filings, deskCompany, cached: null };
+  return { filings: [], deskCompany, cached: null };
+}
+
+export async function saveFilingArchive(targetId, filingId) {
+  let { filings, deskCompany, cached } = resolveTargetFilings(targetId);
+  if (!filings.length) {
+    const detail = await getTargetDetail(targetId).catch(() => null);
+    if (detail) {
+      filings = detail.filings || [];
+      cached = targetDetailCache.get(targetId);
+      deskCompany = desk.find((x) => x.id === targetId) || null;
+    }
+  }
+  const filing = filings.find((f) => f.id === filingId);
+  if (!filing) throw new Error('filing not found for target');
+  if (!filing.cik || !filing.accession) throw new Error('filing has no EDGAR accession to download');
+
+  const dl = await downloadEntireFiling(filing.cik, filing.accession);
+  const prefix = `${dl.cik}/${dl.accNoDash}`;
+  const up = await uploadFilingFiles(prefix, dl.files);
+
+  const primaryName = filing.primaryDocument || null;
+  const files = up.files.map((f) => ({ ...f, primary: primaryName ? f.name === primaryName : false }));
+  const saved = {
+    savedAt: new Date().toISOString(),
+    mode: up.mode,
+    container: up.container,
+    prefix: up.prefix,
+    count: files.length,
+    totalBytes: files.reduce((s, f) => s + (f.size || 0), 0),
+    primary: (files.find((f) => f.primary) || files[0])?.path || null,
+    files,
+    skipped: dl.skipped || []
+  };
+
+  filing.saved = saved;
+  savedFilingManifests.set(`${targetId}::${filingId}`, saved);
+  if (cached?.filings) {
+    const cf = cached.filings.find((f) => f.id === filingId);
+    if (cf) cf.saved = saved;
+  }
+  if (deskCompany?.filings) {
+    const df = deskCompany.filings.find((f) => f.id === filingId);
+    if (df) df.saved = saved;
+    persistDesk(deskCompany);
+  }
+  markSync('edgar');
+  logEvent(targetId, 'filing-saved', { filingId, count: saved.count, bytes: saved.totalBytes, mode: saved.mode });
+  return { targetId, filingId, ...saved };
+}
+
+export function getSavedFilingManifest(targetId, filingId) {
+  return savedFilingManifests.get(`${targetId}::${filingId}`) || null;
+}
+
+// Blob paths for saved filings are strictly `{cik}/{accNoDash}/{filename}` — a
+// tight allow-list that blocks traversal/SSRF. The filings container only ever
+// holds public SEC documents, so serving any existing object under it is safe.
+const SAFE_BLOB_PATH = /^\d{1,10}\/\d{18}\/[A-Za-z0-9._-]+$/;
+export async function getSavedFilingFile(blobPath) {
+  if (!SAFE_BLOB_PATH.test(String(blobPath || ''))) return null;
+  return getBlobFile(blobPath);
+}
+
+// ---- Stage-2 deal artifact: the real PE deliverable per diligence step --------
+// D1 Diligence Plan · D2 Findings/Red-Flag Report · D3 Final IC Memo ·
+// D4 Execution Pack · D5 Close-out & 100-Day Plan. Deterministic core
+// (lib/diligence.js) is authoritative; the AI layer adds narrative for D2/D3.
+// Cached on the deal (deal.artifacts[step]) so re-opening a step is instant;
+// `force` re-runs it. The step's diligence findings feed the plan & memo so the
+// artifacts are internally consistent for a given deal.
+const DEAL_ARTIFACT_STEPS = new Set(['D1', 'D2', 'D3', 'D4', 'D5']);
+
+// Pull the screening-memo risks captured for this deal's candidate (drives the
+// D1 plan's workstream prioritization). Falls back to the memo section text.
+function dealMemoRisks(deal) {
+  const cand = candidates.find((c) => c.company.toLowerCase() === deal.company.toLowerCase());
+  const art = cand?.artifacts?.O4;
+  if (art?.keyRisks?.length) return art.keyRisks.map((r) => (typeof r === 'string' ? r : r.risk));
+  return (deal.memoSections || []).filter((s) => /risk/i.test(s.title)).map((s) => s.content).filter(Boolean);
+}
+
+export async function getDealArtifact(dealId, step, { force = false } = {}) {
+  const deal = getDealRaw(dealId);
+  if (!deal) return null;
+  if (!DEAL_ARTIFACT_STEPS.has(step)) return { step, kind: 'none' };
+
+  deal.artifacts = deal.artifacts || {};
+  const cached = deal.artifacts[step];
+  // D2/D3 carry an AI narrative — re-attempt a prior fallback so it self-heals;
+  // D1/D4/D5 are deterministic, so a cached copy is always fine.
+  const aiStep = step === 'D2' || step === 'D3';
+  if (!force && cached && (!aiStep || cached.generated)) return cached;
+
+  let artifact;
+  if (step === 'D1') {
+    artifact = buildDiligencePlan(deal, dealMemoRisks(deal));
+  } else if (step === 'D2') {
+    const base = buildFindingsReport(deal);
+    artifact = await generateFindingsSynthesis(deal, base);
+  } else if (step === 'D3') {
+    const findings = buildFindingsReport(deal);
+    const base = buildFinalMemoBase(deal, { findings });
+    artifact = await generateFinalMemo(deal, base);
+  } else if (step === 'D4') {
+    const findings = buildFindingsReport(deal);
+    const memo = buildFinalMemoBase(deal, { findings });
+    artifact = buildExecutionPack(deal, { memo });
+  } else {
+    artifact = buildCloseoutPlan(deal);
+  }
+  artifact.step = step;
+
+  deal.artifacts[step] = artifact;
+  persistDeal(deal);
+  logEvent(deal.id, 'deal-artifact', { step, kind: artifact.kind, generated: !!artifact.generated });
+  return artifact;
+}
+
 // ===========================================================================
 //  Stage-1 origination COHORT — candidates flow O2 → O3 → O4, filtered at each
 //  step (advance / pass / park). PURSUE at O4 flips a candidate into a screened
@@ -978,6 +1244,55 @@ export async function assessCandidateById(id, force = true) {
   return { ok: true, assessment: a, candidate: publicCandidate(c) };
 }
 
+// ---- Stage artifact: the real PE pre-diligence deliverable per funnel step ----
+// O2 -> Investment-Criteria Scorecard (hard knockouts + soft flags)
+// O3 -> Triage Scorecard (weighted 6-dimension score + A/B/C tier) + AI angle brief
+// O4 -> IC Pre-Screen Memo (paper-LBO returns + AI narrative)
+// The deterministic core (lib/screening.js) is authoritative; the AI layer only
+// adds narrative. Cached on the candidate (c.artifacts[stage]) so re-opening a row
+// is instant; `force` re-runs it. Works for any stage a candidate reached.
+const ARTIFACT_STAGES = new Set(['O2', 'O3', 'O4']);
+
+function candidateFitScore(c) {
+  return scoreCandidate(c).score;
+}
+
+export async function getCandidateArtifact(id, { force = false } = {}) {
+  const c = candidates.find((x) => x.id === id);
+  if (!c) return null;
+  const stage = c.stage === 'pursued' ? 'O4' : c.stage;
+  if (!ARTIFACT_STAGES.has(stage)) return { stage, kind: 'none' };
+
+  c.artifacts = c.artifacts || {};
+  // Serve cache unless forced; for O3/O4 only serve when the AI narrative landed
+  // (a prior fallback re-attempts so it can self-heal), mirroring target detail.
+  const cached = c.artifacts[stage];
+  if (!force && cached && (stage === 'O2' || cached.generated)) return cached;
+
+  const knowledge = candidateKnowledge(c);
+  const fit = candidateFitScore(c);
+  let artifact;
+
+  if (stage === 'O2') {
+    artifact = { stage, ...buildScorecard(c, fund), company: c.company };
+  } else if (stage === 'O3') {
+    const triage = buildTriageScore(c, fund, fit);
+    const brief = await generateTriageBrief(c, triage, knowledge);
+    artifact = { stage, ...triage, brief, company: c.company };
+  } else {
+    // O4 — paper-LBO memo. tier comes from a triage recompute for context.
+    const triage = buildTriageScore(c, fund, fit);
+    const memoBase = buildMemoBase(c, fund, { fitScore: fit, tier: triage.tier });
+    const memo = await generateScreeningMemo(c, memoBase, knowledge);
+    artifact = { stage, ...memo, company: c.company };
+  }
+
+  c.artifacts[stage] = artifact;
+  persistCand(c);
+  logEvent(c.deskId || c.id, 'artifact', { stage, kind: artifact.kind, generated: !!artifact.generated });
+  return artifact;
+}
+
 // Persistent per-candidate conversation with the step's agent (O2/O3). History
 // is stored on the candidate so reopening the popup shows the prior thread.
 export function getCandidateChat(id) {
@@ -1011,6 +1326,12 @@ export function getPipeline() {
     funnel: getStage1Funnel().funnel,
     candidates: candidates.map(publicCandidate)
   };
+}
+
+// Public view of ONE candidate by id (for the deal tools / agents).
+export function getCandidatePublic(id) {
+  const c = candidates.find((x) => x.id === id);
+  return c ? publicCandidate(c) : null;
 }
 
 export function getPassReasons() {
@@ -1158,14 +1479,14 @@ export async function launchDeal(id) {
   return { deal: getDeal(id) };
 }
 
-// Create/attach the deal's live Teams channel and reflect it onto the workspace
-// (teamsUrl → real channel webUrl, teamsProvisioned flag, teamsChannel record).
-// Idempotent: reuses an existing channel for the deal.
+// Create/attach the deal's live Teams team and reflect it onto the workspace
+// (teamsUrl → the team's webUrl, teamsProvisioned flag, teamsChannel record).
+// Idempotent: reuses the deal's existing team instead of creating duplicates.
 async function provisionDealChannel(deal) {
   const channel = await ensureDealChannel(deal, deal.teamsChannel);
   deal.teamsChannel = channel;
   if (deal.workspace) {
-    deal.workspace.teamsUrl = channel.webUrl;
+    if (channel.webUrl) deal.workspace.teamsUrl = channel.webUrl;
     deal.workspace.teamsProvisioned = true;
     deal.workspace.teamsChannelName = channel.displayName;
   }
@@ -1223,6 +1544,28 @@ export function cycleChecklistItem(id, itemId) {
     }
   }
   return { error: 'item-not-found' };
+}
+
+// Record a diligence FINDING into a workstream lane (used by the sector-MD agents).
+// Bumps the lane's progress and marks it in-progress; the persona/lane authorization
+// is enforced upstream (personaPolicy) before this is called.
+const VALID_SEVERITY = new Set(['positive', 'neutral', 'caution', 'negative', 'risk']);
+export function recordFinding(id, lane, { text, severity = 'neutral', source = 'Diligence', by } = {}) {
+  const deal = getDealRaw(id);
+  if (!deal) return { error: 'not-found' };
+  const ws = (deal.workstreams || []).find((w) => w.lane === lane);
+  if (!ws) return { error: 'lane-not-found' };
+  const t = String(text || '').trim().slice(0, 600);
+  if (!t) return { error: 'text-required' };
+  const sev = VALID_SEVERITY.has(severity) ? severity : 'neutral';
+  ws.findings = ws.findings || [];
+  ws.findings.unshift({ text: t, severity: sev, source: String(source || 'Diligence').slice(0, 60) });
+  ws.status = ws.status === 'not_started' ? 'in_progress' : ws.status;
+  ws.progress = Math.min(100, (ws.progress || 0) + 15);
+  deal.activity.unshift({ actor: by || 'Diligence agent', action: `Recorded a ${sev} finding in the ${lane} lane`, when: new Date().toISOString() });
+  persistDeal(deal);
+  logEvent(deal.id, 'finding-recorded', { lane, severity: sev, by: by || null });
+  return { ok: true, deal: getDeal(id) };
 }
 
 export function advanceDeal(id) {

@@ -8,7 +8,13 @@
 // Copilot Studio agent and the in-app analyst see identical, size-bounded views of
 // a deal, and the same server-side per-deal scoping guarantees.
 
-import { listDeals, getDeal } from './store.js';
+import {
+  listDeals, getDeal,
+  getPipeline, getCandidatePublic, getCandidateArtifact, getDealArtifact,
+  sendToScreening, screenCandidate, triageCandidate, gateCandidate,
+  launchDeal, advanceDeal, runStep, assignSwimlane, recordFinding
+} from './store.js';
+import { can, nextActions, PERSONA_LANE } from './personaPolicy.js';
 
 // ---- projections (narrow, size-bounded views of the deal record) ------------
 const trim = (s, n) => (typeof s === 'string' && s.length > n ? s.slice(0, n - 1) + '…' : s || '');
@@ -164,6 +170,135 @@ export function dispatchTool(name, args, { scope = 'portfolio', focusId, focusCo
   return { error: 'unknown-tool', name };
 }
 
+// ===========================================================================
+//  Stage-1 PIPELINE + ARTIFACT read tools (the funnel + the rich deliverables)
+// ===========================================================================
+// These extend the agents' visibility beyond Stage-2 deals to the whole
+// origination funnel and to every step's real artifact (scorecard, triage,
+// IC pre-screen memo, diligence plan, findings, final IC memo, execution pack,
+// 100-day plan) — the same deliverables the dashboard renders.
+
+const candSummary = (c) => ({
+  id: c.id, company: c.company, sector: c.sector, region: c.region,
+  dealSize: c.dealSize, ownership: c.ownership, stage: c.stage,
+  disposition: c.disposition, score: c.score, band: c.band,
+  passReason: c.passReasonLabel || null
+});
+
+export function listPipeline() {
+  const p = getPipeline();
+  return {
+    fundName: p.fundName,
+    funnel: p.funnel,
+    candidates: p.candidates.map(candSummary)
+  };
+}
+
+export function candidateView(id, { includeArtifact = true } = {}) {
+  const c = getCandidatePublic(id);
+  if (!c) return { error: 'candidate-not-found', candidate_id: id };
+  const view = {
+    id: c.id, company: c.company, sector: c.sector, subSector: c.subSector,
+    region: c.region, country: c.country, dealSize: c.dealSize, ownership: c.ownership,
+    revenue: c.revenue, ebitda: c.ebitda, ebitdaMargin: c.ebitdaMargin, growth: c.growth,
+    stage: c.stage, disposition: c.disposition, score: c.score, band: c.band,
+    gated: c.gated, matchedScreen: c.matchedScreen, passReason: c.passReasonLabel || null,
+    assessment: c.assessment ? { action: c.assessment.action, rationale: c.assessment.rationale } : null
+  };
+  return view;
+}
+
+// A candidate's stage artifact (O2 scorecard / O3 triage / O4 IC pre-screen memo).
+export async function candidateArtifactView(id) {
+  const a = await getCandidateArtifact(id).catch(() => null);
+  if (!a) return { error: 'candidate-not-found', candidate_id: id };
+  return a;
+}
+
+// A deal's diligence-step artifact (D1 plan / D2 findings / D3 final memo /
+// D4 execution pack / D5 100-day plan).
+export async function dealArtifactView(dealId, step) {
+  const a = await getDealArtifact(dealId, step).catch(() => null);
+  if (!a) return { error: 'deal-not-found', deal_id: dealId };
+  return a;
+}
+
+// ===========================================================================
+//  ACTION tools — MOVE the pipeline forward, governed by persona policy.
+// ===========================================================================
+// Every action is authorization-checked with the caller's resolved persona before
+// it mutates anything (personaPolicy.can). The check is server-side, so a tool call
+// can never exceed the persona's powers regardless of the arguments emitted — the
+// same defense-in-depth the read tools use for deal `scope`. `by` is threaded into
+// the audit trail for attribution.
+
+const CAND_STAGE_FOR = { screen_candidate: 'O2', triage_candidate: 'O3', gate_candidate: 'O4' };
+
+// Map an action to a stable, low-cardinality string for logging/attribution.
+function actor(persona) {
+  return { analyst: 'Analyst agent', partner: 'Partner agent', 'retail-md': 'Retail-MD agent', 'ai-md': 'AI-MD agent', 'supply-md': 'Supply-MD agent' }[persona] || 'Agent';
+}
+
+// dispatchAction(name, args, { persona }) — the single entry point for writes.
+export async function dispatchAction(name, args = {}, { persona } = {}) {
+  if (!persona) return { error: 'persona-required', detail: 'No persona resolved for this caller; an action needs a persona.' };
+
+  // Lane is only relevant to record_finding; derive it for the authz check.
+  const lane = name === 'record_finding' ? (args.lane || PERSONA_LANE[persona]) : undefined;
+  const verdict = can(persona, name, { lane });
+  if (!verdict.ok) return { error: 'forbidden', action: name, persona, detail: verdict.reason };
+
+  const by = actor(persona);
+  try {
+    switch (name) {
+      case 'send_to_screening':
+        return withAudit(sendToScreening(args.desk_id || args.target_id), { name, persona });
+      case 'screen_candidate':
+      case 'triage_candidate':
+      case 'gate_candidate': {
+        const fn = { screen_candidate: screenCandidate, triage_candidate: triageCandidate, gate_candidate: gateCandidate }[name];
+        return withAudit(fn(args.candidate_id, args.action, args.reason, args.note), { name, persona, expectStage: CAND_STAGE_FOR[name] });
+      }
+      case 'launch_deal':
+        return withAudit(await launchDeal(args.deal_id), { name, persona });
+      case 'advance_deal':
+      case 'approve_ic':
+        return withAudit(advanceDeal(args.deal_id), { name, persona });
+      case 'run_step':
+        return withAudit(await runStep(args.deal_id, args.step), { name, persona });
+      case 'assign_lane':
+        return withAudit(assignSwimlane(args.deal_id, args.lane, args.md), { name, persona });
+      case 'record_finding':
+        return withAudit(recordFinding(args.deal_id, lane, { text: args.text, severity: args.severity, source: args.source, by }), { name, persona });
+      default:
+        return { error: 'unknown-action', name };
+    }
+  } catch (err) {
+    return { error: 'action-failed', action: name, detail: String(err?.message || err) };
+  }
+}
+
+function withAudit(result, { name, persona }) {
+  if (result && result.error) return { ok: false, action: name, persona, error: result.error };
+  return { ok: true, action: name, persona, result };
+}
+
+// get_next_actions — the allowed, stage-valid moves for the caller's persona on a
+// given deal or candidate. Lets an agent propose only moves it is authorized to make.
+export function nextActionsFor(persona, { deal_id, candidate_id } = {}) {
+  if (candidate_id) {
+    const c = getCandidatePublic(candidate_id);
+    if (!c) return { error: 'candidate-not-found', candidate_id };
+    return { candidate_id, company: c.company, stage: c.stage, persona, actions: nextActions(persona, { kind: 'candidate', stage: c.stage }) };
+  }
+  if (deal_id) {
+    const d = getDeal(deal_id);
+    if (!d) return { error: 'deal-not-found', deal_id };
+    return { deal_id, company: d.company, stage: d.stage, persona, actions: nextActions(persona, { kind: 'deal', stage: d.stage }) };
+  }
+  return { error: 'deal_id-or-candidate_id-required' };
+}
+
 // Human-readable tool descriptions — shared so the MCP tool descriptions and any
 // docs stay identical to what the Foundry agent was provisioned with.
 export const TOOL_DESCRIPTIONS = {
@@ -177,5 +312,37 @@ export const TOOL_DESCRIPTIONS = {
     'about a named deal. Pass optional sections to narrow the view.',
   search_deals:
     'Keyword-search the pipeline across company name, sector and thesis when you do not know the ' +
-    'deal id. Returns matching deal summaries.'
+    'deal id. Returns matching deal summaries.',
+  list_pipeline:
+    'List the Stage-1 origination funnel: every candidate (id, company, sector, stage O2/O3/O4, ' +
+    'disposition, fit score) plus the funnel counts. Use to see what is being sourced and screened ' +
+    'before it becomes a deal.',
+  get_candidate:
+    'Get ONE Stage-1 candidate by id: financials, mandate-fit score, stage and the screening ' +
+    "agent's assessment. Use for anything specific about a sourced/screened target.",
+  get_candidate_artifact:
+    "Get a candidate's stage deliverable: the O2 Investment-Criteria Scorecard, the O3 Triage " +
+    'Scorecard (tiered A/B/C), or the O4 IC Pre-Screen Memo (paper-LBO returns + recommendation).',
+  get_deal_artifact:
+    "Get a deal's diligence-step deliverable by step: D1 Diligence Plan, D2 Findings / Red-Flag " +
+    'Report, D3 Final IC Memo, D4 Execution Pack (SPA terms + funds flow), or D5 Close-out & ' +
+    '100-Day Plan.',
+  get_next_actions:
+    'List the actions YOUR persona is allowed to take right now on a given deal or candidate ' +
+    '(pass deal_id or candidate_id). Always call this before acting so you propose only ' +
+    'authorized, stage-valid moves.',
+  // Action tools
+  send_to_screening: 'Send a sourced target into the screening funnel (creates an O2 candidate). Analyst/Partner only.',
+  screen_candidate: 'Record the Auto-Screen (O2) decision for a candidate: action = advance | pass | park (+ reason). Analyst/Partner only.',
+  triage_candidate: 'Record the Triage (O3) decision for a candidate: action = advance | pass | park (+ reason). Analyst/Partner only.',
+  gate_candidate: 'Record the Screening-Gate (O4) decision: action = advance (PURSUE, creates a deal) | pass | park. PARTNER only.',
+  launch_deal: 'Launch diligence on a screened deal — provisions the workspace and moves it to D1. Analyst/Partner only.',
+  advance_deal: 'Advance a deal to the next diligence step. Analyst/Partner only.',
+  approve_ic: 'Record the IC approval and advance the deal past the IC gate (D4). PARTNER only.',
+  run_step: 'Run a diligence step (by step key, e.g. D2) to produce its deliverable on the record.',
+  assign_lane: 'Assign a diligence lane (commercial | techai | operations) to an MD. Analyst/Partner only.',
+  record_finding:
+    'Record a diligence finding into a workstream lane (text, severity = positive|neutral|caution|negative|risk). ' +
+    'Sector MDs may only record into their own lane; Analyst/Partner into any lane.'
 };
+

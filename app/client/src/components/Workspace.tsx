@@ -69,9 +69,9 @@ export function Workspace({ deal, mdOptions, onAssign, onCycleChecklist, onLaunc
         setLiveTeamsUrl(r.teamsUrl);
         openExt(r.teamsUrl);
       } else if (!r.connected) {
-        setTeamsNote('Connect Microsoft 365 on the Home page to create this deal’s Teams channel.');
+        setTeamsNote('Connect Microsoft 365 on the Home page to create this deal’s Teams space.');
       } else {
-        setTeamsNote(`Couldn’t create the channel${r.error ? ` (${r.error})` : ''} — try again shortly.`);
+        setTeamsNote(`Couldn’t create the Team${r.error ? ` (${r.error})` : ''} — try again shortly.`);
       }
     } catch {
       setTeamsNote('Could not reach the server to create the Teams channel.');
@@ -90,7 +90,7 @@ export function Workspace({ deal, mdOptions, onAssign, onCycleChecklist, onLaunc
         </div>
         <div className="wsp-links">
           <button className="wsp-link teams" onClick={openTeams} disabled={teamsBusy}>
-            {teamsBusy ? 'Creating channel…' : teamsProvisioned ? 'Open Teams channel ↗' : 'Create Teams channel ↗'}
+            {teamsBusy ? 'Creating Team…' : teamsProvisioned ? 'Open in Teams ↗' : 'Create Teams space ↗'}
           </button>
           <button className="wsp-link spo" onClick={() => openExt(ws.sharePointUrl)}>Open SharePoint ↗</button>
         </div>
@@ -139,7 +139,7 @@ function Overview({ ws, onOpenExt, onOpenTeams, teamsProvisioned, onGo }: { ws: 
   // node: x,y are centre coordinates in the 960x430 viewBox
   const CX = 480, CY = 205;
   const nodes = [
-    { id: 'teams', label: 'Microsoft Teams', sub: teamsProvisioned ? (ws.teamsChannelName || 'deal channel') : 'create deal channel', x: 205, y: 70, color: '#4b53bc', act: onOpenTeams },
+    { id: 'teams', label: 'Microsoft Teams', sub: teamsProvisioned ? (ws.teamsChannelName || 'deal team') : 'create deal team', x: 205, y: 70, color: '#4b53bc', act: onOpenTeams },
     { id: 'spo', label: 'SharePoint · VDR', sub: `${ws.folders.length} folders`, x: 755, y: 70, color: '#036c70', act: () => onOpenExt(ws.sharePointUrl) },
     { id: 'checklist', label: 'DD Checklist', sub: 'request list', x: 120, y: 205, color: '#2563eb', act: () => onGo({ kind: 'checklist' }) },
     { id: 'templates', label: 'Templates', sub: `${ws.templates.length} docs`, x: 840, y: 205, color: '#b45309', act: () => onGo({ kind: 'templates' }) },

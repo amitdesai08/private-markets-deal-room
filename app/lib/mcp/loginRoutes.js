@@ -14,7 +14,7 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import {
-  discover, registerClient, pkcePair, buildAuthorizationUrl, exchangeCode, saveTokens, OAuthError
+  discover, registerClient, pkcePair, buildAuthorizationUrl, exchangeCode, saveTokensDurable, OAuthError
 } from './oauth.js';
 import { mcpProviderConfig } from '../connectors.js';
 import { config } from '../config.js';
@@ -110,7 +110,7 @@ router.get('/:provider/callback', async (req, res) => {
   try {
     const meta = { tokenEndpoint: p.tokenEndpoint };
     const tok = await exchangeCode(meta, p.clientId, p.clientSecret, String(code), p.redirectUri, p.verifier);
-    saveTokens(p.provider, {
+    await saveTokensDurable(p.provider, {
       provider: p.provider,
       mcp_url: p.mcpUrl,
       token_endpoint: p.tokenEndpoint,

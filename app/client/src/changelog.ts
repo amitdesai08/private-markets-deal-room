@@ -13,6 +13,106 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.28.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v41',
+    revision: 'ca-dealroom-orch-dev-swc--0000037',
+    title: 'Agent enablement — the 5 persona agents can now see everything and move deals forward',
+    tag: 'feature',
+    highlights: [
+      'The Deal MCP server (what the Copilot Studio persona agents connect to) grew from 3 read-only tools to 18: agents can now see the whole Stage-1 funnel (list_pipeline, get_candidate) and every step deliverable (get_candidate_artifact for the O2/O3/O4 scorecards & memos, get_deal_artifact for the D1–D5 plan/findings/IC-memo/execution/100-day-plan) — the same artifacts the dashboard renders.',
+      'Agents can now ACT: send_to_screening, screen/triage/gate_candidate, launch_deal, advance_deal, approve_ic, run_step, assign_lane and record_finding move deals forward through the pipeline — reusing the exact store logic the dashboard uses.',
+      'Every action is governed by a per-persona policy that mirrors the real fund’s separation of duties: only the Partner may PURSUE at the Screening Gate (O4) and approve at the IC (D4); each Sector MD may only record findings in its own diligence lane; the Analyst runs the top of the funnel. A get_next_actions tool tells each agent exactly what it’s allowed to do at the deal’s current stage.',
+      'The persona is resolved through a single seam (Option 1: the agent declares its persona; upgradeable to per-agent app-registration or delegated-user identity with no tool changes) and can be gated behind a dedicated deals.act write scope. The store is pinned to a single replica so the agents and the dashboard stay a consistent single-writer.'
+    ]
+  },
+  {
+    version: 'v0.27.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v40',
+    revision: 'ca-dealroom-orch-dev-swc--0000036',
+    title: 'Stage 2 built out — the full diligence-to-close deal room (D1–D5)',
+    tag: 'feature',
+    highlights: [
+      'The five Stage-2 diligence steps are no longer empty shells — each now expands to the real deliverable a US mid-market PE firm produces, grounded in fresh research across 235 findings from 100 practitioner sources (Big-4 DD guides, Bain/BCG commercial DD, Wall Street Prep, CFI, M&I/Multiple Expansion, law-firm SPA guides, ILPA, Datasite/Ansarada).',
+      'D1 Launch → a Diligence Plan: eight confirmatory workstreams (financial/QoE, commercial, legal, tax, operational, tech/cyber, HR, ESG) scoped and prioritized from the deal’s own screening-memo risks, each with the adviser a firm engages, a DD budget breakdown and a 7–9 week exclusivity timeline.',
+      'D2 Diligence → a Findings / Red-Flag Report: severity-rated findings per workstream (deal-stopper / price-adjuster / closing-condition / post-close) rolled into a go/no-go read — QoE EBITDA haircut, customer concentration, change-of-control consents, Phase I ESA and more.',
+      'D3 Synthesis → the Final IC Memo: a diligence-backed memo with returns off QoE-adjusted EBITDA (base/upside/downside MOIC & IRR vs the fund hurdle), thesis, value-creation plan, a findings-synthesis grid by workstream, key risks, exit analysis and the exact IC authorization sought.',
+      'D4 Approval → an Execution Pack (IC decision, SPA key terms, R&W insurance, conditions precedent incl. HSR, and a sources-&-uses funds flow) and D5 Archive → a Close-out & 100-Day Plan (value-creation levers, the 3-phase 100-day plan, governance/MIP/reporting, and records/audit). Deterministic and grounded first, with an AI narrative layer on D2/D3.'
+    ]
+  },
+  {
+    version: 'v0.26.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v39',
+    revision: 'ca-dealroom-orch-dev-swc--0000035',
+    title: 'Auto Screen, Triage & Screening Gate — real PE artifacts, grounded in research',
+    tag: 'feature',
+    highlights: [
+      'The three pre-gate funnel steps are no longer thin advance/pass shells — each candidate row now expands to the real deliverable a US mid-market PE firm produces at that step, grounded in research across 235 findings from 86 practitioner sources (Wall Street Prep, CFI, M&I/Multiple Expansion, Grata, Sourcescrub, DealCloud/Affinity, Axial, SPS/Bain).',
+      'O2 Auto Screen → an Investment-Criteria Scorecard: a pass/flag/fail knockout matrix over the fund’s binding criteria — sector/mandate fit, geography, EV band, positive-EBITDA (LBO viability), implied entry-multiple sanity, ESG exclusions — plus soft flags (margin/model, growth quality, ownership/actionability). Advances only when nothing fails.',
+      'O3 Triage → a weighted Triage Scorecard: six scored dimensions (investment-thesis fit, asset quality, value-creation angle, deal actionability, valuation attractiveness, competitive dynamics) roll up to a composite score and an A/B/C tier (A pursue, B monitor, C pass), with an AI value-creation angle & why-now brief.',
+      'O4 Screening Gate → an IC Pre-Screen Memo: a back-of-envelope paper LBO (entry multiple, 5x leverage, 5-yr hold) with base/upside/downside MOIC & IRR against the fund’s ≥2.0x / ≥20% hurdle, plus sourcing angle, investment thesis, key risks & mitigants, diligence priorities, proposed deal team and the precise IC ask.',
+      'Each artifact is grounded and deterministic first (real numbers from the record), with an AI narrative layer on top; the whole panel loads lazily on expand and is cached per candidate. Also fixed an id-sequence bug where a freshly booted container could mint a candidate/deal id that collided with an existing record.'
+    ]
+  },
+  {
+    version: 'v0.25.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v38',
+    revision: 'ca-dealroom-orch-dev-swc--0000034',
+    title: 'Resilient Morningstar pull + in-panel Retry on ranked targets',
+    tag: 'improvement',
+    highlights: [
+      'Fixed the intermittent “Morningstar read failed: fetch failed” on a ranked target’s expanded view. The cause was a transient network hiccup on the Morningstar MCP tool call that then got stuck in the cached detail — so re-opening the row kept showing the stale failure with no way to recover.',
+      'The Morningstar quality pull is now resilient: transient network failures (dropped sockets, DNS blips, connection resets) are automatically retried with a fresh MCP session and backoff, so a one-off failure self-heals instead of surfacing to the desk. Auth failures still surface immediately so you know to re-connect.',
+      'Added a “↻ Retry” button right in the Morningstar panel of the expanded target. It re-pulls only the Morningstar read (no filings re-fetch, no analyst-report regeneration), updates the panel in place, and refreshes the server-side cached detail so the fresh rating sticks when you re-open the row.',
+      'Hardened the OAuth token store so a Morningstar (or LSEG/Moody’s) login survives redeploys: rotated single-use refresh tokens are now persisted durably to Cosmos before use, concurrent refreshes are coalesced, and an already-rotated token self-heals from the durable copy — eliminating the “refresh token does not exist” failures after a restart. When a sign-in genuinely expires, the panel now tells you to re-connect on Home instead of implying a retry will help.'
+    ]
+  },
+  {
+    version: 'v0.24.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v36',
+    revision: 'ca-dealroom-orch-dev-swc--0000032',
+    title: 'Save the entire filing — full EDGAR documents pulled into the deal room',
+    tag: 'feature',
+    highlights: [
+      'Every filing on a ranked target’s detail panel now has a “Save entire filing” action: instead of only linking out to SEC.gov, the deal room pulls down the complete EDGAR accession — the primary document, every exhibit, the XBRL data and the full submission text — and saves them as a durable, self-contained copy.',
+      'Saved documents are persisted to the deal room’s own Azure Blob storage (the ADLS Gen2 data account, written by the app’s managed identity) and served back from our store, so the source filings survive even if the SEC link ever moves. Works for both public 10-K/10-Q/8-K filings and private-company Reg D Form D notices.',
+      'The row shows a saved badge (document count + total size), an “Open saved primary” link, and an expandable list of every saved document with individual download links. Downloads are served through a tight allow-listed path so only saved SEC documents are ever exposed.',
+      'Pulls are paced and size-capped to respect SEC EDGAR’s fair-access guidance; a local on-disk store keeps the feature fully testable in development.'
+    ]
+  },
+  {
+    version: 'v0.23.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v35',
+    revision: 'ca-dealroom-orch-dev-swc--0000031',
+    title: 'News Signals · filings + Morningstar + analyst report on ranked targets',
+    tag: 'feature',
+    highlights: [
+      'The News & Filings desk is now News Signals — restructured to mirror CxO Signals: a live news feed on the left (with tabs per source/publisher) and the companies extracted from that news on the right, each expandable to its grouped catalysts. Cleaner, signal-first, and consistent with the CxO explorer.',
+      'Filings and the Morningstar quality read have moved onto the Deal Sourcing page: every ranked target row is now expandable to a detail panel with three sections — SEC filings (10-K/10-Q/8-K for public names, Reg D Form D for private), the Morningstar rating (shown only for public tickers; private names say “no public coverage”), and a generated analyst report.',
+      'The analyst report is AI-generated and grounded in what the desk actually knows about the target — sector, EV, ownership, the live news catalysts, its filings and (for public names) the Morningstar read — producing a why-now thesis, sector outlook, competitive read, key risks and a recommendation. Falls back to a grounded deterministic note if the model is momentarily unavailable.',
+      'It works for both news-sourced and CxO-signal targets, loads lazily on expand (cached), and keeps the catalyst re-classification control on each news item.'
+    ]
+  },
+  {
+    version: 'v0.22.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v28',
+    revision: 'ca-dealroom-orch-dev-swc--0000024',
+    title: 'M365 sign-in needs no admin approval · a Team per deal',
+    tag: 'improvement',
+    highlights: [
+      'Connecting M365 no longer hits Entra’s “Need admin approval” wall: the app now requests only user-consentable Graph scopes, so you can sign in and consent yourself (no tenant-admin needed).',
+      'To make that possible, each deal now gets its OWN Microsoft Teams team (“Deal - <company>”), created with the user-consentable Team.Create permission — instead of a channel in a shared team, which required the admin-only Channel.Create. The workspace “Microsoft Teams” button opens that deal’s Team (its channel).',
+      'The deal’s Team is still provisioned at launch (off the Screening Gate) when M365 is connected, and on demand from the workspace button otherwise — idempotent, so re-opening always returns the same Team rather than creating duplicates.',
+      'Scopes are now: User.Read, Team.ReadBasic.All, Team.Create (+ offline_access/openid/profile/email) — all self-consentable; Channel.Create and ChannelMessage.Send were removed.'
+    ]
+  },
+  {
     version: 'v0.21.0',
     date: '2026-07-06',
     image: 'dealroom-app:v27',

@@ -26,11 +26,13 @@ const CLIENT_ID = config.m365.clientId;
 const CLIENT_SECRET = config.m365.clientSecret;
 const AUTHORIZE = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/authorize`;
 const TOKEN = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/token`;
-// Delegated Graph scopes: identity + Teams channel provisioning. offline_access
+// Delegated Graph scopes: identity + a Teams SPACE (team) per deal. All scopes
+// here are USER-consentable (no admin approval needed): a deal gets its own Team
+// via Team.Create, and the button opens that team's channel. offline_access
 // yields the refresh token used for headless reuse by later steps.
 const SCOPE = [
   'offline_access', 'openid', 'profile', 'email',
-  'User.Read', 'Team.ReadBasic.All', 'Team.Create', 'Channel.Create', 'ChannelMessage.Send'
+  'User.Read', 'Team.ReadBasic.All', 'Team.Create'
 ].join(' ');
 
 // Pending authorizations keyed by state (short-lived).
