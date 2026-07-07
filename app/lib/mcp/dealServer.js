@@ -1,73 +1,153 @@
-// Deal MCP server — exposes the fund's deals to Copilot Studio (or any MCP client)
+// Deal MCP server — exposes the fund's pipeline to Copilot Studio (or any MCP client)
 // over the Streamable HTTP transport, the only transport Copilot Studio supports.
 //
-// The three tools REUSE the analyst tool contracts (lib/dealTools.js) verbatim, so a
-// partner-MD Copilot Studio agent sees exactly the same bounded, size-capped deal
-// views as the in-app Foundry analyst — reading from the same Cosmos-backed store:
-//   • list_deals            — every deal as a compact summary
-//   • get_deal(deal_id,...)  — one deal as a bounded analyst view (optional sections)
-//   • search_deals(query)    — keyword filter across company / sector / thesis
+// READ tools reuse the analyst contracts (lib/dealTools.js) verbatim, so a Copilot
+// Studio agent sees exactly the same bounded, size-capped views as the in-app Foundry
+// analyst — reading from the same Cosmos-backed store:
+//   • list_deals / get_deal / search_deals        — Stage-2 deals
+//   • list_pipeline / get_candidate               — Stage-1 origination funnel
+//   • get_candidate_artifact / get_deal_artifact  — the rich step deliverables
 //
-// Stateless by design: a fresh server + transport is created per request (no session
-// affinity), so it scales cleanly across the Container App's replicas. Auth is applied
-// separately by lib/mcp/entraAuth.js on the /mcp route.
+// ACTION tools MOVE the pipeline forward, GOVERNED BY PERSONA (lib/personaPolicy.js):
+//   • send_to_screening / screen_candidate / triage_candidate / gate_candidate
+//   • launch_deal / advance_deal / approve_ic / run_step / assign_lane / record_finding
+//   • get_next_actions — what THIS persona may do now on a deal/candidate
+// Only the partner may PURSUE at the gate (O4) and approve at the IC (D4); each sector
+// MD may only touch its own diligence lane; the analyst runs the funnel. The persona is
+// resolved per call (resolvePersona) and every action is authorization-checked
+// server-side, so a tool call can never exceed the caller's persona powers.
+//
+// Stateless by design: a fresh server + transport per request (no session affinity),
+// so it scales cleanly. Entra auth is applied separately by lib/mcp/entraAuth.js on
+// /mcp; an optional MCP_WRITE_SCOPE additionally gates the ACTION tools.
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
-import { dispatchTool, TOOL_DESCRIPTIONS, DEAL_SECTIONS } from '../dealTools.js';
+import {
+  dispatchTool, TOOL_DESCRIPTIONS, DEAL_SECTIONS,
+  listPipeline, candidateView, candidateArtifactView, dealArtifactView,
+  dispatchAction, nextActionsFor
+} from '../dealTools.js';
+import { resolvePersona, PERSONAS } from '../personaPolicy.js';
 
-const SERVER_INFO = { name: 'deal-room-mcp', version: '1.0.0' };
-const TOOL_NAMES = ['list_deals', 'get_deal', 'search_deals'];
+const SERVER_INFO = { name: 'deal-room-mcp', version: '2.0.0' };
+const READ_TOOLS = ['list_deals', 'get_deal', 'search_deals', 'list_pipeline', 'get_candidate', 'get_candidate_artifact', 'get_deal_artifact', 'get_next_actions'];
+const ACTION_TOOLS = ['send_to_screening', 'screen_candidate', 'triage_candidate', 'gate_candidate', 'launch_deal', 'advance_deal', 'approve_ic', 'run_step', 'assign_lane', 'record_finding'];
+const TOOL_NAMES = [...READ_TOOLS, ...ACTION_TOOLS];
+
+// Optional extra scope required for ACTION (write) tools, beyond the base /mcp auth.
+// e.g. set MCP_WRITE_SCOPE=deals.act to require agents to hold a write scope/role.
+const WRITE_SCOPE = (process.env.MCP_WRITE_SCOPE || '').trim();
+
+const personaEnum = z.enum(PERSONAS);
+const personaArg = personaEnum.describe('The acting persona: analyst, partner, retail-md (commercial lane), ai-md (tech/AI lane), or supply-md (operations lane). Determines what you are allowed to do.');
 
 function toContent(result) {
   return { content: [{ type: 'text', text: JSON.stringify(result) }] };
 }
 
-// Build a fresh MCP server with the three deal tools registered. The Copilot Studio
-// agent orchestrates these tools itself, so they run in portfolio scope (any deal is
-// reachable by id); per-deal focus is expressed by the agent's own instructions.
-export function buildDealMcpServer() {
+// Guard applied to every ACTION tool: resolve the persona, then (if configured)
+// require the write scope/role on the caller's token.
+function actionGuard(auth, argPersona) {
+  const { persona } = resolvePersona({ argPersona, auth });
+  if (!persona) return { error: 'persona-required', detail: 'Provide a valid persona (analyst | partner | retail-md | ai-md | supply-md).' };
+  if (WRITE_SCOPE && auth?.mode === 'entra') {
+    const held = new Set([...(auth.scopes || []), ...(auth.roles || [])]);
+    if (!held.has(WRITE_SCOPE)) return { error: 'forbidden', detail: `Action tools require the "${WRITE_SCOPE}" scope/role on your token.` };
+  }
+  return { persona };
+}
+
+// Build a fresh MCP server with all read + action tools registered. `auth` is the
+// validated Entra context (req.mcpAuth) so action tools can enforce the write scope.
+export function buildDealMcpServer(auth = { mode: 'disabled' }) {
   const server = new McpServer(SERVER_INFO, { capabilities: { tools: {} } });
 
-  server.registerTool(
-    'list_deals',
+  // ---- READ: Stage-2 deals (existing contracts) ---------------------------
+  server.registerTool('list_deals',
     { title: 'List deals', description: TOOL_DESCRIPTIONS.list_deals, inputSchema: {} },
-    async () => toContent(dispatchTool('list_deals', {}, { scope: 'portfolio' }))
-  );
+    async () => toContent(dispatchTool('list_deals', {}, { scope: 'portfolio' })));
 
-  server.registerTool(
-    'get_deal',
+  server.registerTool('get_deal',
     {
-      title: 'Get deal',
-      description: TOOL_DESCRIPTIONS.get_deal,
+      title: 'Get deal', description: TOOL_DESCRIPTIONS.get_deal,
       inputSchema: {
-        deal_id: z.string().describe('The deal id (from list_deals or search_deals), e.g. "screened-1-cand-new-1".'),
-        sections: z
-          .array(z.enum(DEAL_SECTIONS))
-          .optional()
-          .describe('Optional subset of the deal view to return (summary, financials, workstreams, memo, compliance, risks, activity). Omit for the default analyst view.')
+        deal_id: z.string().describe('The deal id (from list_deals or search_deals).'),
+        sections: z.array(z.enum(DEAL_SECTIONS)).optional().describe('Optional subset: summary, financials, workstreams, memo, compliance, risks, activity.')
       }
     },
-    async ({ deal_id, sections }) => toContent(dispatchTool('get_deal', { deal_id, sections }, { scope: 'portfolio' }))
+    async ({ deal_id, sections }) => toContent(dispatchTool('get_deal', { deal_id, sections }, { scope: 'portfolio' })));
+
+  server.registerTool('search_deals',
+    { title: 'Search deals', description: TOOL_DESCRIPTIONS.search_deals, inputSchema: { query: z.string().describe('Keywords, e.g. a company name or a sector.') } },
+    async ({ query }) => toContent(dispatchTool('search_deals', { query }, { scope: 'portfolio' })));
+
+  // ---- READ: Stage-1 funnel + artifacts -----------------------------------
+  server.registerTool('list_pipeline',
+    { title: 'List pipeline', description: TOOL_DESCRIPTIONS.list_pipeline, inputSchema: {} },
+    async () => toContent(listPipeline()));
+
+  server.registerTool('get_candidate',
+    { title: 'Get candidate', description: TOOL_DESCRIPTIONS.get_candidate, inputSchema: { candidate_id: z.string().describe('The candidate id (from list_pipeline).') } },
+    async ({ candidate_id }) => toContent(candidateView(candidate_id)));
+
+  server.registerTool('get_candidate_artifact',
+    { title: 'Get candidate artifact', description: TOOL_DESCRIPTIONS.get_candidate_artifact, inputSchema: { candidate_id: z.string().describe('The candidate id.') } },
+    async ({ candidate_id }) => toContent(await candidateArtifactView(candidate_id)));
+
+  server.registerTool('get_deal_artifact',
+    {
+      title: 'Get deal artifact', description: TOOL_DESCRIPTIONS.get_deal_artifact,
+      inputSchema: { deal_id: z.string().describe('The deal id.'), step: z.enum(['D1', 'D2', 'D3', 'D4', 'D5']).describe('The diligence step: D1 plan, D2 findings, D3 final memo, D4 execution, D5 close-out.') }
+    },
+    async ({ deal_id, step }) => toContent(await dealArtifactView(deal_id, step)));
+
+  server.registerTool('get_next_actions',
+    {
+      title: 'Get next actions', description: TOOL_DESCRIPTIONS.get_next_actions,
+      inputSchema: { persona: personaArg, deal_id: z.string().optional().describe('A deal id.'), candidate_id: z.string().optional().describe('A candidate id.') }
+    },
+    async ({ persona, deal_id, candidate_id }) => {
+      const { persona: p } = resolvePersona({ argPersona: persona, auth });
+      if (!p) return toContent({ error: 'persona-required' });
+      return toContent(nextActionsFor(p, { deal_id, candidate_id }));
+    });
+
+  // ---- ACTION tools (persona-governed writes) -----------------------------
+  const action = (name, extraSchema, mapArgs) => server.registerTool(
+    name,
+    { title: name, description: TOOL_DESCRIPTIONS[name], inputSchema: { persona: personaArg, ...extraSchema } },
+    async (args) => {
+      const guard = actionGuard(auth, args.persona);
+      if (guard.error) return toContent(guard);
+      return toContent(await dispatchAction(name, mapArgs(args), { persona: guard.persona }));
+    }
   );
 
-  server.registerTool(
-    'search_deals',
-    {
-      title: 'Search deals',
-      description: TOOL_DESCRIPTIONS.search_deals,
-      inputSchema: { query: z.string().describe('Keywords, e.g. a company name or a sector.') }
-    },
-    async ({ query }) => toContent(dispatchTool('search_deals', { query }, { scope: 'portfolio' }))
-  );
+  const dispositionArg = z.enum(['advance', 'pass', 'park']).describe('advance | pass | park.');
+  const reasonArg = z.string().optional().describe('Reason code / note for a pass or park.');
+
+  action('send_to_screening', { target_id: z.string().describe('The sourced target / desk id to send to screening.') }, (a) => ({ target_id: a.target_id, desk_id: a.target_id }));
+  action('screen_candidate', { candidate_id: z.string(), action: dispositionArg, reason: reasonArg }, (a) => ({ candidate_id: a.candidate_id, action: a.action, reason: a.reason }));
+  action('triage_candidate', { candidate_id: z.string(), action: dispositionArg, reason: reasonArg }, (a) => ({ candidate_id: a.candidate_id, action: a.action, reason: a.reason }));
+  action('gate_candidate', { candidate_id: z.string(), action: dispositionArg, reason: reasonArg }, (a) => ({ candidate_id: a.candidate_id, action: a.action, reason: a.reason }));
+  action('launch_deal', { deal_id: z.string() }, (a) => ({ deal_id: a.deal_id }));
+  action('advance_deal', { deal_id: z.string() }, (a) => ({ deal_id: a.deal_id }));
+  action('approve_ic', { deal_id: z.string() }, (a) => ({ deal_id: a.deal_id }));
+  action('run_step', { deal_id: z.string(), step: z.string().describe('The step key, e.g. D2.') }, (a) => ({ deal_id: a.deal_id, step: a.step }));
+  action('assign_lane', { deal_id: z.string(), lane: z.enum(['commercial', 'techai', 'operations']), md: z.string().describe('The MD id, e.g. supply-md.') }, (a) => ({ deal_id: a.deal_id, lane: a.lane, md: a.md }));
+  action('record_finding',
+    { deal_id: z.string(), lane: z.enum(['commercial', 'techai', 'operations']).optional().describe('Lane; defaults to your own lane for sector MDs.'), text: z.string().describe('The finding.'), severity: z.enum(['positive', 'neutral', 'caution', 'negative', 'risk']).optional(), source: z.string().optional() },
+    (a) => ({ deal_id: a.deal_id, lane: a.lane, text: a.text, severity: a.severity, source: a.source }));
 
   return server;
 }
 
-// Express handler for POST /mcp — stateless Streamable HTTP.
+// Express handler for POST /mcp — stateless Streamable HTTP. Passes the validated
+// Entra context so action tools can enforce persona + write scope.
 export async function dealMcpHandler(req, res) {
-  const server = buildDealMcpServer();
+  const server = buildDealMcpServer(req.mcpAuth || { mode: 'disabled' });
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   res.on('close', () => {
     transport.close();
@@ -97,5 +177,5 @@ export function dealMcpMethodNotAllowed(_req, res) {
 }
 
 export function dealMcpInfo() {
-  return { server: SERVER_INFO.name, version: SERVER_INFO.version, tools: TOOL_NAMES };
+  return { server: SERVER_INFO.name, version: SERVER_INFO.version, readTools: READ_TOOLS, actionTools: ACTION_TOOLS, writeScope: WRITE_SCOPE || null, toolCount: TOOL_NAMES.length };
 }

@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.28.0',
+    date: '2026-07-06',
+    image: 'dealroom-app:v41',
+    revision: 'ca-dealroom-orch-dev-swc--0000037',
+    title: 'Agent enablement — the 5 persona agents can now see everything and move deals forward',
+    tag: 'feature',
+    highlights: [
+      'The Deal MCP server (what the Copilot Studio persona agents connect to) grew from 3 read-only tools to 18: agents can now see the whole Stage-1 funnel (list_pipeline, get_candidate) and every step deliverable (get_candidate_artifact for the O2/O3/O4 scorecards & memos, get_deal_artifact for the D1–D5 plan/findings/IC-memo/execution/100-day-plan) — the same artifacts the dashboard renders.',
+      'Agents can now ACT: send_to_screening, screen/triage/gate_candidate, launch_deal, advance_deal, approve_ic, run_step, assign_lane and record_finding move deals forward through the pipeline — reusing the exact store logic the dashboard uses.',
+      'Every action is governed by a per-persona policy that mirrors the real fund’s separation of duties: only the Partner may PURSUE at the Screening Gate (O4) and approve at the IC (D4); each Sector MD may only record findings in its own diligence lane; the Analyst runs the top of the funnel. A get_next_actions tool tells each agent exactly what it’s allowed to do at the deal’s current stage.',
+      'The persona is resolved through a single seam (Option 1: the agent declares its persona; upgradeable to per-agent app-registration or delegated-user identity with no tool changes) and can be gated behind a dedicated deals.act write scope. The store is pinned to a single replica so the agents and the dashboard stay a consistent single-writer.'
+    ]
+  },
+  {
     version: 'v0.27.0',
     date: '2026-07-06',
     image: 'dealroom-app:v40',

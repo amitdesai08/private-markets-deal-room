@@ -521,8 +521,13 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
+        // Pinned to a single replica: the app's store is an in-memory source of
+        // truth persisted to Cosmos, so it must stay single-writer. Multiple
+        // replicas (with the UI AND the persona agents both writing) would let the
+        // in-memory copies diverge. Scale-out requires making writes Cosmos-
+        // authoritative (optimistic concurrency) first — see agent enablement plan.
         minReplicas: 1
-        maxReplicas: 3
+        maxReplicas: 1
       }
     }
   }

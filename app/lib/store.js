@@ -1328,6 +1328,12 @@ export function getPipeline() {
   };
 }
 
+// Public view of ONE candidate by id (for the deal tools / agents).
+export function getCandidatePublic(id) {
+  const c = candidates.find((x) => x.id === id);
+  return c ? publicCandidate(c) : null;
+}
+
 export function getPassReasons() {
   return { pass: PASS_REASONS, park: PARK_REASONS };
 }
@@ -1538,6 +1544,28 @@ export function cycleChecklistItem(id, itemId) {
     }
   }
   return { error: 'item-not-found' };
+}
+
+// Record a diligence FINDING into a workstream lane (used by the sector-MD agents).
+// Bumps the lane's progress and marks it in-progress; the persona/lane authorization
+// is enforced upstream (personaPolicy) before this is called.
+const VALID_SEVERITY = new Set(['positive', 'neutral', 'caution', 'negative', 'risk']);
+export function recordFinding(id, lane, { text, severity = 'neutral', source = 'Diligence', by } = {}) {
+  const deal = getDealRaw(id);
+  if (!deal) return { error: 'not-found' };
+  const ws = (deal.workstreams || []).find((w) => w.lane === lane);
+  if (!ws) return { error: 'lane-not-found' };
+  const t = String(text || '').trim().slice(0, 600);
+  if (!t) return { error: 'text-required' };
+  const sev = VALID_SEVERITY.has(severity) ? severity : 'neutral';
+  ws.findings = ws.findings || [];
+  ws.findings.unshift({ text: t, severity: sev, source: String(source || 'Diligence').slice(0, 60) });
+  ws.status = ws.status === 'not_started' ? 'in_progress' : ws.status;
+  ws.progress = Math.min(100, (ws.progress || 0) + 15);
+  deal.activity.unshift({ actor: by || 'Diligence agent', action: `Recorded a ${sev} finding in the ${lane} lane`, when: new Date().toISOString() });
+  persistDeal(deal);
+  logEvent(deal.id, 'finding-recorded', { lane, severity: sev, by: by || null });
+  return { ok: true, deal: getDeal(id) };
 }
 
 export function advanceDeal(id) {
