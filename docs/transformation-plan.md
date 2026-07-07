@@ -9,13 +9,13 @@
 ---
 
 ## Wave 0 — Finish the current surfaces (quick wins, days)
-| # | Task | Type | Done when |
-|---|---|---|---|
-| 0.1 | Complete **M365 Copilot** agent: create the Teams Developer Portal OAuth registration for MCP app `043b18b9`, paste `reference_id` into `teams-app/declarative-agent/apiPlugin.json`, add `copilotAgents` to the manifest, repackage. | ☁️💬 | Copilot answers a deal question via `/mcp` |
-| 0.2 | **Per-user data scoping** in the tab: backend accepts the SSO/OBO user token, `app/lib` filters deals by persona/entitlement; injected bootstrap sends `getAuthToken()`. | 🧩💬 | Tab shows the signed-in user's persona view, not anonymous |
-| 0.3 | Wire **Content Safety** into agent I/O (`app/lib/ai.js` request/response shields). | 🧩 | Prompt-shield + output moderation on every model call |
-| 0.4 | Turn on **health-probe-aware** rollouts + pin dev images by digest in CI (avoid stack-redeploy image reverts). | ⚙️ | `deal-room-app.yml` deploys by digest; stack redeploy safe |
-| 0.5 | Deploy the **news scout** Foundry agent (needs a Grounding-with-Bing connection in `ai` module). | ⚙️🤖 | `/api/config` `newsAgent: live` |
+| # | Task | Type | Status | Done when |
+|---|---|---|---|---|
+| 0.1 | Complete **M365 Copilot** agent: create the Teams Developer Portal OAuth registration for MCP app `043b18b9`, paste `reference_id` into `apiPlugin.json`, repackage. | ☁️💬 | 🟡 **Packaged** — `deal-mcp-openapi.yaml` filled (host/tenant/client), `build_manifest.py --copilot` bundles the agent + emits `copilotAgents`. Only the TDP OAuth registration id remains (manual, portal). | Copilot answers a deal question via `/mcp` |
+| 0.2 | **Per-user data scoping** in the tab: backend accepts the SSO/OBO user token, `app/lib` filters deals by persona/entitlement; injected bootstrap sends `getAuthToken()`. | 🧩💬 | 🔴 Needs an entitlement model (product decision) + backend token validation. | Tab shows the signed-in user's persona view, not anonymous |
+| 0.3 | Wire **Content Safety** into the deal-agent chat (fail-open guard on user input). | 🧩 | ✅ **Done** — `lib/contentSafety.js` screens `chatDealAgent` input; UAMI has *Cognitive Services User* on `cs-dealhub`; `CONTENT_SAFETY_ENDPOINT` set; live on rev 0000008. | Egregious input is refused; business text passes |
+| 0.4 | Pin dev images **by digest** in CI (avoid stack-redeploy image reverts). | ⚙️ | ✅ **Done** — `deal-room-app.yml` deploys the `${{ github.sha }}` tag; manual updates use digest. | `deal-room-app.yml` deploys by digest; stack redeploy safe |
+| 0.5 | Deploy the **news scout** Foundry agent (needs a Grounding-with-Bing connection in `ai` module). | ⚙️🤖 | 🔴 Blocked on a Grounding-with-Bing connection (marketplace/portal). | `/api/config` `newsAgent: live` |
 
 ---
 
