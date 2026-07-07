@@ -40,28 +40,56 @@ export async function siteProxy(req, res) {
   }
 }
 
-// The injected bootstrap: initialize Teams, map theme onto the Deal Room client's
-// :root CSS variables, and signal the tab loaded successfully.
-export const TEAMS_BOOTSTRAP_JS = `(function () {  function applyTheme(theme) {
-    var r = document.documentElement;
-    r.setAttribute('data-teams-theme', theme || 'default');
-    if (theme === 'dark') {
-      r.style.setProperty('--bg', '#1f1f1f');
-      r.style.setProperty('--fg', '#f3f3f3');
-      r.style.setProperty('--panel', '#2b2b2b');
-    } else if (theme === 'contrast') {
-      r.style.setProperty('--bg', '#000000');
-      r.style.setProperty('--fg', '#ffffff');
-      r.style.setProperty('--panel', '#000000');
-    }
+// The injected bootstrap: initialize Teams, map the Teams theme onto the Deal
+// Room client's REAL :root variables (with a proper dark + high-contrast
+// palette), and — when the channel tab is scoped to a single deal (?deal=…) —
+// apply a focused layout that hides the portfolio nav for a native fit.
+export const TEAMS_BOOTSTRAP_JS = `(function () {
+  var params = new URLSearchParams(window.location.search);
+  var focused = !!params.get('deal');
+
+  // Deal-scoped channel: Teams provides the channel context, so hide the app's
+  // portfolio spine + top bar and give the single deal full width.
+  var LAYOUT = focused
+    ? '.spine{display:none !important;}.dealbar{display:none !important;}.app{grid-template-columns:1fr !important;}'
+    : '';
+
+  var DARK = ':root{' +
+    '--ink:#e6eaf2;--ink-2:#c5cede;--muted:#9aa7bd;--faint:#6b7890;' +
+    '--line:#2a3547;--line-2:#222b3a;--surface:#1b2233;--canvas:#141a27;--canvas-2:#1b2233;' +
+    '--primary:#5b8cff;--primary-tint:#1e2a44;--blue:#5b8cff;' +
+    '--orange:#fb923c;--orange-tint:#3a2417;--green:#4ade80;--green-tint:#16301f;' +
+    '--positive:#2dd4bf;--positive-tint:#123027;--amber:#fbbf24;--amber-tint:#332a12;--danger:#f87171;' +
+    '--shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);' +
+    '--shadow-lg:0 20px 55px rgba(0,0,0,.55);}' +
+    'body{background:var(--canvas);color:var(--ink);}';
+
+  var CONTRAST = ':root{' +
+    '--ink:#ffffff;--ink-2:#ffffff;--muted:#ffff00;--faint:#ffff00;' +
+    '--line:#ffffff;--line-2:#ffffff;--surface:#000000;--canvas:#000000;--canvas-2:#000000;' +
+    '--primary:#ffff00;--primary-tint:#000000;--blue:#00ebff;--green:#3ff23f;--positive:#3ff23f;--danger:#ff5c5c;}' +
+    'body{background:#000;color:#fff;}';
+
+  function skin(theme) {
+    var el = document.getElementById('teams-skin');
+    if (!el) { el = document.createElement('style'); el.id = 'teams-skin'; (document.head || document.documentElement).appendChild(el); }
+    var css = LAYOUT;
+    if (theme === 'dark') css += DARK;
+    else if (theme === 'contrast') css += CONTRAST;
+    el.textContent = css;
+    document.documentElement.setAttribute('data-teams-theme', theme || 'default');
   }
+
+  // Apply layout immediately so there's no flash of the full portfolio shell.
+  skin('default');
+
   try {
     if (window.microsoftTeams) {
       microsoftTeams.app.initialize()
         .then(function () { return microsoftTeams.app.getContext(); })
         .then(function (ctx) {
-          applyTheme(ctx && ctx.app && ctx.app.theme);
-          microsoftTeams.app.registerOnThemeChangeHandler(applyTheme);
+          skin(ctx && ctx.app && ctx.app.theme);
+          microsoftTeams.app.registerOnThemeChangeHandler(skin);
           microsoftTeams.app.notifySuccess();
         })
         .catch(function () {});
@@ -69,9 +97,8 @@ export const TEAMS_BOOTSTRAP_JS = `(function () {  function applyTheme(theme) {
   } catch (e) {}
 })();`;
 
-// Channel-tab configuration page. Teams loads this when adding the tab; it
-// auto-configures the content URL to this app's embedded dashboard so the user
-// only has to click Save.
+// Channel-tab configuration page. Lets the user scope the channel to a single
+// deal (or the whole portfolio), then configures the content URL accordingly.
 export const TEAMS_CONFIG_HTML = `<!doctype html>
 <html>
   <head>
@@ -81,34 +108,53 @@ export const TEAMS_CONFIG_HTML = `<!doctype html>
     <script src="https://res.cdn.office.net/teams-js/2.31.1/js/MicrosoftTeams.min.js"></script>
     <style>
       body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 24px; color: #242424; }
-      h3 { margin: 0 0 8px; }
-      p { color: #616161; }
+      h3 { margin: 0 0 6px; }
+      p { color: #616161; margin: 0 0 16px; }
+      label { display: block; font-weight: 600; margin-bottom: 6px; }
+      select { width: 100%; max-width: 420px; padding: 8px 10px; border-radius: 6px; border: 1px solid #d1d1d1; font-size: 14px; }
     </style>
   </head>
   <body>
     <h3>The Deal Room</h3>
-    <p>Add the Deal Room dashboard to this channel. Click <b>Save</b> to finish.</p>
+    <p>Choose what this channel tab shows, then click <b>Save</b>.</p>
+    <label for="scope">Scope</label>
+    <select id="scope"><option value="">Whole portfolio (dashboard)</option></select>
     <script>
       (function () {
-        function ready() {
+        var sel = document.getElementById('scope');
+        var deals = [];
+        function labelFor(d) { return d.company || d.name || d.title || d.id; }
+        function apply() {
           var origin = window.location.origin;
+          var id = sel.value;
+          var deal = deals.filter(function (d) { return d.id === id; })[0];
+          var content = origin + '/?surface=teams' + (id ? '&deal=' + encodeURIComponent(id) : '');
+          return microsoftTeams.pages.config.setConfig({
+            entityId: id ? 'dealroom-deal-' + id : 'dealroom-dashboard',
+            contentUrl: content,
+            websiteUrl: content,
+            suggestedDisplayName: deal ? labelFor(deal) : 'Deal Room'
+          });
+        }
+        function ready() {
           microsoftTeams.pages.config.registerOnSaveHandler(function (saveEvent) {
-            microsoftTeams.pages.config
-              .setConfig({
-                entityId: 'dealroom-dashboard',
-                contentUrl: origin + '/',
-                websiteUrl: origin + '/',
-                suggestedDisplayName: 'Deal Room'
-              })
+            apply()
               .then(function () { saveEvent.notifySuccess(); })
               .catch(function () { saveEvent.notifyFailure('config failed'); });
           });
           microsoftTeams.pages.config.setValidityState(true);
           microsoftTeams.app.notifySuccess();
+          // Populate the deal list from the shared backend (single data source).
+          fetch('/api/deals').then(function (r) { return r.ok ? r.json() : []; }).then(function (list) {
+            deals = Array.isArray(list) ? list : (list.deals || []);
+            deals.forEach(function (d) {
+              var o = document.createElement('option');
+              o.value = d.id; o.textContent = labelFor(d);
+              sel.appendChild(o);
+            });
+          }).catch(function () {});
         }
-        try {
-          microsoftTeams.app.initialize().then(ready).catch(function () {});
-        } catch (e) {}
+        try { microsoftTeams.app.initialize().then(ready).catch(function () {}); } catch (e) {}
       })();
     </script>
   </body>

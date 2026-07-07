@@ -8,7 +8,11 @@ import { sendAdaptiveCardToAll } from './bot.js';
 export function buildDealCard(event = {}) {
   const title = event.title || 'Deal Room update';
   const facts = Object.entries(event.facts || {}).map(([k, v]) => ({ title: k, value: String(v) }));
-  const deepLink = event.deepLink || config.server.appBaseUrl || '';
+  const deepLink =
+    event.deepLink ||
+    (config.server.appBaseUrl
+      ? config.server.appBaseUrl + (event.dealId ? '/?surface=teams&deal=' + encodeURIComponent(event.dealId) : '/')
+      : '');
 
   const body = [{ type: 'TextBlock', size: 'Medium', weight: 'Bolder', text: title, wrap: true }];
   if (event.summary) body.push({ type: 'TextBlock', text: event.summary, wrap: true, spacing: 'Small' });

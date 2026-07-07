@@ -42,12 +42,18 @@ export default function App() {
       setDeals(ds);
       // Empty start: there may be no deals yet — the pipeline fills as real
       // companies are sourced and pursued through the Screening Gate.
-      if (ds.length > 0) {
-        const first = await api.deal(ds[0].id);
-        setDeal(first);
+      // Deep-link: a Teams channel (or a shared link) can scope to one deal via
+      // ?deal=<id> — open that deal's workspace; otherwise land on Home.
+      const wantDeal = new URLSearchParams(window.location.search).get('deal');
+      const scoped = !!wantDeal && ds.some((d) => d.id === wantDeal);
+      const target = scoped ? wantDeal! : ds[0]?.id;
+      if (target) {
+        const d = await api.deal(target);
+        setDeal(d);
+        setViewStep(scoped ? d.currentStep : HOME);
+      } else {
+        setViewStep(HOME);
       }
-      // Land on the Home command centre — not whatever step the first deal is on.
-      setViewStep(HOME);
       api.pipeline().then(setPipeline).catch(() => {});
       api.mdOptions().then(setMdOptions).catch(() => {});
       setReady(true);

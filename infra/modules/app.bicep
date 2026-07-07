@@ -125,6 +125,21 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             cpu: json('0.5')
             memory: '1Gi'
           }
+          probes: [
+            {
+              type: 'Liveness'
+              httpGet: { path: '/api/health', port: containerTargetPort }
+              initialDelaySeconds: 15
+              periodSeconds: 30
+            }
+            {
+              type: 'Readiness'
+              httpGet: { path: '/api/health', port: containerTargetPort }
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              failureThreshold: 6
+            }
+          ]
           env: [
             { name: 'PORT', value: string(containerTargetPort) }
             { name: 'AZURE_OPENAI_ENDPOINT', value: foundryEndpoint }
@@ -190,6 +205,21 @@ resource teamsApp 'Microsoft.App/containerApps@2024-03-01' = if (deployTeamsApp)
             cpu: json('0.5')
             memory: '1Gi'
           }
+          probes: [
+            {
+              type: 'Liveness'
+              httpGet: { path: '/healthz', port: teamsTargetPort }
+              initialDelaySeconds: 15
+              periodSeconds: 30
+            }
+            {
+              type: 'Readiness'
+              httpGet: { path: '/healthz', port: teamsTargetPort }
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              failureThreshold: 6
+            }
+          ]
           env: [
             { name: 'PORT', value: string(teamsTargetPort) }
             { name: 'AZURE_CLIENT_ID', value: uamiClientId }
