@@ -23,7 +23,7 @@ import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scorin
 import { buildScorecard, buildTriageScore, buildMemoBase } from './screening.js';
 import { buildDiligencePlan, buildFindingsReport, buildFinalMemoBase, buildExecutionPack, buildCloseoutPlan } from './diligence.js';
 import { buildWorkspace, checklistStats, MD_OPTIONS, WORKSTREAM_DEFAULTS, ensureWorkspaceSwimlanes, LANE_ORDER } from '../data/workspace.js';
-import { ensureDealChannel, provisionDealFolders, m365Connected } from './m365/graph.js';
+import { ensureDealChannel, provisionDealFolders, m365Connected, publishTeamToGroup } from './m365/graph.js';
 import { generateAnalystReport } from './analystReport.js';
 import {
   PASS_REASONS,
@@ -1774,6 +1774,16 @@ async function provisionDealChannel(deal) {
     }
   }
 
+  // Auto-publish the channel to every member of the "Private Equity Deals" group.
+  if (channel.teamId) {
+    try {
+      const pub = await publishTeamToGroup(channel.teamId);
+      logEvent(deal.id, 'teams-published', pub);
+    } catch (err) {
+      logEvent(deal.id, 'teams-publish-error', { error: String(err?.message || err).slice(0, 160) });
+    }
+  }
+
   // Provision the SharePoint VDR folders (best-effort — never block launch/Teams).
   if (channel.teamId && deal.workspace) {
     try {
@@ -1832,6 +1842,21 @@ export async function provisionAllDealChannels() {
     }
   }
   return { ok: true, connected: true, provisioned, total: deals.length, deals: results };
+}
+
+// Resolve the deal whose provisioned Teams team matches the given id (AAD group
+// id, team id or channel/thread id) — used by the in-channel bot to map a
+// conversation to its deal.
+export function dealForTeam(teamId) {
+  if (!teamId) return null;
+  const t = String(teamId);
+  const enc = encodeURIComponent(t);
+  const d = deals.find((x) => {
+    const tc = x.teamsChannel || {};
+    const url = (x.workspace && x.workspace.teamsUrl) || '';
+    return tc.teamId === t || tc.channelId === t || url.includes(t) || url.includes(enc);
+  });
+  return d ? { dealId: d.id, company: d.company } : null;
 }
 
 export function getMdOptions() {

@@ -63,6 +63,7 @@ import {
   getDealArtifact,
   ensureDealTeamsChannel,
   provisionAllDealChannels,
+  dealForTeam,
   getMdOptions,
   assignSwimlane,
   recordContribution,
@@ -240,6 +241,13 @@ api.post('/deals/:id/teams/ensure', async (req, res) => {
 // backfill used to auto-create channels for all deals + force existing ones to threads.
 api.post('/deals/teams/ensure-all', async (_req, res) => {
   res.json(await provisionAllDealChannels());
+});
+// Resolve the deal that owns a given Teams team/channel id — used by the in-channel
+// conversational bot to map a message to its deal.
+api.get('/deals/resolve-team/:teamId', (req, res) => {
+  const r = dealForTeam(req.params.teamId);
+  if (!r) return res.status(404).json({ error: 'no-deal-for-team' });
+  res.json(r);
 });
 api.patch('/deals/:id/swimlanes/:lane', async (req, res) => {
   const r = await assignSwimlane(req.params.id, req.params.lane, req.body?.md);

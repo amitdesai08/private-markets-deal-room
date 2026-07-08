@@ -42,7 +42,7 @@ export async function initBot() {
       this.onMessage(async (context, next) => {
         const ref = TurnContext.getConversationReference(context.activity);
         conversationReferences.set(ref.conversation.id, ref);
-        await context.sendActivity('The Deal Room notifier is connected — deal alerts will appear here.');
+        await handleDealMessage(context, TurnContext);
         await next();
       });
     }
@@ -54,6 +54,49 @@ export async function initBot() {
 
 export function getConversationReferences() {
   return conversationReferences;
+}
+
+// ---- In-channel conversational agent ---------------------------------------
+// A deal channel ("Deal - <company>") maps to exactly one deal. When a member
+// @mentions the bot (or messages it) in that channel, resolve the deal from the
+// channel's team and relay the message to the shared deal agent, replying in the
+// same thread. The bot holds no data — it forwards to /api/deal-agent/chat.
+function teamIdsFromActivity(activity) {
+  const cd = activity.channelData || {};
+  const ids = [cd.team?.aadGroupId, cd.team?.id, cd.channel?.id, activity.conversation?.id];
+  return [...new Set(ids.filter(Boolean))];
+}
+
+async function resolveDealId(activity, base) {
+  for (const tid of teamIdsFromActivity(activity)) {
+    try {
+      const r = await fetch(`${base}/api/deals/resolve-team/${encodeURIComponent(tid)}`);
+      if (r.ok) { const d = await r.json(); if (d?.dealId) return d.dealId; }
+    } catch { /* try the next candidate id */ }
+  }
+  return null;
+}
+
+async function handleDealMessage(context, TurnContext) {
+  let text = '';
+  try { text = (TurnContext.removeRecipientMention(context.activity) || context.activity.text || '').trim(); }
+  catch { text = (context.activity.text || '').trim(); }
+  if (!text) { await context.sendActivity('Ask me about this deal — e.g. “Summarise the diligence risks” or “What’s the IC readiness?”'); return; }
+  const base = config.backend.url;
+  if (!base) { await context.sendActivity('The deal agent backend is not configured.'); return; }
+  const dealId = await resolveDealId(context.activity, base);
+  if (!dealId) { await context.sendActivity("I couldn’t match this channel to a deal — open it from the Deal Dashboard tab first."); return; }
+  try {
+    await context.sendActivities([{ type: 'typing' }]);
+    const r = await fetch(`${base}/api/deal-agent/chat`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: text, dealId, scope: 'deal' }),
+    });
+    const data = await r.json().catch(() => ({}));
+    await context.sendActivity(data?.reply || data?.error || "I don’t have an answer right now.");
+  } catch (err) {
+    await context.sendActivity(`The deal agent hit an error — ${String(err?.message || err).slice(0, 140)}`);
+  }
 }
 
 // Post an Adaptive Card to every channel the bot has been installed in.

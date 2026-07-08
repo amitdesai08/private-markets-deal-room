@@ -104,6 +104,39 @@ async function setChannelThreads(teamId) {
   }
 }
 
+// Auto-publish a deal team to every member of the "Private Equity Deals" group,
+// so each deal channel is visible to the whole PE deal team. Best-effort +
+// idempotent (a user already on the team returns 4xx which we ignore). Needs
+// GroupMember.Read.All + TeamMember.ReadWrite.All (admin-consented).
+const PUBLISH_GROUP = 'Private Equity Deals';
+export async function publishTeamToGroup(teamId, groupName = PUBLISH_GROUP) {
+  if (!teamId) return { added: 0, reason: 'no-team' };
+  try {
+    const g = await graph(`/groups?$filter=displayName eq '${String(groupName).replace(/'/g, "''")}'&$select=id`);
+    const groupId = g?.value?.[0]?.id;
+    if (!groupId) return { added: 0, reason: 'group-not-found' };
+    const members = await graph(`/groups/${groupId}/members?$select=id,userPrincipalName&$top=999`);
+    let added = 0;
+    for (const m of (members?.value || [])) {
+      if (!m.id) continue;
+      try {
+        await graph(`/teams/${teamId}/members`, {
+          method: 'POST',
+          body: {
+            '@odata.type': '#microsoft.graph.aadUserConversationMember',
+            roles: [],
+            'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${m.id}')`
+          }
+        });
+        added++;
+      } catch { /* already a member / not addable — ignore */ }
+    }
+    return { added, groupId, total: (members?.value || []).length };
+  } catch (err) {
+    return { added: 0, error: String(err?.message || err).slice(0, 160) };
+  }
+}
+
 // Idempotently ensure THIS deal has its own team; returns its live coordinates
 // (webUrl opens the team / its General channel). Reuses the team recorded on the
 // deal, or an existing joined team with the same name, before creating a new one.

@@ -39,9 +39,11 @@ const SCOPE = [
   'offline_access', 'openid', 'profile', 'email',
   'User.Read', 'Team.ReadBasic.All', 'Team.Create',
   // ChannelSettings.ReadWrite.All lets us set the deal channel to the "chat"/threads
-  // layout; Sites/Files.ReadWrite.All provision the deal SharePoint VDR folders.
-  // All three need tenant-ADMIN consent — available now that a Global Admin connects.
-  'ChannelSettings.ReadWrite.All', 'Sites.ReadWrite.All', 'Files.ReadWrite.All'
+  // layout; Sites/Files.ReadWrite.All provision the deal SharePoint VDR folders;
+  // GroupMember.Read.All + TeamMember.ReadWrite.All auto-publish the channel to the
+  // "Private Equity Deals" group members. All need tenant-ADMIN consent (Global Admin).
+  'ChannelSettings.ReadWrite.All', 'Sites.ReadWrite.All', 'Files.ReadWrite.All',
+  'GroupMember.Read.All', 'TeamMember.ReadWrite.All'
 ].join(' ');
 
 // Pending authorizations keyed by state (short-lived).
