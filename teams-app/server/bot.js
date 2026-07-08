@@ -33,10 +33,16 @@ export async function initBot() {
   class DealRoomBot extends TeamsActivityHandler {
     constructor() {
       super();
-      // Remember where to post proactive cards.
+      // Remember where to post proactive cards, and greet the channel with its
+      // deal context when the app/bot is added.
       this.onConversationUpdate(async (context, next) => {
         const ref = TurnContext.getConversationReference(context.activity);
         conversationReferences.set(ref.conversation.id, ref);
+        const added = context.activity.membersAdded || [];
+        const botId = context.activity.recipient?.id;
+        if (added.some((m) => m && m.id === botId)) {
+          try { await sendWelcome(context); } catch { /* non-fatal */ }
+        }
         await next();
       });
       this.onMessage(async (context, next) => {
@@ -57,43 +63,68 @@ export function getConversationReferences() {
 }
 
 // ---- In-channel conversational agent ---------------------------------------
-// A deal channel ("Deal - <company>") maps to exactly one deal. When a member
-// @mentions the bot (or messages it) in that channel, resolve the deal from the
-// channel's team and relay the message to the shared deal agent, replying in the
-// same thread. The bot holds no data — it forwards to /api/deal-agent/chat.
+// A deal channel ("Deal - <company>") maps to exactly one deal. The bot works out
+// WHICH deal from the channel's team, then relays messages to the shared deal
+// agent — which calls Microsoft Foundry with the APP'S MANAGED IDENTITY (SPN), so
+// there is NO user sign-in. The bot holds no data; it forwards to /api/deal-agent/chat.
 function teamIdsFromActivity(activity) {
   const cd = activity.channelData || {};
   const ids = [cd.team?.aadGroupId, cd.team?.id, cd.channel?.id, activity.conversation?.id];
   return [...new Set(ids.filter(Boolean))];
 }
 
-async function resolveDealId(activity, base) {
+// Resolve the deal that owns this channel's team -> { dealId, company } | null.
+async function resolveDeal(activity) {
+  const base = config.backend.url;
+  if (!base) return null;
   for (const tid of teamIdsFromActivity(activity)) {
     try {
       const r = await fetch(`${base}/api/deals/resolve-team/${encodeURIComponent(tid)}`);
-      if (r.ok) { const d = await r.json(); if (d?.dealId) return d.dealId; }
+      if (r.ok) { const d = await r.json(); if (d?.dealId) return d; }
     } catch { /* try the next candidate id */ }
   }
   return null;
+}
+
+// Ask the deal agent (grounded in the deal, authenticated by the app's managed
+// identity — no user sign-in) and return its reply text.
+async function askAgent(message, deal) {
+  const base = config.backend.url;
+  const body = deal?.dealId ? { message, dealId: deal.dealId, scope: 'deal' } : { message, scope: 'portfolio' };
+  const r = await fetch(`${base}/api/deal-agent/chat`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  return data?.reply || data?.error || 'I don’t have an answer right now.';
+}
+
+// Greet the channel with its deal context when the bot is installed.
+async function sendWelcome(context) {
+  const deal = await resolveDeal(context.activity).catch(() => null);
+  if (deal?.company) {
+    await context.sendActivity(`👋 I’m the deal agent for **${deal.company}**. Ask me anything about this deal — diligence risks, IC readiness, the thesis, key figures — right here. No sign-in needed; just @mention me.`);
+  } else {
+    await context.sendActivity('👋 I’m the deal agent — ask me about this deal. No sign-in needed; just @mention me.');
+  }
 }
 
 async function handleDealMessage(context, TurnContext) {
   let text = '';
   try { text = (TurnContext.removeRecipientMention(context.activity) || context.activity.text || '').trim(); }
   catch { text = (context.activity.text || '').trim(); }
-  if (!text) { await context.sendActivity('Ask me about this deal — e.g. “Summarise the diligence risks” or “What’s the IC readiness?”'); return; }
   const base = config.backend.url;
   if (!base) { await context.sendActivity('The deal agent backend is not configured.'); return; }
-  const dealId = await resolveDealId(context.activity, base);
-  if (!dealId) { await context.sendActivity("I couldn’t match this channel to a deal — open it from the Deal Dashboard tab first."); return; }
+  const deal = await resolveDeal(context.activity).catch(() => null);
+  if (!text) {
+    await context.sendActivity(deal?.company
+      ? `Ask me about **${deal.company}** — e.g. “Summarise the diligence risks” or “What’s the IC readiness?”`
+      : 'Ask me about this deal — e.g. “What are the top risks?”');
+    return;
+  }
   try {
     await context.sendActivities([{ type: 'typing' }]);
-    const r = await fetch(`${base}/api/deal-agent/chat`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ message: text, dealId, scope: 'deal' }),
-    });
-    const data = await r.json().catch(() => ({}));
-    await context.sendActivity(data?.reply || data?.error || "I don’t have an answer right now.");
+    const reply = await askAgent(text, deal);
+    await context.sendActivity(reply);
   } catch (err) {
     await context.sendActivity(`The deal agent hit an error — ${String(err?.message || err).slice(0, 140)}`);
   }
