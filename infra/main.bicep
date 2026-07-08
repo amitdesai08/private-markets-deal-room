@@ -161,6 +161,15 @@ param m365ClientSecret string = ''
 @secure()
 param mcpReadonlyKey string = ''
 
+@description('Bind the market-intelligence layer to a live Microsoft Fabric lakehouse (external workspace).')
+param fabricLive bool = false
+param fabricSqlEndpoint string = ''
+param fabricSqlDatabase string = 'deal_room_starter'
+param fabricWorkspace string = 'Deal Room'
+param fabricLakehouse string = 'deal_room_starter'
+param onelakeWorkspaceId string = ''
+param onelakeLakehouseId string = ''
+
 @description('Optional pinned parent Teams team ID that holds one channel per deal. Empty = find/create "The Deal Room".')
 param m365TeamId string = ''
 
@@ -343,6 +352,13 @@ module app 'modules/app.bicep' = {
     appInsightsConnectionString: core.outputs.appInsightsConnectionString
     foundryEndpoint: ai.outputs.foundryEndpoint
     contentSafetyEndpoint: ai.outputs.contentSafetyEndpoint
+    fabricLive: fabricLive
+    fabricSqlEndpoint: fabricSqlEndpoint
+    fabricSqlDatabase: fabricSqlDatabase
+    fabricWorkspace: fabricWorkspace
+    fabricLakehouse: fabricLakehouse
+    onelakeWorkspaceId: onelakeWorkspaceId
+    onelakeLakehouseId: onelakeLakehouseId
   }
 }
 

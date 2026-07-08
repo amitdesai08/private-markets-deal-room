@@ -49,6 +49,15 @@ param appInsightsConnectionString string
 param foundryEndpoint string
 param contentSafetyEndpoint string = ''
 
+// Fabric / OneLake market-intelligence binding (external workspace; not provisioned here).
+param fabricLive bool = false
+param fabricSqlEndpoint string = ''
+param fabricSqlDatabase string = 'deal_room_starter'
+param fabricWorkspace string = 'Deal Room'
+param fabricLakehouse string = 'deal_room_starter'
+param onelakeWorkspaceId string = ''
+param onelakeLakehouseId string = ''
+
 var pna = enablePrivateEndpoints ? 'Disabled' : 'Enabled'
 var roleIds = {
   acrPull: '7f951dda-4ed3-4680-a7ca-43fe172d538d'
@@ -155,6 +164,13 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'DEAL_ROOM_REGION', value: location }
             { name: 'WORKSPACE_TENANT', value: workspaceTenant }
             { name: 'CONTENT_SAFETY_ENDPOINT', value: contentSafetyEndpoint }
+            { name: 'FABRIC_LIVE', value: string(fabricLive) }
+            { name: 'FABRIC_SQL_ENDPOINT', value: fabricSqlEndpoint }
+            { name: 'FABRIC_SQL_DATABASE', value: fabricSqlDatabase }
+            { name: 'FABRIC_WORKSPACE', value: fabricWorkspace }
+            { name: 'FABRIC_LAKEHOUSE', value: fabricLakehouse }
+            { name: 'ONELAKE_WORKSPACE_ID', value: onelakeWorkspaceId }
+            { name: 'ONELAKE_LAKEHOUSE_ID', value: onelakeLakehouseId }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
             { name: 'DEAL_AGENT_NAME', value: dealAgentName }
             { name: 'DEAL_AGENT_MODEL', value: appModelDeployment }

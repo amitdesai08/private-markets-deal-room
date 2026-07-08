@@ -52,3 +52,13 @@ param deployTeamsApp = true
 
 param enablePrivateEndpoints = false
 param keyVaultPurgeProtection = false
+
+// Live Microsoft Fabric / OneLake market-intelligence binding (external "Deal Room"
+// workspace). The app's managed identity must hold a workspace role (Contributor).
+param fabricLive = true
+param fabricSqlEndpoint = 'a64b6mf4xwwexabphg3h6kmlnq-vohf2iaot5lu5l5wepkbscocq4.datawarehouse.fabric.microsoft.com'
+param fabricSqlDatabase = 'deal_room_starter'
+param fabricWorkspace = 'Deal Room'
+param fabricLakehouse = 'deal_room_starter'
+param onelakeWorkspaceId = '205d8eab-9f0e-4e57-afb6-23d41909c287'
+param onelakeLakehouseId = '544efa34-5a8d-4b3a-8aad-216dabe71c37'
