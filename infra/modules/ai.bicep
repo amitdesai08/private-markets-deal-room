@@ -57,6 +57,34 @@ resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-0
   }
 }
 
+// Grounding with Bing — powers the news-scout agent's real-time M&A catalyst search.
+resource bing 'Microsoft.Bing/accounts@2020-06-10' = {
+  name: 'bing-${workload}-${environmentName}-${suffix}'
+  location: 'global'
+  kind: 'Bing.Grounding'
+  sku: { name: 'G1' }
+  properties: {}
+}
+
+// Foundry project connection so agents can call Grounding with Bing (ApiKey auth).
+resource bingConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview' = {
+  parent: foundryProject
+  name: 'bingGrounding'
+  properties: {
+    category: 'ApiKey'
+    authType: 'ApiKey'
+    target: 'https://api.bing.microsoft.com/'
+    credentials: { key: bing.listKeys().key1 }
+    isSharedToAll: true
+    metadata: {
+      type: 'bing_grounding'
+      ResourceId: bing.id
+      ApiType: 'Azure'
+      location: 'global'
+    }
+  }
+}
+
 @batchSize(1)
 resource modelDeployments 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = [
   for d in openAiDeployments: {
@@ -203,6 +231,7 @@ output foundryProjectName string = foundryProject.name
 output deployedModels array = [for (d, i) in openAiDeployments: d.name]
 output documentIntelligenceEndpoint string = docIntelligence.properties.endpoint
 output contentSafetyEndpoint string = contentSafety.properties.endpoint
+output bingConnectionId string = bingConnection.id
 output speechEndpoint string = speech.properties.endpoint
 output searchId string = search.id
 output searchName string = search.name
