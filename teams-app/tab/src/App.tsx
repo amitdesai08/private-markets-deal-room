@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { initTeams, getSsoToken, type TeamsInfo } from './teams';
 import Dashboard from './Dashboard';
 import ChatPanel from './ChatPanel';
+import DealDetail from './DealDetail';
 import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipeline } from './types';
 
 type TeamsConfig = { demoMode: boolean; backend: string; sso: boolean; bot: boolean; backendUrl?: string };
@@ -35,6 +36,7 @@ export default function App() {
   const [agents, setAgents] = useState<Agent[]>([ORCHESTRATOR]);
   const [chatOpen, setChatOpen] = useState(true);
   const [chatFocusDealId, setChatFocusDealId] = useState('');
+  const [openDealId, setOpenDealId] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -90,10 +92,12 @@ export default function App() {
 
       <div className="layout">
         <main className="main">
-          <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} agentCount={agents.length} onAsk={askAbout} />
+          <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} agentCount={agents.length} onAsk={askAbout} onOpen={setOpenDealId} />
         </main>
         {chatOpen ? <ChatPanel agents={agents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} /> : null}
       </div>
+
+      {openDealId ? <DealDetail dealId={openDealId} onClose={() => setOpenDealId('')} onAsk={(id) => { setOpenDealId(''); askAbout(id); }} /> : null}
     </div>
   );
 }
@@ -210,4 +214,43 @@ html, body, #root { margin: 0; height: 100%; }
   .mi { grid-template-columns: 1fr; }
   .chatpanel { position: fixed; top: 0; right: 0; bottom: 0; width: 92vw; max-width: 420px; z-index: 30; box-shadow: -8px 0 24px rgba(0,0,0,.25); }
 }
+
+/* Deal detail drawer (native Station) */
+.drawer-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 40; display: flex; justify-content: flex-end; }
+.drawer { width: min(560px, 96vw); height: 100%; background: var(--bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,.3); }
+.drawer-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.drawer-title { font-weight: 700; font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 16px; }
+.dd-sub { color: var(--muted); font-size: 13px; }
+.dd-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.dd-thesis { color: var(--fg); font-size: 13px; margin: 8px 0 4px; }
+.dd-panel { border: 1px solid var(--border); border-radius: 12px; background: var(--card); margin-top: 14px; overflow: hidden; }
+.dd-panel-h { font-weight: 700; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.verdict { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+.verdict-state { font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--chip); white-space: nowrap; }
+.verdict.ok .verdict-state { background: #1b7f37; color: #fff; }
+.verdict.warn .verdict-state { background: #b8860b; color: #fff; }
+.verdict.bad .verdict-state { background: #b23b3b; color: #fff; }
+.verdict-head { font-size: 13px; }
+.dd-artifacts { padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 6px; }
+.artifact { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.artifact .a-ic { font-weight: 800; }
+.artifact.done .a-ic { color: #1b7f37; }
+.artifact.todo .a-ic { color: var(--muted); }
+.artifact .a-label { font-weight: 600; }
+.artifact .a-detail { color: var(--muted); font-size: 12px; }
+.dd-figs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 12px 14px; }
+.dd-fig { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--surface); }
+.dd-fig .fig-v { font-size: 18px; font-weight: 700; }
+.dd-fig .fig-l { font-size: 12px; }
+.dd-fig .fig-src { color: var(--muted); font-size: 11px; margin-top: 3px; }
+.dd-note { color: var(--muted); font-size: 11px; padding: 0 14px 12px; }
+.dd-lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 14px; }
+.dd-lane { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--surface); }
+.lane-top { display: flex; justify-content: space-between; align-items: baseline; }
+.lane-name { font-weight: 600; font-size: 13px; }
+.lane-status { color: var(--muted); font-size: 11px; }
+.lane-bar { height: 5px; background: var(--hover); border-radius: 4px; overflow: hidden; margin: 6px 0; }
+.lane-bar span { display: block; height: 100%; background: var(--accent); }
+.lane-owner { color: var(--muted); font-size: 11px; }
 `;

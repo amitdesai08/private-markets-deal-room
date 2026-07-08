@@ -7,9 +7,9 @@ function money(n?: number): string {
   return `$${Math.round(n)}`;
 }
 
-export default function Dashboard({ analytics, pipeline, deals, market, config, agentCount, onAsk }: {
+export default function Dashboard({ analytics, pipeline, deals, market, config, agentCount, onAsk, onOpen }: {
   analytics: Analytics | null; pipeline: Pipeline | null; deals: Deal[]; market: MarketIntel | null;
-  config: BackendConfig | null; agentCount: number; onAsk: (dealId: string) => void;
+  config: BackendConfig | null; agentCount: number; onAsk: (dealId: string) => void; onOpen: (dealId: string) => void;
 }) {
   const fabric = config?.fabric || market?.info;
   const comps = market?.comparableDeals || [];
@@ -63,7 +63,7 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
         ) : (
           <div className="deals">
             {deals.map((d) => (
-              <div key={d.id} className="dealcard">
+              <div key={d.id} className="dealcard" onClick={() => onOpen(d.id)} role="button" tabIndex={0}>
                 <div className="dc-top">
                   <div className="dc-co">{d.company}</div>
                   <div className="dc-size">{money(d.dealSize ? d.dealSize * 1e6 : undefined)}</div>
@@ -72,7 +72,7 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
                 <div className="dc-bar"><span style={{ width: `${Math.max(0, Math.min(100, d.readiness ?? 0))}%` }} /></div>
                 <div className="dc-foot">
                   <span className="muted">IC readiness {d.readiness ?? 0}%{typeof d.daysToIC === 'number' ? ` · IC in ${d.daysToIC}d` : ''}</span>
-                  <button className="askbtn" onClick={() => onAsk(d.id)}>Ask ▸</button>
+                  <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
                 </div>
               </div>
             ))}
