@@ -20,6 +20,7 @@ import { initBot } from './bot.js';
 import { postDealEvent } from './notifications.js';
 import { siteProxy, TEAMS_BOOTSTRAP_JS, TEAMS_CONFIG_HTML } from './siteProxy.js';
 import { startEventPoller } from './eventPoller.js';
+void siteProxy; // dashboard is now opened via a link; kept for optional embedding
 
 validateConfig();
 
@@ -35,6 +36,7 @@ app.get('/api/teams/config', (_req, res) =>
     app: 'deal-room-teams',
     demoMode: isDemoMode(),
     backend: isBackendLive() ? 'configured' : 'demo',
+    backendUrl: config.backend.url || null,
     sso: isSsoConfigured(),
     bot: isBotConfigured(),
   })
@@ -82,23 +84,19 @@ app.get('/config', (_req, res) => {
   res.send(TEAMS_CONFIG_HTML);
 });
 
-if (isBackendLive()) {
-  // Channel Tab = the REAL Deal Room dashboard, served from the shared backend
-  // through this origin (single data source, zero component duplication).
-  app.get('*', siteProxy);
+// The Channel/personal Tab is the NATIVE agent console (tab/dist). It talks to the
+// shared backend through this origin's /api proxy (single data source). The full
+// web dashboard remains one click away via the "Full dashboard" link in the tab.
+const tabDist = join(__dirname, '..', 'tab', 'dist');
+if (existsSync(tabDist)) {
+  app.use(express.static(tabDist));
+  app.get('*', (_req, res) => res.sendFile(join(tabDist, 'index.html')));
 } else {
-  // Demo mode — serve the local status tab (or a hint if not built).
-  const tabDist = join(__dirname, '..', 'tab', 'dist');
-  if (existsSync(tabDist)) {
-    app.use(express.static(tabDist));
-    app.get('*', (_req, res) => res.sendFile(join(tabDist, 'index.html')));
-  } else {
-    app.get('*', (_req, res) =>
-      res
-        .status(200)
-        .send('<h1>The Deal Room — Teams</h1><p>Set SHARED_BACKEND_URL to embed the dashboard, or run <code>npm run build:tab</code> for the demo status tab.</p>')
-    );
-  }
+  app.get('*', (_req, res) =>
+    res
+      .status(200)
+      .send('<h1>The Deal Room — Teams</h1><p>Run <code>npm run build:tab</code> to build the native agent console.</p>')
+  );
 }
 
 const port = config.server.port;
