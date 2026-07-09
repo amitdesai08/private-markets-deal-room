@@ -393,5 +393,22 @@ html, body, #root { margin: 0; height: 100%; }
 .mr-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }
 .mr-name { font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .mr-val { color: var(--muted); font-size: 12px; }
+/* Workspace VDR + quick links */
+.chbtn.spo { }
+.wsp-links { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 14px; }
+.orch-links { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 0 12px; }
+.wsp-link { border: 1px solid var(--border); background: var(--surface); color: var(--fg); border-radius: 8px; padding: 8px 12px; cursor: pointer; font: inherit; font-weight: 600; font-size: 13px; }
+.wsp-link:hover { border-color: var(--accent); }
+.wsp-link:disabled { opacity: .5; cursor: default; }
+.wsp-link.teams { border-color: #4b53bc; color: #4b53bc; }
+.wsp-link.spo { border-color: #036c70; color: #036c70; }
+.wsp-link.mr { border-color: var(--accent); color: var(--accent); }
+.vdr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding: 12px 14px; }
+.vdr-folder { display: block; border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; background: var(--surface); text-decoration: none; color: var(--fg); font-size: 13px; }
+.vdr-folder:hover { border-color: var(--accent); color: var(--accent); }
+.tpl-list { display: flex; flex-direction: column; padding: 6px 14px 12px; }
+.tpl-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--border); text-decoration: none; color: var(--fg); font-size: 13px; }
+.tpl-row:hover .tpl-name { color: var(--accent); }
+.tpl-name { font-weight: 600; }
 @media (max-width: 620px) { .td-grid { grid-template-columns: 1fr; } .td-row { grid-template-columns: 1fr; gap: 2px; } }
 `;

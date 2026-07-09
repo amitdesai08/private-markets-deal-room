@@ -134,6 +134,24 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
     finally { setBusy(''); }
   }
 
+  // Open the deal's SharePoint data room (VDR). If not yet provisioned, provision
+  // it on demand (idempotent) via the same ensure endpoint, then open it.
+  async function openDataRoom() {
+    const ws0 = deal?.workspace || {};
+    const url = ws0.sharePointUrlResolved ? ws0.sharePointUrl : ws0.sharePointUrl;
+    if (ws0.sharePointProvisioned && url) { window.open(url, '_blank', 'noopener'); return; }
+    if (cfg?.m365 && cfg.m365.connected === false) { setNote('Connect M365 (from the Deal Dashboard) to provision the SharePoint data room.'); return; }
+    setBusy('dataroom'); setNote('');
+    try {
+      const r = await fetch(`/api/deals/${dealId}/teams/ensure`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      const data = await r.json().catch(() => ({}));
+      if (r.status === 409) setNote('Launch the deal first (Stages → Launch), then open its data room.');
+      else if (!r.ok || data.error) setNote(`Could not open the SharePoint data room${data.error ? `: ${data.error}` : ''}.`);
+      else { const d = await load(true); const u = d?.workspace?.sharePointUrl; if (d?.workspace?.sharePointProvisioned && u) window.open(u, '_blank', 'noopener'); else setNote('SharePoint data room could not be provisioned automatically.'); }
+    } catch (e: any) { setNote(`Could not open the data room (${String(e?.message || e)}).`); }
+    finally { setBusy(''); }
+  }
+
   const money = (n?: number) => (n == null ? '—' : n >= 1000 ? `$${(n / 1000).toFixed(1)}B` : `$${n}M`);
   const steps = flow?.steps || [];
   const curIdx = steps.findIndex((s) => s.key === deal?.currentStep);
@@ -154,6 +172,7 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
           <button className="iconbtn" onClick={onClose} aria-label="Close">✕</button>
           <div className="drawer-title">{deal?.company || 'Loading…'}</div>
           {deal ? <button className="chbtn" onClick={dealChannel} disabled={busy === 'channel'} title="Create or open a Teams channel to converse about this deal">{deal.workspace?.teamsProvisioned ? '# Open channel ↗' : busy === 'channel' ? 'Creating…' : '# Deal channel'}</button> : null}
+          {deal ? <button className="chbtn spo" onClick={openDataRoom} disabled={busy === 'dataroom'} title="Open the deal's SharePoint data room (VDR)">{deal.workspace?.sharePointProvisioned ? '📁 Data room ↗' : busy === 'dataroom' ? 'Opening…' : '📁 Data room'}</button> : null}
           <button className="askbtn" onClick={() => onAsk(dealId)}>💬 Ask agents</button>
         </div>
 
@@ -194,6 +213,11 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
 
               {tab === 'stages' && (
                 <>
+                  <div className="orch-links">
+                    <button className="wsp-link teams" disabled={!!busy} onClick={() => (ws.teamsProvisioned && ws.teamsUrl) ? window.open(ws.teamsUrl, '_blank', 'noopener') : dealChannel()}>{ws.teamsProvisioned ? 'Open Teams ↗' : '# Deal channel'}</button>
+                    <button className="wsp-link spo" disabled={!!busy} onClick={openDataRoom}>{ws.sharePointProvisioned ? '📁 SharePoint data room ↗' : '📁 Data room'}</button>
+                    <button className="wsp-link mr" onClick={() => setTab('research')}>📊 Market comparisons →</button>
+                  </div>
                   {(flow?.stages || []).map((st) => (
                     <div className="stage-group" key={st.id}>
                       <div className="stage-name">{st.name}</div>
@@ -294,32 +318,69 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
               )}
 
               {tab === 'workspace' && (
-                <section className="dd-panel">
-                  <div className="dd-panel-h">Deal workspace</div>
-                  <div className="ws-grid">
-                    <div className="ws-row"><span>Teams channel</span><span>{ws.teamsProvisioned ? <a href={ws.teamsUrl} target="_blank" rel="noreferrer">{ws.teamsChannelName || 'Open ↗'}</a> : 'not provisioned'}</span></div>
-                    <div className="ws-row"><span>SharePoint data room</span><span>{ws.sharePointProvisioned ? <a href={ws.sharePointUrlResolved || ws.sharePointUrl} target="_blank" rel="noreferrer">Open ↗</a> : 'not provisioned'}</span></div>
-                    <div className="ws-row"><span>IC date</span><span>{ws.icDate ? new Date(ws.icDate).toLocaleDateString() : '—'}</span></div>
-                    <div className="ws-row"><span>Provisioned by</span><span>{ws.provisionedBy || '—'}</span></div>
-                  </div>
-                  {!ws.teamsProvisioned || !ws.sharePointProvisioned ? (
-                    <div className="orch-bar">
-                      <button className="btn" disabled={!!busy} onClick={() => act('teams', `/api/deals/${dealId}/teams/ensure`)}>
-                        {busy === 'teams' ? 'Provisioning…' : '☁ Provision Teams + SharePoint'}
-                      </button>
+                <>
+                  <section className="dd-panel">
+                    <div className="dd-panel-h">Deal workspace<span className="muted">provisioned by {ws.provisionedBy || '—'}</span></div>
+                    <div className="wsp-links">
+                      <button className="wsp-link teams" disabled={!!busy} onClick={() => (ws.teamsProvisioned && ws.teamsUrl) ? window.open(ws.teamsUrl, '_blank', 'noopener') : dealChannel()}>{ws.teamsProvisioned ? 'Open in Teams ↗' : busy === 'channel' ? 'Creating…' : 'Create Teams space ↗'}</button>
+                      <button className="wsp-link spo" disabled={!!busy} onClick={openDataRoom}>{ws.sharePointProvisioned ? 'Open SharePoint data room ↗' : busy === 'dataroom' ? 'Opening…' : 'Data room ↗'}</button>
                     </div>
+                    <div className="ws-grid">
+                      <div className="ws-row"><span>Teams channel</span><span>{ws.teamsProvisioned ? (ws.teamsChannelName || 'provisioned') : 'not provisioned'}</span></div>
+                      <div className="ws-row"><span>SharePoint VDR</span><span>{ws.sharePointProvisioned ? `${(ws.folders || []).length} folders · live` : 'not provisioned'}</span></div>
+                      <div className="ws-row"><span>DD checklist</span><span>{deal.workspace?.checklist ? `${(deal as any).checklistStats?.pct ?? 0}% · ${(deal as any).checklistStats?.total ?? (ws.checklist || []).reduce((n: number, s: any) => n + (s.items?.length || 0), 0)} items` : '—'}</span></div>
+                      <div className="ws-row"><span>Templates</span><span>{(ws.templates || []).length} docs</span></div>
+                      <div className="ws-row"><span>IC date</span><span>{ws.icDate ? new Date(ws.icDate).toLocaleDateString() : '—'}</span></div>
+                    </div>
+                    {!ws.teamsProvisioned || !ws.sharePointProvisioned ? (
+                      <div className="orch-bar">
+                        <button className="btn" disabled={!!busy} onClick={() => act('teams', `/api/deals/${dealId}/teams/ensure`)}>
+                          {busy === 'teams' ? 'Provisioning…' : '☁ Provision Teams + SharePoint'}
+                        </button>
+                      </div>
+                    ) : null}
+                  </section>
+
+                  {(ws.folders || []).length ? (
+                    <section className="dd-panel">
+                      <div className="dd-panel-h">📁 SharePoint data room<span className="muted">{(ws.folders || []).length} folders (VDR)</span></div>
+                      <div className="vdr-grid">
+                        {(ws.folders || []).map((f: any, i: number) => (
+                          f.url
+                            ? <a className="vdr-folder" key={i} href={f.url} target="_blank" rel="noreferrer">📁 {f.name}</a>
+                            : <span className="vdr-folder muted" key={i}>📁 {f.name}</span>
+                        ))}
+                      </div>
+                    </section>
                   ) : null}
+
                   {Array.isArray(ws.swimlanes) && ws.swimlanes.length ? (
-                    <div className="dd-lanes" style={{ padding: '0 14px 14px' }}>
-                      {ws.swimlanes.map((s: any, i: number) => (
-                        <div className="dd-lane" key={i}>
-                          <div className="lane-top"><span className="lane-name">{LANE_LABEL[s.lane] || s.lane}</span><span className="lane-status">{s.md || s.owner || 'unassigned'}</span></div>
-                          {s.channelUrl ? <a className="lane-owner" href={s.channelUrl} target="_blank" rel="noreferrer">channel ↗</a> : null}
-                        </div>
-                      ))}
-                    </div>
+                    <section className="dd-panel">
+                      <div className="dd-panel-h">Diligence swimlanes<span className="muted">{ws.swimlanes.length} lanes</span></div>
+                      <div className="dd-lanes" style={{ padding: '0 14px 14px' }}>
+                        {ws.swimlanes.map((s: any, i: number) => (
+                          <div className="dd-lane" key={i}>
+                            <div className="lane-top"><span className="lane-name">{s.label || LANE_LABEL[s.lane] || s.lane}</span><span className="lane-status">{s.advisor || s.md || s.owner || 'unassigned'}</span></div>
+                            {s.channelUrl ? <a className="lane-owner" href={s.channelUrl} target="_blank" rel="noreferrer">Teams channel ↗</a> : null}
+                          </div>
+                        ))}
+                      </div>
+                    </section>
                   ) : null}
-                </section>
+
+                  {(ws.templates || []).length ? (
+                    <section className="dd-panel">
+                      <div className="dd-panel-h">▤ Playbook templates<span className="muted">{(ws.templates || []).length} docs</span></div>
+                      <div className="tpl-list">
+                        {(ws.templates || []).map((t: any, i: number) => (
+                          t.url
+                            ? <a className="tpl-row" key={i} href={t.url} target="_blank" rel="noreferrer"><span className="tpl-name">{t.name}</span><span className="chip">{t.type || t.ext || 'doc'}</span></a>
+                            : <div className="tpl-row" key={i}><span className="tpl-name">{t.name}</span><span className="chip">{t.type || t.ext || 'doc'}</span></div>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+                </>
               )}
 
               {tab === 'research' && (
