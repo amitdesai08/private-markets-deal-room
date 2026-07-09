@@ -134,21 +134,24 @@ function personaFor(text) {
   return null;
 }
 
+// Persona lenses applied to the deal analyst so an @mention that names a lead
+// (AI MD / Retail MD / Supply MD / Partner) answers in that persona's voice.
+const PERSONA_FRAMING = {
+  'ai-md': 'You are the Tech/AI diligence lead (AI MD). Focus on technology, data and AI risks, tech debt, scalability and AI/digital value-creation levers.',
+  'retail-md': 'You are the Commercial diligence lead (Retail MD). Focus on commercial risks — market/demand, pricing, customer concentration — and commercial value-creation levers.',
+  'supply-md': 'You are the Operations / Supply Chain lead (Supply MD). Focus on operational and supply-chain risks, cost-out and operational value-creation levers.',
+  partner: 'You are the Deal Partner / IC sponsor. Give a crisp go/no-go read and the IC conditions you would require.',
+};
+
 async function askAgent(message, deal) {
   const base = config.backend.url;
   const persona = personaFor(message);
-  // Persona-scoped answer for this channel's deal (managed identity — no sign-in).
-  if (persona) {
-    try {
-      const r = await fetch(`${base}/api/persona-agents/${persona}/chat`, {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ message, dealId: deal?.dealId }),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (r.ok && data?.reply) return data.reply;
-    } catch { /* fall through to the analyst */ }
-  }
-  const body = deal?.dealId ? { message, dealId: deal.dealId, scope: 'deal' } : { message, scope: 'portfolio' };
+  // Route persona-named questions to the deal ANALYST with a persona framing (the
+  // analyst tool path is reliable; the standalone persona agents currently fail a
+  // get_deal tool validation). The answer stays deal-grounded AND persona-flavored.
+  const framing = persona ? PERSONA_FRAMING[persona] : '';
+  const msg = framing ? `${framing}\n\nQuestion: ${message}` : message;
+  const body = deal?.dealId ? { message: msg, dealId: deal.dealId, scope: 'deal' } : { message: msg, scope: 'portfolio' };
   const r = await fetch(`${base}/api/deal-agent/chat`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
   });
