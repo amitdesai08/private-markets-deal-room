@@ -60,8 +60,7 @@ Stage 2 · Diligence & Approval      (the Deal Collaboration Hub on M365)
 ├── infra/                  Azure infrastructure as code
 │   ├── main.bicep          ~45 resources in a single resource group
 │   └── main.{dev,test,prod}.bicepparam
-├── .github/workflows/      OIDC CI/CD for infra and app
-└── Deal-Room-Target-State-Product-Plan.md
+└── .github/workflows/      OIDC CI/CD for infra and app
 ```
 
 ## Run locally
