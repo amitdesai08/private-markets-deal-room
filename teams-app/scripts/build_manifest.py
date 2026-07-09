@@ -4,7 +4,8 @@
 Generates manifest.json + color.png + outline.png and zips them. Flags layer on
 the optional surfaces once their registrations exist:
   --sso-client-id  adds webApplicationInfo (Entra SSO for the tab)
-  --bot-id         adds a notification-only bot (proactive Adaptive Card alerts)
+  --bot-id         adds a conversational bot (@mention it in a channel; it also
+                   posts proactive Adaptive Card alerts)
   --copilot        bundles the M365 Copilot declarative agent (reads deals via
                    the Entra-secured MCP) and emits copilotAgents
   --oauth-ref-id   fills the Teams Developer Portal OAuth registration id into
@@ -101,14 +102,15 @@ def build(host: str, sso_client_id=None, bot_id=None, copilot=False, oauth_ref_i
             "resource": f"api://{host}/{sso_client_id}",
         }
 
-    # Adaptive Card notifications (proactive; the bot posts, users don't chat it).
+    # Conversational bot — users @mention it in a deal channel and it answers,
+    # grounded in that channel's deal (it also posts proactive Adaptive Cards).
     if bot_id:
         manifest["bots"] = [
             {
                 "botId": bot_id,
                 "scopes": ["team", "groupChat", "personal"],
                 "supportsFiles": False,
-                "isNotificationOnly": True,
+                "isNotificationOnly": False,
             }
         ]
 

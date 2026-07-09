@@ -43,7 +43,7 @@
       "botId": "<BOT_APP_ID>",
       "scopes": ["team", "groupChat", "personal"],
       "supportsFiles": false,
-      "isNotificationOnly": true
+      "isNotificationOnly": false
     }
   ],
   "copilotAgents": {
