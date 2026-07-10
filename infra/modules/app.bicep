@@ -94,6 +94,8 @@ param adminIds array = []
 param partnerIds array = []
 param dealTeamIds array = []
 param analystIds array = []
+@description('When true, expose the demo showcase profiles (one identity per role).')
+param deployDemoProfiles bool = false
 @allowed([ 'partner', 'deal-team', 'analyst', 'member' ])
 param defaultAgentRole string = 'deal-team'
 @description('Shared Teams->orchestrator secret (per-user identity + OBO Graph token). Empty = auto-derived.')
@@ -237,6 +239,7 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'DEAL_TEAM_IDS', value: join(dealTeamIds, ',') }
             { name: 'ANALYST_IDS', value: join(analystIds, ',') }
             { name: 'DEFAULT_AGENT_ROLE', value: defaultAgentRole }
+            { name: 'DEMO_PROFILES', value: string(deployDemoProfiles) }
           ]
         }
       ]
@@ -321,6 +324,7 @@ resource teamsApp 'Microsoft.App/containerApps@2024-03-01' = if (deployTeamsApp)
             { name: 'BOT_APP_PASSWORD', secretRef: 'bot-app-password' }
             { name: 'BOT_APP_TYPE', value: botAppType }
             { name: 'BOT_BACKEND_KEY', secretRef: 'bot-backend-key' }
+            { name: 'DEMO_PROFILES', value: string(deployDemoProfiles) }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
           ]
         }

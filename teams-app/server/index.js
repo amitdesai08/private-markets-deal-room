@@ -15,7 +15,7 @@ import { existsSync } from 'fs';
 import { config, validateConfig, isBackendLive, isSsoConfigured, isBotConfigured, isDemoMode } from './config.js';
 import { proxyToBackend } from './proxy.js';
 import { exchangeOnBehalfOf, identityFromSsoToken } from './sso.js';
-import { personaForUser, stageAccessFor, DEMO_USERS } from './sharedLib.js';
+import { personaForUser, stageAccessFor } from './sharedLib.js';
 import { initBot } from './bot.js';
 import { postDealEvent } from './notifications.js';
 import { TEAMS_BOOTSTRAP_JS, TEAMS_CONFIG_HTML } from './siteProxy.js';
@@ -28,6 +28,21 @@ const app = express();
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/healthz', (_req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
+
+// Demo showcase roster (one identity per role) sourced from the orchestrator, which
+// only returns it when DEMO_PROFILES is enabled. Cached — the roster is static.
+let _demoProfiles = null;
+async function getDemoProfiles() {
+  if (_demoProfiles) return _demoProfiles;
+  if (!isBackendLive()) return [];
+  try {
+    const headers = {};
+    if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
+    const r = await fetch(`${config.backend.url}/api/demo-profiles`, { headers });
+    if (r.ok) { _demoProfiles = await r.json(); return _demoProfiles; }
+  } catch { /* backend not ready — return empty, retry next request */ }
+  return [];
+}
 
 // Teams app status (interface-level; data status comes from the shared backend).
 app.get('/api/teams/config', (_req, res) =>
@@ -79,7 +94,7 @@ app.post('/api/teams/context', async (req, res) => {
     viewingAsRole: acc?.viewingAs || null,
     canViewStage2: acc?.canViewStage2 ?? fallback.canViewStage2,
     viewingAs: asOverride || identity?.upn || null,
-    demoUsers: DEMO_USERS,
+    demoUsers: await getDemoProfiles(),
   });
 });
 

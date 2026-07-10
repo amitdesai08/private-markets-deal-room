@@ -42,8 +42,8 @@ export default function App() {
   const [chatFocusDealId, setChatFocusDealId] = useState('');
   const [openDealId, setOpenDealId] = useState('');
   const [canViewStage2, setCanViewStage2] = useState(true);
-  const [demoUsers, setDemoUsers] = useState<{ id: string; upn: string; label: string }[]>([]);
-  const [viewAs, setViewAs] = useState('user1');
+  const [demoUsers, setDemoUsers] = useState<{ id: string; upn: string; label: string; name?: string; roleLabel?: string; agentCount?: number }[]>([]);
+  const [viewAs, setViewAs] = useState('');
   // Access profile from the orchestrator: which agents this user may use, and
   // the roles they can "view as" (own role + any lower in the hierarchy).
   const [allowedPersonas, setAllowedPersonas] = useState<string[] | null>(null);
@@ -90,15 +90,25 @@ export default function App() {
       }).catch(() => {});
 
       getSsoToken().then((token) =>
-        fetch('/api/teams/context', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ssoToken: token, as: 'user1' }) }).then((r) => r.json())
-      ).then((ctx) => { applyAccess(ctx); if (Array.isArray(ctx?.demoUsers)) setDemoUsers(ctx.demoUsers); }).catch(() => {});
+        fetch('/api/teams/context', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ssoToken: token }) }).then((r) => r.json())
+      ).then((ctx) => {
+        applyAccess(ctx);
+        if (Array.isArray(ctx?.demoUsers)) {
+          setDemoUsers(ctx.demoUsers);
+          // Demo mode: start the showcase as the first profile (Administrator) so the
+          // full access model is visible; real Teams users keep their SSO identity.
+          if (ctx.demoUsers.length) setViewAs((v: string) => v || ctx.demoUsers[0].id);
+        }
+      }).catch(() => {});
     })();
   }, []);
 
-  // Re-evaluate access when the demo "view as" user or the "view as role"
+  // Re-evaluate access when the demo "view as" profile or the "view as role"
   // changes. Both drive the orchestrator's access profile server-side, so we
-  // skip the (slow) SSO token fetch here to keep switching instant.
+  // skip the (slow) SSO token fetch here to keep switching instant. With no demo
+  // profile selected (real SSO users) we send no override.
   useEffect(() => {
+    if (!viewAs) return;
     (async () => {
       const ctx = await fetch('/api/teams/context', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ as: viewAs, viewAsRole }) }).then((r) => r.json()).catch(() => null);
       applyAccess(ctx);
@@ -137,7 +147,7 @@ export default function App() {
             </select>
           ) : null}
           {demoUsers.length ? (
-            <select className="viewas" value={viewAs} onChange={(e) => setViewAs(e.target.value)} title="Demo — view as (stage visibility)">
+            <select className="viewas" value={viewAs} onChange={(e) => { setViewAsRole(''); setViewAs(e.target.value); }} title="Demo — sign in as one of the showcase profiles to see their agents and access">
               {demoUsers.map((u) => (<option key={u.id} value={u.upn}>👤 {u.label}</option>))}
             </select>
           ) : null}

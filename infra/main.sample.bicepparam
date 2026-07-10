@@ -91,6 +91,7 @@ param partnerIds = []                     // e.g. [ '<partner-oid>', '<partners-
 param dealTeamIds = []
 param analystIds = []
 param defaultAgentRole = 'deal-team'      // partner | deal-team | analyst | member
+param deployDemoProfiles = true           // showcase profiles (one identity per role); set false for production
 
 // ── Hardening ────────────────────────────────────────────────────────────────
 // Container Apps here run on a Consumption (public) environment, so leave this

@@ -16,12 +16,20 @@ const localPart = (u) => norm(u).split('@')[0];
 const listEnv = (name, dflt = '') =>
   String(process.env[name] ?? dflt).split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 
-// Demo-safe defaults (match user1-5 by name/upn); set the *_IDS env with real
-// Entra object ids in production for a directory-driven mapping.
-const ADMIN_IDS = listEnv('ADMIN_IDS', 'admin');
-const PARTNER_IDS = listEnv('PARTNER_IDS', 'partner,amit desai,desaiamit');
-const DEAL_TEAM_IDS = listEnv('DEAL_TEAM_IDS', 'user1,user2,user3,user4');
-const ANALYST_IDS = listEnv('ANALYST_IDS', 'user5');
+// Demo profiles (one showcase identity per role) are only honoured when the
+// deployer opts in via DEMO_PROFILES; a production deploy with it off never
+// grants a role by demo name. When on, each role's id list is augmented with
+// its demo identity ids so the "view as" roster resolves out of the box.
+import { demoProfiles, demoRoleIds } from '../data/demoProfiles.js';
+export const demoProfilesEnabled = /^(1|true|yes|on)$/i.test(String(process.env.DEMO_PROFILES ?? ''));
+const withDemo = (role, ids) => (demoProfilesEnabled ? [...ids, ...(demoRoleIds[role] || [])] : ids);
+
+// Role → user ids, from env (real Entra object ids in production) plus the demo
+// showcase identities when DEMO_PROFILES is enabled. No hardcoded tenant ids.
+const ADMIN_IDS = withDemo('admin', listEnv('ADMIN_IDS'));
+const PARTNER_IDS = withDemo('partner', listEnv('PARTNER_IDS'));
+const DEAL_TEAM_IDS = withDemo('deal-team', listEnv('DEAL_TEAM_IDS'));
+const ANALYST_IDS = withDemo('analyst', listEnv('ANALYST_IDS'));
 // What an unauthenticated/unknown caller gets (the tab/web paths that don't pass a
 // trusted identity). Keep 'deal-team' to preserve existing demos; set 'analyst' to
 // make every unidentified caller read-only.
@@ -94,6 +102,25 @@ export function describeAccess(identity, viewAsRole = null) {
     ...accessFor(identity, viewAsRole),
     viewAsRoles: viewAsRolesFor(identity).map((r) => ({ role: r, label: ROLE_LABEL[r] || r })),
   };
+}
+
+// The demo showcase roster (empty unless DEMO_PROFILES is enabled), each enriched
+// with the access its role confers so the "view as" switcher can show, e.g.,
+// "Eleanor Bishop · Partner · 5 agents" vs "Maya Olsen · Analyst · 1 agent".
+export function describeDemoProfiles() {
+  if (!demoProfilesEnabled) return [];
+  return demoProfiles.map((p) => {
+    const a = accessFor({ name: p.id });
+    const n = a.allowedPersonas.length;
+    return {
+      id: p.id, upn: p.id, name: p.name, title: p.title, initials: p.initials, color: p.color,
+      personaId: p.personaId, blurb: p.blurb,
+      role: a.role, roleLabel: a.roleLabel, isAdmin: a.isAdmin,
+      allowedPersonas: a.allowedPersonas, agentCount: n,
+      canWrite: a.canWrite, canViewStage2: a.canViewStage2,
+      label: `${p.name} · ${a.roleLabel} · ${n} agent${n === 1 ? '' : 's'}`,
+    };
+  });
 }
 
 // May this identity act through `requestedPersona`? Returns the EFFECTIVE persona

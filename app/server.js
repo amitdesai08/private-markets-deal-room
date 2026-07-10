@@ -104,7 +104,7 @@ import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
-import { accessFor, authorizePersona, authorizeDealAccess, describeAccess } from './lib/userPolicy.js';
+import { accessFor, authorizePersona, authorizeDealAccess, describeAccess, describeDemoProfiles } from './lib/userPolicy.js';
 
 validateConfig({ strict: false });
 
@@ -726,6 +726,10 @@ api.get('/persona-agents', (_req, res) => res.json(personaAgentsInfo()));
 api.post('/me/access', (req, res) => {
   res.json(describeAccess(requestingIdentity(req), req.body?.viewAsRole || null));
 });
+
+// Demo showcase roster — one named identity per role (empty unless DEMO_PROFILES is
+// enabled). Powers the "view as" switcher so the access model is demoable end-to-end.
+api.get('/demo-profiles', (_req, res) => res.json(describeDemoProfiles()));
 // Chat with a specific persona agent. It reads the pipeline and ACTS on it through
 // its persona-scoped tools (server-side persona authorization enforced on writes).
 // Body: { message, dealId?, previousResponseId? }.

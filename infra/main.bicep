@@ -171,6 +171,8 @@ param analystIds array = []
 @allowed([ 'partner', 'deal-team', 'analyst', 'member' ])
 @description('Role applied to callers not listed in any role array.')
 param defaultAgentRole string = 'deal-team'
+@description('Deploy the demo showcase profiles (one named identity per role) so the identity-aware access model is demoable without provisioning real users. Turn OFF for production.')
+param deployDemoProfiles bool = false
 @description('Shared secret proving Teams->orchestrator server calls (per-user identity + OBO Graph token). Empty = auto-derived stable per-deployment value.')
 @secure()
 param botBackendKey string = ''
@@ -419,6 +421,7 @@ module app 'modules/app.bicep' = {
     dealTeamIds: dealTeamIds
     analystIds: analystIds
     defaultAgentRole: defaultAgentRole
+    deployDemoProfiles: deployDemoProfiles
     botBackendKey: botBackendKey
     uamiResourceId: core.outputs.uamiResourceId
     uamiClientId: core.outputs.uamiClientId

@@ -18,6 +18,7 @@
     "mcpRequiredScope": { "value": "${MCP_REQUIRED_SCOPE=deals.read}" },
     "partnerIds": { "value": "${PARTNER_IDS=[]}" },
     "dealTeamIds": { "value": "${DEAL_TEAM_IDS=[]}" },
-    "analystIds": { "value": "${ANALYST_IDS=[]}" }
+    "analystIds": { "value": "${ANALYST_IDS=[]}" },
+    "deployDemoProfiles": { "value": "${DEPLOY_DEMO_PROFILES=true}" }
   }
 }

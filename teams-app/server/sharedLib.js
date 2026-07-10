@@ -55,13 +55,3 @@ export function stageAccessFor(upn) {
   if (ANALYSTS.includes(l)) return { role: 'analyst', canViewStage2: false };
   return { role: 'member', canViewStage2: false };
 }
-
-// Demo roster for the "View as" switcher (so the lockdown is demoable without
-// five separate sign-ins). In real Teams the signed-in SSO identity is used.
-export const DEMO_USERS = [
-  { id: 'user1', upn: 'user1', label: 'Deal Team — user1' },
-  { id: 'user2', upn: 'user2', label: 'Deal Team — user2' },
-  { id: 'user3', upn: 'user3', label: 'Deal Team — user3' },
-  { id: 'user4', upn: 'user4', label: 'Deal Team — user4' },
-  { id: 'user5', upn: 'user5', label: 'Analyst — user5 (Stage 1 only)' },
-];
