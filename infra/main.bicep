@@ -259,6 +259,7 @@ var tags = {
   costCenter: costCenter
   managedBy: 'bicep'
   solution: 'deal-room'
+  'azd-env-name': environmentName
 }
 
 var rgNames = {
@@ -500,6 +501,8 @@ output serviceBusNamespace string = integration.outputs.serviceBusNamespace
 output eventGridEndpoint string = integration.outputs.eventGridEndpoint
 output acrName string = app.outputs.acrName
 output acrLoginServer string = app.outputs.acrLoginServer
+// azd convention — lets `azd deploy` push the built images to this registry.
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = app.outputs.acrLoginServer
 output containerAppName string = app.outputs.containerAppName
 output containerAppFqdn string = app.outputs.containerAppFqdn
 output containerAppUrl string = app.outputs.containerAppUrl

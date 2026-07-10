@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+#
+# Azure Developer CLI template for the Deal Room accelerator.
+#   azd up   →  provision (infra/main.bicep)  →  postprovision hook (Entra apps, full mode)
+#            →  build + push the orchestrator & teams images to ACR  →  deploy  →  done.
+#
+# Modes (set once with `azd env set DEALROOM_MODE <mode>`):
+#   demo  (default) — infra + seeded data + images. No identity, no admin needed. ONE `azd up`.
+#   full            — also provisions Teams SSO / M365 / bot Entra apps (needs an Entra admin).
+#                     Run `azd up` once to create + register the identity, then `azd up` again
+#                     to wire it into the platform.
+name: deal-room
+metadata:
+  template: deal-room-teams@1.0.0
+
+infra:
+  provider: bicep
+  path: infra
+  module: main
+
+services:
+  orchestrator:
+    project: ./app
+    language: js
+    host: containerapp
+    docker:
+      path: Dockerfile
+  teams:
+    project: ./teams-app
+    language: js
+    host: containerapp
+    docker:
+      path: Dockerfile
+
+hooks:
+  postprovision:
+    windows:
+      shell: pwsh
+      run: ./scripts/azd-postprovision.ps1
+      continueOnError: false
+      interactive: true
+    posix:
+      shell: sh
+      run: ./scripts/azd-postprovision.sh
+      continueOnError: false
+      interactive: true

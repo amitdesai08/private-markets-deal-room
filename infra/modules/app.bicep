@@ -143,7 +143,7 @@ resource caEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
 resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'ca-${workload}-orch-${environmentName}-${locationShort}'
   location: location
-  tags: tags
+  tags: union(tags, { 'azd-service-name': 'orchestrator' })
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
@@ -250,7 +250,7 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
 resource teamsApp 'Microsoft.App/containerApps@2024-03-01' = if (deployTeamsApp) {
   name: 'ca-${workload}-teams-${environmentName}-${locationShort}'
   location: location
-  tags: tags
+  tags: union(tags, { 'azd-service-name': 'teams' })
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {

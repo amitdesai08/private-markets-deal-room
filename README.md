@@ -47,9 +47,21 @@ it running.
 
 > **Demo / POC mode:** leave all identity + optional parameters empty and the platform runs on **seeded data** with deterministic agents — **no secrets required**.
 
-### Deploy — one guided workflow
+### Deploy — `azd up` (recommended)
 
-Run the orchestrator: it logs you in, lets you pick **demo** vs **full**, **auto-detects** the identity path, then deploys, provisions Entra, and wires everything.
+The fastest path is the **Azure Developer CLI**: one command provisions the infra, (optionally) creates the Entra apps, and **builds + pushes + deploys both container images** — no manual `az acr build`.
+
+```bash
+azd up
+```
+- **Demo** *(default)* — infra + seeded data + images. No identity, no admin needed → **one** `azd up`.
+- **Full** (Teams SSO / per-user M365 docs / bot) — `azd env set DEALROOM_MODE full`, then `azd up` (creates + registers the Entra apps via the postprovision hook) and `azd up` **once more** to wire them in. Needs an Entra admin.
+
+Pick region/subscription with `azd env new` then `azd env set AZURE_LOCATION swedencentral`.
+
+### Deploy — guided script (no azd)
+
+Prefer plain `az`? The orchestrator runs the same flow: it logs you in, lets you pick **demo** vs **full**, **auto-detects** the identity path, then deploys, provisions Entra, and wires everything.
 
 ```powershell
 ./scripts/deploy.ps1     # Windows / PowerShell 7

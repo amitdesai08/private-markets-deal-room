@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "12898438952175251352"
+      "templateHash": "1929504134892461477"
     }
   },
   "parameters": {
@@ -496,7 +496,8 @@
       "env": "[parameters('environmentName')]",
       "costCenter": "[parameters('costCenter')]",
       "managedBy": "bicep",
-      "solution": "deal-room"
+      "solution": "deal-room",
+      "azd-env-name": "[parameters('environmentName')]"
     },
     "rgNames": {
       "core": "[format('rg-{0}-core-{1}-{2}', parameters('workload'), parameters('environmentName'), parameters('locationShort'))]",
@@ -1876,7 +1877,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "17924344756889153636"
+              "templateHash": "17055203309729100041"
             }
           },
           "parameters": {
@@ -2184,7 +2185,7 @@
               "apiVersion": "2024-03-01",
               "name": "[format('ca-{0}-orch-{1}-{2}', parameters('workload'), parameters('environmentName'), parameters('locationShort'))]",
               "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
+              "tags": "[union(parameters('tags'), createObject('azd-service-name', 'orchestrator'))]",
               "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
@@ -2412,7 +2413,7 @@
               "apiVersion": "2024-03-01",
               "name": "[format('ca-{0}-teams-{1}-{2}', parameters('workload'), parameters('environmentName'), parameters('locationShort'))]",
               "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
+              "tags": "[union(parameters('tags'), createObject('azd-service-name', 'teams'))]",
               "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
@@ -3302,6 +3303,10 @@
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgNames').app), 'Microsoft.Resources/deployments', 'app'), '2025-04-01').outputs.acrName.value]"
     },
     "acrLoginServer": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgNames').app), 'Microsoft.Resources/deployments', 'app'), '2025-04-01').outputs.acrLoginServer.value]"
+    },
+    "AZURE_CONTAINER_REGISTRY_ENDPOINT": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgNames').app), 'Microsoft.Resources/deployments', 'app'), '2025-04-01').outputs.acrLoginServer.value]"
     },

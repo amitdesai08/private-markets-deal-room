@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": { "value": "${AZURE_ENV_NAME}" },
+    "location": { "value": "${AZURE_LOCATION}" },
+    "deployTeamsApp": { "value": true },
+    "deployBot": { "value": true },
+    "entraTenantId": { "value": "${ENTRA_TENANT_ID=}" },
+    "m365TenantId": { "value": "${M365_TENANT_ID=}" },
+    "teamsTabClientId": { "value": "${TEAMS_TAB_CLIENT_ID=}" },
+    "teamsTabClientSecret": { "value": "${TEAMS_TAB_CLIENT_SECRET=}" },
+    "m365ClientId": { "value": "${M365_CLIENT_ID=}" },
+    "m365ClientSecret": { "value": "${M365_CLIENT_SECRET=}" },
+    "botAppId": { "value": "${BOT_APP_ID=}" },
+    "botAppPassword": { "value": "${BOT_APP_PASSWORD=}" },
+    "mcpAudience": { "value": "${MCP_AUDIENCE=}" },
+    "mcpRequiredScope": { "value": "${MCP_REQUIRED_SCOPE=deals.read}" },
+    "partnerIds": { "value": "${PARTNER_IDS=[]}" },
+    "dealTeamIds": { "value": "${DEAL_TEAM_IDS=[]}" },
+    "analystIds": { "value": "${ANALYST_IDS=[]}" }
+  }
+}
