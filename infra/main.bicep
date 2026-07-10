@@ -176,6 +176,13 @@ param defaultAgentRole string = 'deal-team'
 @secure()
 param botBackendKey string = ''
 
+@description('ADVANCED: run Entra app-registration provisioning INSIDE this deploy via a deploymentScript. Requires provisioningIdentityResourceId (a UAMI pre-granted Microsoft Graph app-provisioning permissions). Default false — prefer scripts/deploy.* which provisions with your admin login.')
+param deployIdentityProvisioning bool = false
+@description('Resource ID of the user-assigned managed identity that runs the Entra provisioning deploymentScript.')
+param provisioningIdentityResourceId string = ''
+@description('Raw URL of the provisioning script used by the deploymentScript path.')
+param entraProvisionScriptUri string = 'https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/scripts/provision-entra.sh'
+
 @description('Model deployment name the orchestrator app calls for chat/agents.')
 param appModelDeployment string = 'gpt-5-mini'
 
@@ -452,6 +459,22 @@ module network 'modules/network.bicep' = {
 //------------------------------------------------------------------------------
 // Outputs
 //------------------------------------------------------------------------------
+// ADVANCED (opt-in): create the Entra app registrations inside this deployment.
+module entraProvision 'modules/entra-provision.bicep' = if (deployIdentityProvisioning) {
+  name: 'entra-provision'
+  scope: rgApp
+  params: {
+    location: location
+    tags: tags
+    workload: workload
+    environmentName: environmentName
+    provisioningIdentityResourceId: provisioningIdentityResourceId
+    teamsFqdn: app.outputs.teamsAppFqdn
+    orchFqdn: app.outputs.orchestratorFqdn
+    scriptUri: entraProvisionScriptUri
+  }
+}
+
 output resourceGroups object = rgNames
 output location string = location
 output managedIdentityClientId string = core.outputs.uamiClientId

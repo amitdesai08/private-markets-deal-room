@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "8214441610416960210"
+      "templateHash": "12898438952175251352"
     }
   },
   "parameters": {
@@ -316,6 +316,27 @@
       "defaultValue": "",
       "metadata": {
         "description": "Shared secret proving Teams->orchestrator server calls (per-user identity + OBO Graph token). Empty = auto-derived stable per-deployment value."
+      }
+    },
+    "deployIdentityProvisioning": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "ADVANCED: run Entra app-registration provisioning INSIDE this deploy via a deploymentScript. Requires provisioningIdentityResourceId (a UAMI pre-granted Microsoft Graph app-provisioning permissions). Default false — prefer scripts/deploy.* which provisions with your admin login."
+      }
+    },
+    "provisioningIdentityResourceId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Resource ID of the user-assigned managed identity that runs the Entra provisioning deploymentScript."
+      }
+    },
+    "entraProvisionScriptUri": {
+      "type": "string",
+      "defaultValue": "https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/scripts/provision-entra.sh",
+      "metadata": {
+        "description": "Raw URL of the provisioning script used by the deploymentScript path."
       }
     },
     "appModelDeployment": {
@@ -3058,6 +3079,128 @@
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgNames').data), 'Microsoft.Resources/deployments', 'data')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgNames').integration), 'Microsoft.Resources/deployments', 'integration')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgNames').network)]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployIdentityProvisioning')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "entra-provision",
+      "resourceGroup": "[variables('rgNames').app]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "workload": {
+            "value": "[parameters('workload')]"
+          },
+          "environmentName": {
+            "value": "[parameters('environmentName')]"
+          },
+          "provisioningIdentityResourceId": {
+            "value": "[parameters('provisioningIdentityResourceId')]"
+          },
+          "teamsFqdn": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgNames').app), 'Microsoft.Resources/deployments', 'app'), '2025-04-01').outputs.teamsAppFqdn.value]"
+          },
+          "orchFqdn": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgNames').app), 'Microsoft.Resources/deployments', 'app'), '2025-04-01').outputs.orchestratorFqdn.value]"
+          },
+          "scriptUri": {
+            "value": "[parameters('entraProvisionScriptUri')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "11022683885746764872"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "object"
+            },
+            "workload": {
+              "type": "string"
+            },
+            "environmentName": {
+              "type": "string"
+            },
+            "provisioningIdentityResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "User-assigned managed identity (resource ID) with Microsoft Graph app-provisioning permissions."
+              }
+            },
+            "teamsFqdn": {
+              "type": "string",
+              "metadata": {
+                "description": "FQDN of the Teams Container App (sets the SSO identifier URI)."
+              }
+            },
+            "orchFqdn": {
+              "type": "string",
+              "metadata": {
+                "description": "FQDN of the orchestrator Container App (M365 callback)."
+              }
+            },
+            "scriptUri": {
+              "type": "string",
+              "metadata": {
+                "description": "Raw URL of the provisioning script (bash)."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2023-08-01",
+              "name": "[format('ds-entra-{0}-{1}', parameters('workload'), parameters('environmentName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "AzureCLI",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('provisioningIdentityResourceId'))]": {}
+                }
+              },
+              "properties": {
+                "azCliVersion": "2.61.0",
+                "primaryScriptUri": "[parameters('scriptUri')]",
+                "arguments": "[format('--workload {0} --env {1} --teams-fqdn {2} --orch-fqdn {3}', parameters('workload'), parameters('environmentName'), parameters('teamsFqdn'), parameters('orchFqdn'))]",
+                "timeout": "PT30M",
+                "retentionInterval": "PT1H",
+                "cleanupPreference": "OnSuccess"
+              }
+            }
+          ],
+          "outputs": {
+            "deploymentScriptName": {
+              "type": "string",
+              "value": "[format('ds-entra-{0}-{1}', parameters('workload'), parameters('environmentName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgNames').app), 'Microsoft.Resources/deployments', 'app')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgNames').app)]"
       ]
     }
   ],

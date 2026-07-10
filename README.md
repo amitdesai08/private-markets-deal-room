@@ -47,32 +47,27 @@ it running.
 
 > **Demo / POC mode:** leave all identity + optional parameters empty and the platform runs on **seeded data** with deterministic agents — **no secrets required**.
 
-### Deploy
+### Deploy — one guided workflow
 
-**Data-only demo (no identity):** one command, no secrets —
-```bash
-az deployment sub create --location swedencentral \
-  --template-file infra/main.bicep --parameters infra/main.sample.bicepparam
+Run the orchestrator: it logs you in, lets you pick **demo** vs **full**, **auto-detects** the identity path, then deploys, provisions Entra, and wires everything.
+
+```powershell
+./scripts/deploy.ps1     # Windows / PowerShell 7
 ```
-
-**Full platform (Teams SSO, per-user M365 docs, bot):** three steps — provision, auto-create Entra apps, wire.
 ```bash
-# 1) Provision the platform (Container Apps get their FQDNs; see stack outputs)
-az deployment sub create --location swedencentral \
-  --template-file infra/main.bicep --parameters infra/main.<env>.bicepparam
-
-# 2) Auto-create the Entra app registrations + grant admin consent.
-#    Idempotent; writes entra.generated.bicepparam and prints the secret params once.
-./scripts/provision-entra.ps1 \
-  -TeamsFqdn <teamsAppFqdn output> -OrchFqdn <orchestratorFqdn output>
-
-# 3) Wire the generated app IDs + secrets into the platform
-az deployment sub create --location swedencentral \
-  --template-file infra/main.bicep \
-  --parameters infra/main.<env>.bicepparam --parameters entra.generated.bicepparam \
-  --parameters teamsTabClientSecret=<...> m365ClientSecret=<...> botAppPassword=<...>
+./scripts/deploy.sh      # Linux / macOS
 ```
-[`scripts/provision-entra.ps1`](scripts/provision-entra.ps1) is idempotent (re-runnable) and needs **PowerShell 7** + an **Entra-admin `az` login**. Copy [`infra/main.sample.bicepparam`](infra/main.sample.bicepparam) → `main.<env>.bicepparam` to set your parameters. Full runbook + `what-if` preview: [infra/README.md](infra/README.md).
+Non-interactive (CI): `./scripts/deploy.sh --mode full --identity provision --env dev --yes`
+
+**Identity paths** — auto-detected, or choose in the menu / `-Identity`:
+
+| Path | Chosen when | What it does |
+|---|---|---|
+| `provision` | you're an Entra admin *(recommended)* | creates the four app registrations + grants admin consent with your `az` login, then wires them |
+| `byo` | app IDs already set in your param file | skips creation, just wires |
+| `deployment-script` | you pass a Graph-permissioned managed identity | creates the apps **inside** the Bicep deploy *(advanced)* |
+
+Prefer to run it by hand? The orchestrator just chains **`az deployment sub create`** → [`scripts/provision-entra.ps1`](scripts/provision-entra.ps1) / [`.sh`](scripts/provision-entra.sh) (idempotent; writes `entra.generated.bicepparam` + the secret params) → a wire re-deploy. Data-only demo needs no secrets: `az deployment sub create --location swedencentral --template-file infra/main.bicep --parameters infra/main.sample.bicepparam`. Full runbook + `what-if`: [infra/README.md](infra/README.md).
 
 ### Roles — prefab or your own (the wiring harness)
 Identity-aware access is a **parameter, not a configuration step**:

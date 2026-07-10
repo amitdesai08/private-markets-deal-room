@@ -38,6 +38,7 @@ param(
   [string]$OrchFqdn = '',                            # from infra output `orchestratorFqdn`
   [string]$McpScope = 'deals.read',
   [string]$OutFile = './entra.generated.bicepparam',
+  [string]$SecretsOutFile = '',                      # if set, write secret params here (KEY=VALUE) instead of printing
   [switch]$SkipConsent                               # create apps but don't grant admin consent
 )
 
@@ -217,11 +218,20 @@ Set-Content -Path $OutFile -Value ($lines -join "`n") -Encoding utf8
 
 Write-Host "`n== Done ==" -ForegroundColor Cyan
 Write-Host "Wrote non-secret IDs -> $OutFile" -ForegroundColor Green
-Write-Host "`nPass these SECRET parameters at deploy time (shown once, not saved):" -ForegroundColor Yellow
-Write-Host "  --parameters ``"
-Write-Host "    teamsTabClientSecret=$ssoSecret ``"
-Write-Host "    m365ClientSecret=$m365Secret ``"
-Write-Host "    botAppPassword=$botSecret"
+if ($SecretsOutFile) {
+  @(
+    "teamsTabClientSecret=$ssoSecret"
+    "m365ClientSecret=$m365Secret"
+    "botAppPassword=$botSecret"
+  ) | Set-Content -Path $SecretsOutFile -Encoding utf8
+  Write-Host "Wrote secret parameters -> $SecretsOutFile (delete after use)" -ForegroundColor Green
+} else {
+  Write-Host "`nPass these SECRET parameters at deploy time (shown once, not saved):" -ForegroundColor Yellow
+  Write-Host "  --parameters ``"
+  Write-Host "    teamsTabClientSecret=$ssoSecret ``"
+  Write-Host "    m365ClientSecret=$m365Secret ``"
+  Write-Host "    botAppPassword=$botSecret"
+}
 if (-not $TeamsFqdn) {
   Write-Host "`nNOTE: -TeamsFqdn was not supplied, so the SSO identifierUri is host-less" -ForegroundColor DarkYellow
   Write-Host "      (api://<appId>). Re-run with -TeamsFqdn once the Teams Container App exists" -ForegroundColor DarkYellow
