@@ -35,12 +35,9 @@ param locationShort string = 'swc'
 @description('Workload token used in resource + resource-group names.')
 param workload string = 'dealhub'
 
-@allowed([
-  'dev'
-  'test'
-  'prod'
-])
-@description('Environment token used in resource names and tags.')
+@minLength(2)
+@maxLength(12)
+@description('Environment token used in resource names and tags (e.g. dev, test, prod, or your own short token). Kept short so resource names stay within limits.')
 param environmentName string = 'dev'
 
 @description('Cost center tag value.')

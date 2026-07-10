@@ -25,12 +25,14 @@ services:
     host: containerapp
     docker:
       path: Dockerfile
+      remoteBuild: true
   teams:
     project: ./teams-app
     language: js
     host: containerapp
     docker:
       path: Dockerfile
+      remoteBuild: true
 
 hooks:
   postprovision:

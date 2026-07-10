@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "1929504134892461477"
+      "templateHash": "17178483454724387390"
     }
   },
   "parameters": {
@@ -33,13 +33,10 @@
     "environmentName": {
       "type": "string",
       "defaultValue": "dev",
-      "allowedValues": [
-        "dev",
-        "test",
-        "prod"
-      ],
+      "minLength": 2,
+      "maxLength": 12,
       "metadata": {
-        "description": "Environment token used in resource names and tags."
+        "description": "Environment token used in resource names and tags (e.g. dev, test, prod, or your own short token). Kept short so resource names stay within limits."
       }
     },
     "costCenter": {
