@@ -185,3 +185,7 @@ See `infra/README.md` and `app/README.md` for the full details, and
   this repository.
 - Microsoft 365 / Copilot, Dynamics 365, SharePoint and Purview are SaaS /
   tenant-level and are configured via licensing / admin portals, not by Bicep.
+
+---
+
+<sub>Microsoft Teams integration, the identity-aware agent layer, and the deployment accelerator by **Amit Desai** ([@amitdesai08](https://github.com/amitdesai08)).</sub>

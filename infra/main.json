@@ -5,8 +5,9 @@
     "_generator": {
       "name": "bicep",
       "version": "0.44.1.10279",
-      "templateHash": "3782524503515787302"
-    }
+      "templateHash": "9074973856791477331"
+    },
+    "author": "Amit Desai (@amitdesai08)"
   },
   "parameters": {
     "location": {

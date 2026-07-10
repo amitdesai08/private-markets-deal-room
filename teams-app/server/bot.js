@@ -4,6 +4,8 @@
 // Adaptive Cards (deal events) into that channel with a deep link back to the
 // tab. Card content is sourced from the shared backend — the bot holds no data.
 // Everything is lazy + guarded so the app boots without bot credentials.
+//
+// @author Amit Desai (@amitdesai08)
 
 import { config, isBotConfigured } from './config.js';
 

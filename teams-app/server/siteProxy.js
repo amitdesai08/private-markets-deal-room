@@ -1,44 +1,8 @@
-// Site proxy — serves the EXISTING Deal Room web UI (from the shared backend)
-// through the Teams app origin, so the Channel Tab is the real dashboard with
-// zero component duplication and a single data source. HTML responses get a
-// small Teams bootstrap injected (theme sync + SSO notify); assets stream through.
-
-import { config } from './config.js';
-
-const BOOTSTRAP_TAGS =
-  '\n<script src="https://res.cdn.office.net/teams-js/2.31.1/js/MicrosoftTeams.min.js"></script>' +
-  '\n<script src="/teams-bootstrap.js"></script>\n';
-
-export async function siteProxy(req, res) {
-  const target = `${config.backend.url}${req.originalUrl}`;
-  try {
-    const upstream = await fetch(target, {
-      headers: { accept: req.headers.accept || '*/*', 'user-agent': req.headers['user-agent'] || 'teams-app' },
-    });
-    const contentType = upstream.headers.get('content-type') || '';
-    res.status(upstream.status);
-
-    if (contentType.includes('text/html')) {
-      let html = await upstream.text();
-      html = html.includes('</head>')
-        ? html.replace('</head>', `${BOOTSTRAP_TAGS}</head>`)
-        : `${html}${BOOTSTRAP_TAGS}`;
-      res.setHeader('content-type', 'text/html; charset=utf-8');
-      return res.send(html);
-    }
-
-    upstream.headers.forEach((value, key) => {
-      const lk = key.toLowerCase();
-      if (lk !== 'content-encoding' && lk !== 'transfer-encoding' && lk !== 'content-length') {
-        res.setHeader(key, value);
-      }
-    });
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    return res.send(buf);
-  } catch (e) {
-    res.status(502).send('Shared backend unreachable');
-  }
-}
+// Teams tab client-side glue used by the server:
+//   • TEAMS_BOOTSTRAP_JS — injected theme sync + SSO notify + deal-focused layout
+//   • TEAMS_CONFIG_HTML   — the channel-tab configuration page
+// (The former reverse-proxy of the full web UI was retired: the Teams tab now
+//  renders its own native console and links out to the full dashboard.)
 
 // The injected bootstrap: initialize Teams, map the Teams theme onto the Deal
 // Room client's REAL :root variables (with a proper dark + high-contrast

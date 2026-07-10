@@ -18,9 +18,8 @@ import { exchangeOnBehalfOf, identityFromSsoToken } from './sso.js';
 import { personaForUser, stageAccessFor, DEMO_USERS } from './sharedLib.js';
 import { initBot } from './bot.js';
 import { postDealEvent } from './notifications.js';
-import { siteProxy, TEAMS_BOOTSTRAP_JS, TEAMS_CONFIG_HTML } from './siteProxy.js';
+import { TEAMS_BOOTSTRAP_JS, TEAMS_CONFIG_HTML } from './siteProxy.js';
 import { startEventPoller } from './eventPoller.js';
-void siteProxy; // dashboard is now opened via a link; kept for optional embedding
 
 validateConfig();
 
