@@ -52,3 +52,6 @@ plan.codespace.md
 deal-room-chat-archive/
 
 _cm.txt
+
+# Local npm registry override (Intune-managed feed 404s; use public registry locally)
+.npmrc
