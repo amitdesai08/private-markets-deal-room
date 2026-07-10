@@ -29,7 +29,7 @@ it running.
 ### What the platform does
 - **Conversational deal agent** (`@Deal Room Assistant`) — @mention it in any deal channel; answers are grounded in the **live** deal record and resolved from the channel itself.
 - **Channel-native Teams tab** — dashboard + per-deal workspace over Entra SSO (single data source: the shared `/api`).
-- **Identity-aware RBAC** — partner / deal-team / analyst, enforced by *who is asking*.
+- **Identity-aware RBAC** — admin / partner / deal-team / analyst, enforced by *who is asking*, with **role-based agent routing** and a hierarchy **“view-as-down”** (a senior role can see the room as any junior one).
 - **M365 document generation** — per-user **Word** IC memos & **Excel** models on the requester’s own licence: download, **live-refreshable** (Excel web query), or published to the deal’s **SharePoint** data room; plus CSV export.
 - **Azure AI Foundry** model inference (managed identity), a **Deal MCP server** (`/mcp`) for hosted/Copilot agents, optional **APIM AI Gateway**, and **Fabric/OneLake** market intelligence.
 - **Domain-split resource groups** — `rg-<workload>-{core,ai,data,app,integration,network}-{env}-{loc}` with cross-RG managed-identity RBAC.
@@ -83,9 +83,10 @@ Prefer to run it by hand? The orchestrator just chains **`az deployment sub crea
 
 ### Roles — prefab or your own (the wiring harness)
 Identity-aware access is a **parameter, not a configuration step**:
-- **Prefab roles** — supply Entra **object IDs** (users *or* groups) for `partnerIds`, `dealTeamIds`, `analystIds`. Access is enforced immediately, no code changes.
+- **Prefab roles** — supply Entra **object IDs** (users *or* groups) for `adminIds`, `partnerIds`, `dealTeamIds`, `analystIds`. Access is enforced immediately, no code changes.
 - **Your own roles** — edit [`app/lib/userPolicy.js`](app/lib/userPolicy.js) (the single policy seam these parameters feed) to define custom roles, personas and permissions.
 - **Open mode** — leave the arrays empty; `defaultAgentRole` applies to everyone.
+- **Demo profiles** — set `deployDemoProfiles = true` (or `azd env set DEPLOY_DEMO_PROFILES true`) to seed one named showcase identity per role for an instant end-to-end demo; **off by default** in production.
 
 ### Customize & extend (agentic skills)
 - **Agents** — the deal + persona agents are Foundry agents scaffolded in [`app/scripts/`](app/scripts); the **Deal MCP server** (`/mcp` — `list_deals` / `get_deal` / `search_deals`) is the reusable tool surface for your own hosted agents and Copilot declarative agents.
@@ -185,12 +186,19 @@ recommendation) — all sourced live and cited:
 What the agent returns — and what it will *do* — depends on the **requesting Teams
 user's identity**, resolved server-side (a client can never widen its own powers):
 
-| Role | Personas available | Stage-2 deal data | Write actions |
+| Role | Agents available | Stage-2 deal data | Write actions |
 |---|---|---|---|
-| **Partner** | all specialists | ✓ | ✓ |
-| **Deal team** | analyst + all MDs | ✓ | ✓ |
-| **Analyst / member** | analyst only | — (denied) | — (read-only) |
+| **Administrator** | **all 5** (superuser) | ✓ | ✓ |
+| **Partner** | all 5 specialists | ✓ | ✓ |
+| **Deal team** | analyst + all MDs (4) | ✓ | ✓ |
+| **Analyst** | analyst only (1) | — (denied) | — (read-only) |
+| **Member** | analyst only (1) | — (denied) | — (read-only) |
 
+- **Role-based agent routing** — the orchestrator surfaces *only* the agents a role is
+  entitled to; an **Administrator** sees and can call **every** agent.
+- **Hierarchy “view-as-down”** — a senior role can view the room **as any lower role**
+  (an MD can see exactly what an Analyst would), and **never** upward — so it can't be
+  used to self-elevate.
 - **Graceful downgrade** — an unauthorised persona request is quietly narrowed to a
   read-only analyst view rather than refused, so the conversation keeps flowing.
 - **Stage-2 gating** — diligence / approval data is withheld from read-only roles.
@@ -200,6 +208,25 @@ user's identity**, resolved server-side (a client can never widen its own powers
 ![Role-gated access — an Analyst is blocked from a Stage-2 deal in the Teams tab](teams-app/docs/teams-rbac.png)
 
 <sub>*Viewing as an Analyst, opening a Stage-2 deal returns a lock — "restricted to the deal team" — while a partner or deal-team member sees the full record.*</sub>
+
+### Demo profiles — the whole access model, in one click
+
+Flip on `deployDemoProfiles` (`azd env set DEPLOY_DEMO_PROFILES true`) and the tab's
+**“sign in as”** switcher is seeded with one named profile per role, so the model is
+demoable without provisioning a single user. Every profile is enforced end-to-end by
+the orchestrator — the switcher even shows how many agents each identity may call:
+
+| Profile | Role | Agents |
+|---|---|---|
+| **Sam Rivera** — Platform Administrator | admin | **5** · view-as any role |
+| **Eleanor Bishop** — Partner / Deal Sponsor | partner | **5** |
+| **James Whitfield** — Retail MD | deal-team | 4 |
+| **Dr. Priya Nair** — AI MD | deal-team | 4 |
+| **Diego Marquez** — Supply Chain MD | deal-team | 4 |
+| **Maya Olsen** — Analyst | analyst | 1 · read-only |
+
+With the toggle **off** (the production default) no demo name grants a role — only the
+Entra object IDs you supply in the harness apply.
 
 ## Under the hood — one backend, two surfaces
 
