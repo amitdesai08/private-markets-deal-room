@@ -45,18 +45,39 @@ app.get('/api/teams/config', (_req, res) =>
 app.post('/api/teams/context', async (req, res) => {
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const identity = identityFromSsoToken(ssoToken);
-  const asOverride = String(req.body?.as || '').trim(); // demo "view as" (no SSO)
+  const asOverride = String(req.body?.as || '').trim();               // demo "view as USER"
+  const viewAsRole = String(req.body?.viewAsRole || '').trim() || null; // hierarchy "view as ROLE"
   const persona = await personaForUser(identity || {});
-  const access = stageAccessFor(asOverride || identity?.upn || '');
-  let graphLinked = false;
-  try {
-    graphLinked = !!(await exchangeOnBehalfOf(ssoToken));
-  } catch {
-    graphLinked = false;
+  // Authoritative access profile from the orchestrator (single policy source): which
+  // agents this user may use + the roles they can view-as. The requesting identity is
+  // the demo override (by name) or the SSO identity, trusted via the shared bot key.
+  const requestingUser = asOverride
+    ? { name: asOverride }
+    : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : null);
+  let acc = null;
+  if (isBackendLive()) {
+    try {
+      const headers = { 'content-type': 'application/json' };
+      if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
+      const r = await fetch(`${config.backend.url}/api/me/access`, {
+        method: 'POST', headers, body: JSON.stringify({ requestingUser, viewAsRole }),
+      });
+      if (r.ok) acc = await r.json();
+    } catch { /* fall back to local stage access below */ }
   }
+  const fallback = stageAccessFor(asOverride || identity?.upn || '');
+  let graphLinked = false;
+  try { graphLinked = !!(await exchangeOnBehalfOf(ssoToken)); } catch { graphLinked = false; }
   res.json({
     identity, persona, graphLinked,
-    role: access.role, canViewStage2: access.canViewStage2,
+    role: acc?.role || fallback.role,
+    actualRole: acc?.actualRole || fallback.role,
+    roleLabel: acc?.roleLabel || null,
+    isAdmin: !!acc?.isAdmin,
+    allowedPersonas: acc?.allowedPersonas || null,
+    viewAsRoles: acc?.viewAsRoles || [],
+    viewingAsRole: acc?.viewingAs || null,
+    canViewStage2: acc?.canViewStage2 ?? fallback.canViewStage2,
     viewingAs: asOverride || identity?.upn || null,
     demoUsers: DEMO_USERS,
   });

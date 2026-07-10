@@ -18,6 +18,7 @@ const listEnv = (name, dflt = '') =>
 
 // Demo-safe defaults (match user1-5 by name/upn); set the *_IDS env with real
 // Entra object ids in production for a directory-driven mapping.
+const ADMIN_IDS = listEnv('ADMIN_IDS', 'admin');
 const PARTNER_IDS = listEnv('PARTNER_IDS', 'partner,amit desai,desaiamit');
 const DEAL_TEAM_IDS = listEnv('DEAL_TEAM_IDS', 'user1,user2,user3,user4');
 const ANALYST_IDS = listEnv('ANALYST_IDS', 'user5');
@@ -29,45 +30,76 @@ const DEFAULT_ROLE = (process.env.DEFAULT_AGENT_ROLE || 'deal-team').trim();
 // role → the personas the user may ACT AS (each then governed by personaPolicy),
 // whether they may perform WRITES, and whether they may see Stage-2 (diligence) deals.
 const ROLE = {
-  partner:     { personas: ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'], write: true,  stage2: true },
-  'deal-team': { personas: ['analyst', 'retail-md', 'ai-md', 'supply-md'],            write: true,  stage2: true },
-  analyst:     { personas: ['analyst'],                                               write: false, stage2: false },
-  member:      { personas: ['analyst'],                                               write: false, stage2: false },
+  admin:       { rank: 100, personas: ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'], write: true,  stage2: true, all: true },
+  partner:     { rank: 80,  personas: ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'], write: true,  stage2: true },
+  'deal-team': { rank: 60,  personas: ['analyst', 'retail-md', 'ai-md', 'supply-md'],            write: true,  stage2: true },
+  analyst:     { rank: 40,  personas: ['analyst'],                                               write: false, stage2: false },
+  member:      { rank: 20,  personas: ['analyst'],                                               write: false, stage2: false },
 };
 
 const ROLE_LABEL = {
-  partner: 'Partner / Deal Sponsor', 'deal-team': 'Deal Team', analyst: 'Analyst', member: 'Member',
+  admin: 'Administrator', partner: 'Partner / Deal Sponsor', 'deal-team': 'Deal Team', analyst: 'Analyst', member: 'Member',
 };
+const rankOf = (role) => (ROLE[role]?.rank ?? 0);
 
 // Resolve a VERIFIED identity to a role. `identity` = { oid, upn, name }.
 export function roleForUser(identity = {}) {
   const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn), norm(identity.name)].filter(Boolean);
   const hit = (list) => keys.some((k) => list.includes(k));
+  if (hit(ADMIN_IDS)) return 'admin';
   if (hit(PARTNER_IDS)) return 'partner';
   if (hit(DEAL_TEAM_IDS)) return 'deal-team';
   if (hit(ANALYST_IDS)) return 'analyst';
   return 'member';
 }
 
-// Full access profile for an identity (or the default role when identity is absent).
-export function accessFor(identity) {
-  const role = identity && (identity.oid || identity.upn || identity.name)
+// The actual role for an identity (or the default role when identity is absent).
+function actualRoleFor(identity) {
+  return identity && (identity.oid || identity.upn || identity.name)
     ? roleForUser(identity)
     : (ROLE[DEFAULT_ROLE] ? DEFAULT_ROLE : 'member');
+}
+
+// Roles a user may impersonate DOWN to — their own role and every lower one. Powers a
+// "view as" so a senior reviewer sees exactly what a junior role would (never up).
+export function viewAsRolesFor(identity) {
+  const mine = rankOf(actualRoleFor(identity));
+  return Object.keys(ROLE).filter((r) => rankOf(r) <= mine).sort((a, b) => rankOf(b) - rankOf(a));
+}
+
+// Full access profile. When `viewAsRole` is at or below the caller's actual rank the
+// profile is computed AS THAT lower role (view-as); an out-of-range/unknown viewAsRole
+// is ignored — you can never elevate your own access.
+export function accessFor(identity, viewAsRole = null) {
+  const actualRole = actualRoleFor(identity);
+  let role = actualRole;
+  if (viewAsRole && ROLE[viewAsRole] && rankOf(viewAsRole) <= rankOf(actualRole)) role = viewAsRole;
   const spec = ROLE[role] || ROLE.member;
   return {
     role,
+    actualRole,
+    viewingAs: role !== actualRole ? role : null,
     roleLabel: ROLE_LABEL[role] || role,
+    actualRoleLabel: ROLE_LABEL[actualRole] || actualRole,
+    isAdmin: !!ROLE[actualRole]?.all,
     allowedPersonas: spec.personas,
     canWrite: spec.write,
     canViewStage2: spec.stage2,
   };
 }
 
+// The per-user access summary the UI consumes (which agents to show + view-as roles).
+export function describeAccess(identity, viewAsRole = null) {
+  return {
+    ...accessFor(identity, viewAsRole),
+    viewAsRoles: viewAsRolesFor(identity).map((r) => ({ role: r, label: ROLE_LABEL[r] || r })),
+  };
+}
+
 // May this identity act through `requestedPersona`? Returns the EFFECTIVE persona
 // (downgraded to read-only 'analyst' when not authorized) + a reason on denial.
-export function authorizePersona(identity, requestedPersona) {
-  const access = accessFor(identity);
+export function authorizePersona(identity, requestedPersona, viewAsRole = null) {
+  const access = accessFor(identity, viewAsRole);
   const want = requestedPersona || 'analyst';
   if (access.allowedPersonas.includes(want)) return { ok: true, persona: want, access };
   return {
@@ -79,8 +111,8 @@ export function authorizePersona(identity, requestedPersona) {
 }
 
 // Gate access to a specific deal by its stage (Stage-2 diligence = deal-team/partner only).
-export function authorizeDealAccess(identity, dealStageOrName) {
-  const access = accessFor(identity);
+export function authorizeDealAccess(identity, dealStageOrName, viewAsRole = null) {
+  const access = accessFor(identity, viewAsRole);
   const s = String(dealStageOrName || '');
   const isStage2 = /^d/i.test(s) || /diligence|approval/i.test(s);
   if (isStage2 && !access.canViewStage2) {

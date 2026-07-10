@@ -104,7 +104,7 @@ import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
-import { accessFor, authorizePersona, authorizeDealAccess } from './lib/userPolicy.js';
+import { accessFor, authorizePersona, authorizeDealAccess, describeAccess } from './lib/userPolicy.js';
 
 validateConfig({ strict: false });
 
@@ -719,6 +719,13 @@ api.get('/deal-agent', (_req, res) => res.json(dealAgentInfo()));
 
 // The 5 persona agents (analyst, partner, retail-md, ai-md, supply-md).
 api.get('/persona-agents', (_req, res) => res.json(personaAgentsInfo()));
+
+// Per-user access profile — which agents the caller may use + the roles they can
+// "view as" (their own + every lower one). The tab uses this to show only the agents
+// the user is entitled to and to offer a downward view-as.
+api.post('/me/access', (req, res) => {
+  res.json(describeAccess(requestingIdentity(req), req.body?.viewAsRole || null));
+});
 // Chat with a specific persona agent. It reads the pipeline and ACTS on it through
 // its persona-scoped tools (server-side persona authorization enforced on writes).
 // Body: { message, dealId?, previousResponseId? }.
@@ -727,12 +734,13 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   if (!message) return res.status(400).json({ error: 'message required' });
   const dealId = req.body?.dealId ? String(req.body.dealId) : undefined;
   const previousResponseId = req.body?.previousResponseId ? String(req.body.previousResponseId) : undefined;
-  // ---- RBAC (requesting user) ----
+  // ---- RBAC (requesting user; optional view-as a lower role) ----
   const identity = requestingIdentity(req);
-  const access = accessFor(identity);
+  const viewAs = req.body?.viewAsRole || null;
+  const access = accessFor(identity, viewAs);
   if (dealId) {
     const d = getDeal(dealId);
-    const gate = authorizeDealAccess(identity, d?.stage || d?.stageName);
+    const gate = authorizeDealAccess(identity, d?.stage || d?.stageName, viewAs);
     if (!gate.ok) return res.status(403).json({ reply: gate.reason, denied: true, role: access.role });
   }
   // Read-only users (analyst / member roles) never reach the write-capable persona
@@ -746,7 +754,7 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
     }
   }
   // Authorise the requested persona for this user (downgrade to analyst if not).
-  const authz = authorizePersona(identity, req.params.persona);
+  const authz = authorizePersona(identity, req.params.persona, viewAs);
   if (!authz.ok) {
     try {
       const out = await chatDealAgent({ message, dealId, scope: dealId ? 'deal' : 'portfolio' });
@@ -775,9 +783,10 @@ api.post('/deal-agent/chat', async (req, res) => {
   const previousResponseId = req.body?.previousResponseId ? String(req.body.previousResponseId) : undefined;
   // ---- RBAC: gate Stage-2 deal access by the requesting user's role ----
   const identity = requestingIdentity(req);
+  const viewAs = req.body?.viewAsRole || null;
   if (dealId) {
     const d = getDeal(dealId);
-    const gate = authorizeDealAccess(identity, d?.stage || d?.stageName);
+    const gate = authorizeDealAccess(identity, d?.stage || d?.stageName, viewAs);
     if (!gate.ok) return res.status(403).json({ reply: gate.reason, denied: true, role: gate.access.role });
   }
   try {

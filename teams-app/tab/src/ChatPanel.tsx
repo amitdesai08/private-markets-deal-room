@@ -10,8 +10,8 @@ const DEAL_STARTERS = [
   'What are the top risks and the compliance status?',
 ];
 
-export default function ChatPanel({ agents, deals, focusDealId, onClose }: {
-  agents: Agent[]; deals: Deal[]; focusDealId: string; onClose: () => void;
+export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsRole }: {
+  agents: Agent[]; deals: Deal[]; focusDealId: string; onClose: () => void; viewAsRole?: string;
 }) {
   const [agentKey, setAgentKey] = useState('orchestrator');
   const [dealId, setDealId] = useState('');
@@ -41,6 +41,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose }: {
     const body: Record<string, unknown> = { message: msg, previousResponseId: prevId[threadKey] };
     if (dealId) body.dealId = dealId;
     if (agent.kind === 'orchestrator') body.scope = dealId ? 'deal' : 'portfolio';
+    if (viewAsRole) body.viewAsRole = viewAsRole;
     try {
       const res = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       const data = await res.json();

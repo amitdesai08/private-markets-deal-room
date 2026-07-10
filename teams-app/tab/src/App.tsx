@@ -44,7 +44,28 @@ export default function App() {
   const [canViewStage2, setCanViewStage2] = useState(true);
   const [demoUsers, setDemoUsers] = useState<{ id: string; upn: string; label: string }[]>([]);
   const [viewAs, setViewAs] = useState('user1');
+  // Access profile from the orchestrator: which agents this user may use, and
+  // the roles they can "view as" (own role + any lower in the hierarchy).
+  const [allowedPersonas, setAllowedPersonas] = useState<string[] | null>(null);
+  const [viewAsRoles, setViewAsRoles] = useState<{ role: string; label: string }[]>([]);
+  const [viewAsRole, setViewAsRole] = useState('');
+  const [roleLabel, setRoleLabel] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2'>('overview');
+
+  // Only surface the agents this user (or the role they are viewing as) may use.
+  // The orchestrator (always shown) plus any persona agent in allowedPersonas.
+  const visibleAgents = agents.filter((a) => a.kind === 'orchestrator' || !allowedPersonas || (a.persona && allowedPersonas.includes(a.persona)));
+
+  function applyAccess(ctx: any) {
+    if (!ctx) return;
+    if (ctx.persona) setPersona(ctx.persona);
+    setCanViewStage2(!!ctx.canViewStage2);
+    if (Array.isArray(ctx.allowedPersonas)) setAllowedPersonas(ctx.allowedPersonas);
+    if (Array.isArray(ctx.viewAsRoles)) setViewAsRoles(ctx.viewAsRoles);
+    if (typeof ctx.roleLabel === 'string') setRoleLabel(ctx.roleLabel);
+    setIsAdmin(!!ctx.isAdmin);
+  }
 
   useEffect(() => {
     (async () => {
@@ -70,19 +91,19 @@ export default function App() {
 
       getSsoToken().then((token) =>
         fetch('/api/teams/context', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ssoToken: token, as: 'user1' }) }).then((r) => r.json())
-      ).then((ctx) => { if (ctx?.persona) setPersona(ctx.persona); if (Array.isArray(ctx?.demoUsers)) setDemoUsers(ctx.demoUsers); setCanViewStage2(!!ctx?.canViewStage2); }).catch(() => {});
+      ).then((ctx) => { applyAccess(ctx); if (Array.isArray(ctx?.demoUsers)) setDemoUsers(ctx.demoUsers); }).catch(() => {});
     })();
   }, []);
 
-  // Re-evaluate stage access when the demo "view as" user changes. The demo
-  // override drives stage access server-side, so we skip the (slow) SSO token
-  // fetch here to keep switching instant.
+  // Re-evaluate access when the demo "view as" user or the "view as role"
+  // changes. Both drive the orchestrator's access profile server-side, so we
+  // skip the (slow) SSO token fetch here to keep switching instant.
   useEffect(() => {
     (async () => {
-      const ctx = await fetch('/api/teams/context', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ as: viewAs }) }).then((r) => r.json()).catch(() => null);
-      if (ctx) { setCanViewStage2(!!ctx.canViewStage2); if (ctx.persona) setPersona(ctx.persona); }
+      const ctx = await fetch('/api/teams/context', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ as: viewAs, viewAsRole }) }).then((r) => r.json()).catch(() => null);
+      applyAccess(ctx);
     })();
-  }, [viewAs]);
+  }, [viewAs, viewAsRole]);
 
   async function refreshData() {
     fetch('/api/deals').then((r) => (r.ok ? r.json() : [])).then((d) => { if (Array.isArray(d)) setDeals(d); }).catch(() => {});
@@ -109,6 +130,12 @@ export default function App() {
         </div>
         <div className="topbar-r">
           {persona?.name ? <span className="badge" title="Signed-in persona">{persona.name}</span> : null}
+          {roleLabel ? <span className="badge" title="Your role">{isAdmin ? '★ ' : ''}{roleLabel}</span> : null}
+          {viewAsRoles.length > 1 ? (
+            <select className="viewas" value={viewAsRole} onChange={(e) => setViewAsRole(e.target.value)} title="View the deal room as this role (you can only view your own role or lower)">
+              {viewAsRoles.map((r) => (<option key={r.role} value={r.role}>👁 View as {r.label}</option>))}
+            </select>
+          ) : null}
           {demoUsers.length ? (
             <select className="viewas" value={viewAs} onChange={(e) => setViewAs(e.target.value)} title="Demo — view as (stage visibility)">
               {demoUsers.map((u) => (<option key={u.id} value={u.upn}>👤 {u.label}</option>))}
@@ -129,14 +156,14 @@ export default function App() {
       <div className="layout">
         <main className="main">
           {mainTab === 'overview' ? (
-            <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} agentCount={agents.length} onAsk={askAbout} onOpen={setOpenDealId} />
+            <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} agentCount={visibleAgents.length} onAsk={askAbout} onOpen={setOpenDealId} />
           ) : mainTab === 'stage1' ? (
             <Stage1 onChanged={refreshData} onOpenDeal={setOpenDealId} />
           ) : (
             <Stage2 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           )}
         </main>
-        {chatOpen ? <ChatPanel agents={agents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} /> : null}
+        {chatOpen ? <ChatPanel agents={visibleAgents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} viewAsRole={viewAsRole} /> : null}
       </div>
 
       {openDealId ? <DealDetail dealId={openDealId} canViewStage2={canViewStage2} onClose={() => setOpenDealId('')} onAsk={(id) => { setOpenDealId(''); askAbout(id); }} /> : null}
