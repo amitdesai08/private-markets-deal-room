@@ -160,6 +160,8 @@ param botAppType string = 'MultiTenant'
 // all empty to run open (defaultAgentRole applies to every caller). To define your
 // OWN roles/permissions, edit app/lib/userPolicy.js — these arrays feed it directly.
 //------------------------------------------------------------------------------
+@description('Entra object IDs (users or groups) granted the ADMIN role (superuser: sees & can call every agent, may view-as any lower role).')
+param adminIds array = []
 @description('Entra object IDs (users or groups) granted the PARTNER role (full access + write).')
 param partnerIds array = []
 @description('Entra object IDs (users or groups) granted the DEAL-TEAM role (stage-2 + write).')
@@ -412,6 +414,7 @@ module app 'modules/app.bicep' = {
     botAppId: botAppId
     botAppPassword: botAppPassword
     botAppType: botAppType
+    adminIds: adminIds
     partnerIds: partnerIds
     dealTeamIds: dealTeamIds
     analystIds: analystIds

@@ -86,6 +86,7 @@ param botAppType = 'MultiTenant'
 // (defaultAgentRole applies to everyone). To define your OWN roles / permissions,
 // edit app/lib/userPolicy.js — these arrays feed it directly. botBackendKey is a
 // secure value; leave it unset and it is auto-derived (stable per deployment).
+param adminIds = []                       // superuser: sees & can call every agent, may view-as any lower role
 param partnerIds = []                     // e.g. [ '<partner-oid>', '<partners-group-oid>' ]
 param dealTeamIds = []
 param analystIds = []
