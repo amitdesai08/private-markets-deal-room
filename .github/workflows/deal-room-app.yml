@@ -29,6 +29,8 @@ permissions:
 jobs:
   build-deploy:
     name: Build & deploy app
+    # Opt-in CD: set repository variable ENABLE_CD=true (+ AZURE_* OIDC secrets) to enable.
+    if: vars.ENABLE_CD == 'true'
     runs-on: ubuntu-latest
     environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'dev' }}
     env:

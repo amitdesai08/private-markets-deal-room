@@ -51,7 +51,8 @@ jobs:
 
   preview:
     name: What-if (dev)
-    if: github.event_name == 'pull_request'
+    # Opt-in CD: set repo variable ENABLE_CD=true (+ AZURE_* OIDC secrets on the env).
+    if: github.event_name == 'pull_request' && vars.ENABLE_CD == 'true'
     needs: lint
     runs-on: ubuntu-latest
     environment: dev
@@ -78,7 +79,8 @@ jobs:
 
   deploy:
     name: Deploy stack
-    if: github.event_name != 'pull_request'
+    # Opt-in CD: set repo variable ENABLE_CD=true (+ AZURE_* OIDC secrets on the env).
+    if: github.event_name != 'pull_request' && vars.ENABLE_CD == 'true'
     needs: lint
     runs-on: ubuntu-latest
     environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'dev' }}
