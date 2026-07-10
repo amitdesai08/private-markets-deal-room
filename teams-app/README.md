@@ -1,5 +1,7 @@
 # The Deal Room — Teams app
 
+> Teams integration & identity-aware agent layer by **Amit Desai** ([@amitdesai08](https://github.com/amitdesai08)).
+
 A **thin Teams interface** over the shared Deal Room backend (the single data
 source). Delivers three surfaces, all reading the same `/api` + `/mcp`:
 

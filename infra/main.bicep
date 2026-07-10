@@ -21,8 +21,6 @@
 //  Purview are SaaS / tenant-level and are NOT provisioned by Bicep.
 //==============================================================================
 
-metadata author = 'Amit Desai (@amitdesai08)'
-
 targetScope = 'subscription'
 
 //------------------------------------------------------------------------------

@@ -10,8 +10,6 @@
 // Role mapping is config-driven (env, no hardcoded tenant ids): each list matches
 // a user by Entra object id OR UPN local-part OR lowercased display name, so it
 // works for real Teams users AND the demo "view as" roster.
-//
-// @author Amit Desai (@amitdesai08)
 
 const norm = (s) => String(s || '').trim().toLowerCase();
 const localPart = (u) => norm(u).split('@')[0];
