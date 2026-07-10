@@ -45,4 +45,10 @@ app/scripts/_sample-news.json
 app/scripts/__pycache__/
 deal-room-teams.zip
 
+# Local planning / chat context (never commit — fork is public, may contain tenant/sub IDs)
+plan.md
+plan.codespace.md
+*-chat-archive/
+deal-room-chat-archive/
+
 _cm.txt
