@@ -145,6 +145,16 @@ const PERSONA_FRAMING = {
   partner: 'You are the Deal Partner / IC sponsor. Give a crisp go/no-go read and the IC conditions you would require.',
 };
 
+// Human-readable persona tag shown atop a reply so the channel can tell WHO is
+// answering (the analyst by default, or the specialist MD / partner when addressed).
+const PERSONA_LABEL = {
+  'ai-md': { emoji: '\u{1F9E0}', name: 'AI MD', subtitle: 'Tech & AI diligence' },
+  'retail-md': { emoji: '\u{1F6CD}\uFE0F', name: 'Retail MD', subtitle: 'Commercial diligence' },
+  'supply-md': { emoji: '\u{1F69A}', name: 'Supply Chain MD', subtitle: 'Operations & supply chain' },
+  partner: { emoji: '\u{1F91D}', name: 'Partner', subtitle: 'IC sponsor' },
+  analyst: { emoji: '\u{1F4CA}', name: 'Deal Room Analyst', subtitle: 'Portfolio analyst' },
+};
+
 // Shared trust key so the backend can trust the requesting user's identity we pass
 // (the Bot-Framework-authenticated activity.from). Without it the backend treats
 // the request as unidentified and applies the default (least) role.
@@ -169,21 +179,25 @@ async function askAgent(message, deal, user) {
   if (persona) {
     try {
       const { r, data } = await callBackend(`/api/persona-agents/${persona}/chat`, { message, dealId: deal?.dealId }, user);
-      if (data?.denied) return data.reply;                       // RBAC blocked (e.g. Stage-2 access)
-      if (r.ok && data?.reply) { console.log(`[bot] persona ${persona} (role ${data.role || '?'}${data.downgraded ? ', downgraded' : ''}${data.readOnly ? ', read-only' : ''})`); return data.reply; }
+      if (data?.denied) return { reply: data.reply, persona, denied: true };       // RBAC blocked (e.g. Stage-2 access)
+      if (r.ok && data?.reply) {
+        console.log(`[bot] persona ${persona} (role ${data.role || '?'}${data.downgraded ? ', downgraded' : ''}${data.readOnly ? ', read-only' : ''})`);
+        // If RBAC downgraded the request, the ANALYST actually answered — label it so.
+        return { reply: data.reply, persona: data.downgraded ? 'analyst' : persona };
+      }
       console.log(`[bot] persona ${persona} unavailable (HTTP ${r.status}) — falling back to analyst`);
     } catch (e) { console.log(`[bot] persona ${persona} call failed — falling back to analyst`); }
     // Resilient fallback: the analyst with the persona's framing (still RBAC-gated).
     const framing = PERSONA_FRAMING[persona] || '';
     const fmsg = framing ? `${framing}\n\nQuestion: ${message}` : message;
     const { data } = await callBackend('/api/deal-agent/chat', deal?.dealId ? { message: fmsg, dealId: deal.dealId, scope: 'deal' } : { message: fmsg, scope: 'portfolio' }, user);
-    if (data?.denied) return data.reply;
-    return data?.reply || data?.error || 'I don’t have an answer right now.';
+    if (data?.denied) return { reply: data.reply, persona, denied: true };
+    return { reply: data?.reply || data?.error || 'I don’t have an answer right now.', persona };
   }
   // No persona intent — the deal analyst answers, RBAC-gated for Stage-2 access.
   const { data } = await callBackend('/api/deal-agent/chat', deal?.dealId ? { message, dealId: deal.dealId, scope: 'deal' } : { message, scope: 'portfolio' }, user);
-  if (data?.denied) return data.reply;
-  return data?.reply || data?.error || 'I don’t have an answer right now.';
+  if (data?.denied) return { reply: data.reply, persona: 'analyst', denied: true };
+  return { reply: data?.reply || data?.error || 'I don’t have an answer right now.', persona: 'analyst' };
 }
 
 // Greet the channel with its deal context when the bot is installed.
@@ -213,8 +227,11 @@ async function handleDealMessage(context, TurnContext) {
   const user = { oid: context.activity.from?.aadObjectId, name: context.activity.from?.name };
   try {
     await context.sendActivities([{ type: 'typing' }]);
-    const reply = await askAgent(text, deal, user);
-    await context.sendActivity(reply);
+    const { reply, persona, denied } = await askAgent(text, deal, user);
+    const label = PERSONA_LABEL[persona] || PERSONA_LABEL.analyst;
+    // Subtle persona tag so the channel can see who's answering; denials stay plain.
+    const out = denied ? reply : `**${label.emoji} ${label.name}** \u00b7 _${label.subtitle}_\n\n${reply}`;
+    await context.sendActivity(out);
   } catch (err) {
     await context.sendActivity(`The deal agent hit an error — ${String(err?.message || err).slice(0, 140)}`);
   }
