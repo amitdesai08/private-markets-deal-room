@@ -37,7 +37,12 @@ const PERSONA_AGENT = {
   partner: 'deal-room-partner',
   'retail-md': 'deal-room-retail-md',
   'ai-md': 'deal-room-ai-md',
-  'supply-md': 'deal-room-supply-md'
+  'supply-md': 'deal-room-supply-md',
+  principal: 'deal-room-principal',
+  'operating-partner': 'deal-room-operating-partner',
+  'fund-cfo': 'deal-room-fund-cfo',
+  'legal-gc': 'deal-room-legal-gc',
+  'ir-lp': 'deal-room-ir-lp'
 };
 
 // Read tools go to dispatchTool; everything else is an action -> dispatchAction.

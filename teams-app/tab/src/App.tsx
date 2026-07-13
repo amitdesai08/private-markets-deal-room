@@ -5,6 +5,7 @@ import ChatPanel from './ChatPanel';
 import DealDetail from './DealDetail';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
+import Lifecycle from './Lifecycle';
 import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipeline } from './types';
 
 type TeamsConfig = { demoMode: boolean; backend: string; sso: boolean; bot: boolean; backendUrl?: string; appBaseUrl?: string };
@@ -19,11 +20,16 @@ const ORCHESTRATOR: Agent = {
 };
 const PERSONA_META: Record<string, { initials: string; subtitle: string; starters: string[] }> = {
   partner: { initials: 'EB', subtitle: 'Partner — sponsor & IC gatekeeper', starters: ['Give me your go/no-go read on the portfolio.', 'What conditions would you require to approve at IC?'] },
+  principal: { initials: 'MF', subtitle: 'Principal — deal lead', starters: ['Draft an IOI for the top target.', 'What should the diligence plan and calendar to IC look like?'] },
   'retail-md': { initials: 'RM', subtitle: 'Retail MD — commercial lane', starters: ['What commercial diligence should we prioritise?', 'Suggest a commercial value-creation lever.'] },
   'ai-md': { initials: 'AI', subtitle: 'AI MD — tech / AI lane', starters: ['Score AI-readiness and flag the tech risks.', 'Propose an AI / digital value-creation lever.'] },
   'supply-md': { initials: 'SM', subtitle: 'Supply Chain MD — operations lane', starters: ['Surface the supply-chain & concentration risks.', 'Suggest an operational cost-out lever.'] },
+  'operating-partner': { initials: 'RN', subtitle: 'Operating Partner — value creation', starters: ['Draft the value-creation plan and 100-day plan.', 'Where is the biggest EBITDA-bridge lever?'] },
+  'fund-cfo': { initials: 'DO', subtitle: 'Fund CFO — returns & financing', starters: ['Build the LBO case — IRR and MOIC.', 'Run a base / bull / bear returns sensitivity.'] },
+  'legal-gc': { initials: 'PR', subtitle: 'General Counsel — legal & execution', starters: ['Summarise the key SPA and reps & warranties issues.', 'Run the KYC / regulatory clearance check.'] },
+  'ir-lp': { initials: 'SF', subtitle: 'Investor Relations — LP & fund', starters: ['How does this deal read to our LPs?', 'Check portfolio concentration vs the mandate.'] },
 };
-const PERSONA_ORDER = ['partner', 'retail-md', 'ai-md', 'supply-md'];
+const PERSONA_ORDER = ['partner', 'principal', 'retail-md', 'ai-md', 'supply-md', 'operating-partner', 'fund-cfo', 'legal-gc', 'ir-lp'];
 const shortLabel = (label: string | undefined, persona: string) => (label ? (label.split('—')[0].split('(')[0].trim() || label) : persona);
 
 export default function App() {
@@ -51,7 +57,7 @@ export default function App() {
   const [viewAsRole, setViewAsRole] = useState('');
   const [roleLabel, setRoleLabel] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2'>('overview');
+  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'lifecycle'>('overview');
 
   // Only surface the agents this user (or the role they are viewing as) may use.
   // The orchestrator (always shown) plus any persona agent in allowedPersonas.
@@ -158,7 +164,7 @@ export default function App() {
       </header>
 
       <nav className="maintabs">
-        {([['overview', 'Deals Overview'], ['stage1', 'Stage 1 — Origination'], ['stage2', 'Stage 2 — Diligence']] as const).map(([k, label]) => (
+        {([['overview', 'Deals Overview'], ['stage1', 'Stage 1 — Origination'], ['stage2', 'Stage 2 — Diligence'], ['lifecycle', 'Lifecycle']] as const).map(([k, label]) => (
           <button key={k} className={`maintab${mainTab === k ? ' on' : ''}`} onClick={() => setMainTab(k)}>{label}</button>
         ))}
       </nav>
@@ -169,6 +175,8 @@ export default function App() {
             <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} agentCount={visibleAgents.length} onAsk={askAbout} onOpen={setOpenDealId} />
           ) : mainTab === 'stage1' ? (
             <Stage1 onChanged={refreshData} onOpenDeal={setOpenDealId} />
+          ) : mainTab === 'lifecycle' ? (
+            <Lifecycle />
           ) : (
             <Stage2 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           )}

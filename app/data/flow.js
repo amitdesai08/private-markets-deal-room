@@ -195,3 +195,120 @@ export function stageById(id) {
 export const STAGE_ORDER = STEPS.map((s) => ({ key: s.key, label: s.title, phase: s.stage }));
 
 export const FLOW = { stages: STAGES, steps: STEPS, gate: GATE };
+
+// ---------------------------------------------------------------------------
+// The full institutional PE deal lifecycle. The 2-stage FLOW above is the demo
+// spine (sourcing → the collaboration hub); this LIFECYCLE is the complete
+// mid-market buyout process a fund actually runs, grounded in how deal teams,
+// IC, and value-creation operate. It is ADDITIVE — the existing screening/
+// diligence UI is unchanged; new surfaces (the Lifecycle view, persona owners)
+// consume this. `kind: 'gate'` marks the points where capital/resources are
+// committed (IOI, LOI, IC, Signing, Close, Exit). `owner` is the persona id
+// (see data/personas.js) accountable for the stage.
+export const LIFECYCLE_PHASES = [
+  { id: 'origination', num: 1, name: 'Origination & Screening', tagline: 'Find & qualify', accent: '#2563eb' },
+  { id: 'execution', num: 2, name: 'Diligence & Execution', tagline: 'Diligence, decide, close', accent: '#c2410c' },
+  { id: 'ownership', num: 3, name: 'Ownership & Exit', tagline: 'Create value, realize', accent: '#0d9488' },
+];
+
+export const LIFECYCLE = [
+  // ── Phase 1 · Origination & Screening ─────────────────────────────────────
+  {
+    num: 1, phase: 'origination', id: 'mandate', kind: 'stage', name: 'Fund strategy & mandate',
+    owner: 'partner', personas: ['partner', 'principal'],
+    summary: 'Set the investment thesis, target themes and hard mandate gates the pipeline is measured against.',
+    produces: ['Investment thesis', 'Theme map', 'Fund mandate gates'], mapsToSteps: [],
+  },
+  {
+    num: 2, phase: 'origination', id: 'sourcing', kind: 'stage', name: 'Deal sourcing',
+    owner: 'analyst', personas: ['analyst', 'principal'],
+    summary: 'Proprietary + intermediated origination — CxO signals, bankers, inbound CIMs — scored against the mandate.',
+    produces: ['CRM record', 'Mandate-fit assessment'], mapsToSteps: ['O1'],
+  },
+  {
+    num: 3, phase: 'origination', id: 'screening', kind: 'stage', name: 'Screening & triage',
+    owner: 'analyst', personas: ['analyst', 'principal'],
+    summary: 'Turn raw signals into a cited screening one-pager; triage against the mandate and internal deal history.',
+    produces: ['Screening one-pager', 'Triage decision'], mapsToSteps: ['O2', 'O3'],
+  },
+  {
+    num: 4, phase: 'origination', id: 'pursue', kind: 'gate', name: 'Screening gate — PURSUE',
+    owner: 'partner', personas: ['partner'],
+    summary: 'The sponsor records PURSUE on the gate-ready shortlist, committing the deal team and spinning up the collaboration space.',
+    produces: ['PURSUE decision', 'Deal channel + SharePoint data room'], mapsToSteps: ['O4'],
+  },
+  // ── Phase 2 · Diligence & Execution ───────────────────────────────────────
+  {
+    num: 5, phase: 'execution', id: 'ioi', kind: 'gate', name: 'Initial review & IOI',
+    owner: 'principal', personas: ['principal', 'partner'],
+    summary: 'First management meeting and a preliminary valuation; decide whether to submit a non-binding Indication of Interest before spending diligence resources.',
+    produces: ['Preliminary valuation', 'Indication of Interest (IOI)'], mapsToSteps: [],
+  },
+  {
+    num: 6, phase: 'execution', id: 'dataroom', kind: 'stage', name: 'NDA & data room / CIM intake',
+    owner: 'analyst', personas: ['analyst', 'principal'],
+    summary: 'Sign the NDA, ingest the CIM and data room, and run a preliminary commercial & financial read.',
+    produces: ['Executed NDA', 'CIM synthesis', 'Preliminary DD read'], mapsToSteps: [],
+  },
+  {
+    num: 7, phase: 'execution', id: 'loi', kind: 'gate', name: 'LOI / term sheet',
+    owner: 'partner', personas: ['partner', 'principal'],
+    summary: 'Submit a non-binding Letter of Intent with indicative price, structure and exclusivity.',
+    produces: ['Letter of Intent (LOI)', 'Exclusivity'], mapsToSteps: [],
+  },
+  {
+    num: 8, phase: 'execution', id: 'diligence', kind: 'stage', name: 'Confirmatory diligence & QoE',
+    owner: 'principal', personas: ['principal', 'retail-md', 'ai-md', 'supply-md', 'operating-partner', 'legal-gc'],
+    summary: 'Full workstreams — commercial, Quality of Earnings (financial), legal, tax, operational, tech/AI, ESG, insurance — on the live record.',
+    produces: ['QoE report', 'Lane findings', 'Risk register'], mapsToSteps: ['D1', 'D2'],
+  },
+  {
+    num: 9, phase: 'execution', id: 'ic', kind: 'gate', name: 'Investment Committee',
+    owner: 'partner', personas: ['partner', 'principal', 'fund-cfo'],
+    summary: 'IC memo and pack go to the committee; the IC votes and sets conditions precedent.',
+    produces: ['IC memo & pack', 'IC decision', 'Conditions'], mapsToSteps: ['D3', 'D4'],
+  },
+  {
+    num: 10, phase: 'execution', id: 'financing', kind: 'stage', name: 'Financing & capital structure',
+    owner: 'fund-cfo', personas: ['fund-cfo', 'partner'],
+    summary: 'Arrange leverage and equity — sources & uses, debt schedule, covenant headroom, lender commitments.',
+    produces: ['Sources & uses', 'Debt commitment', 'Capital structure'], mapsToSteps: [],
+  },
+  {
+    num: 11, phase: 'execution', id: 'signing', kind: 'gate', name: 'SPA negotiation & signing',
+    owner: 'legal-gc', personas: ['legal-gc', 'partner'],
+    summary: 'Negotiate definitive agreements — SPA, reps & warranties, W&I insurance, disclosure schedules — and sign.',
+    produces: ['Signed SPA', 'Reps & warranties / W&I', 'Disclosure schedules'], mapsToSteps: [],
+  },
+  {
+    num: 12, phase: 'execution', id: 'closing', kind: 'stage', name: 'Closing / completion',
+    owner: 'legal-gc', personas: ['legal-gc', 'fund-cfo'],
+    summary: 'Clear conditions precedent and regulatory/antitrust approvals, run the funds flow, and complete the acquisition.',
+    produces: ['Regulatory clearance', 'Funds flow', 'Completion'], mapsToSteps: ['D4', 'D5'],
+  },
+  // ── Phase 3 · Ownership & Exit ────────────────────────────────────────────
+  {
+    num: 13, phase: 'ownership', id: 'valuecreation', kind: 'stage', name: 'Value creation & 100-day',
+    owner: 'operating-partner', personas: ['operating-partner', 'principal'],
+    summary: 'Stand up the board, execute the 100-day plan and the value-creation plan (pricing, cost-out, AI, buy-and-build), and baseline KPIs.',
+    produces: ['100-day plan', 'Value-creation plan (VCP)', 'KPI baseline'], mapsToSteps: [],
+  },
+  {
+    num: 14, phase: 'ownership', id: 'monitoring', kind: 'stage', name: 'Portfolio monitoring & add-ons',
+    owner: 'operating-partner', personas: ['operating-partner', 'ir-lp', 'fund-cfo'],
+    summary: 'Quarterly KPI monitoring, buy-and-build add-ons, and LP reporting against the value-creation plan.',
+    produces: ['Quarterly KPIs', 'Add-on pipeline', 'LP reporting'], mapsToSteps: [],
+  },
+  {
+    num: 15, phase: 'ownership', id: 'exit', kind: 'gate', name: 'Exit',
+    owner: 'partner', personas: ['partner', 'fund-cfo', 'ir-lp'],
+    summary: 'Assess exit readiness and run a dual-track (M&A / IPO) realization; attribute returns (IRR / MOIC) back to the thesis.',
+    produces: ['Exit readiness', 'Realization', 'Returns attribution (IRR / MOIC)'], mapsToSteps: [],
+  },
+];
+
+export const LIFECYCLE_GATES = LIFECYCLE.filter((s) => s.kind === 'gate').map((s) => s.id);
+
+export function lifecycleByPhase() {
+  return LIFECYCLE_PHASES.map((ph) => ({ ...ph, stages: LIFECYCLE.filter((s) => s.phase === ph.id) }));
+}

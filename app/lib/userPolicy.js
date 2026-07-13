@@ -37,10 +37,14 @@ const DEFAULT_ROLE = (process.env.DEFAULT_AGENT_ROLE || 'deal-team').trim();
 
 // role → the personas the user may ACT AS (each then governed by personaPolicy),
 // whether they may perform WRITES, and whether they may see Stage-2 (diligence) deals.
+// The persona roster spans the original deal/sector-MD agents plus the wider PE
+// deal-team roles (deal lead, value creation, finance, legal, investor relations).
+const ALL_PERSONAS = ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md', 'principal', 'operating-partner', 'fund-cfo', 'legal-gc', 'ir-lp'];
+const DEAL_TEAM_PERSONAS = ['analyst', 'retail-md', 'ai-md', 'supply-md', 'principal', 'operating-partner', 'fund-cfo', 'legal-gc'];
 const ROLE = {
-  admin:       { rank: 100, personas: ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'], write: true,  stage2: true, all: true },
-  partner:     { rank: 80,  personas: ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'], write: true,  stage2: true },
-  'deal-team': { rank: 60,  personas: ['analyst', 'retail-md', 'ai-md', 'supply-md'],            write: true,  stage2: true },
+  admin:       { rank: 100, personas: ALL_PERSONAS,       write: true,  stage2: true, all: true },
+  partner:     { rank: 80,  personas: ALL_PERSONAS,       write: true,  stage2: true },
+  'deal-team': { rank: 60,  personas: DEAL_TEAM_PERSONAS, write: true,  stage2: true },
   analyst:     { rank: 40,  personas: ['analyst'],                                               write: false, stage2: false },
   member:      { rank: 20,  personas: ['analyst'],                                               write: false, stage2: false },
 };

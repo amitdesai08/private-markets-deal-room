@@ -13,14 +13,17 @@
 // no matter what arguments the agent emits — the same defense-in-depth pattern the
 // read tools already use for deal `scope`.
 
-// The five persona ids (== data/personas.js ids == data/workspace.js MD_OPTIONS ids).
-export const PERSONAS = ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'];
+// The persona ids (== data/personas.js ids). The first five are the original
+// deal + sector-MD agents; the rest are the wider deal-team roles common across
+// PE firms (deal lead, value creation, finance, legal, investor relations).
+export const PERSONAS = ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md', 'principal', 'operating-partner', 'fund-cfo', 'legal-gc', 'ir-lp'];
 
-// Each sector-MD persona owns exactly one diligence lane.
+// Each lane-owning persona owns exactly one diligence lane.
 export const PERSONA_LANE = {
   'retail-md': 'commercial',
   'ai-md': 'techai',
-  'supply-md': 'operations'
+  'supply-md': 'operations',
+  'legal-gc': 'legal'
 };
 
 const LANE_LABEL = {
@@ -34,27 +37,32 @@ export const PERSONA_LABEL = {
   partner: 'Partner / MD — Deal Sponsor',
   'retail-md': 'Retail Sector MD (Commercial lane)',
   'ai-md': 'AI MD (Tech / AI lane)',
-  'supply-md': 'Supply Chain MD (Operations lane)'
+  'supply-md': 'Supply Chain MD (Operations lane)',
+  principal: 'Principal / VP — Deal Lead',
+  'operating-partner': 'Operating Partner — Value Creation',
+  'fund-cfo': 'Fund CFO — Finance & Financing',
+  'legal-gc': 'General Counsel (Legal lane)',
+  'ir-lp': 'Investor Relations — LP & Fund'
 };
 
 // The full action catalog exposed to agents, each with the personas allowed to
 // invoke it. `laneScoped: true` means the action is further restricted to the
 // persona's own lane (record_finding). Grounded in the fund's separation of duties.
 export const ACTIONS = {
-  send_to_screening: { label: 'Send a sourced target to screening (O1 → O2)', personas: ['analyst', 'partner'] },
-  screen_candidate: { label: 'Record the Auto-Screen decision (O2: advance / pass / park)', personas: ['analyst', 'partner'] },
-  triage_candidate: { label: 'Record the Triage decision (O3: advance / pass / park)', personas: ['analyst', 'partner'] },
+  send_to_screening: { label: 'Send a sourced target to screening (O1 → O2)', personas: ['analyst', 'partner', 'principal'] },
+  screen_candidate: { label: 'Record the Auto-Screen decision (O2: advance / pass / park)', personas: ['analyst', 'partner', 'principal'] },
+  triage_candidate: { label: 'Record the Triage decision (O3: advance / pass / park)', personas: ['analyst', 'partner', 'principal'] },
   gate_candidate: { label: 'Record the Screening-Gate decision (O4: PURSUE / pass / park)', personas: ['partner'] },
-  launch_deal: { label: 'Launch diligence — provision the workspace (screened → D1)', personas: ['analyst', 'partner'] },
-  run_step: { label: 'Run a diligence step to produce its deliverable', personas: ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'] },
-  record_finding: { label: 'Record a diligence finding into a workstream lane', personas: ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'], laneScoped: true },
-  record_contribution: { label: 'Contribute guidance, a value-add lever, or a diligence finding into a lane', personas: ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'], laneScoped: true },
-  record_issue: { label: 'Log a diligence issue (severity + owner + resolution path) into the issue log', personas: ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'], laneScoped: true },
-  resolve_issue: { label: 'Update or resolve a logged diligence issue', personas: ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md'] },
-  set_condition: { label: 'Set or update an IC condition for approval', personas: ['analyst', 'partner'] },
-  snapshot_assumptions: { label: 'Snapshot the current key assumptions as an IC-draft baseline', personas: ['analyst', 'partner'] },
-  assign_lane: { label: 'Assign a diligence lane to an MD', personas: ['analyst', 'partner'] },
-  advance_deal: { label: 'Advance the deal to the next diligence step', personas: ['analyst', 'partner'] },
+  launch_deal: { label: 'Launch diligence — provision the workspace (screened → D1)', personas: ['analyst', 'partner', 'principal'] },
+  run_step: { label: 'Run a diligence step to produce its deliverable', personas: ['analyst', 'partner', 'principal', 'retail-md', 'ai-md', 'supply-md', 'operating-partner', 'fund-cfo', 'legal-gc', 'ir-lp'] },
+  record_finding: { label: 'Record a diligence finding into a workstream lane', personas: ['analyst', 'partner', 'principal', 'retail-md', 'ai-md', 'supply-md', 'operating-partner', 'fund-cfo', 'legal-gc'], laneScoped: true },
+  record_contribution: { label: 'Contribute guidance, a value-add lever, or a diligence finding into a lane', personas: ['analyst', 'partner', 'principal', 'retail-md', 'ai-md', 'supply-md', 'operating-partner', 'fund-cfo', 'legal-gc', 'ir-lp'], laneScoped: true },
+  record_issue: { label: 'Log a diligence issue (severity + owner + resolution path) into the issue log', personas: ['analyst', 'partner', 'principal', 'retail-md', 'ai-md', 'supply-md', 'operating-partner', 'fund-cfo', 'legal-gc'], laneScoped: true },
+  resolve_issue: { label: 'Update or resolve a logged diligence issue', personas: ['analyst', 'partner', 'principal', 'retail-md', 'ai-md', 'supply-md', 'operating-partner', 'fund-cfo', 'legal-gc'] },
+  set_condition: { label: 'Set or update an IC condition for approval', personas: ['analyst', 'partner', 'principal', 'fund-cfo'] },
+  snapshot_assumptions: { label: 'Snapshot the current key assumptions as an IC-draft baseline', personas: ['analyst', 'partner', 'principal', 'fund-cfo'] },
+  assign_lane: { label: 'Assign a diligence lane to an MD', personas: ['analyst', 'partner', 'principal'] },
+  advance_deal: { label: 'Advance the deal to the next diligence step', personas: ['analyst', 'partner', 'principal'] },
   approve_ic: { label: 'Record the IC approval and advance past the IC gate (D4)', personas: ['partner'] }
 };
 

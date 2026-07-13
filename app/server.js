@@ -87,6 +87,7 @@ import {
   hydrate
 } from './lib/store.js';
 import { personaById } from './data/personas.js';
+import { LIFECYCLE, LIFECYCLE_GATES, lifecycleByPhase } from './data/flow.js';
 import { runAction, chat } from './lib/agents.js';
 import { getModelInfo } from './lib/ai.js';
 import { newsAgentConfigured } from './lib/newsAgent.js';
@@ -149,6 +150,10 @@ api.get('/config', (_req, res) => {
 api.get('/personas', (_req, res) => res.json(getPersonas()));
 api.get('/stages', (_req, res) => res.json(getStages()));
 api.get('/flow', (_req, res) => res.json(getFlow()));
+
+// The full institutional PE deal lifecycle (phases → stages/gates with owners &
+// artifacts). Additive to /flow; powers the Lifecycle view.
+api.get('/lifecycle', (_req, res) => res.json({ phases: lifecycleByPhase(), stages: LIFECYCLE, gates: LIFECYCLE_GATES }));
 api.get('/deals', (_req, res) => res.json(listDeals()));
 api.get('/analytics', (_req, res) => res.json(portfolioStats()));
 api.get('/pipeline', (_req, res) => res.json(getPipelineFunnel())); // alias (funnel)
