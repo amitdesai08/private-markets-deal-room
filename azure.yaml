@@ -46,3 +46,18 @@ hooks:
       run: ./scripts/azd-postprovision.sh
       continueOnError: false
       interactive: true
+  postdeploy:
+    # Provision the Foundry AGENTS (Deal Orchestrator, News Scout, 10 persona agents)
+    # into the deployed project. Best-effort — skips gracefully without the Python SDK
+    # / Foundry access, or when DEALROOM_AGENTS=false. continueOnError so a data-only
+    # demo never fails on agent provisioning.
+    windows:
+      shell: pwsh
+      run: ./scripts/azd-postdeploy.ps1
+      continueOnError: true
+      interactive: true
+    posix:
+      shell: sh
+      run: ./scripts/azd-postdeploy.sh
+      continueOnError: true
+      interactive: true

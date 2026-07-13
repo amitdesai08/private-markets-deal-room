@@ -228,6 +228,9 @@ output foundryId string = foundry.id
 output foundryAccountName string = foundry.name
 output foundryEndpoint string = foundry.properties.endpoint
 output foundryProjectName string = foundryProject.name
+// The data-plane project endpoint the agents + Responses API use (agents SDK,
+// lib/dealAgent.js / lib/personaAgent.js, and scripts/create_*_agents.py).
+output foundryProjectEndpoint string = 'https://aif-${workload}-${environmentName}-${suffix}.services.ai.azure.com/api/projects/${foundryProject.name}'
 output deployedModels array = [for (d, i) in openAiDeployments: d.name]
 output documentIntelligenceEndpoint string = docIntelligence.properties.endpoint
 output contentSafetyEndpoint string = contentSafety.properties.endpoint

@@ -433,6 +433,7 @@ module app 'modules/app.bicep' = {
     logAnalyticsName: core.outputs.logAnalyticsName
     appInsightsConnectionString: core.outputs.appInsightsConnectionString
     foundryEndpoint: ai.outputs.foundryEndpoint
+    foundryProjectEndpoint: ai.outputs.foundryProjectEndpoint
     contentSafetyEndpoint: ai.outputs.contentSafetyEndpoint
     cosmosEndpoint: data.outputs.cosmosEndpoint
     cosmosDatabase: data.outputs.cosmosDatabaseName
@@ -493,6 +494,8 @@ output appInsightsConnectionString string = core.outputs.appInsightsConnectionSt
 output foundryAccountName string = ai.outputs.foundryAccountName
 output foundryEndpoint string = ai.outputs.foundryEndpoint
 output foundryProjectName string = ai.outputs.foundryProjectName
+output foundryProjectEndpoint string = ai.outputs.foundryProjectEndpoint
+output bingConnectionId string = ai.outputs.bingConnectionId
 output deployedModels array = ai.outputs.deployedModels
 output documentIntelligenceEndpoint string = ai.outputs.documentIntelligenceEndpoint
 output contentSafetyEndpoint string = ai.outputs.contentSafetyEndpoint
