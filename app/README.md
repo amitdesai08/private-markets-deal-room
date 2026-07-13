@@ -134,18 +134,18 @@ server: `get_ic_readiness` + `get_market_intel` (reads) and `record_issue`,
 
 ## Architecture
 
-- **Frontend** — React + TypeScript + Vite (no runtime UI deps), built to static
-  assets and served by the API.
-- **API** — Node.js / Express (ESM). Serves the client and exposes the deal
-  record, persona quick-actions and the Deal Orchestrator chat.
+- **API / data / MCP** — Node.js / Express (ESM). Exposes the deal record, persona
+  quick-actions, the Deal Orchestrator chat and the MCP tool surface. No bundled web
+  client — the user console is the Deal Room Teams app (`teams-app/`), which also runs
+  as a standalone web console.
 - **AI** — calls the deployed **Azure AI Foundry** `gpt-4o` deployment via the
   OpenAI SDK using **managed identity** (`DefaultAzureCredential`). If no
   endpoint is configured it runs in **demo mode** with realistic seeded output,
-  so the app is fully usable offline.
+  so the service is fully usable offline.
 
 ```
 app/
-  server.js            Express API + static host
+  server.js            Express API / data / MCP host
   lib/      ai.js      Foundry (Azure OpenAI) client, live-or-demo
             agents.js   step runner — produces cited artifacts per flow step
             scoring.js  sourcing-framework engine — gate + screen scoring + nesting validation
@@ -158,10 +158,7 @@ app/
             news.js      O1 news & filings desk (tiered sources, catalysts, per-company news/filings/quality + financials)
             research.js  O1 analyst reports — thesis context per company (sector/competitive/sell-side)
             mandates.js  sourcing framework — fund mandate (gate) + themes (guide) + screens (rank)
-  client/   React + Vite app — the journey UI
-    components/  FlowNav · DealBar · Station · CxoSignals · NewsFilings
-                 SourcingFramework · Markdown
-  Dockerfile           multi-stage build (client → server → runtime)
+  Dockerfile           multi-stage build (deps → runtime)
 ```
 
 ## Run locally (see it today)
@@ -169,12 +166,11 @@ app/
 ```powershell
 cd app
 npm install
-npm run build:client      # builds the React client
-npm start                 # serves on http://localhost:8080
+npm start                 # API on http://localhost:8080/api
 ```
 
-Open <http://localhost:8080>. With no Azure variables set it runs in **demo
-mode**. To use the live model locally, `az login` and set:
+Open <http://localhost:8080/api/analytics>. With no Azure variables set it runs in
+**demo mode**. To use the live model locally, `az login` and set:
 
 ```powershell
 $env:AZURE_OPENAI_ENDPOINT = "https://<your-foundry>.cognitiveservices.azure.com/"

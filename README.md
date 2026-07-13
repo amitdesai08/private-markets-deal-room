@@ -10,9 +10,9 @@ Built on **Azure AI Foundry** (live model inference via managed identity), a Tea
 **Bot Framework** agent + an **Entra-SSO channel tab**, deployed with a
 subscription-agnostic **Bicep** accelerator on **Azure Container Apps**.
 
-![The Deal Room web dashboard](app/docs/deal-journey.png)
+![The Deal Room web console](app/docs/deal-journey.png)
 
-<sub>*The Deal Room browser dashboard — the single web-app view. Everything below is the **same live deal record surfaced natively in Microsoft Teams**.*</sub>
+<sub>*The Deal Room console — the same experience runs **natively in Microsoft Teams** and as a **standalone web console**, over one shared deal record.*</sub>
 
 > **📘 Solution documentation:** [docs/SOLUTION.md](docs/SOLUTION.md) — architecture, Teams app & channel model, context-aware bot, security/identity, deployment and the operations runbook. Architecture diagram: [docs/dealhub-architecture.drawio](docs/dealhub-architecture.drawio) (Draw.io).
 
@@ -28,7 +28,7 @@ it running.
 
 ### What the platform does
 - **Conversational deal agent** (`@Deal Room Assistant`) — @mention it in any deal channel; answers are grounded in the **live** deal record and resolved from the channel itself.
-- **Channel-native Teams tab** — dashboard + per-deal workspace over Entra SSO (single data source: the shared `/api`).
+- **Channel-native Teams tab + standalone web console** — the *same* dashboard + per-deal workspace runs inside a Teams channel (Entra SSO) and opens in a browser (single data source: the shared `/api`).
 - **Identity-aware RBAC** — admin / partner / deal-team / analyst, enforced by *who is asking*, with **role-based agent routing** and a hierarchy **“view-as-down”** (a senior role can see the room as any junior one).
 - **M365 document generation** — per-user **Word** IC memos & **Excel** models on the requester’s own licence: download, **live-refreshable** (Excel web query), or published to the deal’s **SharePoint** data room; plus CSV export.
 - **Azure AI Foundry** model inference (managed identity), a **Deal MCP server** (`/mcp`) for hosted/Copilot agents, optional **APIM AI Gateway**, and **Fabric/OneLake** market intelligence.
@@ -235,13 +235,13 @@ tiers that run side by side:
 
 | Tier | Container app | Role |
 |---|---|---|
-| **Deal Room (web + API + data)** | `ca-dealhub-orch-*` (image `deal-room`) | The full browser SPA **and** the API/data plane — Cosmos DB, the MCP server, Foundry agents, and Microsoft Graph provisioning. **The only tier that holds data.** |
-| **Teams interface** | `ca-dealhub-teams-*` (image `dealhub-teams`) | The thin Teams-native front end — the channel tab + the conversational bot. Holds **no data**; every read/write forwards to the orchestrator over `/api`. |
+| **Deal Room (API + data)** | `ca-dealhub-orch-*` (image `deal-room`) | The API / data / MCP plane — Cosmos DB, the MCP server, Foundry agents, and Microsoft Graph provisioning. **The only tier that holds data**; no bundled web client. |
+| **Deal Room console (Teams + web)** | `ca-dealhub-teams-*` (image `dealhub-teams`) | The user-facing console — the Teams channel tab + conversational bot, and the *same* console served as a **standalone web app**. Holds **no data**; every read/write forwards to the orchestrator over `/api`. |
 
-> **Two web apps, by design — not a duplicated version.** The Teams tier proxies all
+> **One console, two surfaces — not a duplicated app.** The console tier proxies all
 > data to the one backend (`SHARED_BACKEND_URL`), so there's a single data source and
-> nothing to keep in sync. Browser users get the full dashboard; Teams users get a
-> channel-native view of the *same* deal record.
+> nothing to keep in sync. The *same* console renders natively inside a Teams channel
+> and as a standalone web app over the *same* deal record.
 
 **Teams platform capabilities used** — Entra **SSO** (tab per-user context) · **Bot
 Framework** conversational bot (single-tenant) with a Teams channel · **channel tabs** ·
@@ -266,8 +266,7 @@ grounded deal tools.
 
 ```
 .
-├── app/                    The running application (React + Vite client, Node/Express API)
-│   ├── client/             React + TypeScript UI
+├── app/                    The API / data / MCP service (Node/Express) — no web client
 │   ├── lib/                AI client, agents, in-memory store, Graph webhook
 │   ├── data/               Flow, personas, deals, sourcing framework, workspace factory
 │   ├── graph/              Microsoft Graph subscription helpers (mailbox signals)
@@ -289,12 +288,13 @@ grounded deal tools.
 ```powershell
 cd app
 npm install
-npm run build --prefix client   # build the client once
 $env:PORT = 8080
-node server.js                  # http://localhost:8080  (demo mode without a Foundry endpoint)
+node server.js                  # http://localhost:8080/api  (demo mode without a Foundry endpoint)
 ```
 
-The app runs in **demo mode** out of the box (seeded AI responses). Set
+The API runs in **demo mode** out of the box (seeded AI responses). The user console
+lives in `teams-app/` (build the tab with `npm run build:tab`; it runs in Teams and as
+a standalone web console). Set
 `AZURE_OPENAI_ENDPOINT` / `AZURE_OPENAI_DEPLOYMENT` to point at a deployed Foundry
 model for live inference.
 

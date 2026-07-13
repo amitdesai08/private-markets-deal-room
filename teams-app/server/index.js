@@ -51,6 +51,7 @@ app.get('/api/teams/config', (_req, res) =>
     demoMode: isDemoMode(),
     backend: isBackendLive() ? 'configured' : 'demo',
     backendUrl: config.backend.url || null,
+    appBaseUrl: config.server.appBaseUrl || null,
     sso: isSsoConfigured(),
     bot: isBotConfigured(),
   })

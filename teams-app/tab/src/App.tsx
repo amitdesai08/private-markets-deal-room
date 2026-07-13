@@ -7,7 +7,7 @@ import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipeline } from './types';
 
-type TeamsConfig = { demoMode: boolean; backend: string; sso: boolean; bot: boolean; backendUrl?: string };
+type TeamsConfig = { demoMode: boolean; backend: string; sso: boolean; bot: boolean; backendUrl?: string; appBaseUrl?: string };
 
 const ORCHESTRATOR: Agent = {
   key: 'orchestrator', label: 'Deal Room Analyst', subtitle: 'Portfolio & deal orchestrator', initials: 'DR', kind: 'orchestrator',
@@ -27,7 +27,7 @@ const PERSONA_ORDER = ['partner', 'retail-md', 'ai-md', 'supply-md'];
 const shortLabel = (label: string | undefined, persona: string) => (label ? (label.split('—')[0].split('(')[0].trim() || label) : persona);
 
 export default function App() {
-  const [, setTeams] = useState<TeamsInfo | null>(null);
+  const [teamsInfo, setTeams] = useState<TeamsInfo | null>(null);
   const [cfg, setCfg] = useState<TeamsConfig | null>(null);
   const [persona, setPersona] = useState<Persona>(null);
   const [config, setConfig] = useState<BackendConfig | null>(null);
@@ -152,7 +152,7 @@ export default function App() {
             </select>
           ) : null}
           <span className={`rolechip ${canViewStage2 ? 'full' : 'ltd'}`} title="Stage 2 (Diligence) is restricted to the deal team">{canViewStage2 ? 'Stage 1 + 2' : 'Stage 1 only'}</span>
-          {cfg?.backendUrl ? <a className="dashlink" href={cfg.backendUrl} target="_blank" rel="noopener noreferrer">Full dashboard ↗</a> : null}
+          {teamsInfo?.inTeams ? <a className="dashlink" href={cfg?.appBaseUrl || window.location.origin} target="_blank" rel="noopener noreferrer">Open web console ↗</a> : null}
           <button className={`asktoggle${chatOpen ? ' on' : ''}`} onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide agents' : '💬 Ask agents'}</button>
         </div>
       </header>

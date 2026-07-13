@@ -1,10 +1,8 @@
-// The Deal Room — API server. Serves the built React client and exposes the
-// deal record, persona quick-actions and the Deal Orchestrator chat.
+// The Deal Room — API / data / MCP server. Exposes the deal record, persona
+// quick-actions, the Deal Orchestrator chat and the MCP tool surface. The user
+// console is the Deal Room Teams app (also served as a standalone web console).
 
 import express from 'express';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { existsSync } from 'fs';
 
 import {
   listDeals,
@@ -108,7 +106,6 @@ import { accessFor, authorizePersona, authorizeDealAccess, describeAccess, descr
 
 validateConfig({ strict: false });
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
@@ -858,18 +855,23 @@ app.post('/mcp-ro', mcpReadonlyAuthMiddleware, dealMcpReadonlyHandler);
 app.get('/mcp-ro', mcpReadonlyAuthMiddleware, dealMcpMethodNotAllowed);
 app.delete('/mcp-ro', mcpReadonlyAuthMiddleware, dealMcpMethodNotAllowed);
 
-// ---- Static client ----
-const clientDist = join(__dirname, 'client', 'dist');
-if (existsSync(clientDist)) {
-  app.use(express.static(clientDist));
-  app.get('*', (_req, res) => res.sendFile(join(clientDist, 'index.html')));
-} else {
-  app.get('*', (_req, res) =>
-    res
-      .status(200)
-      .send('<h1>The Deal Room API</h1><p>Client not built yet. Run <code>npm run build:client</code>.</p>')
-  );
-}
+// ---- API / data / MCP service ----
+// The orchestrator is the API, data and MCP plane only — it does not bundle a web
+// client. The user-facing console is the Deal Room Teams app, which is also served
+// as a standalone web console. Non-API requests get a small service banner.
+app.get('/', (_req, res) =>
+  res
+    .status(200)
+    .type('html')
+    .send(
+      '<!doctype html><meta charset="utf-8"><title>The Deal Room — API</title>' +
+      '<body style="font:15px/1.5 system-ui,sans-serif;margin:3rem;max-width:42rem;color:#1f2937">' +
+      '<h1>The Deal Room — API &amp; data plane</h1>' +
+      '<p>This service hosts the <code>/api</code>, <code>/mcp</code> and Foundry-agent surfaces. ' +
+      'The user console is the Deal Room Teams app — available in Microsoft Teams and as a standalone web console.</p>' +
+      '</body>'
+    )
+);
 
 const port = config.server.port;
 
