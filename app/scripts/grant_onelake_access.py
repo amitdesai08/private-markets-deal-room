@@ -9,7 +9,7 @@ This is a one-time grant that MUST be run by a Fabric **workspace Admin** of the
 "Deal Room" workspace (a Viewer cannot assign roles). Run it with that admin's
 `az login`:
 
-    az login --tenant 301fb807-bdbc-4bac-802f-39b67f298b6c
+    az login --tenant <your-tenant-id>
     python scripts/grant_onelake_access.py
 
 It is idempotent: if the identity already has a role it reports and exits cleanly.

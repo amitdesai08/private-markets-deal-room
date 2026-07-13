@@ -104,7 +104,7 @@
         <mxCell id="entraBot" value="Entra app — Bot&#10;6a48d630 (SingleTenant)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
           <mxGeometry x="1220" y="235" width="220" height="45" as="geometry" />
         </mxCell>
-        <mxCell id="entraMcp" value="Entra app — MCP&#10;043b18b9 · deals.read" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+        <mxCell id="entraMcp" value="Entra app — MCP&#10;deals.read scope" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
           <mxGeometry x="1220" y="290" width="220" height="45" as="geometry" />
         </mxCell>
         <mxCell id="azBot" value="Azure Bot (bot-dealhub)&#10;MsTeams channel" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">

@@ -28,10 +28,12 @@ from azure.identity import AzureCliCredential
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import PromptAgentDefinition, FunctionTool, MCPTool
 
-ENDPOINT = os.environ.get(
-    "FOUNDRY_PROJECT_ENDPOINT",
-    "https://aif-dealroom-dev-7j3ok.services.ai.azure.com/api/projects/proj-dealroom-dev",
-)
+ENDPOINT = os.environ.get("FOUNDRY_PROJECT_ENDPOINT")
+if not ENDPOINT:
+    raise SystemExit(
+        "FOUNDRY_PROJECT_ENDPOINT is required, e.g. "
+        "https://<your-foundry>.services.ai.azure.com/api/projects/<your-project>"
+    )
 MODEL = os.environ.get("DEAL_AGENT_MODEL", "gpt-5-mini")
 
 # The persona agents are provisioned with a single HOSTED MCP tool pointing at the
@@ -40,10 +42,9 @@ MODEL = os.environ.get("DEAL_AGENT_MODEL", "gpt-5-mini")
 # the app's function-tool loop). The read-only surface exposes research/read tools only;
 # governed writes stay in the Deal Room app. Set MCP_READONLY_KEY to the key configured
 # on the app (Container App secret) before running.
-MCP_RO_URL = os.environ.get(
-    "MCP_RO_URL",
-    "https://ca-dealroom-orch-dev-swc.proudsand-8d4a01d0.swedencentral.azurecontainerapps.io/mcp-ro",
-)
+MCP_RO_URL = os.environ.get("MCP_RO_URL")
+if not MCP_RO_URL:
+    raise SystemExit("MCP_RO_URL is required, e.g. https://<your-orchestrator-fqdn>/mcp-ro")
 MCP_READONLY_KEY = os.environ.get("MCP_READONLY_KEY", "")
 
 # ---- shared tool definitions (mirror lib/dealTools.js TOOL_DESCRIPTIONS) -------

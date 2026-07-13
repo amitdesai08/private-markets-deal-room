@@ -14,7 +14,7 @@ subscription-agnostic **Bicep** accelerator on **Azure Container Apps**.
 
 <sub>*The Deal Room console — the same experience runs **natively in Microsoft Teams** and as a **standalone web console**, over one shared deal record.*</sub>
 
-> **📘 Solution documentation:** [docs/SOLUTION.md](docs/SOLUTION.md) — architecture, Teams app & channel model, context-aware bot, security/identity, deployment and the operations runbook. Architecture diagram: [docs/dealhub-architecture.drawio](docs/dealhub-architecture.drawio) (Draw.io).
+> **📘 Architecture diagram:** [docs/architecture.drawio](docs/architecture.drawio) (Draw.io). This README is the customer-facing documentation — it covers the platform, feature sets, deployment, customization and demo end-to-end.
 
 ---
 
