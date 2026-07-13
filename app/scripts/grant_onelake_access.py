@@ -19,12 +19,13 @@ Prerequisite tenant setting (Fabric Admin portal -> Tenant settings):
   security group that contains it). Managed identities are service principals in
   Entra, so this setting governs whether they can be added/act.
 """
+import os
 import sys
 import requests
 from azure.identity import AzureCliCredential
 
-WORKSPACE_ID = "205d8eab-9f0e-4e57-afb6-23d41909c287"   # "Deal Room"
-MI_PRINCIPAL_ID = "2efd346a-f4bb-4423-ba1b-243fd4977db8"  # id-dealroom-dev-swc (object id)
+WORKSPACE_ID = os.environ.get("FABRIC_WORKSPACE_ID", "<your-fabric-workspace-id>")
+MI_PRINCIPAL_ID = os.environ.get("MI_PRINCIPAL_ID", "<your-managed-identity-object-id>")
 MI_NAME = "id-dealroom-dev-swc"
 ROLE = "Contributor"  # Admin | Member | Contributor | Viewer  (Contributor = least privilege that writes OneLake)
 

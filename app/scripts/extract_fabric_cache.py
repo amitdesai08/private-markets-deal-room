@@ -21,10 +21,9 @@ import pyodbc
 from azure.identity import AzureCliCredential
 from azure.cosmos import CosmosClient
 
-SERVER = os.environ.get("FABRIC_SQL_ENDPOINT",
-    "a64b6mf4xwwexabphg3h6kmlnq-vohf2iaot5lu5l5wepkbscocq4.datawarehouse.fabric.microsoft.com")
+SERVER = os.environ.get("FABRIC_SQL_ENDPOINT", "")
 DB = os.environ.get("FABRIC_SQL_DATABASE", "deal_room_starter")
-COSMOS_ENDPOINT = os.environ.get("COSMOS_ENDPOINT", "https://cosmos-dealroom-dev-7j3ok.documents.azure.com:443/")
+COSMOS_ENDPOINT = os.environ.get("COSMOS_ENDPOINT", "")
 COSMOS_DATABASE = os.environ.get("COSMOS_DATABASE", "dealroom")
 
 cred = AzureCliCredential()
