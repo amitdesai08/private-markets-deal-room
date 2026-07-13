@@ -341,6 +341,91 @@ export async function buildDealModelXlsx(deal) {
   return Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
 }
 
+// The LBO / returns workbook (Fund CFO): Summary, Sources & Uses, Scenarios and a
+// sensitivity grid. Takes the returns artifact (see diligence.buildReturnsModel).
+export async function buildReturnsXlsx(returns) {
+  const r = returns || {};
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'The Deal Room';
+  wb.company = 'The Deal Room';
+  wb.created = new Date();
+  wb.title = `Returns Model \u2014 ${r.company || 'Deal'}`;
+
+  const e = r.entry || {};
+  const base = (r.scenarios || []).find((x) => x.name === 'Base') || {};
+  const s = wb.addWorksheet('Summary', { views: [{ showGridLines: false }] });
+  s.getColumn(1).width = 3; s.getColumn(2).width = 32; s.getColumn(3).width = 30; s.getColumn(4).width = 3;
+  s.getCell('B2').value = `${r.company || 'Deal'} \u2014 LBO / Returns`;
+  s.getCell('B2').font = { name: 'Calibri', size: 18, bold: true, color: { argb: XNAVY } };
+  s.getCell('B3').value = `Prepared ${dateStr(new Date())}  \u00b7  The Deal Room  \u00b7  CONFIDENTIAL`;
+  s.getCell('B3').font = { size: 9, italic: true, color: { argb: XMUT } };
+  const rows = [
+    ['Entry EV/EBITDA', e.evEbitda != null ? `${e.evEbitda}x` : '\u2014'],
+    ['Implied EV/EBITDA (ask)', e.impliedEvEbitda != null ? `${e.impliedEvEbitda}x` : '\u2014'],
+    ['Leverage', e.leverage || '\u2014'],
+    ['Entry EV (M)', e.entryEV ?? '\u2014'],
+    ['Adjusted EBITDA (M)', e.ebitda ?? '\u2014'],
+    ['Hold (years)', e.holdYears ?? '\u2014'],
+    ['Hurdle', r.hurdle ? `${r.hurdle.irr}% IRR / ${r.hurdle.moic}x MOIC` : '\u2014'],
+    ['Base IRR', base.irr != null ? `${base.irr}%` : '\u2014'],
+    ['Base MOIC', base.moic != null ? `${base.moic}x` : '\u2014'],
+    ['Meets hurdle', r.meetsHurdle ? 'Yes' : 'No'],
+  ];
+  let row = 5;
+  for (const [k, v] of rows) {
+    const kc = s.getCell(row, 2), vc = s.getCell(row, 3);
+    kc.value = k; kc.font = { bold: true, color: { argb: XMUT }, size: 10 };
+    vc.value = v; vc.font = { size: 10, color: { argb: 'FF2B2B2B' } };
+    kc.border = { bottom: XTHIN }; vc.border = { bottom: XTHIN };
+    if ((row - 5) % 2 === 1) { const fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } }; kc.fill = fill; vc.fill = fill; }
+    row++;
+  }
+  if (r.headline) { const hc = s.getCell(row + 1, 2); hc.value = r.headline; hc.font = { size: 10, italic: true, color: { argb: XACC } }; }
+
+  const su = r.sourcesUses || {};
+  const suSheet = wb.addWorksheet('Sources & Uses', { views: [{ showGridLines: false }] });
+  suSheet.columns = [
+    { header: 'Sources', key: 'src', width: 34 }, { header: 'M', key: 'srcAmt', width: 14 },
+    { header: 'Uses', key: 'use', width: 34 }, { header: 'M', key: 'useAmt', width: 14 },
+  ];
+  const src = su.sources || [], use = su.uses || [];
+  for (let i = 0; i < Math.max(src.length, use.length); i++) {
+    suSheet.addRow({ src: src[i]?.label || '', srcAmt: src[i]?.amount ?? '', use: use[i]?.label || '', useAmt: use[i]?.amount ?? '' });
+  }
+  suSheet.addRow({ src: 'Total sources', srcAmt: su.totalSources ?? '', use: 'Total uses', useAmt: su.totalUses ?? '' });
+  suSheet.getColumn('srcAmt').numFmt = '#,##0'; suSheet.getColumn('useAmt').numFmt = '#,##0';
+  styleTable(suSheet);
+
+  const sc = wb.addWorksheet('Scenarios', { views: [{ showGridLines: false }] });
+  sc.columns = [
+    { header: 'Scenario', key: 'name', width: 16 }, { header: 'Entry EV', key: 'entryEV', width: 14 },
+    { header: 'Equity in', key: 'equityIn', width: 14 }, { header: 'Debt', key: 'debt', width: 12 },
+    { header: 'Exit EV', key: 'exitEV', width: 14 }, { header: 'Equity out', key: 'equityOut', width: 14 },
+    { header: 'MOIC', key: 'moic', width: 10 }, { header: 'IRR', key: 'irr', width: 10 },
+  ];
+  for (const x of (r.scenarios || [])) {
+    sc.addRow({ name: x.name, entryEV: x.entryEV, equityIn: x.equityIn, debt: x.debt, exitEV: x.exitEV, equityOut: x.equityOut, moic: x.moic, irr: (x.irr ?? 0) / 100 });
+  }
+  ['entryEV', 'equityIn', 'debt', 'exitEV', 'equityOut'].forEach((c) => (sc.getColumn(c).numFmt = '#,##0'));
+  sc.getColumn('moic').numFmt = '0.00"x"'; sc.getColumn('irr').numFmt = '0.0%';
+  styleTable(sc);
+
+  const sens = r.sensitivity;
+  if (sens) {
+    const g = wb.addWorksheet('Sensitivity', { views: [{ showGridLines: false }] });
+    g.getCell('A1').value = `Base IRR \u2014 ${sens.rowLabel} (rows) \u00d7 ${sens.colLabel} (cols)`;
+    g.getCell('A1').font = { bold: true, color: { argb: XNAVY } };
+    g.addRow([]);
+    g.addRow(['', ...(sens.cols || [])]);
+    for (const rr of (sens.rows || [])) g.addRow([rr.cagr, ...(rr.irr || []).map((v) => (v ?? 0) / 100)]);
+    for (let c = 2; c <= (sens.cols || []).length + 1; c++) g.getColumn(c).numFmt = '0.0%';
+    g.getColumn(1).width = 14;
+  }
+
+  const buf = await wb.xlsx.writeBuffer();
+  return Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
+}
+
 // The rows behind the model — reused by the HTML/CSV live sources.
 function modelRows(deal) {
   const rows = [...summaryRows(deal)];

@@ -21,7 +21,7 @@ import { markSync } from './connectors.js';
 import { fundMandate, seedThemes, seedScreens } from '../data/mandates.js';
 import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scoring.js';
 import { buildScorecard, buildTriageScore, buildMemoBase } from './screening.js';
-import { buildDiligencePlan, buildFindingsReport, buildFinalMemoBase, buildExecutionPack, buildCloseoutPlan, buildReturnsModel, buildValueCreationPlan, buildRiskRegister } from './diligence.js';
+import { buildDiligencePlan, buildFindingsReport, buildFinalMemoBase, buildExecutionPack, buildCloseoutPlan, buildReturnsModel, buildValueCreationPlan, buildRiskRegister, buildIoi, buildLoi } from './diligence.js';
 import { buildWorkspace, checklistStats, MD_OPTIONS, WORKSTREAM_DEFAULTS, ensureWorkspaceSwimlanes, LANE_ORDER } from '../data/workspace.js';
 import { ensureDealChannel, provisionDealFolders, m365Connected, publishTeamToGroup, installTeamsAppInTeam } from './m365/graph.js';
 import { generateAnalystReport } from './analystReport.js';
@@ -2126,6 +2126,14 @@ export function getDealValueCreation(id) {
 export function getDealRiskRegister(id) {
   const deal = getDealRaw(id);
   return deal ? buildRiskRegister(deal) : null;
+}
+export function getDealIoi(id) {
+  const deal = getDealRaw(id);
+  return deal ? buildIoi(deal) : null;
+}
+export function getDealLoi(id) {
+  const deal = getDealRaw(id);
+  return deal ? buildLoi(deal) : null;
 }
 
 // The decision-grade IC Readiness board, grounded in real Fabric/OneLake market

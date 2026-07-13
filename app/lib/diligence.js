@@ -513,3 +513,63 @@ export function buildRiskRegister(deal) {
           : 'No open risks recorded — run the diligence lanes.',
   };
 }
+
+// ===========================================================================
+//  IOI — Indication of Interest (Principal · initial-review gate)
+// ===========================================================================
+// The non-binding first offer: a preliminary valuation RANGE + indicative
+// structure submitted after the first management meeting, before diligence
+// resources are committed.
+export function buildIoi(deal) {
+  const cand = dealAsCandidate(deal);
+  const f = dealFinancials(deal);
+  const r = buildReturns(cand);
+  const evLow = round(f.ebitda * Math.max(5, r.entryMultiple - 1));
+  const evMid = round(f.ebitda * r.entryMultiple);
+  const evHigh = round(f.ebitda * (r.entryMultiple + 1));
+  const founder = /founder/i.test(deal.ownership || '');
+  return {
+    kind: 'ioi', company: deal.company, owner: 'principal',
+    type: 'Non-binding Indication of Interest',
+    valuation: { low: evLow, mid: evMid, high: evHigh, basis: `${r.entryMultiple}x EV/EBITDA on ~${money(f.ebitda)} adjusted EBITDA (cash-free / debt-free).` },
+    structure: [
+      { term: 'Consideration', detail: 'All-cash on a cash-free / debt-free basis with a normalized NWC peg.' },
+      { term: 'Financing', detail: `Sponsor equity + ~${r.leverage} senior leverage; no financing contingency.` },
+      { term: 'Rollover', detail: founder ? 'Meaningful management/founder rollover encouraged.' : 'Management rollover / incentive plan post-close.' },
+    ],
+    diligence: '6–8 week confirmatory diligence (QoE, commercial, legal, tax, ops) subject to access & exclusivity.',
+    conditions: ['Management meeting & data-room access', 'Board / IC support to proceed', 'No material adverse change'],
+    validity: '30 days from submission.',
+    headline: `Non-binding IOI at ${money(evLow)}–${money(evHigh)} EV (${r.entryMultiple}x EV/EBITDA), all-cash, subject to confirmatory diligence.`,
+  };
+}
+
+// ===========================================================================
+//  LOI — Letter of Intent / Term Sheet (Partner · LOI gate)
+// ===========================================================================
+export function buildLoi(deal) {
+  const cand = dealAsCandidate(deal);
+  const r = buildReturns(cand);
+  const base = r.scenarios.base;
+  const ev = base.entryEV;
+  return {
+    kind: 'loi', company: deal.company, owner: 'partner',
+    type: 'Non-binding Letter of Intent / Term Sheet',
+    price: { enterpriseValue: ev, multiple: `${r.entryMultiple}x EV/EBITDA`, mechanism: 'Cash-free / debt-free with a completion-accounts NWC true-up to the agreed peg.' },
+    structure: [
+      { term: 'Buyer', detail: 'A newco acquisition vehicle of the fund.' },
+      { term: 'Consideration', detail: `${money(ev)} enterprise value, all-cash at close.` },
+      { term: 'Financing', detail: `~${money(base.debt)} senior debt (TLB + RCF) + ${money(base.equityIn)} sponsor equity; no financing condition.` },
+      { term: 'Management', detail: 'Rollover + a 10–15% management incentive plan.' },
+    ],
+    exclusivity: '45–60 days of exclusivity from signing this LOI.',
+    keyTerms: [
+      { term: 'Reps & warranties', detail: 'Customary fundamental + business warranties; W&I insurance primary.' },
+      { term: 'Escrow / holdback', detail: '~0.5–1.0% for fundamental / specific items.' },
+      { term: 'Conditions', detail: 'Confirmatory DD, financing, HSR (if applicable), third-party consents.' },
+      { term: 'Break provisions', detail: 'No-shop during exclusivity; expense reimbursement on a defined seller breach.' },
+    ],
+    binding: 'Non-binding except exclusivity, confidentiality and expenses.',
+    headline: `Non-binding LOI at ${money(ev)} EV (${r.entryMultiple}x), all-cash, with 45–60 days' exclusivity.`,
+  };
+}

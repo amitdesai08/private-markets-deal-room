@@ -18,7 +18,8 @@ import { listDeals, getDealRaw } from './store.js';
 import {
   dispatchTool, dispatchAction, dealAnalystView, dealSummary,
   listPipeline, candidateView, candidateArtifactView, dealArtifactView, nextActionsFor,
-  icReadinessView, marketIntelView, citationAuditView, canonicalCompaniesView, canonicalCompanyView
+  icReadinessView, marketIntelView, citationAuditView, canonicalCompaniesView, canonicalCompanyView,
+  returnsView, valueCreationView, riskRegisterView
 } from './dealTools.js';
 import { PERSONAS, PERSONA_LABEL } from './personaPolicy.js';
 
@@ -46,7 +47,7 @@ const PERSONA_AGENT = {
 };
 
 // Read tools go to dispatchTool; everything else is an action -> dispatchAction.
-const READ_TOOLS = new Set(['list_deals', 'get_deal', 'search_deals', 'list_pipeline', 'get_candidate', 'get_candidate_artifact', 'get_deal_artifact', 'get_ic_readiness', 'get_market_intel', 'get_citation_audit', 'get_companies', 'get_company', 'get_next_actions']);
+const READ_TOOLS = new Set(['list_deals', 'get_deal', 'search_deals', 'list_pipeline', 'get_candidate', 'get_candidate_artifact', 'get_deal_artifact', 'get_ic_readiness', 'get_returns', 'get_value_creation', 'get_risk_register', 'get_market_intel', 'get_citation_audit', 'get_companies', 'get_company', 'get_next_actions']);
 
 export function personaAgentsConfigured() {
   return !!RESPONSES_URL;
@@ -177,6 +178,12 @@ async function readDispatch(name, args, { persona, focusId, focusCompany }) {
       return await dealArtifactView(args?.deal_id, args?.step);
     case 'get_ic_readiness':
       return icReadinessView(args?.deal_id || focusId);
+    case 'get_returns':
+      return returnsView(args?.deal_id || focusId);
+    case 'get_value_creation':
+      return valueCreationView(args?.deal_id || focusId);
+    case 'get_risk_register':
+      return riskRegisterView(args?.deal_id || focusId);
     case 'get_market_intel':
       return marketIntelView({ sector: args?.sector });
     case 'get_citation_audit':

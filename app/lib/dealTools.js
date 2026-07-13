@@ -14,7 +14,8 @@ import {
   sendToScreening, screenCandidate, triageCandidate, gateCandidate,
   launchDeal, advanceDeal, runStep, assignSwimlane, recordFinding, recordContribution,
   getICReadiness, marketIntel, recordIssue, resolveIssue, setCondition, snapshotAssumptions,
-  getCitationAudit, canonicalCompanies, canonicalCompany
+  getCitationAudit, canonicalCompanies, canonicalCompany,
+  getDealReturns, getDealValueCreation, getDealRiskRegister
 } from './store.js';
 import { can, nextActions, PERSONA_LANE } from './personaPolicy.js';
 
@@ -267,10 +268,24 @@ export function icReadinessView(dealId) {
   };
 }
 
+// Lifecycle-stage decision artifacts (Fund CFO / Operating Partner / deal lead),
+// derived from the live deal record and bounded for tool output.
+export function returnsView(dealId) {
+  const r = getDealReturns(dealId);
+  return r || { error: 'deal-not-found', deal_id: dealId };
+}
+export function valueCreationView(dealId) {
+  const v = getDealValueCreation(dealId);
+  return v || { error: 'deal-not-found', deal_id: dealId };
+}
+export function riskRegisterView(dealId) {
+  const rr = getDealRiskRegister(dealId);
+  return rr || { error: 'deal-not-found', deal_id: dealId };
+}
+
 // Source-citation audit for a deal (point 5): key figures + memo numeric claims
 // mapped to sources, with the unsourced ones flagged. Bounded for tool output.
-export function citationAuditView(dealId) {
-  const a = getCitationAudit(dealId);
+export function citationAuditView(dealId) {  const a = getCitationAudit(dealId);
   if (!a) return { error: 'deal-not-found', deal_id: dealId };
   return {
     deal_id: a.dealId,
@@ -469,6 +484,18 @@ export const TOOL_DESCRIPTIONS = {
     'Investment Committee asks (required artifacts complete? blocking workstreams? changed assumptions? ' +
     'unresolved risks? supporting sources? exact IC ask? conditions to approve?) plus an overall ' +
     'READY / CONDITIONAL / NOT-READY verdict, grounded in real Fabric comparable deals and IC precedents.',
+  get_returns:
+    'Get the LBO / returns model for a deal — entry EV/EBITDA multiple, leverage, sources & uses, ' +
+    'base / upside / downside IRR & MOIC, and an exit-multiple × EBITDA-CAGR sensitivity grid against ' +
+    "the fund's 20% IRR / 2.0x MOIC hurdle. Use this for the financing and IC returns case.",
+  get_value_creation:
+    'Get the value-creation plan for a deal — the EBITDA bridge (organic growth, margin expansion, ' +
+    'buy-and-build), the value bridge (EBITDA growth / multiple expansion / debt paydown), the ' +
+    'quantified levers with owner & timeline, and the 100-day plan. Use for the Operating Partner view.',
+  get_risk_register:
+    'Get the consolidated risk register for a deal — every open diligence risk across the lanes with ' +
+    'severity, likelihood, mitigation and owner, plus a red / amber / green status. Use to summarize ' +
+    'the deal risks before IC or signing.',
   get_market_intel:
     "Get the fund's real market intelligence from Fabric / OneLake: comparable & historical deals " +
     '(deal type, value, implied valuation, outcome), benchmark diligence findings by workstream ' +

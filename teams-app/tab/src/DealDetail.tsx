@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getSsoToken } from './teams';
+import DealArtifacts from './DealArtifacts';
 
 // Native Deal Workspace (single-deal scope) — brings the webapp's Stages,
 // Orchestration and Deal Workspace into the tab. Reads/drives the shared backend:
@@ -55,7 +56,7 @@ function sourceHint(src?: string): string {
 // Raw-dollar formatter for market-intel valuations (impliedValuation is in $, not $M).
 const bigMoney = (n?: number) => (n == null ? '—' : n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(0)}M` : `$${Math.round(n)}`);
 
-type Tab = 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'documents';
+type Tab = 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'artifacts' | 'documents';
 
 export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { dealId: string; canViewStage2: boolean; onClose: () => void; onAsk: (id: string) => void }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
@@ -117,7 +118,7 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
   // Generate a Word IC memo / Excel model from the live record — as the signed-in
   // user (SSO). 'download' streams a personal working copy; 'sharepoint' publishes
   // into the shared deal data room (write-gated).
-  async function genDoc(kind: 'ic-memo' | 'model', dest: 'download' | 'sharepoint', live = false) {
+  async function genDoc(kind: 'ic-memo' | 'model' | 'returns', dest: 'download' | 'sharepoint', live = false) {
     setDocsBusy(`${kind}:${dest}${live ? ':live' : ''}`); setNote('');
     try {
       const sso = await getSsoToken();
@@ -236,9 +237,9 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
 
             {!stage2Locked && (
             <div className="dd-tabs">
-              {(['overview', 'stages', 'workspace', 'research', 'documents', 'ic'] as Tab[]).map((t) => (
+              {(['overview', 'stages', 'workspace', 'research', 'artifacts', 'documents', 'ic'] as Tab[]).map((t) => (
                 <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>
-                  {t === 'stages' ? 'Stages & orchestration' : t === 'overview' ? 'Overview' : t === 'workspace' ? 'Workspace' : t === 'research' ? 'Market research' : t === 'documents' ? 'Documents' : 'IC readiness'}
+                  {t === 'stages' ? 'Stages & orchestration' : t === 'overview' ? 'Overview' : t === 'workspace' ? 'Workspace' : t === 'research' ? 'Market research' : t === 'artifacts' ? 'Decision artifacts' : t === 'documents' ? 'Documents' : 'IC readiness'}
                 </button>
               ))}
             </div>
@@ -255,6 +256,8 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
               <>
               {note ? <div className="dd-actionnote">{note}</div> : null}
 
+              {tab === 'artifacts' && <DealArtifacts dealId={dealId} />}
+
               {tab === 'documents' && (
                 <div className="dd-panel">
                   <div style={{ fontWeight: 700, marginBottom: 4 }}>📁 Deal documents <span className="muted" style={{ fontWeight: 400 }}>— generate a Word IC memo or Excel model from the live deal, on your Microsoft 365 license</span></div>
@@ -263,6 +266,7 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
                     <button className="btn primary" disabled={!!docsBusy} onClick={() => genDoc('ic-memo', 'download')}>{docsBusy === 'ic-memo:download' ? 'Preparing…' : '📝 IC memo (Word)'}</button>
                     <button className="btn primary" disabled={!!docsBusy} onClick={() => genDoc('model', 'download')}>{docsBusy === 'model:download' ? 'Preparing…' : '📊 Deal model (Excel)'}</button>
+                    <button className="btn primary" disabled={!!docsBusy} onClick={() => genDoc('returns', 'download')}>{docsBusy === 'returns:download' ? 'Preparing…' : '💰 Returns model (Excel)'}</button>
                     <button className="btn" disabled={!!docsBusy} onClick={() => genDoc('model', 'download', true)}>{docsBusy === 'model:download:live' ? 'Preparing…' : '� Deal Model - Live (Excel)'}</button>
                     <a className="btn ghost" href={`/api/deals/${dealId}/model.csv`} target="_blank" rel="noopener">⬇ CSV (Excel)</a>
                     {docs?.folderUrl ? <a className="btn ghost" href={docs.folderUrl} target="_blank" rel="noopener">Open data room ↗</a> : null}
