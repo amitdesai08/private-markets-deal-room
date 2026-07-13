@@ -381,3 +381,4 @@ function diligencePriorities(c) {
 }
 
 export { money as fmtMoney };
+export { paperLbo, HOLD_YEARS };

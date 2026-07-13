@@ -13,7 +13,7 @@
 //   D4 Approval    -> Execution Pack (IC decision, SPA terms, conditions precedent, funds flow)
 //   D5 Archive     -> Close-out & 100-Day Plan (value creation, governance, records)
 
-import { buildReturns, fmtMoney as money } from './screening.js';
+import { buildReturns, fmtMoney as money, paperLbo } from './screening.js';
 
 const pct = (n) => `${Math.round(n)}%`;
 const round = (n) => Math.round(n);
@@ -386,3 +386,130 @@ export function buildCloseoutPlan(deal) {
 }
 
 export { dealFinancials };
+
+// ===========================================================================
+//  RETURNS MODEL — LBO / IRR-MOIC (Fund CFO · financing stage)
+// ===========================================================================
+// The full returns artifact behind the IC decision: entry, leverage, sources &
+// uses, base/upside/downside IRR & MOIC, and an exit-multiple × EBITDA-CAGR
+// sensitivity grid against the fund's 20% IRR / 2.0x MOIC hurdle.
+export function buildReturnsModel(deal) {
+  const cand = dealAsCandidate(deal);
+  const f = dealFinancials(deal);
+  const r = buildReturns(cand);
+  const base = r.scenarios.base;
+  const mgmtRollover = round(base.equityIn * 0.08);
+  const fees = round(base.entryEV * 0.025);
+  const sources = [
+    { label: 'Senior debt (TLB + RCF)', amount: base.debt },
+    { label: 'Sponsor equity', amount: Math.max(0, base.equityIn - mgmtRollover) },
+    { label: 'Management rollover', amount: mgmtRollover },
+  ];
+  const uses = [
+    { label: 'Purchase enterprise value', amount: base.entryEV },
+    { label: 'Transaction & financing fees', amount: fees },
+  ];
+  const g = Math.max(-0.05, Math.min(0.25, (deal.growth ?? cand.growth ?? 7) / 100));
+  const entryMult = r.entryMultiple;
+  const cagrRows = [g - 0.03, g, g + 0.03];
+  const exitCols = [entryMult - 1, entryMult, entryMult + 1];
+  const sensitivity = {
+    rowLabel: 'EBITDA CAGR', colLabel: 'Exit EV/EBITDA',
+    cols: exitCols.map((m) => `${m.toFixed(1)}x`),
+    rows: cagrRows.map((cg) => ({
+      cagr: `${(cg * 100).toFixed(0)}%`,
+      irr: exitCols.map((xm) => paperLbo(cand, { entryMult, leverageMult: 5, ebitdaCagr: cg, exitMult: xm }).irr),
+    })),
+  };
+  return {
+    kind: 'returns', company: deal.company, owner: 'fund-cfo',
+    entry: { evEbitda: r.entryMultiple, impliedEvEbitda: r.impliedMultiple, leverage: r.leverage, entryEV: base.entryEV, ebitda: f.ebitda, holdYears: r.holdYears },
+    sourcesUses: { sources, uses, totalSources: sources.reduce((s, x) => s + x.amount, 0), totalUses: uses.reduce((s, x) => s + x.amount, 0) },
+    scenarios: [
+      { name: 'Downside', ...r.scenarios.downside },
+      { name: 'Base', ...r.scenarios.base },
+      { name: 'Upside', ...r.scenarios.upside },
+    ],
+    hurdle: r.hurdle, meetsHurdle: r.meetsHurdle, entryAboveCeiling: r.entryAboveCeiling,
+    sensitivity,
+    headline: `${r.entryMultiple}x entry · ${r.leverage} leverage · base ${base.irr}% IRR / ${base.moic}x MOIC${r.meetsHurdle ? ' — clears the 20% / 2.0x hurdle.' : r.entryAboveCeiling ? ' — entry above the LBO ceiling; renegotiate.' : ' — below hurdle.'}`,
+  };
+}
+
+// ===========================================================================
+//  VALUE-CREATION PLAN — EBITDA bridge + levers (Operating Partner · 100-day)
+// ===========================================================================
+export function buildValueCreationPlan(deal) {
+  const f = dealFinancials(deal);
+  const cand = dealAsCandidate(deal);
+  const r = buildReturns(cand);
+  const base = r.scenarios.base;
+  const entryEbitda = f.ebitda;
+  const exitEbitda = base.exitEbitda;
+  const deltaEbitda = Math.max(0, exitEbitda - entryEbitda);
+  const ebitdaComponents = [
+    { lever: 'Organic revenue growth', contribution: round(deltaEbitda * 0.45), owner: 'operating-partner' },
+    { lever: 'Margin expansion (pricing + cost-out)', contribution: round(deltaEbitda * 0.30), owner: 'operating-partner' },
+    { lever: 'Buy-and-build / bolt-ons', contribution: round(deltaEbitda * 0.25), owner: 'principal' },
+  ];
+  const levers = [
+    { name: 'Pricing optimization', workstream: 'commercial', impact: round(f.revenue * 0.015), timeline: 'Days 1–100', owner: 'Operating Partner + Commercial MD' },
+    { name: 'Procurement & COGS cost-out', workstream: 'operational', impact: round(f.revenue * 0.02), timeline: 'Months 3–12', owner: 'Operating Partner + Supply MD' },
+    { name: 'SG&A efficiency', workstream: 'operational', impact: round(f.revenue * 0.01), timeline: 'Months 3–9', owner: 'Operating Partner' },
+    { name: 'AI / digital productivity', workstream: 'tech', impact: round(f.revenue * 0.01), timeline: 'Months 6–18', owner: 'AI MD' },
+    { name: 'Buy-and-build platform', workstream: 'commercial', impact: null, timeline: 'Year 1+', owner: 'Principal' },
+  ];
+  const valueBridge = [
+    { source: 'EBITDA growth', value: round((exitEbitda - entryEbitda) * r.entryMultiple) },
+    { source: 'Multiple expansion', value: Math.max(0, round(base.exitEV - base.exitEbitda * r.entryMultiple)) },
+    { source: 'Debt paydown', value: round(base.debt * 0.5) },
+  ];
+  return {
+    kind: 'vcp', company: deal.company, owner: 'operating-partner',
+    ebitdaBridge: { entry: entryEbitda, exit: exitEbitda, delta: deltaEbitda, components: ebitdaComponents },
+    valueBridge,
+    levers,
+    hundredDay: [
+      { window: 'Days 1–30 · Stabilize', focus: ['Board & reporting cadence', 'Key customer/vendor continuity', 'KPI baseline'] },
+      { window: 'Days 31–60 · Diagnose', focus: ['Validate levers with management', 'Finalize org & key hires', 'IT/systems roadmap'] },
+      { window: 'Days 61–100 · Execute', focus: ['Launch procurement/cost-out', 'Commercial growth workstream', 'Open the bolt-on pipeline'] },
+    ],
+    headline: `Value-creation plan targets ${money(deltaEbitda)} EBITDA uplift over the hold via pricing, cost-out, AI and buy-and-build.`,
+  };
+}
+
+// ===========================================================================
+//  RISK REGISTER — consolidated severity × likelihood across the lanes
+// ===========================================================================
+export function buildRiskRegister(deal) {
+  const wsLabel = Object.fromEntries(WORKSTREAMS.map((w) => [w.key, w.label]));
+  const likelihoodFor = (sev) => ({ stopper: 'High', reprice: 'High', condition: 'Medium', monitor: 'Low' }[sev] || 'Medium');
+  const risks = workstreamFindings(deal)
+    .filter((fnd) => fnd.severity !== 'clear')
+    .sort((a, b) => (SEVERITY[b.severity]?.rank || 0) - (SEVERITY[a.severity]?.rank || 0))
+    .map((fnd, i) => ({
+      id: `R${i + 1}`,
+      workstream: wsLabel[fnd.workstream] || fnd.workstream,
+      risk: fnd.finding,
+      severity: fnd.severity,
+      severityLabel: SEVERITY[fnd.severity]?.label || fnd.severity,
+      likelihood: likelihoodFor(fnd.severity),
+      mitigation: fnd.impact || 'Owner to define mitigation and track to resolution before signing.',
+      owner: wsLabel[fnd.workstream] || 'Deal team',
+    }));
+  const counts = { stopper: 0, reprice: 0, condition: 0, monitor: 0 };
+  for (const rk of risks) if (counts[rk.severity] != null) counts[rk.severity]++;
+  const status = counts.stopper ? 'red' : counts.reprice ? 'amber' : 'green';
+  return {
+    kind: 'risk-register', company: deal.company, owner: 'principal',
+    risks, counts, status, total: risks.length,
+    legend: Object.fromEntries(Object.entries(SEVERITY).map(([k, v]) => [k, v.label])),
+    headline: counts.stopper
+      ? `${counts.stopper} deal-stopper open — resolve or walk.`
+      : counts.reprice
+        ? `${counts.reprice} repricing risk(s) to reflect before signing.`
+        : risks.length
+          ? `${risks.length} open risk(s) tracked; none deal-stopping.`
+          : 'No open risks recorded — run the diligence lanes.',
+  };
+}

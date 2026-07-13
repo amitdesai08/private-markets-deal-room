@@ -14,14 +14,14 @@ import { researchFor } from '../data/research.js';
 import { classifyCatalyst, assessCandidate, chatCandidate, agentForStage, generateTriageBrief, generateScreeningMemo, generateFinalMemo, generateFindingsSynthesis } from './agents.js';
 import { scoutNews, newsAgentConfigured } from './newsAgent.js';
 import { morningstarConfigured, quality as morningstarQuality } from './mcp/morningstar.js';
-import { fetchFilings, fetchFormD, scanFormD, downloadEntireFiling } from './filings.js';
+import { fetchFilings, fetchFormD, scanFormD, downloadEntireFiling, companyFundamentals } from './filings.js';
 import { uploadFiles as uploadFilingFiles, getFile as getBlobFile } from './blob.js';
 import { writeFilingSet, listFilings, onelakeInfo, onelakeStatusSync, onelakeConfigured } from './onelake.js';
 import { markSync } from './connectors.js';
 import { fundMandate, seedThemes, seedScreens } from '../data/mandates.js';
 import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scoring.js';
 import { buildScorecard, buildTriageScore, buildMemoBase } from './screening.js';
-import { buildDiligencePlan, buildFindingsReport, buildFinalMemoBase, buildExecutionPack, buildCloseoutPlan } from './diligence.js';
+import { buildDiligencePlan, buildFindingsReport, buildFinalMemoBase, buildExecutionPack, buildCloseoutPlan, buildReturnsModel, buildValueCreationPlan, buildRiskRegister } from './diligence.js';
 import { buildWorkspace, checklistStats, MD_OPTIONS, WORKSTREAM_DEFAULTS, ensureWorkspaceSwimlanes, LANE_ORDER } from '../data/workspace.js';
 import { ensureDealChannel, provisionDealFolders, m365Connected, publishTeamToGroup, installTeamsAppInTeam } from './m365/graph.js';
 import { generateAnalystReport } from './analystReport.js';
@@ -695,6 +695,17 @@ export async function runMorningstarQuality(deskId) {
   const c = desk.find((x) => x.id === deskId);
   if (!c) return null;
   if (!morningstarConfigured()) {
+    // Free fallback: keyless SEC XBRL fundamentals for public names.
+    if (c.ticker) {
+      const f = await companyFundamentals(c.name, c.ticker).catch(() => null);
+      if (f?.found) {
+        const q = qualityFromFundamentals(f);
+        c.quality = q;
+        persistDesk(c);
+        logEvent(c.id, 'sec-fundamentals', { rating: q.rating, score: q.score });
+        return { ...q, configured: false };
+      }
+    }
     return { ...c.quality, configured: false };
   }
   try {
@@ -976,12 +987,52 @@ async function targetFilings(t, deskCompany) {
   }
 }
 
+// Derive a quality read from FREE SEC XBRL fundamentals when a paid provider
+// (Morningstar) isn't connected — so the demo/PoC shows a real, cited quality
+// cross-check instead of "pending". Scores margins + leverage into a 0-100 read.
+function qualityFromFundamentals(f) {
+  const m = f.metrics || {};
+  const pct = (v) => (v == null ? '\u2014' : `${(v * 100).toFixed(1)}%`);
+  const netMargin = m.netMargin?.val ?? null;
+  const opMargin = m.operatingMargin?.val ?? null;
+  const grossMargin = m.grossMargin?.val ?? null;
+  const debt = m.longTermDebt?.val ?? 0;
+  const equity = m.equity?.val ?? null;
+  const leverage = equity && equity > 0 ? debt / equity : null;
+  const flags = [];
+  let score = 50;
+  if (netMargin != null) {
+    score += Math.max(-25, Math.min(30, netMargin * 120));
+    if (netMargin < 0) flags.push('Loss-making (negative net margin)');
+  }
+  if (opMargin != null && opMargin < 0) flags.push('Negative operating margin');
+  if (leverage != null && leverage > 2) { score -= 12; flags.push('High leverage (LT debt / equity > 2x)'); }
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const rating = score >= 75 ? 'Strong' : score >= 55 ? 'Solid' : score >= 40 ? 'Watch' : 'Weak';
+  return {
+    rating, score, trend: 'stable', flags,
+    note: `SEC XBRL (FY${f.fiscalYear}): gross ${pct(grossMargin)}, operating ${pct(opMargin)}, net ${pct(netMargin)}${leverage != null ? `, LT debt/equity ${leverage.toFixed(2)}x` : ''}.`,
+    fundamentals: m,
+    fiscalYear: f.fiscalYear,
+    source: 'sec-xbrl',
+    url: f.url,
+    live: true,
+  };
+}
+
 // Morningstar quality for a target — only meaningful for PUBLIC names (a ticker).
 // Private targets return { public:false } so the UI shows "no public coverage".
 async function targetQuality(t, deskCompany) {
-  if (!t.ticker) return { public: false, note: 'Private company — no public Morningstar coverage.' };
+  if (!t.ticker) return { public: false, note: 'Private company — no public listed coverage.' };
   if (!morningstarConfigured()) {
-    return { public: true, configured: false, rating: 'Pending', score: 0, trend: 'stable', flags: [], note: 'Morningstar MCP not connected — sign in on Home to enable the quality read.' };
+    // Free fallback: derive the quality read from keyless SEC XBRL fundamentals.
+    const f = await companyFundamentals(t.name, t.ticker).catch(() => null);
+    if (f?.found) {
+      const q = { public: true, configured: false, ...qualityFromFundamentals(f) };
+      if (deskCompany) { deskCompany.quality = q; persistDesk(deskCompany); }
+      return q;
+    }
+    return { public: true, configured: false, rating: 'Pending', score: 0, trend: 'stable', flags: [], note: 'Morningstar MCP not connected and no SEC fundamentals found for this name.' };
   }
   try {
     const q = await morningstarQuality(t.name, t.ticker);
@@ -2058,6 +2109,23 @@ export function snapshotAssumptions(id, { label, by } = {}) {
     deal.activity.unshift({ actor: by || 'Analyst', action: `Snapshotted assumptions: "${snap.label}"`, when: at });
     return { snapshot: snap, event: 'assumptions-snapshotted', detail: { label: snap.label } };
   });
+}
+
+// Lifecycle-stage decision artifacts, derived from the live deal record:
+//   returns  — the LBO / IRR-MOIC model + sources & uses + sensitivity (Fund CFO)
+//   vcp      — the value-creation plan / EBITDA bridge + 100-day (Operating Partner)
+//   risks    — the consolidated risk register (severity × likelihood)
+export function getDealReturns(id) {
+  const deal = getDealRaw(id);
+  return deal ? buildReturnsModel(deal) : null;
+}
+export function getDealValueCreation(id) {
+  const deal = getDealRaw(id);
+  return deal ? buildValueCreationPlan(deal) : null;
+}
+export function getDealRiskRegister(id) {
+  const deal = getDealRaw(id);
+  return deal ? buildRiskRegister(deal) : null;
 }
 
 // The decision-grade IC Readiness board, grounded in real Fabric/OneLake market

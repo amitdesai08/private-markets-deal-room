@@ -72,6 +72,9 @@ import {
   updateCondition,
   snapshotAssumptions,
   getICReadiness,
+  getDealReturns,
+  getDealValueCreation,
+  getDealRiskRegister,
   getCitationAudit,
   marketIntel,
   fabricStatus,
@@ -391,6 +394,24 @@ api.get('/deals/:id/ic-readiness', (req, res) => {
   const board = getICReadiness(req.params.id);
   if (!board) return res.status(404).json({ error: 'not-found' });
   res.json(board);
+});
+
+// Lifecycle-stage decision artifacts derived from the live deal record:
+// LBO/returns (Fund CFO), value-creation plan (Operating Partner), risk register.
+api.get('/deals/:id/returns', (req, res) => {
+  const out = getDealReturns(req.params.id);
+  if (!out) return res.status(404).json({ error: 'not-found' });
+  res.json(out);
+});
+api.get('/deals/:id/value-creation', (req, res) => {
+  const out = getDealValueCreation(req.params.id);
+  if (!out) return res.status(404).json({ error: 'not-found' });
+  res.json(out);
+});
+api.get('/deals/:id/risk-register', (req, res) => {
+  const out = getDealRiskRegister(req.params.id);
+  if (!out) return res.status(404).json({ error: 'not-found' });
+  res.json(out);
 });
 
 // Source-citation audit — numeric claims in IC materials mapped to source facts;
