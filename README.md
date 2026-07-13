@@ -16,7 +16,7 @@ subscription-agnostic **Bicep** accelerator on **Azure Container Apps**.
 
 > **📘 Architecture diagram:** [docs/architecture.drawio](docs/architecture.drawio) (Draw.io). This README is the customer-facing documentation — it covers the platform, feature sets, deployment, customization and demo end-to-end.
 >
-> **🚚 Delivery & demo:** [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Demo runbook](docs/DEMO-RUNBOOK.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+> **🚚 Delivery & demo:** [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Demo runbook](docs/DEMO-RUNBOOK.md) · [Demo walkthrough](docs/DEMO-WALKTHROUGH.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 ---
 
