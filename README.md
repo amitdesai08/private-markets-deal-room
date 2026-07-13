@@ -31,6 +31,11 @@ it running.
 - **Channel-native Teams tab + standalone web console** — the *same* dashboard + per-deal workspace runs inside a Teams channel (Entra SSO) and opens in a browser (single data source: the shared `/api`).
 - **Identity-aware RBAC** — admin / partner / deal-team / analyst, enforced by *who is asking*, with **role-based agent routing** and a hierarchy **“view-as-down”** (a senior role can see the room as any junior one).
 - **M365 document generation** — per-user **Word** IC memos & **Excel** models on the requester’s own licence: download, **live-refreshable** (Excel web query), or published to the deal’s **SharePoint** data room; plus CSV export.
+- **Full PE deal lifecycle** — 15 institutional stages across 3 phases (sourcing → IOI → LOI → IC → financing → signing → close → value-creation → exit) with the six decision **gates**, surfaced in a **Lifecycle** view.
+- **Ten specialist agents** — Deal Orchestrator + Analyst, Partner, Principal, three sector MDs, **Operating Partner**, **Fund CFO**, **General Counsel** and **Investor Relations** — each a Foundry agent grounded in the live pipeline and governed by role.
+- **Decision artifacts** — an **LBO/returns** model (IRR/MOIC + sensitivity), a **value-creation / 100-day plan**, a **risk register**, and **IOI / LOI** drafts — each derived from the live record, callable by the agents, and exportable (returns to Excel).
+- **Free, keyless market data** — **SEC EDGAR / XBRL** fundamentals (a Morningstar substitute), **GLEIF** entity & ownership, and **GDELT** news — so demos show *real* data with no paid provider.
+- **Lean, low-cost persistence** — a pluggable store (`DEALROOM_STORE`): a **blob-per-document** backend (the default — reuses the data storage account, **no Cosmos**) or Cosmos DB for production.
 - **Azure AI Foundry** model inference (managed identity), a **Deal MCP server** (`/mcp`) for hosted/Copilot agents, optional **APIM AI Gateway**, and **Fabric/OneLake** market intelligence.
 - **Domain-split resource groups** — `rg-<workload>-{core,ai,data,app,integration,network}-{env}-{loc}` with cross-RG managed-identity RBAC.
 
@@ -56,6 +61,9 @@ azd up
 ```
 - **Demo** *(default)* — infra + seeded data + images. No identity, no admin needed → **one** `azd up`.
 - **Full** (Teams SSO / per-user M365 docs / bot) — `azd env set DEALROOM_MODE full`, then `azd up` (creates + registers the Entra apps via the postprovision hook) and `azd up` **once more** to wire them in. Needs an Entra admin.
+- **Foundry agents** — `azd up` also provisions the **Deal Orchestrator, News Scout and the ten persona agents** into your Foundry project (a `postdeploy` hook; best-effort, needs the `azure-ai-projects` Python SDK + Foundry data-plane access). Skip with `azd env set DEALROOM_AGENTS false`, or run [`app/scripts/create_persona_agents.py`](app/scripts/create_persona_agents.py) by hand.
+
+> **Foundry is fully in the template:** the Bicep provisions the **AI Foundry account + project, model deployments and Bing grounding**; the `postdeploy` hook creates the **agents** on top; and [`app/scripts/create_agent.py`](app/scripts/create_agent.py) is a copy-and-edit **template to add your own** Foundry agent.
 
 Pick region/subscription with `azd env new` then `azd env set AZURE_LOCATION swedencentral`.
 
@@ -89,9 +97,13 @@ Identity-aware access is a **parameter, not a configuration step**:
 - **Demo profiles** — set `deployDemoProfiles = true` (or `azd env set DEPLOY_DEMO_PROFILES true`) to seed one named showcase identity per role for an instant end-to-end demo; **off by default** in production.
 
 ### Customize & extend (agentic skills)
-- **Agents** — the deal + persona agents are Foundry agents scaffolded in [`app/scripts/`](app/scripts); the **Deal MCP server** (`/mcp` — `list_deals` / `get_deal` / `search_deals`) is the reusable tool surface for your own hosted agents and Copilot declarative agents.
-- **Data** — replace the seeded record with your source of truth behind the single `/api` + Cosmos seam.
-- **Surfaces** — the Teams tab reuses the web components; add tabs/cards without touching the backend.
+- **New agents** — copy [`app/scripts/create_agent.py`](app/scripts/create_agent.py), edit the name + instructions, and run it to provision your own Foundry specialist agent (it gets the whole read-only research surface via the Deal MCP server automatically). Add its id to [`personaPolicy.js`](app/lib/personaPolicy.js) / [`personaAgent.js`](app/lib/personaAgent.js) / [`userPolicy.js`](app/lib/userPolicy.js) to surface it as an RBAC-governed persona in the app.
+- **New personas & lanes** — add a persona to [`app/data/personas.js`](app/data/personas.js) + the policy files; the lifecycle, RBAC and demo profiles pick it up.
+- **New tools** — add a read tool to [`app/lib/mcp/dealServer.js`](app/lib/mcp/dealServer.js) and every agent discovers it at runtime (no re-provisioning). The **Deal MCP server** (`/mcp`) is also the reusable tool surface for your own hosted / Copilot Studio agents.
+- **New stages & artifacts** — extend the lifecycle in [`app/data/flow.js`](app/data/flow.js) and add artifact builders in [`app/lib/diligence.js`](app/lib/diligence.js) (e.g. returns / VCP / risk register).
+- **Persistence** — pick the backend with `storeDriver` (`blob` = lean default, `cosmos` = production) behind the single [`app/lib/repo`](app/lib/repo) seam.
+- **Data** — replace the seeded record with your source of truth behind the single `/api` + store seam; wire your own providers alongside the keyless pack in [`app/lib/providers`](app/lib/providers).
+- **Surfaces** — the Teams tab is the *same build* as the standalone web console; add tabs/cards (like the **Decision artifacts** tab) without touching the backend.
 
 ---
 
@@ -181,6 +193,46 @@ recommendation) — all sourced live and cited:
 
 ![Stage 2 — Diligence & Approval in the Teams tab](teams-app/docs/teams-stage2.png)
 
+## 🏛️ The full deal lifecycle
+
+The two stages above are the demo spine; the **Lifecycle** tab renders the complete
+institutional mid-market buyout process — **15 stages across 3 phases**, with the six
+**decision gates** (⛔) where capital & resources are committed. Each stage names the
+accountable **persona** and the artifacts it produces (`GET /api/lifecycle`).
+
+| Phase | Stages | Gates |
+|---|---|---|
+| **1 · Origination & Screening** | Fund mandate · Sourcing · Screening & triage | ⛔ **PURSUE** |
+| **2 · Diligence & Execution** | NDA/data-room · Confirmatory DD + QoE · Financing · Closing | ⛔ **IOI** · ⛔ **LOI** · ⛔ **IC** · ⛔ **Signing** |
+| **3 · Ownership & Exit** | Value creation & 100-day · Monitoring & add-ons | ⛔ **Exit** |
+
+### Decision artifacts
+Each deal carries the artifacts a PE IC actually decides on — derived from the live
+record, callable by the agents (`get_returns` / `get_value_creation` / `get_risk_register`),
+and shown in the deal's **Decision artifacts** tab:
+
+- **LBO / returns** (`/api/deals/:id/returns`) — entry multiple, leverage, **sources & uses**, base/upside/downside **IRR & MOIC**, and an exit-multiple × EBITDA-CAGR **sensitivity grid** vs the 20% / 2.0x hurdle. Exportable to **Excel**.
+- **Value-creation plan** (`/api/deals/:id/value-creation`) — the **EBITDA bridge**, quantified levers with owner + timeline, and the **100-day plan**.
+- **Risk register** (`/api/deals/:id/risk-register`) — every open risk across the lanes with severity × likelihood, mitigation and owner (red/amber/green).
+- **IOI / LOI** (`/api/deals/:id/ioi` · `/loi`) — the non-binding indication and letter of intent, with valuation, structure and exclusivity.
+
+### Free, keyless market data
+For demos without a paid provider, the platform supplements the seeded record with
+**real, keyless** data: **SEC EDGAR / XBRL** fundamentals (`/api/company/:name/fundamentals` — a Morningstar-quality substitute, also the automatic "quality" read when Morningstar isn't connected), **GLEIF** entity & ownership (`/api/entity/:name/lei`), and **GDELT** news (`/api/news/gdelt`). See `/api/providers/keyless`.
+
+### Persistence — Cosmos is optional
+The app persists through a single seam ([`app/lib/repo`](app/lib/repo)) with a pluggable
+`DEALROOM_STORE` driver:
+
+| Driver | Backend | When |
+|---|---|---|
+| **`blob`** *(default on `azd`)* | one JSON blob per document on the **existing data storage account** — no new resource, no Cosmos | demos / PoCs / lean deploys |
+| `cosmos` | Azure Cosmos DB for NoSQL (serverless) | production / high-concurrency |
+| `memory` | in-process | local dev |
+
+With `storeDriver=blob` the Bicep **does not provision Cosmos at all** — no account, no
+private endpoint, no cost. Switch to `cosmos` only when you need it.
+
 ## 🔐 Identity-aware access (RBAC)
 
 What the agent returns — and what it will *do* — depends on the **requesting Teams
@@ -188,9 +240,9 @@ user's identity**, resolved server-side (a client can never widen its own powers
 
 | Role | Agents available | Stage-2 deal data | Write actions |
 |---|---|---|---|
-| **Administrator** | **all 5** (superuser) | ✓ | ✓ |
-| **Partner** | all 5 specialists | ✓ | ✓ |
-| **Deal team** | analyst + all MDs (4) | ✓ | ✓ |
+| **Administrator** | **all 10** (superuser) | ✓ | ✓ |
+| **Partner** | all 10 specialists | ✓ | ✓ |
+| **Deal team** | analyst + MDs + deal-lead/ops/finance/legal (8) | ✓ | ✓ |
 | **Analyst** | analyst only (1) | — (denied) | — (read-only) |
 | **Member** | analyst only (1) | — (denied) | — (read-only) |
 
@@ -218,11 +270,16 @@ the orchestrator — the switcher even shows how many agents each identity may c
 
 | Profile | Role | Agents |
 |---|---|---|
-| **Sam Rivera** — Platform Administrator | admin | **5** · view-as any role |
-| **Eleanor Bishop** — Partner / Deal Sponsor | partner | **5** |
-| **James Whitfield** — Retail MD | deal-team | 4 |
-| **Dr. Priya Nair** — AI MD | deal-team | 4 |
-| **Diego Marquez** — Supply Chain MD | deal-team | 4 |
+| **Sam Rivera** — Platform Administrator | admin | **10** · view-as any role |
+| **Eleanor Bishop** — Partner / Deal Sponsor | partner | **10** |
+| **Marcus Feld** — Principal / Deal Lead | deal-team | 8 |
+| **James Whitfield** — Retail MD | deal-team | 8 |
+| **Dr. Priya Nair** — AI MD | deal-team | 8 |
+| **Diego Marquez** — Supply Chain MD | deal-team | 8 |
+| **Rachel Nguyen** — Operating Partner | deal-team | 8 |
+| **David Osei** — Fund CFO | deal-team | 8 |
+| **Priya Raman** — General Counsel | deal-team | 8 |
+| **Sofia Marchetti** — Investor Relations | partner | **10** |
 | **Maya Olsen** — Analyst | analyst | 1 · read-only |
 
 With the toggle **off** (the production default) no demo name grants a role — only the
@@ -235,7 +292,7 @@ tiers that run side by side:
 
 | Tier | Container app | Role |
 |---|---|---|
-| **Deal Room (API + data)** | `ca-dealhub-orch-*` (image `deal-room`) | The API / data / MCP plane — Cosmos DB, the MCP server, Foundry agents, and Microsoft Graph provisioning. **The only tier that holds data**; no bundled web client. |
+| **Deal Room (API + data)** | `ca-dealhub-orch-*` (image `deal-room`) | The API / data / MCP plane — the pluggable store (**blob-per-document by default**, Cosmos DB optional), the MCP server, Foundry agents, and Microsoft Graph provisioning. **The only tier that holds data**; no bundled web client. |
 | **Deal Room console (Teams + web)** | `ca-dealhub-teams-*` (image `dealhub-teams`) | The user-facing console — the Teams channel tab + conversational bot, and the *same* console served as a **standalone web app**. Holds **no data**; every read/write forwards to the orchestrator over `/api`. |
 
 > **One console, two surfaces — not a duplicated app.** The console tier proxies all
