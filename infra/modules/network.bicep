@@ -141,7 +141,7 @@ resource privateDnsLinks 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@
 ]
 
 resource privateEndpoint 'Microsoft.Network/privateEndpoints@2023-11-01' = [
-  for pe in (enablePrivateEndpoints ? privateEndpoints : []): {
+  for pe in (enablePrivateEndpoints ? filter(privateEndpoints, p => !empty(p.serviceId)) : []): {
     name: 'pe-${pe.name}-${namePrefix}'
     location: location
     tags: tags
@@ -161,7 +161,7 @@ resource privateEndpoint 'Microsoft.Network/privateEndpoints@2023-11-01' = [
 ]
 
 resource privateEndpointDns 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = [
-  for pe in (enablePrivateEndpoints ? privateEndpoints : []): {
+  for pe in (enablePrivateEndpoints ? filter(privateEndpoints, p => !empty(p.serviceId)) : []): {
     name: 'pe-${pe.name}-${namePrefix}/default'
     properties: {
       privateDnsZoneConfigs: [

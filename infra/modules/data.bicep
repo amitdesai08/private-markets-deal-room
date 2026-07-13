@@ -17,6 +17,8 @@ param fabricSkuName string
 param fabricAdminMembers array
 @description('Cosmos SQL database name. Defaults to dealroom for data compatibility with existing app defaults.')
 param cosmosDatabaseName string = 'dealroom'
+@description('Provision Cosmos DB. Off for the lean blob-store backend (the default); on only when the app uses storeDriver=cosmos.')
+param deployCosmos bool = true
 @description('Principal ID of the core UAMI granted data-plane access to storage + Cosmos.')
 param uamiPrincipalId string
 
@@ -72,7 +74,7 @@ resource fabric 'Microsoft.Fabric/capacities@2023-11-01' = if (deployFabric && !
   }
 }
 
-resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
+resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = if (deployCosmos) {
   name: 'cosmos-${workload}-${environmentName}-${suffix}'
   location: location
   tags: tags
@@ -97,7 +99,7 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
   }
 }
 
-resource cosmosDb 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-11-15' = {
+resource cosmosDb 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-11-15' = if (deployCosmos) {
   parent: cosmos
   name: cosmosDatabaseName
   properties: {
@@ -113,7 +115,7 @@ resource cosmosDb 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-11-15
 var appContainers = [ 'companies', 'deals', 'events', 'signals', 'connectors' ]
 
 resource cosmosAppContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = [
-  for c in appContainers: {
+  for c in appContainers: if (deployCosmos) {
     parent: cosmosDb
     name: c
     properties: {
@@ -128,7 +130,7 @@ resource cosmosAppContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases
   }
 ]
 
-resource cosmosAgentState 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+resource cosmosAgentState 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = if (deployCosmos) {
   parent: cosmosDb
   name: 'agent-state'
   properties: {
@@ -153,7 +155,7 @@ resource raStorageBlobContrib 'Microsoft.Authorization/roleAssignments@2022-04-0
   }
 }
 
-resource cosmosDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = {
+resource cosmosDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = if (deployCosmos) {
   parent: cosmos
   name: guid(cosmos.id, uamiPrincipalId, cosmosDataContributorRoleId)
   properties: {
@@ -166,8 +168,8 @@ resource cosmosDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAss
 output dataStorageId string = dataStorage.id
 output dataStorageName string = dataStorage.name
 output dataBlobEndpoint string = dataStorage.properties.primaryEndpoints.blob
-output cosmosId string = cosmos.id
-output cosmosAccountName string = cosmos.name
-output cosmosEndpoint string = cosmos.properties.documentEndpoint
+output cosmosId string = deployCosmos ? cosmos.id : ''
+output cosmosAccountName string = deployCosmos ? cosmos.name : ''
+output cosmosEndpoint string = deployCosmos ? cosmos.properties.documentEndpoint : ''
 output cosmosDatabaseName string = cosmosDatabaseName
 output fabricCapacityName string = (deployFabric && !empty(fabricAdminMembers)) ? fabric.name : 'not-deployed'

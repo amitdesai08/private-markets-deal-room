@@ -85,6 +85,11 @@ param cosmosDatabaseName string = 'dealroom'
 @description('Persistence backend for the app: \'cosmos\' (durable/production), \'blob\' (lean/low-cost blob-per-document on the data storage account — ideal for demos/PoCs), or empty to auto-resolve (Cosmos when present, else in-memory).')
 param storeDriver string = ''
 
+// Cosmos DB is provisioned ONLY when the app actually uses it (storeDriver=cosmos,
+// or the empty/auto default). The lean blob store (storeDriver=blob) skips Cosmos
+// entirely — no account, no private endpoint, no cost.
+var deployCosmos = storeDriver == 'cosmos' || empty(storeDriver)
+
 @description('Deploy a Microsoft Fabric capacity. Requires at least one Fabric admin member.')
 param deployFabric bool = true
 
@@ -358,6 +363,7 @@ module data 'modules/data.bicep' = {
     fabricSkuName: fabricSkuName
     fabricAdminMembers: fabricAdminMembers
     cosmosDatabaseName: cosmosDatabaseName
+    deployCosmos: deployCosmos
     uamiPrincipalId: core.outputs.uamiPrincipalId
   }
 }
