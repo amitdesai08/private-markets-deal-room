@@ -1,24 +1,44 @@
-# The Deal Room — on Microsoft Teams
+# The Deal Room
 
-An **AI-native private-equity deal-flow workspace that lives inside Microsoft
-Teams**. Deal teams source, screen, and run diligence from the channel they
-already work in — **ask an @mentionable agent in natural language**, read a
-**channel-native dashboard**, and move deals **stage to stage** — with every
-answer **grounded in the live deal record** and **scoped to who is asking**.
+> **AI-native private-equity deal flow — native to Microsoft Teams.**
 
-Built on **Azure AI Foundry** (live model inference via managed identity), a Teams
-**Bot Framework** agent + an **Entra-SSO channel tab**, deployed with a
-subscription-agnostic **Bicep** accelerator on **Azure Container Apps**.
+The Deal Room is a private-equity workspace where a fund **sources, screens, runs
+diligence, takes deals to the Investment Committee, and then monitors the companies
+it owns** — all from inside the Microsoft Teams channel the team already works in
+(and the *same* console on the web). Ask an **@mentionable AI agent** in plain
+language, read a **channel-native dashboard**, and move deals **stage to stage** —
+with every answer **grounded in the live deal record**, delivered by **role-aware
+agents**, and **scoped to who is asking**.
+
+It ships as a **one-command Azure accelerator** you deploy into your own tenant — no
+paid data providers required to demo, and no Cosmos DB required to run.
 
 ![The Deal Room console rendered inside Microsoft Teams](teams-app/docs/teams-dashboard.png)
 
-<sub>*The Deal Room console — the same experience runs **natively in Microsoft Teams** and as a **standalone web console**, over one shared deal record.*</sub>
+<sub>*The same console runs **natively in Microsoft Teams** and as a **standalone web app**, over one shared deal record.*</sub>
 
-> **📘 Architecture diagram:** [docs/architecture.drawio](docs/architecture.drawio) (Draw.io). This README is the customer-facing documentation — it covers the platform, feature sets, deployment, customization and demo end-to-end.
+**Built on** Azure AI Foundry (managed-identity model inference) · a Teams **Bot
+Framework** agent + **Entra-SSO channel tab** · a **Deal MCP server** for M365 Copilot
+and hosted agents · subscription-agnostic **Bicep** on **Azure Container Apps**.
+
+> 📘 [Architecture](docs/architecture.drawio) · 🎬 [Demo walkthrough](docs/DEMO-WALKTHROUGH.md) · 🚚 [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Demo runbook](docs/DEMO-RUNBOOK.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 >
-> **🚚 Delivery & demo:** [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Demo runbook](docs/DEMO-RUNBOOK.md) · [Demo walkthrough](docs/DEMO-WALKTHROUGH.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+> *Tip: use GitHub's **outline** button (top-right of this file) to jump between sections.*
 
 ---
+
+## ✨ Feature set at a glance
+
+| Area | Capabilities |
+|---|---|
+| **Teams-native experience** | @mentionable **conversational agent** grounded in the channel's deal · **Entra-SSO channel tab** + the *same* **standalone web console** · proactive **Adaptive Card** alerts · per-deal **Teams channel + SharePoint** data rooms |
+| **End-to-end deal process** | A **15-stage institutional lifecycle** (3 phases · 6 decision gates) · a Stage-1 **origination funnel** with a *gate → guide → rank* sourcing framework · a Stage-2 **diligence hub** with specialist workstream lanes |
+| **Decision & IC** | **Decision artifacts** — LBO/returns (IRR/MOIC + sensitivity), value-creation / 100-day plan, risk register, IOI/LOI — each derived from the live record and exportable to **Excel** · an **IC-readiness** board with a READY / CONDITIONAL / NOT-READY verdict |
+| **Fund & portfolio** *(post-IC)* | **Owned-company monitoring** (hold, current MOIC/IRR, value-creation progress, KPIs vs plan) · a **fund / LP view** (DPI · TVPI · RVPI, deployed vs dry powder, concentration vs LPA limits) · an **executive value dashboard** |
+| **AI & agents** | **10 role-governed Foundry agents** (analyst, partner, principal, 3 sector MDs, operating partner, fund CFO, GC, investor relations) · a **Deal MCP server** for M365 Copilot / hosted agents · Foundry inference via managed identity · **Fabric / OneLake** market intelligence |
+| **Identity-aware governance** | **RBAC** resolved by *who is asking* (admin / partner / deal-team / analyst) · **role-based agent routing** · hierarchy **“view-as-down”** · one-click **demo profiles** |
+| **Real data & documents** | **Keyless** SEC EDGAR/XBRL, GLEIF & GDELT data — real numbers, no paid provider · per-user **Word / Excel** generation on the requester's own M365 licence · CSV export |
+| **Azure-native platform** | One-command **`azd up`** · subscription-agnostic **Bicep** · **domain-split resource groups** · a **pluggable store** (blob-per-document by default — *no Cosmos* — or Cosmos DB) · **managed identity** end-to-end |
 
 ## 🚀 Deploy this accelerator
 
@@ -27,20 +47,6 @@ The Deal Room ships as a **self-contained Azure accelerator** — a parameterise
 subscription-scoped command provisions everything; you supply only a handful of
 parameters and run the Bicep. There are **no manual configuration steps** to get
 it running.
-
-### What the platform does
-- **Conversational deal agent** (`@Deal Room Assistant`) — @mention it in any deal channel; answers are grounded in the **live** deal record and resolved from the channel itself.
-- **Channel-native Teams tab + standalone web console** — the *same* dashboard + per-deal workspace runs inside a Teams channel (Entra SSO) and opens in a browser (single data source: the shared `/api`).
-- **Identity-aware RBAC** — admin / partner / deal-team / analyst, enforced by *who is asking*, with **role-based agent routing** and a hierarchy **“view-as-down”** (a senior role can see the room as any junior one).
-- **M365 document generation** — per-user **Word** IC memos & **Excel** models on the requester’s own licence: download, **live-refreshable** (Excel web query), or published to the deal’s **SharePoint** data room; plus CSV export.
-- **Full PE deal lifecycle** — 15 institutional stages across 3 phases (sourcing → IOI → LOI → IC → financing → signing → close → value-creation → exit) with the six decision **gates**, surfaced in a **Lifecycle** view.
-- **Ten specialist agents** — Deal Orchestrator + Analyst, Partner, Principal, three sector MDs, **Operating Partner**, **Fund CFO**, **General Counsel** and **Investor Relations** — each a Foundry agent grounded in the live pipeline and governed by role.
-- **Decision artifacts** — an **LBO/returns** model (IRR/MOIC + sensitivity), a **value-creation / 100-day plan**, a **risk register**, and **IOI / LOI** drafts — each derived from the live record, callable by the agents, and exportable (returns to Excel).
-- **Fund & portfolio lens** — a post-IC **Fund & Portfolio** tab: **owned-company monitoring** (hold period, current MOIC/IRR, value-creation-plan progress, KPIs vs underwriting), a **fund / LP view** (DPI · TVPI · RVPI, capital deployed vs dry powder, concentration vs the LPA limits), and an **executive value dashboard** (deals processed, analyst-hours saved, time-to-IC compression). Exposed to the agents via MCP tools (`get_fund_overview` · `get_portfolio` · `get_fund_value`).
-- **Free, keyless market data** — **SEC EDGAR / XBRL** fundamentals (a Morningstar substitute), **GLEIF** entity & ownership, and **GDELT** news — so demos show *real* data with no paid provider.
-- **Lean, low-cost persistence** — a pluggable store (`DEALROOM_STORE`): a **blob-per-document** backend (the default — reuses the data storage account, **no Cosmos**) or Cosmos DB for production.
-- **Azure AI Foundry** model inference (managed identity), a **Deal MCP server** (`/mcp`) for hosted/Copilot agents, optional **APIM AI Gateway**, and **Fabric/OneLake** market intelligence.
-- **Domain-split resource groups** — `rg-<workload>-{core,ai,data,app,integration,network}-{env}-{loc}` with cross-RG managed-identity RBAC.
 
 ### Prerequisites
 | # | Requirement | Notes |
@@ -133,9 +139,8 @@ Behind every reply:
 - **Channel-grounded** — resolves the deal from a durable channel↔deal map (with a
   company-name fallback), then calls the **live** deal tools (`get_deal`, financials,
   diligence, signals) so answers reflect the current record, not a snapshot.
-- **Persona-aware** — one bot routes to the right specialist lens: **analyst**,
-  **retail MD**, **supply-chain MD**, **AI MD**, or **partner**, and frames the
-  answer from that viewpoint.
+- **Persona-aware** — routes to the right specialist lens (analyst, the sector MDs,
+  partner, and the wider deal-team roles) and frames the answer from that viewpoint.
 - **Identity-gated** — what it will tell you (and do) depends on **who is asking** —
   see [Identity-aware access](#-identity-aware-access-rbac) below.
 
@@ -296,7 +301,7 @@ tiers that run side by side:
 | Tier | Container app | Role |
 |---|---|---|
 | **Deal Room (API + data)** | `ca-dealhub-orch-*` (image `deal-room`) | The API / data / MCP plane — the pluggable store (**blob-per-document by default**, Cosmos DB optional), the MCP server, Foundry agents, and Microsoft Graph provisioning. **The only tier that holds data**; no bundled web client. |
-| **Deal Room console (Teams + web)** | `ca-dealhub-teams-*` (image `dealhub-teams`) | The user-facing console — the Teams channel tab + conversational bot, and the *same* console served as a **standalone web app**. Holds **no data**; every read/write forwards to the orchestrator over `/api`. |
+| **Deal Room console (Teams + web)** | `ca-dealhub-teams-*` (image `deal-room-teams`) | The user-facing console — the Teams channel tab + conversational bot, and the *same* console served as a **standalone web app**. Holds **no data**; every read/write forwards to the orchestrator over `/api`. |
 
 > **One console, two surfaces — not a duplicated app.** The console tier proxies all
 > data to the one backend (`SHARED_BACKEND_URL`), so there's a single data source and
@@ -327,19 +332,21 @@ grounded deal tools.
 ```
 .
 ├── app/                    The API / data / MCP service (Node/Express) — no web client
-│   ├── lib/                AI client, agents, in-memory store, Graph webhook
-│   ├── data/               Flow, personas, deals, sourcing framework, workspace factory
-│   ├── graph/              Microsoft Graph subscription helpers (mailbox signals)
-│   ├── docs/               Screenshots
-│   └── Dockerfile          Multi-stage build (client → server → runtime)
+│   ├── lib/                AI client, agents, pluggable store, MCP server, Graph, fund/portfolio engine
+│   ├── data/               Lifecycle & flow, personas, deals, sourcing framework, owned portfolio
+│   ├── scripts/            Foundry agent provisioning (create_agent.py template + persona agents)
+│   ├── mcp/                Deal MCP server OpenAPI + Copilot Studio guide
+│   └── Dockerfile          Multi-stage build (deps → runtime)
 ├── teams-app/              The Teams interface tier (thin front end; holds no data)
-│   ├── tab/                Teams-native agent console (React + Vite)
+│   ├── tab/                Teams-native + standalone web console (React + Vite)
 │   ├── server/             SSO/OBO, bot (Bot Framework), backend proxy, Adaptive Cards
 │   ├── manifest/           Teams app manifest + build script
 │   └── Dockerfile          Multi-stage build (tab → server → runtime)
-├── infra/                  Azure infrastructure as code
-│   ├── main.bicep          ~45 resources in a single resource group
-│   └── main.{dev,test,prod}.bicepparam
+├── infra/                  Azure IaC — subscription-scoped, domain-split into 6 resource groups
+│   ├── main.bicep          Orchestrator + modules/ (core · ai · data · app · integration · network)
+│   └── main.{dev,test,prod,sample}.bicepparam
+├── docs/                   Architecture, deployment checklist, demo runbook & walkthrough
+├── scripts/                Deploy + Entra-provisioning + azd hooks
 └── .github/workflows/      OIDC CI/CD for infra and app
 ```
 
