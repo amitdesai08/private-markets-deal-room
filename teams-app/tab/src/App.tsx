@@ -6,6 +6,7 @@ import DealDetail from './DealDetail';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Lifecycle from './Lifecycle';
+import Fund from './Fund';
 import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipeline } from './types';
 
 type TeamsConfig = { demoMode: boolean; backend: string; sso: boolean; bot: boolean; backendUrl?: string; appBaseUrl?: string };
@@ -57,7 +58,7 @@ export default function App() {
   const [viewAsRole, setViewAsRole] = useState('');
   const [roleLabel, setRoleLabel] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'lifecycle'>('overview');
+  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'lifecycle' | 'fund'>('overview');
 
   // Only surface the agents this user (or the role they are viewing as) may use.
   // The orchestrator (always shown) plus any persona agent in allowedPersonas.
@@ -164,7 +165,7 @@ export default function App() {
       </header>
 
       <nav className="maintabs">
-        {([['overview', 'Deals Overview'], ['stage1', 'Stage 1 — Origination'], ['stage2', 'Stage 2 — Diligence'], ['lifecycle', 'Lifecycle']] as const).map(([k, label]) => (
+        {([['overview', 'Deals Overview'], ['stage1', 'Stage 1 — Origination'], ['stage2', 'Stage 2 — Diligence'], ['lifecycle', 'Lifecycle'], ['fund', 'Fund & Portfolio']] as const).map(([k, label]) => (
           <button key={k} className={`maintab${mainTab === k ? ' on' : ''}`} onClick={() => setMainTab(k)}>{label}</button>
         ))}
       </nav>
@@ -177,6 +178,8 @@ export default function App() {
             <Stage1 onChanged={refreshData} onOpenDeal={setOpenDealId} />
           ) : mainTab === 'lifecycle' ? (
             <Lifecycle />
+          ) : mainTab === 'fund' ? (
+            <Fund />
           ) : (
             <Stage2 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           )}
