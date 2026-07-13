@@ -11,10 +11,16 @@
 
 import { DefaultAzureCredential } from '@azure/identity';
 import { config } from '../config.js';
+import { initBlobStore, bsGet, bsUpsert, bsSaveConcurrent, bsList, bsRemove } from './blobStore.js';
 
 const ENDPOINT = config.cosmos.endpoint;
 const DATABASE = config.cosmos.database;
 const COLLECTIONS = ['companies', 'deals', 'events', 'signals', 'connectors'];
+
+// Resolve the persistence driver. Explicit DEALROOM_STORE wins; otherwise fall
+// back to Cosmos when configured, else in-memory. 'blob' is the lean backend.
+const DRIVER = config.store.driver
+  || (ENDPOINT ? 'cosmos' : 'memory');
 
 let mode = 'memory';
 const containers = {};
@@ -24,7 +30,7 @@ export function repoMode() {
   return mode;
 }
 export function repoReady() {
-  return mode === 'cosmos';
+  return mode !== 'memory';
 }
 
 // Lazily connect to Cosmos. When COSMOS_ENDPOINT is unset the app runs on the
@@ -32,7 +38,13 @@ export function repoReady() {
 // connection failure throws so the app fails loudly on boot (and Container Apps
 // restarts it) rather than silently serving non-durable in-memory data.
 export async function initRepo() {
-  if (!ENDPOINT) {
+  // Lean blob-per-document store (demos/PoCs) — reuses the data storage account.
+  if (DRIVER === 'blob' && config.store.blobEndpoint) {
+    await initBlobStore(config.store.blobEndpoint, config.store.blobContainer);
+    mode = 'blob';
+    return { mode, endpoint: config.store.blobEndpoint, container: config.store.blobContainer };
+  }
+  if (DRIVER !== 'cosmos' || !ENDPOINT) {
     mode = 'memory';
     return { mode, endpoint: null };
   }
@@ -66,6 +78,7 @@ export async function get(name, id) {
       throw err;
     }
   }
+  if (mode === 'blob') return bsGet(name, id);
   return clone(mem[name].get(id)) || null;
 }
 
@@ -78,6 +91,7 @@ export async function upsert(name, doc) {
     const { resource } = await containers[name].items.upsert(record);
     return resource;
   }
+  if (mode === 'blob') return bsUpsert(name, record);
   mem[name].set(record.id, clone(record));
   return clone(record);
 }
@@ -97,6 +111,7 @@ export async function saveConcurrent(name, doc) {
     const { resource } = await containers[name].items.upsert(record, options);
     return resource;
   }
+  if (mode === 'blob') return bsSaveConcurrent(name, record);
   mem[name].set(record.id, clone(record));
   return clone(record);
 }
@@ -107,6 +122,7 @@ export async function list(name) {
     const { resources } = await containers[name].items.readAll().fetchAll();
     return resources;
   }
+  if (mode === 'blob') return bsList(name);
   return [...mem[name].values()].map(clone);
 }
 
@@ -118,6 +134,10 @@ export async function remove(name, id) {
     } catch (err) {
       if (err?.code !== 404) throw err;
     }
+    return;
+  }
+  if (mode === 'blob') {
+    await bsRemove(name, id);
     return;
   }
   mem[name].delete(id);
@@ -139,6 +159,10 @@ export async function recordEvent(evt) {
     } catch {
       /* audit is best-effort; never block the primary op */
     }
+    return doc;
+  }
+  if (mode === 'blob') {
+    try { await bsUpsert('events', doc); } catch { /* best-effort audit */ }
     return doc;
   }
   mem.events.set(doc.id, clone(doc));

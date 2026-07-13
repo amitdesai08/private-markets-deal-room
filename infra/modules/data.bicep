@@ -165,6 +165,7 @@ resource cosmosDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAss
 
 output dataStorageId string = dataStorage.id
 output dataStorageName string = dataStorage.name
+output dataBlobEndpoint string = dataStorage.properties.primaryEndpoints.blob
 output cosmosId string = cosmos.id
 output cosmosAccountName string = cosmos.name
 output cosmosEndpoint string = cosmos.properties.documentEndpoint

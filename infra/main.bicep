@@ -82,6 +82,9 @@ param storageSku string = 'Standard_LRS'
 @description('Cosmos SQL database name (kept as the app default for data compatibility).')
 param cosmosDatabaseName string = 'dealroom'
 
+@description('Persistence backend for the app: \'cosmos\' (durable/production), \'blob\' (lean/low-cost blob-per-document on the data storage account — ideal for demos/PoCs), or empty to auto-resolve (Cosmos when present, else in-memory).')
+param storeDriver string = ''
+
 @description('Deploy a Microsoft Fabric capacity. Requires at least one Fabric admin member.')
 param deployFabric bool = true
 
@@ -433,6 +436,8 @@ module app 'modules/app.bicep' = {
     contentSafetyEndpoint: ai.outputs.contentSafetyEndpoint
     cosmosEndpoint: data.outputs.cosmosEndpoint
     cosmosDatabase: data.outputs.cosmosDatabaseName
+    storeDriver: storeDriver
+    dataBlobEndpoint: data.outputs.dataBlobEndpoint
     fabricLive: fabricLive
     fabricSqlEndpoint: fabricSqlEndpoint
     fabricSqlDatabase: fabricSqlDatabase

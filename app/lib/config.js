@@ -48,6 +48,15 @@ export const config = Object.freeze({
     endpoint: str(env.COSMOS_ENDPOINT, ''),
     database: str(env.COSMOS_DATABASE, 'dealroom'),
   },
+  // Pluggable persistence backend. `driver` selects the store: 'cosmos' (durable,
+  // production), 'blob' (lean/low-cost blob-per-document on the data storage
+  // account — ideal for demos/PoCs), or 'memory' (no datastore). When unset it
+  // auto-resolves: Cosmos if COSMOS_ENDPOINT is set, else memory.
+  store: {
+    driver: str(env.DEALROOM_STORE, '').toLowerCase(),
+    blobEndpoint: trimUrl(env.DEAL_BLOB_ENDPOINT, ''),
+    blobContainer: str(env.DEALROOM_STORE_CONTAINER, 'appstore'),
+  },
   contentSafety: {
     // Azure AI Content Safety endpoint. When empty the guard is a no-op
     // (fail-open). threshold is the minimum severity (0-7) that blocks;

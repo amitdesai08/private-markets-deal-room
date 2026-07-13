@@ -19,6 +19,7 @@
     "partnerIds": { "value": "${PARTNER_IDS=[]}" },
     "dealTeamIds": { "value": "${DEAL_TEAM_IDS=[]}" },
     "analystIds": { "value": "${ANALYST_IDS=[]}" },
-    "deployDemoProfiles": { "value": "${DEPLOY_DEMO_PROFILES=true}" }
+    "deployDemoProfiles": { "value": "${DEPLOY_DEMO_PROFILES=true}" },
+    "storeDriver": { "value": "${DEALROOM_STORE=blob}" }
   }
 }

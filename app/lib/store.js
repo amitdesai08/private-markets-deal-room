@@ -31,7 +31,7 @@ import {
   reasonLabel,
   stageIndex as candStageIndex
 } from '../data/candidates.js';
-import { initRepo, repoMode, companies as coRepo, deals as dealRepo, signals as sigRepo, recordEvent } from './repo/index.js';
+import { initRepo, repoMode, repoReady, companies as coRepo, deals as dealRepo, signals as sigRepo, recordEvent } from './repo/index.js';
 import { primeTokenCache } from './mcp/oauth.js';
 import { computeICReadiness, currentAssumptions } from './icReadiness.js';
 import { validateCitations } from './citations.js';
@@ -174,7 +174,7 @@ function upsertDealCache(doc) {
 async function mutateDeal(id, reducer) {
   const ATTEMPTS = 5;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-    let fresh = repoMode() === 'cosmos' ? await dealRepo.get(id).catch(() => null) : null;
+    let fresh = repoReady() ? await dealRepo.get(id).catch(() => null) : null;
     if (!fresh) fresh = getDealRaw(id) || null;
     if (!fresh) return { error: 'not-found' };
     ensureFirstClassLanes(fresh);
@@ -199,7 +199,7 @@ async function mutateDeal(id, reducer) {
 // via mutateDeal's optimistic concurrency. Unref'd so it never holds the process open.
 let bgSync = null;
 function startBackgroundSync() {
-  if (bgSync || repoMode() !== 'cosmos') return;
+  if (bgSync || !repoReady()) return;
   const TTL = Number(process.env.STORE_SYNC_MS || 5000);
   bgSync = setInterval(async () => {
     try {
@@ -216,7 +216,7 @@ function startBackgroundSync() {
 // Load persisted state from Cosmos at startup (empty on a fresh datastore).
 export async function hydrate() {
   const info = await initRepo();
-  if (repoMode() !== 'cosmos') return { mode: repoMode(), companies: 0, deals: 0 };
+  if (!repoReady()) return { mode: repoMode(), companies: 0, deals: 0 };
   await primeTokenCache().catch(() => {});
   await loadFabric().catch(() => {});
   try {

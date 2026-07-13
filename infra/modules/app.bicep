@@ -79,6 +79,10 @@ param foundryEndpoint string
 param contentSafetyEndpoint string = ''
 param cosmosEndpoint string = ''
 param cosmosDatabase string = 'dealroom'
+@description('Persistence backend: cosmos (durable/prod), blob (lean/low-cost for demos), or empty to auto-resolve.')
+param storeDriver string = ''
+@description('Blob endpoint of the data storage account (used by the lean blob store + filing archive).')
+param dataBlobEndpoint string = ''
 
 // Fabric / OneLake market-intelligence binding (external workspace; not provisioned here).
 param fabricLive bool = false
@@ -213,6 +217,8 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'CONTENT_SAFETY_ENDPOINT', value: contentSafetyEndpoint }
             { name: 'COSMOS_ENDPOINT', value: cosmosEndpoint }
             { name: 'COSMOS_DATABASE', value: cosmosDatabase }
+            { name: 'DEALROOM_STORE', value: storeDriver }
+            { name: 'DEAL_BLOB_ENDPOINT', value: dataBlobEndpoint }
             { name: 'FABRIC_LIVE', value: string(fabricLive) }
             { name: 'FABRIC_SQL_ENDPOINT', value: fabricSqlEndpoint }
             { name: 'FABRIC_SQL_DATABASE', value: fabricSqlDatabase }

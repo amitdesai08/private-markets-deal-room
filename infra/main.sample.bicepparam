@@ -93,6 +93,12 @@ param analystIds = []
 param defaultAgentRole = 'deal-team'      // partner | deal-team | analyst | member
 param deployDemoProfiles = true           // showcase profiles (one identity per role); set false for production
 
+// ── Persistence backend ──────────────────────────────────────────────────────
+// 'blob' = lean, low-cost blob-per-document on the data storage account (ideal
+// for demos/PoCs — no Cosmos cost). 'cosmos' = durable/production. Empty = auto
+// (Cosmos when present, else in-memory).
+param storeDriver = 'blob'
+
 // ── Hardening ────────────────────────────────────────────────────────────────
 // Container Apps here run on a Consumption (public) environment, so leave this
 // false to keep Cosmos publicly reachable. Only set true if you also provision a
