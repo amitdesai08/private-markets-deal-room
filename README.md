@@ -10,7 +10,7 @@ Built on **Azure AI Foundry** (live model inference via managed identity), a Tea
 **Bot Framework** agent + an **Entra-SSO channel tab**, deployed with a
 subscription-agnostic **Bicep** accelerator on **Azure Container Apps**.
 
-![The Deal Room web console](app/docs/deal-journey.png)
+![The Deal Room console rendered inside Microsoft Teams](teams-app/docs/teams-dashboard.png)
 
 <sub>*The Deal Room console — the same experience runs **natively in Microsoft Teams** and as a **standalone web console**, over one shared deal record.*</sub>
 
