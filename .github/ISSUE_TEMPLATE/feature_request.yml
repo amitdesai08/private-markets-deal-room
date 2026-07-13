@@ -1,0 +1,46 @@
+name: 💡 Feature request
+description: Suggest an enhancement to the Deal Room accelerator.
+title: "[feat]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, check the [README](../blob/main/README.md) and
+        [CONTRIBUTING](../blob/main/CONTRIBUTING.md) — many extensions (new agents,
+        personas, tools, lifecycle stages, providers, store drivers) are already
+        supported as customization points.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Agents & personas
+        - Lifecycle & decision artifacts
+        - Identity-aware RBAC
+        - Data providers / market intelligence
+        - Persistence / store
+        - Teams / web console (UX)
+        - Infra / azd / deployment
+        - M365 documents & Graph
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do, and why is it hard today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to see? Note if it's a customization vs a core change.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

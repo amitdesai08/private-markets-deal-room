@@ -1,0 +1,63 @@
+name: 🐞 Bug report
+description: Report a defect in the Deal Room accelerator.
+title: "[bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Do not report security vulnerabilities here** —
+        follow [SECURITY.md](../blob/main/SECURITY.md) (private advisory) instead.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the accelerator?
+      options:
+        - orchestrator (app/ — API / data / MCP)
+        - teams-app (console — Teams tab + web console + bot)
+        - infra (Bicep / azd)
+        - scripts (deploy / Entra / agent provisioning)
+        - agents (Foundry persona / deal / news agents)
+        - docs
+        - not sure
+    validations:
+      required: true
+  - type: input
+    id: mode
+    attributes:
+      label: Deploy mode / store
+      description: e.g. demo · DEALROOM_STORE=blob · local (memory)
+      placeholder: demo · blob
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what actually happened?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. `azd up` (demo mode)
+        2. Open the console, sign in as …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / errors
+      description: Relevant output. **Redact any tenant/subscription/app IDs, endpoints or secrets.**
+      render: shell
+  - type: checkboxes
+    id: hygiene
+    attributes:
+      label: Confirmations
+      options:
+        - label: I have removed any tenant/subscription/app IDs, endpoints and secrets from this report.
+          required: true
+        - label: This is not a security vulnerability (those go through SECURITY.md).
+          required: true
