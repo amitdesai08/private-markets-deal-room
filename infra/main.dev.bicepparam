@@ -51,7 +51,7 @@ param orchestratorImage = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:
 param deployTeamsApp = true
 
 // Orchestrator MUST stay single-replica: it holds the M365 delegated token in
-// memory and a single writer avoids datastore races (see docs/SOLUTION.md §6).
+// memory and a single writer avoids datastore races.
 param orchestratorMinReplicas = 1
 param orchestratorMaxReplicas = 1
 
@@ -64,18 +64,19 @@ param botAppId = ''            // MSA App id backing the Teams bot
 param botAppType = 'MultiTenant'
 
 // M365 channel/VDR provisioning (org-catalog app id is NOT a secret; group name is configurable).
-param teamsAppCatalogId = '55a506df-b5f9-4096-9719-5fad2261eb38'
+param teamsAppCatalogId = ''   // org app-catalog id (per tenant; from the Teams admin center)
 param m365PublishGroup = 'Private Equity Deals'
 
 param enablePrivateEndpoints = false
 param keyVaultPurgeProtection = false
 
-// Live Microsoft Fabric / OneLake market-intelligence binding (external "Deal Room"
-// workspace). The app's managed identity must hold a workspace role (Contributor).
-param fabricLive = true
-param fabricSqlEndpoint = 'a64b6mf4xwwexabphg3h6kmlnq-vohf2iaot5lu5l5wepkbscocq4.datawarehouse.fabric.microsoft.com'
+// Live Microsoft Fabric / OneLake market-intelligence binding (external workspace).
+// Off by default — the app uses seeded market intel. Set fabricLive=true and fill
+// the binding to point at your own Fabric workspace (the UAMI needs a workspace role).
+param fabricLive = false
+param fabricSqlEndpoint = ''
 param fabricSqlDatabase = 'deal_room_starter'
 param fabricWorkspace = 'Deal Room'
 param fabricLakehouse = 'deal_room_starter'
-param onelakeWorkspaceId = '205d8eab-9f0e-4e57-afb6-23d41909c287'
-param onelakeLakehouseId = '544efa34-5a8d-4b3a-8aad-216dabe71c37'
+param onelakeWorkspaceId = ''
+param onelakeLakehouseId = ''
