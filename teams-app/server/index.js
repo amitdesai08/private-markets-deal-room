@@ -167,9 +167,10 @@ app.get('/config', (_req, res) => {
   res.send(TEAMS_CONFIG_HTML);
 });
 
-// The Channel/personal Tab is the NATIVE agent console (tab/dist). It talks to the
-// shared backend through this origin's /api proxy (single data source). The full
-// web dashboard remains one click away via the "Full dashboard" link in the tab.
+// The Channel/personal Tab is the Deal Room console (tab/dist). It talks to the
+// shared backend through this origin's /api proxy (single data source), and the
+// SAME build is served here as a standalone web console (the "Open web console"
+// link in the tab opens this origin outside Teams).
 const tabDist = join(__dirname, '..', 'tab', 'dist');
 if (existsSync(tabDist)) {
   app.use(express.static(tabDist));
