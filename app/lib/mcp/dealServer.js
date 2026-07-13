@@ -29,12 +29,13 @@ import {
   listPipeline, candidateView, candidateArtifactView, dealArtifactView,
   icReadinessView, marketIntelView, citationAuditView, canonicalCompaniesView, canonicalCompanyView,
   returnsView, valueCreationView, riskRegisterView,
+  fundOverviewView, portfolioView, fundValueView,
   dispatchAction, nextActionsFor
 } from '../dealTools.js';
 import { resolvePersona, PERSONAS } from '../personaPolicy.js';
 
-const SERVER_INFO = { name: 'deal-room-mcp', version: '2.4.0' };
-const READ_TOOLS = ['list_deals', 'get_deal', 'search_deals', 'list_pipeline', 'get_candidate', 'get_candidate_artifact', 'get_deal_artifact', 'get_ic_readiness', 'get_returns', 'get_value_creation', 'get_risk_register', 'get_market_intel', 'get_citation_audit', 'get_companies', 'get_company', 'get_next_actions'];
+const SERVER_INFO = { name: 'deal-room-mcp', version: '2.5.0' };
+const READ_TOOLS = ['list_deals', 'get_deal', 'search_deals', 'list_pipeline', 'get_candidate', 'get_candidate_artifact', 'get_deal_artifact', 'get_ic_readiness', 'get_returns', 'get_value_creation', 'get_risk_register', 'get_fund_overview', 'get_portfolio', 'get_fund_value', 'get_market_intel', 'get_citation_audit', 'get_companies', 'get_company', 'get_next_actions'];
 const ACTION_TOOLS = ['send_to_screening', 'screen_candidate', 'triage_candidate', 'gate_candidate', 'launch_deal', 'advance_deal', 'approve_ic', 'run_step', 'assign_lane', 'record_finding', 'record_contribution', 'record_issue', 'resolve_issue', 'set_condition', 'snapshot_assumptions'];
 const TOOL_NAMES = [...READ_TOOLS, ...ACTION_TOOLS];
 
@@ -124,6 +125,19 @@ export function buildDealMcpServer(auth = { mode: 'disabled' }) {
   server.registerTool('get_risk_register',
     { title: 'Get risk register', description: TOOL_DESCRIPTIONS.get_risk_register, inputSchema: { deal_id: z.string().describe('The deal id.') } },
     async ({ deal_id }) => toContent(riskRegisterView(deal_id)));
+
+  // ---- READ: Fund / portfolio lens (post-IC) ------------------------------
+  server.registerTool('get_fund_overview',
+    { title: 'Get fund overview', description: TOOL_DESCRIPTIONS.get_fund_overview, inputSchema: {} },
+    async () => toContent(fundOverviewView()));
+
+  server.registerTool('get_portfolio',
+    { title: 'Get portfolio', description: TOOL_DESCRIPTIONS.get_portfolio, inputSchema: {} },
+    async () => toContent(portfolioView()));
+
+  server.registerTool('get_fund_value',
+    { title: 'Get fund value dashboard', description: TOOL_DESCRIPTIONS.get_fund_value, inputSchema: {} },
+    async () => toContent(fundValueView()));
 
   server.registerTool('get_market_intel',
     { title: 'Get market intelligence', description: TOOL_DESCRIPTIONS.get_market_intel, inputSchema: { sector: z.string().optional().describe('Optional sector to bias the comparable deals.') } },

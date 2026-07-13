@@ -15,8 +15,10 @@ import {
   launchDeal, advanceDeal, runStep, assignSwimlane, recordFinding, recordContribution,
   getICReadiness, marketIntel, recordIssue, resolveIssue, setCondition, snapshotAssumptions,
   getCitationAudit, canonicalCompanies, canonicalCompany,
-  getDealReturns, getDealValueCreation, getDealRiskRegister
+  getDealReturns, getDealValueCreation, getDealRiskRegister,
+  portfolioStats
 } from './store.js';
+import { fundOverview, portfolioMonitoring, executiveValue } from './fund.js';
 import { can, nextActions, PERSONA_LANE } from './personaPolicy.js';
 
 // ---- projections (narrow, size-bounded views of the deal record) ------------
@@ -283,6 +285,18 @@ export function riskRegisterView(dealId) {
   return rr || { error: 'deal-not-found', deal_id: dealId };
 }
 
+// Fund / portfolio lens (post-IC) — Operating Partner, Fund CFO, Investor
+// Relations. Derived from the owned-portfolio record + LPA mandate (lib/fund.js).
+export function fundOverviewView() {
+  return fundOverview();
+}
+export function portfolioView() {
+  return portfolioMonitoring();
+}
+export function fundValueView() {
+  return executiveValue(portfolioStats());
+}
+
 // Source-citation audit for a deal (point 5): key figures + memo numeric claims
 // mapped to sources, with the unsourced ones flagged. Bounded for tool output.
 export function citationAuditView(dealId) {  const a = getCitationAudit(dealId);
@@ -496,6 +510,21 @@ export const TOOL_DESCRIPTIONS = {
     'Get the consolidated risk register for a deal — every open diligence risk across the lanes with ' +
     'severity, likelihood, mitigation and owner, plus a red / amber / green status. Use to summarize ' +
     'the deal risks before IC or signing.',
+  get_fund_overview:
+    'Get the fund / LP performance overview for the fund: capital committed / invested / dry powder ' +
+    'and % deployed, fund-level gross & net MOIC and IRR, DPI / TVPI / RVPI, realized vs unrealized ' +
+    'value, LP terms, and portfolio concentration by sector & region against the LPA limits (max ' +
+    'sector % of fund, max % per deal). Use for LP reporting and fund-level performance questions.',
+  get_portfolio:
+    'List the owned portfolio companies the fund is holding (post-close), each with hold period, entry ' +
+    'vs current EV/EBITDA multiple and EBITDA, current gross MOIC & IRR, value-creation-plan progress ' +
+    'and 100-day completion, KPI variance to the underwriting plan, add-ons closed / in pipeline, and an ' +
+    'on-track / watch / underperform status. Use to monitor owned companies and value creation.',
+  get_fund_value:
+    'Get the executive value / ROI dashboard: the pipeline-acceleration story (deals processed, ' +
+    'analyst-hours and FTE-weeks saved, cycle-time compression, average IC readiness) alongside the fund ' +
+    'headline (companies owned, capital deployed, gross MOIC / IRR, TVPI, on-track / watch / underperform ' +
+    'mix). Use for an executive or IR summary of platform impact and fund performance.',
   get_market_intel:
     "Get the fund's real market intelligence from Fabric / OneLake: comparable & historical deals " +
     '(deal type, value, implied valuation, outcome), benchmark diligence findings by workstream ' +

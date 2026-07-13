@@ -92,6 +92,7 @@ import {
   hydrate
 } from './lib/store.js';
 import { personaById } from './data/personas.js';
+import { fundOverview, portfolioMonitoring, executiveValue } from './lib/fund.js';
 import { LIFECYCLE, LIFECYCLE_GATES, lifecycleByPhase } from './data/flow.js';
 import { runAction, chat } from './lib/agents.js';
 import { getModelInfo } from './lib/ai.js';
@@ -164,6 +165,14 @@ api.get('/flow', (_req, res) => res.json(getFlow()));
 api.get('/lifecycle', (_req, res) => res.json({ phases: lifecycleByPhase(), stages: LIFECYCLE, gates: LIFECYCLE_GATES }));
 api.get('/deals', (_req, res) => res.json(listDeals()));
 api.get('/analytics', (_req, res) => res.json(portfolioStats()));
+
+// Fund / portfolio lens (post-IC). Owned-portfolio monitoring, fund/LP
+// performance and the executive value/ROI dashboard — all derived from the
+// owned-portfolio record + the LPA mandate (see lib/fund.js).
+api.get('/fund/overview', (_req, res) => res.json(fundOverview()));
+api.get('/fund/portfolio', (_req, res) => res.json(portfolioMonitoring()));
+api.get('/fund/value', (_req, res) => res.json(executiveValue(portfolioStats())));
+
 api.get('/pipeline', (_req, res) => res.json(getPipelineFunnel())); // alias (funnel)
 
 // Stage-1 origination cohort funnel

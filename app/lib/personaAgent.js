@@ -19,7 +19,8 @@ import {
   dispatchTool, dispatchAction, dealAnalystView, dealSummary,
   listPipeline, candidateView, candidateArtifactView, dealArtifactView, nextActionsFor,
   icReadinessView, marketIntelView, citationAuditView, canonicalCompaniesView, canonicalCompanyView,
-  returnsView, valueCreationView, riskRegisterView
+  returnsView, valueCreationView, riskRegisterView,
+  fundOverviewView, portfolioView, fundValueView
 } from './dealTools.js';
 import { PERSONAS, PERSONA_LABEL } from './personaPolicy.js';
 
@@ -47,7 +48,7 @@ const PERSONA_AGENT = {
 };
 
 // Read tools go to dispatchTool; everything else is an action -> dispatchAction.
-const READ_TOOLS = new Set(['list_deals', 'get_deal', 'search_deals', 'list_pipeline', 'get_candidate', 'get_candidate_artifact', 'get_deal_artifact', 'get_ic_readiness', 'get_returns', 'get_value_creation', 'get_risk_register', 'get_market_intel', 'get_citation_audit', 'get_companies', 'get_company', 'get_next_actions']);
+const READ_TOOLS = new Set(['list_deals', 'get_deal', 'search_deals', 'list_pipeline', 'get_candidate', 'get_candidate_artifact', 'get_deal_artifact', 'get_ic_readiness', 'get_returns', 'get_value_creation', 'get_risk_register', 'get_fund_overview', 'get_portfolio', 'get_fund_value', 'get_market_intel', 'get_citation_audit', 'get_companies', 'get_company', 'get_next_actions']);
 
 export function personaAgentsConfigured() {
   return !!RESPONSES_URL;
@@ -184,6 +185,12 @@ async function readDispatch(name, args, { persona, focusId, focusCompany }) {
       return valueCreationView(args?.deal_id || focusId);
     case 'get_risk_register':
       return riskRegisterView(args?.deal_id || focusId);
+    case 'get_fund_overview':
+      return fundOverviewView();
+    case 'get_portfolio':
+      return portfolioView();
+    case 'get_fund_value':
+      return fundValueView();
     case 'get_market_intel':
       return marketIntelView({ sector: args?.sector });
     case 'get_citation_audit':
