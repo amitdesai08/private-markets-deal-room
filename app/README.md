@@ -1,16 +1,21 @@
-# The Deal Room — Application
+# The Deal Room — orchestrator (API · data · MCP)
 
-An AI-native private-equity deal-flow **workspace** built as a single guided
-journey from the screening funnel into the Deal Collaboration Hub on M365. The
-app *is* the flow: you move a deal **stage to stage**, and at each step an
-orchestration agent does the work. This is the real application that runs in the
-orchestrator Container App provisioned by `infra/main.bicep`.
+The **orchestrator** is the Deal Room's API, data and MCP service — the only tier
+that holds data. It has **no bundled web client**: the user console is the Deal
+Room Teams app (`../teams-app/`), which also runs as a standalone web console.
+This service exposes the deal record, the specialist **agents**, the decision
+**artifacts**, the **MCP** tool surface, and the Microsoft Graph provisioning
+that stands up each deal's Teams channel + SharePoint data room. It runs in the
+orchestrator Container App provisioned by `../infra/main.bicep`.
 
-![deal journey](docs/deal-journey.png)
+> The customer-facing narrative (features, deploy, customize, demo) is in the
+> [root README](../README.md); this doc is the service reference.
 
-## The flow (Slide 5)
+## The deal model
 
-Two stages joined by the **PURSUE** gate, nine sequential steps:
+The demo **spine** is two stages joined by the **PURSUE** gate (nine steps); the
+full institutional **lifecycle** (15 stages across 3 phases with six decision
+gates) is modelled in `data/flow.js` and served at `GET /api/lifecycle`:
 
 ```
 Stage 1 · Origination & Screening   (the screening funnel)
@@ -22,115 +27,49 @@ Stage 2 · Diligence & Approval      (the Deal Collaboration Hub on M365)
 
 ## How it works
 
-- **Left = the flow spine.** Both stages, the nine steps, and the PURSUE gate.
-  Every step shows done ✓ / current ● / upcoming and its owner. Click to move.
-- **Top = the deal bar.** Deal switcher, **Step N of 9** progress, and live
-  metrics (days-to-IC, days pulled forward, hours saved, IC readiness).
-- **Center = the Station.** One focused workbench per step, always the same
-  shape so it is simple to follow:
-  *What happens here → Inputs → the orchestration **Agent** with a **Run**
-  button → the **Deliverables** it produces → M365 + CRM surfaces & owner*,
-  plus a step-specific panel (diligence swimlanes, IC memo, compliance, audit).
-- **Advance / Back** drive the journey. Advancing past **O4** triggers the
-  **PURSUE** moment — the collaboration space spins up and the deal crosses into
-  Stage 2.
-
 Running a step's agent produces a **cited** artifact on the live record, updates
-the underlying data (diligence lanes, IC memo, compliance), tallies **hours
-saved**, lifts the **readiness** score and pulls the **IC date** forward — making
-the time-to-IC value explicit at every step.
+the deal (diligence lanes, IC memo, compliance), tallies **hours saved**, lifts
+the **IC readiness** score and pulls the **IC date** forward — making the
+time-to-IC value explicit at every step. Advancing past **O4** triggers the
+**PURSUE** gate: the collaboration space (Teams channel + SharePoint data room)
+spins up and the deal crosses into Stage 2.
 
-## Deal Sourcing (O1) — the signal explorers
+## What the service does
 
-The **O1 · Deal Sourcing** station drills into the raw inputs an analyst screens:
+- **Sourcing & screening (Stage 1)** — CxO signals (M365 mail/chats/meetings +
+  D365 CRM), a news & filings desk with an AI **catalyst classifier**,
+  third-party analyst-report thesis context, and the **sourcing framework**:
+  Fund Mandate (GATE) → Investment Theme (GUIDE) → Screen (RANK). Targets that
+  breach the mandate are excluded, never scored; survivors are gate-passed then
+  screen-ranked (`lib/scoring.js`, `data/mandates.js`).
+- **Ten specialist agents** — a Deal Orchestrator plus Analyst, Partner,
+  Principal, three sector MDs, Operating Partner, Fund CFO, General Counsel and
+  Investor Relations. Each is a Foundry agent that reads the live pipeline
+  through the read-only MCP tools, **governed by the requester's role**
+  (`lib/userPolicy.js` + `lib/personaPolicy.js` + `lib/personaAgent.js`).
+- **Decision artifacts** — LBO/returns (IRR/MOIC + sensitivity), value-creation /
+  100-day plan, risk register, IOI/LOI drafts, and the **IC readiness** board
+  (the seven questions an IC actually asks + a READY / CONDITIONAL / NOT-READY
+  verdict) — all derived from the live record and callable by the agents
+  (`lib/diligence.js`, `lib/store.js`).
+- **Market intelligence** — grounded in the fund's **Microsoft Fabric / OneLake**
+  data (comparable & historical deals, IC voting precedents, benchmark findings)
+  via `lib/fabric.js`; falls back to a materialised snapshot when direct SQL
+  isn't bound (`FABRIC_LIVE`). Cosmos/blob remains the deal system-of-record.
+- **Free, keyless data** — SEC EDGAR/XBRL fundamentals (a Morningstar
+  substitute), GLEIF entity/ownership and GDELT news (`lib/providers`,
+  `lib/filings.js`) — no paid data licences required.
+- **M365 document generation** — per-user Word IC memos + Excel deal/returns
+  models, downloaded or published to the deal's SharePoint data room
+  (`lib/m365/office.js`).
 
-- **CxO signals** (button → explorer): the analyst's M365 data in three tabs
-  (Emails / Chats / Meeting notes) on the left; on the right, intent signals
-  **grouped by company**, each with a **"Check Dynamics 365 CRM"** lookup.
-- **News & filings** (button → explorer): a redesigned **sourcing desk**.
-  Top: the **L1 fund mandate** the news universe is filtered to, plus a **source
-  table** (the five sources with their role — *discover / confirm / quality* —
-  and connection status; click a source to expand a details card and **test
-  connectivity**). Then a three-column workflow over the discovered companies:
-  **① In the News** (Web + PitchBook) — company news findings, each **AI-labeled
-  with a catalyst** (click the chip to review the reasoning in a reference table
-  and manually reassign it); a **Find more news** button surfaces further targets.
-  **② Quantify with Filings** (FactSet + Capital IQ) — click a company to open
-  the filings that confirm its catalyst. **③ Check for Quality** (Morningstar) —
-  click **Run Morningstar quality check** to get a rating, score, trend and flags.
-- **Analyst reports** (button → thesis-context panel): third-party, already-
-  interpreted research **attached to each discovered company** (not another
-  feed). Expand a company to see its **sector outlook** (market size, growth,
-  outlook), **competitive rank** (position, moat, listed/private peers) and
-  **sell-side & expert view** (GS/MS notes, expert-network calls). Private
-  targets show **read-across** context (listed comps + sector research);
-  listed targets like Verde Home show **direct** sell-side coverage.
-- **Sourcing framework** (section): the "lens," modelled as the three jobs a PE
-  firm's screening rules actually do — **not** one filter narrowed three times:
-  - **Fund Mandate · GATE** — the binding LPA constraints (permitted/excluded
-    sectors, geographies, hard EV band, concentration & leverage limits, ESG
-    policy). Always-on; a target that breaches it is **excluded, never scored**.
-  - **Investment Theme · GUIDE** — a partner-sponsored, qualitative hunting
-    ground (thesis, why-now, sub-sectors, the value-creation playbook, right to
-    win). Directional, not a numeric filter; selecting it toggles its screens.
-  - **Screen · RANK** — the analyst's runnable, scored criteria (sector,
-    regions, EV band, **financial thresholds**: revenue / EBITDA / margin /
-    growth, ownership, keywords). The only tier that produces a score.
+## Persistence
 
-  A screen **nests** within its theme and the fund mandate and may only *narrow*
-  them — editing one to breach the fund gate (e.g. an EV ceiling above the €800M
-  cap, or an excluded sector) is **rejected** with an industry-worded message.
-  The **companies discovered on the News & filings desk** are **gated** by the
-  fund mandate, then the survivors are **ranked** by the selected screens
-  (best-screen match + per-criterion breakdown, gate-pass ✓). A target surfaced
-  via **Find more news** immediately appears in the ranked list flagged **✦ new**.
-  Discover → gate → rank is one continuous loop.
-
-![news & filings](docs/news-filings.png)
-![sourcing framework](docs/sourcing-framework.png)
-![screen thresholds](docs/sourcing-framework-screen.png)
-
-## IC Readiness cockpit & Fabric market intelligence
-
-On every diligence step (**D2 Diligence → D4 Approval**) the Station renders an
-**IC Readiness cockpit** — a decision-grade board that turns "readiness" from a
-completion percentage into the seven questions an Investment Committee actually
-asks, with an overall **READY / CONDITIONAL / NOT-READY** verdict derived from
-real gating facts (not an averaged progress bar):
-
-1. **Required artifacts complete?** — D1/D2/D3, IC-memo sections, recommendation, KYC.
-2. **Which workstreams are blocking?** — lane progress + open high-severity issues.
-3. **Which assumptions changed since the last IC draft?** — vs an assumption snapshot.
-4. **Which risks are unresolved?** — the operational **issue log** (severity · owner · resolution path · due date), add / mitigate / resolve inline.
-5. **What supports the recommendation?** — deal documents, finding sources **and real Fabric comparables / IC precedents**.
-6. **What is the exact IC ask?** — EV, entry multiple, equity check, base-case returns, hurdle, structure (from the returns engine).
-7. **Which conditions need approval?** — IC **conditions** with a proposed → accepted → satisfied lifecycle.
-
-![IC readiness cockpit](docs/ic-readiness-cockpit.png)
-
-The cockpit is **grounded in the fund's real market data in Microsoft Fabric /
-OneLake** (workspace *Deal Room*, lakehouse `deal_room_starter`, capacity
-`dealroomfabric`). `scripts/extract_fabric_cache.py` reads that OneLake data
-through the lakehouse SQL endpoint and materialises a real snapshot into the app
-datastore (`lib/fabric.js` serves it, honest `mode` in `/api/config.fabric`):
-
-- **Comparable & historical deals** — real deal type, implied valuation and outcome.
-- **IC voting precedents** — decision, votes and conditions from prior deals.
-- **Benchmark diligence findings** — across all five workstreams (Commercial /
-  Financial / Legal / Operational / Tax) with the severity mix.
-- **Company financials** — real SEC filing metrics.
-
-The operational primitives (issues, conditions, assumption snapshots) persist to
-the governed deal record in Cosmos and write audit events. All of this is exposed
-to the five Foundry **persona agents** and Copilot Studio through the Deal MCP
-server: `get_ic_readiness` + `get_market_intel` (reads) and `record_issue`,
-`resolve_issue`, `set_condition`, `snapshot_assumptions` (persona-governed writes).
-
-> **Live-binding note.** The app's managed identity reads the materialised Fabric
-> snapshot today; a one-time grant of *Viewer* on the Fabric workspace to the app
-> identity enables direct live SQL reads (`FABRIC_LIVE=true`). Cosmos remains the
-> deal system-of-record; Dataverse/D365 as a pipeline SoR is license/admin-gated
-> in this tenant and is not provisioned.
+State goes through one seam (`lib/repo`) with a pluggable `DEALROOM_STORE`
+driver: **`blob`** (lean blob-per-document, the default — no Cosmos), `cosmos`
+(Azure Cosmos DB for NoSQL) or `memory` (local dev). The governed record carries
+an append-only audit trail; the operational primitives (issues, conditions,
+assumption snapshots) persist and write audit events.
 
 ## Architecture
 
@@ -151,7 +90,7 @@ app/
             scoring.js  sourcing-framework engine — gate + screen scoring + nesting validation
             store.js    in-memory state: deals, journey, signals, framework, scoring
             graph.js    Microsoft Graph webhook receiver (O1 mailbox signals)
-  data/     flow.js      the end-to-end flow (Slide 5: stages, 9 steps, gate)
+  data/     flow.js      the deal spine + full 15-stage lifecycle (`/api/lifecycle`)
             personas.js  persona / lane metadata
             deals.js     seeded deals
             signals.js   O1 CxO signals (mailbox: emails/chats/meetings + CRM)
@@ -241,5 +180,6 @@ az containerapp update -n ca-dealhub-orch-dev-swc -g $RG --image "$LOGIN/deal-ro
 | POST | `/api/screens` | Create a new screen under a theme (nesting-validated) |
 | POST/GET | `/api/graph/notifications`, `/api/graph/signals` | Graph mailbox webhook (see `graph/README.md`) |
 
-> Legacy persona / sourcing / analytics routes remain in the server for
-> reference but are no longer used by the journey UI.
+> The full route list (lifecycle, per-deal artifacts, persona agents, access,
+> keyless data providers) is discoverable from the running service; the MCP tool
+> surface is served at `/mcp` (read/write) and `/mcp-ro` (read-only for agents).

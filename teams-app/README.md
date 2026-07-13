@@ -5,7 +5,8 @@
 A **thin Teams interface** over the shared Deal Room backend (the single data
 source). Delivers three surfaces, all reading the same `/api` + `/mcp`:
 
-1. **Channel Tab dashboard** — reuses the existing Deal Room React UI (Phase 1).
+1. **Channel Tab dashboard** — the Deal Room console (React + Vite), served both
+   inside Teams and as a standalone web console.
 2. **Adaptive Card notifications** — proactive deal alerts posted to a channel.
 3. **M365 Copilot declarative agent** — grounded in deals via the existing MCP.
 
