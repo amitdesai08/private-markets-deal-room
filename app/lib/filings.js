@@ -445,3 +445,63 @@ function toFormDCompany(hit, p) {
     }
   };
 }
+
+// ---- SEC XBRL fundamentals — free, keyless fundamentals (Morningstar substitute) --
+// Pulls data.sec.gov companyfacts (XBRL) and extracts the most recent annual (10-K)
+// figures for the headline line items, so the "quality / financials" cross-check that
+// used to require a paid provider works on real US public-company data at no cost.
+const XBRL_CONCEPTS = {
+  revenue: ['RevenueFromContractWithCustomerExcludingAssessedTax', 'Revenues', 'SalesRevenueNet'],
+  grossProfit: ['GrossProfit'],
+  operatingIncome: ['OperatingIncomeLoss'],
+  netIncome: ['NetIncomeLoss'],
+  assets: ['Assets'],
+  liabilities: ['Liabilities'],
+  equity: ['StockholdersEquity', 'StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest'],
+  cash: ['CashAndCashEquivalentsAtCarryingValue'],
+  longTermDebt: ['LongTermDebtNoncurrent', 'LongTermDebt'],
+};
+
+function latestAnnual(facts, aliases) {
+  const gaap = facts?.facts?.['us-gaap'] || {};
+  for (const name of aliases) {
+    const units = gaap[name]?.units?.USD;
+    if (!Array.isArray(units)) continue;
+    let best = null;
+    for (const p of units) {
+      if (p.form !== '10-K' || p.fp !== 'FY' || typeof p.val !== 'number') continue;
+      if (!best || String(p.end || '') > String(best.end || '')) best = { val: p.val, end: p.end, fy: p.fy };
+    }
+    if (best) return best;
+  }
+  return null;
+}
+
+export async function companyFundamentals(name, ticker = null) {
+  const hit = await resolveCik(name, ticker);
+  if (!hit) return { found: false, source: 'sec-xbrl' };
+  const r = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${hit.cik}.json`, { headers: HEADERS, signal: AbortSignal.timeout(15000) });
+  if (!r.ok) return { found: false, source: 'sec-xbrl', cik: hit.cik };
+  const facts = await r.json();
+  const metrics = {};
+  for (const [key, aliases] of Object.entries(XBRL_CONCEPTS)) {
+    const v = latestAnnual(facts, aliases);
+    if (v) metrics[key] = v;
+  }
+  const m = metrics;
+  if (m.revenue?.val) {
+    if (m.grossProfit?.val != null) metrics.grossMargin = { val: +(m.grossProfit.val / m.revenue.val).toFixed(4) };
+    if (m.operatingIncome?.val != null) metrics.operatingMargin = { val: +(m.operatingIncome.val / m.revenue.val).toFixed(4) };
+    if (m.netIncome?.val != null) metrics.netMargin = { val: +(m.netIncome.val / m.revenue.val).toFixed(4) };
+  }
+  return {
+    found: Object.keys(metrics).length > 0,
+    source: 'sec-xbrl',
+    cik: hit.cik,
+    entity: facts.entityName || hit.title,
+    fiscalYear: m.revenue?.fy || m.netIncome?.fy || null,
+    metrics,
+    url: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${hit.cik}&type=10-K`,
+    live: true,
+  };
+}

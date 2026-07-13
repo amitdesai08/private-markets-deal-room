@@ -91,6 +91,9 @@ import { LIFECYCLE, LIFECYCLE_GATES, lifecycleByPhase } from './data/flow.js';
 import { runAction, chat } from './lib/agents.js';
 import { getModelInfo } from './lib/ai.js';
 import { newsAgentConfigured } from './lib/newsAgent.js';
+import { companyFundamentals } from './lib/filings.js';
+import { leiLookup, leiUltimateParent } from './lib/providers/gleif.js';
+import { gdeltNews } from './lib/providers/gdelt.js';
 import { chatDealAgent, dealAgentInfo } from './lib/dealAgent.js';
 import { chatPersonaAgent, personaAgentsInfo } from './lib/personaAgent.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
@@ -510,6 +513,36 @@ api.use('/m365', m365LoginRouter);
 
 // O1 · Deal Sourcing — News & filings desk
 api.get('/news/desk', (_req, res) => res.json(getSourcingDesk()));
+
+// ---- Free / keyless data providers (supplement paid providers for demos/PoCs) ----
+// SEC XBRL fundamentals (Morningstar-quality substitute), GLEIF entity/ownership,
+// and GDELT news catalysts — all keyless and free.
+api.get('/providers/keyless', (_req, res) => res.json({
+  providers: [
+    { id: 'sec-edgar', name: 'SEC EDGAR (XBRL)', role: 'filings + fundamentals', free: true, endpoint: '/api/company/:name/fundamentals' },
+    { id: 'gleif', name: 'GLEIF LEI', role: 'entity + ownership', free: true, endpoint: '/api/entity/:name/lei' },
+    { id: 'gdelt', name: 'GDELT', role: 'news catalysts', free: true, endpoint: '/api/news/gdelt?q=' },
+  ],
+}));
+api.get('/company/:name/fundamentals', async (req, res) => {
+  try { res.json(await companyFundamentals(req.params.name, req.query.ticker || null)); }
+  catch (err) { res.status(502).json({ error: 'fundamentals-failed', detail: String(err?.message || err) }); }
+});
+api.get('/entity/:name/lei', async (req, res) => {
+  try {
+    const out = await leiLookup(req.params.name);
+    if (out.found && String(req.query.parent) === '1' && out.records[0]?.lei) {
+      out.ultimateParent = (await leiUltimateParent(out.records[0].lei)).parent;
+    }
+    res.json(out);
+  } catch (err) { res.status(502).json({ error: 'lei-failed', detail: String(err?.message || err) }); }
+});
+api.get('/news/gdelt', async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'q required' });
+  try { res.json(await gdeltNews(q, { max: Math.min(25, Number(req.query.max) || 12) })); }
+  catch (err) { res.status(502).json({ error: 'gdelt-failed', detail: String(err?.message || err) }); }
+});
 // Live news search via the Bing-grounded Foundry agent (seed fallback on failure).
 api.post('/news/find-more', async (req, res) => {
   try {
