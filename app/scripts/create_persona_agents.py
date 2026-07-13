@@ -1,9 +1,9 @@
-"""Provision the 5 Deal Room PERSONA agents in Foundry Agent Service.
+"""Provision the 10 Deal Room PERSONA agents in Foundry Agent Service.
 
-Creates (or updates) five prompt agents on proj-dealroom-dev — one per persona in
+Creates (or updates) ten prompt agents on the Foundry project — one per persona in
 the fund's operating model — each with persona-specific instructions and a
 persona-scoped tool set. Every agent reads the pipeline and acts on it through the
-SAME function tools the Deal Room's Node backend executes against its Cosmos-backed
+SAME function tools the Deal Room's Node backend executes against its governed
 store (lib/dealTools.js), with server-side persona authorization (lib/personaPolicy.js)
 enforced on every write — so an agent can never exceed its persona's powers no
 matter what it emits.
@@ -16,6 +16,11 @@ matter what it emits.
                                  value-add / diligence into that lane only.
   ai-md      (Dr. Priya Nair)   — owns the TECH / AI lane (same, techai only).
   supply-md  (Diego Marquez)    — owns the OPERATIONS lane (same, operations only).
+
+The wider deal-team roles are read-focused (they answer through the read-only MCP
+tools, including the fund / portfolio lens) and act only where their persona grants:
+  principal (Marcus Feld) · operating-partner (Rachel Nguyen) · fund-cfo (David Osei) ·
+  legal-gc (Priya Raman) · ir-lp (Sofia Marchetti).
 
 The backend runs the Responses-API tool loop (lib/personaAgent.js) using the
 Container App's managed identity, so the agents never touch Cosmos directly.

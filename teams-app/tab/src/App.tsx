@@ -1,3 +1,10 @@
+// Root shell for the Deal Room console (served both inside Teams and standalone).
+// Owns: the top bar (persona / role badges + "sign in as" demo-profile and
+// "view as" role switchers), the main tab nav (Overview · Stage 1 · Stage 2 ·
+// Lifecycle · Fund & Portfolio), the collapsible agents panel, and the deal-detail
+// overlay. Access state (which agents/tabs the caller may see) comes from the
+// orchestrator via POST /api/teams/context; all data calls proxy to /api on the
+// shared backend. Add a new main tab by extending the mainTab union + the nav map.
 import { useEffect, useState } from 'react';
 import { initTeams, getSsoToken, type TeamsInfo } from './teams';
 import Dashboard from './Dashboard';

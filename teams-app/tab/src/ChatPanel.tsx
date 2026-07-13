@@ -1,3 +1,8 @@
+// Right-hand agents panel. Pick an agent (the Deal Room orchestrator or one of the
+// role-gated persona agents) and chat; answers are grounded in the live record via
+// the orchestrator's agent endpoints. `agents` is already filtered to what the
+// caller may use; `focusDealId` scopes the conversation to a deal; `viewAsRole` is
+// forwarded so the backend answers as the impersonated (never-elevated) role.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderMarkdown } from './md';
 import type { Agent, Deal } from './types';

@@ -3,7 +3,7 @@
 This is the **Deal MCP server**: it exposes the fund's deals to a Copilot Studio agent
 (e.g. a partner-MD decision copilot) over the Model Context Protocol, secured with
 **Microsoft Entra ID**. Only the `/mcp` endpoint is Entra-protected; the rest of The
-Deal Room (SPA + `/api/*`) stays anonymous by design.
+Deal Room (`/api/*`) stays anonymous by design.
 
 ## What it exposes (tools)
 
@@ -22,6 +22,17 @@ Studio agent sees the same bounded, size-capped views as the in-app analyst — 
 | `get_candidate` | `candidate_id` | One Stage-1 candidate: financials, fit score, stage, screening assessment |
 | `get_candidate_artifact` | `candidate_id` | The candidate's deliverable — O2 Investment-Criteria Scorecard, O3 Triage Scorecard, or O4 IC Pre-Screen Memo |
 | `get_deal_artifact` | `deal_id`, `step` (D1–D5) | The diligence-step deliverable — D1 Plan, D2 Findings, D3 Final IC Memo, D4 Execution Pack, D5 Close-out & 100-Day Plan |
+| `get_ic_readiness` | `deal_id` | The IC-readiness board — seven questions + a READY / CONDITIONAL / NOT-READY verdict |
+| `get_returns` | `deal_id` | LBO / returns model — IRR & MOIC, sources & uses, sensitivity vs the hurdle |
+| `get_value_creation` | `deal_id` | Value-creation plan — EBITDA bridge, quantified levers, 100-day plan |
+| `get_risk_register` | `deal_id` | Consolidated risk register — open risks by severity × likelihood |
+| `get_market_intel` | `sector?` | Fabric / OneLake comparables, benchmark findings, IC voting precedents |
+| `get_citation_audit` | `deal_id` | Every IC number mapped to a source, with unsourced figures flagged |
+| `get_companies` | `in_funnel?` | The canonical, entity-resolved Company records across the sourcing feeds |
+| `get_company` | `id` | One canonical Company record — identity, financials, provenance, funnel state |
+| `get_fund_overview` | — | Fund / LP performance — capital deployed vs dry powder, MOIC / IRR, DPI / TVPI / RVPI, concentration vs the LPA limits |
+| `get_portfolio` | — | Owned-company monitoring — hold period, current MOIC / IRR, value-creation progress, KPIs vs plan, status |
+| `get_fund_value` | — | Executive value dashboard — pipeline acceleration + the fund headline |
 | `get_next_actions` | `persona`, `deal_id?` / `candidate_id?` | The actions **your persona** may take right now on that entity — call this before acting |
 
 ### Action tools (persona-governed writes)
@@ -42,7 +53,12 @@ tool call can never exceed the caller's persona powers.
 | `assign_lane` | `deal_id`, `lane`, `md` | analyst, partner |
 | `record_finding` | `deal_id`, `lane?`, `text`, `severity?`, `source?` | any — but **sector MDs only into their own lane** |
 
-### The five personas & their powers
+### Personas & their write powers
+
+The platform has **ten** personas; the **five** below are the ones with *write*
+powers on the pipeline. The other five (principal, operating-partner, fund-cfo,
+legal-gc, ir-lp) are **read-focused** — they answer through the read tools above
+(including the fund / portfolio lens) and act only where their persona grants.
 
 | Persona (`persona` arg) | Role | Can do |
 |---|---|---|
@@ -56,10 +72,12 @@ Separation of duties (grounded in the real fund): only the **partner** may PURSU
 the Screening Gate and approve it at the IC; each **sector MD** may only touch its own
 diligence lane; the **analyst** runs the top of the funnel.
 
-Data lives in **Azure Cosmos DB for NoSQL** (database `dealroom`, containers `deals` +
-`companies`); the server reads/writes it via the Container App's managed identity
-(RBAC-only). The agent never touches Cosmos directly. The store is pinned to a single
-replica so the persona agents + the dashboard stay a consistent single-writer.
+Data lives behind a **pluggable store** (`DEALROOM_STORE`): a lean **blob-per-document**
+backend (the default — no Cosmos), **Azure Cosmos DB for NoSQL** (database `dealroom`,
+containers `deals` + `companies`), or in-memory for local dev. The server reads/writes
+via the Container App's managed identity (RBAC-only); the agent never touches the store
+directly. Durable backends use ETag / optimistic concurrency so the persona agents + the
+dashboard stay consistent under concurrent writes.
 
 ## Endpoint
 

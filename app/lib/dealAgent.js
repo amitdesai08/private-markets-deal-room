@@ -2,9 +2,9 @@
 //
 // The agent (a Foundry prompt agent) has NO deal data in its context; it reaches
 // the fund's deals through three FUNCTION TOOLS — list_deals, get_deal, search_deals
-// — that THIS module executes against the Cosmos-backed store (lib/store.js) and
+// — that THIS module executes against the governed store (lib/store.js) and
 // returns as JSON via the Responses-API tool loop. So "the agent has access to all
-// deals" without ever touching Cosmos directly: data-plane access stays scoped to
+// deals" without ever touching the store directly: data-plane access stays scoped to
 // the app's managed identity, and scoping/authorization is enforced here.
 //
 // Two conversation modes:

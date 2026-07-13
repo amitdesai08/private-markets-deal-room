@@ -1,3 +1,7 @@
+// The "Lifecycle" tab: renders the full institutional PE deal lifecycle (3 phases,
+// 15 stages, 6 decision gates) from GET /api/lifecycle, with each stage's owner
+// persona and the artifacts it produces. Purely presentational — the model lives in
+// app/data/flow.js (LIFECYCLE / LIFECYCLE_PHASES / LIFECYCLE_GATES).
 import { useEffect, useState } from 'react';
 
 type Stage = {

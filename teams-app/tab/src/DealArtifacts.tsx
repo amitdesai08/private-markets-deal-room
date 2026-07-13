@@ -1,3 +1,8 @@
+// The "Decision artifacts" cards for one deal, rendered inside DealDetail's
+// artifacts tab: LBO/returns, value-creation / 100-day plan, risk register and
+// IOI/LOI — each fetched from /api/deals/:id/{returns,value-creation,risk-register,
+// ioi,loi}, plus the returns Excel download. All read-only projections of the live
+// record (built server-side in app/lib/diligence.js).
 import { useEffect, useState } from 'react';
 
 const money = (n?: number) => (n == null ? '—' : n >= 1000 ? `$${(n / 1000).toFixed(1)}B` : `$${Math.round(n)}M`);

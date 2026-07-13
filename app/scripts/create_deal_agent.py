@@ -1,9 +1,9 @@
 """Provision the Deal Room Analyst agent in Foundry Agent Service.
 
 Creates (or updates) a prompt agent on your Foundry project that can answer questions
-about the fund's DEALS. The deals live in Azure Cosmos DB (container `deals`); the
-agent reaches them through three FUNCTION TOOLS that the Deal Room's Node backend
-executes against its Cosmos-backed store and returns as JSON:
+about the fund's DEALS. The deals live in the Deal Room's governed store (Cosmos DB
+or the default blob-per-document backend); the agent reaches them through three
+FUNCTION TOOLS that the Deal Room's Node backend executes and returns as JSON:
 
   list_deals()              -> every deal as a compact summary
   get_deal(deal_id, ...)    -> one deal as a bounded analyst view

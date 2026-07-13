@@ -1,3 +1,7 @@
+// Shared TypeScript shapes for the tab UI. These mirror the orchestrator's JSON API
+// responses (app/server.js + app/lib) — keep them in sync when you change a payload.
+// Intentionally loose (optional fields) so a minor backend addition never breaks the
+// build; components tolerate missing fields.
 export type Persona = { id: string; name?: string; title?: string } | null;
 
 export type Deal = {

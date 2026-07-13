@@ -1,10 +1,10 @@
-// Deal Room PERSONA agents — server-side client for the 5 Foundry persona agents.
+// Deal Room PERSONA agents — server-side client for the 10 Foundry persona agents.
 //
 // One prompt agent per persona (deal-room-analyst | -partner | -retail-md | -ai-md
 // | -supply-md), each provisioned by scripts/create_persona_agents.py with
 // persona-specific instructions and a persona-scoped tool set. This module invokes
 // the right agent for a persona and runs the Responses-API tool loop against the
-// Cosmos-backed store — routing READ tools through dispatchTool and ACTION (write)
+// governed store — routing READ tools through dispatchTool and ACTION (write)
 // tools through dispatchAction({ persona }), so the SAME persona authorization
 // guardrail (lib/personaPolicy.js) that governs the MCP seam governs the agents.
 // The persona is set by the SERVER (the invoking context), never self-asserted by

@@ -140,7 +140,7 @@ let sources = clone(SOURCES);         // news-desk source connectors (config)
 // Writes are DURABLE, not silent: a transient Cosmos error is retried with backoff
 // and logged if it ultimately fails (never swallowed). Deal writes additionally go
 // through mutateDeal (read-modify-write with _etag optimistic concurrency) so that,
-// with multiple replicas all writing (the UI and the five persona agents), a stale
+// with multiple replicas all writing (the UI and the persona agents), a stale
 // in-memory copy can never clobber a newer one — Cosmos is the authoritative writer.
 function durableWrite(label, fn) {
   let attempt = 0;

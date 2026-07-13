@@ -1,4 +1,4 @@
-// Persona authorization policy — governs WHAT each of the five persona agents may
+// Persona authorization policy — governs WHAT each persona agent may
 // DO when they act on the pipeline through the Deal MCP server. This is the
 // server-side guardrail that mirrors the real fund's separation of duties:
 //   • only the PARTNER (deal sponsor) can PURSUE at the Screening Gate (O4) and

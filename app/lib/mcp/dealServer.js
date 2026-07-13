@@ -3,7 +3,7 @@
 //
 // READ tools reuse the analyst contracts (lib/dealTools.js) verbatim, so a Copilot
 // Studio agent sees exactly the same bounded, size-capped views as the in-app Foundry
-// analyst — reading from the same Cosmos-backed store:
+// analyst — reading from the same governed store:
 //   • list_deals / get_deal / search_deals        — Stage-2 deals
 //   • list_pipeline / get_candidate               — Stage-1 origination funnel
 //   • get_candidate_artifact / get_deal_artifact  — the rich step deliverables

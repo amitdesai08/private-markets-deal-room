@@ -798,7 +798,8 @@ api.post('/deals/:id/chat', async (req, res) => {
 // Deal Room Analyst — the Foundry agent with access to ALL deals.
 api.get('/deal-agent', (_req, res) => res.json(dealAgentInfo()));
 
-// The 5 persona agents (analyst, partner, retail-md, ai-md, supply-md).
+// The 10 persona agents (analyst, partner, principal, the 3 sector MDs,
+// operating-partner, fund-cfo, legal-gc, ir-lp).
 api.get('/persona-agents', (_req, res) => res.json(personaAgentsInfo()));
 
 // Per-user access profile — which agents the caller may use + the roles they can
