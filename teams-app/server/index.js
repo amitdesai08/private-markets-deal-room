@@ -20,6 +20,7 @@ import { initBot } from './bot.js';
 import { postDealEvent } from './notifications.js';
 import { TEAMS_BOOTSTRAP_JS, TEAMS_CONFIG_HTML } from './siteProxy.js';
 import { startEventPoller } from './eventPoller.js';
+import { platformStatus, platformWake, platformSleep, startPlatformEnforcer, platformControlEnabled } from './platform.js';
 
 validateConfig();
 
@@ -28,6 +29,25 @@ const app = express();
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/healthz', (_req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
+
+// ---- Platform power control ------------------------------------------------
+// These are served by the Teams app itself (NOT proxied) so they work even when
+// the orchestrator is asleep. The tab uses /status to render an "offline" gate and
+// /wake to bring the orchestrator back (for 1 hour, or indefinitely).
+app.get('/api/platform/status', async (_req, res) => {
+  try { res.json(await platformStatus()); }
+  catch (e) { res.status(502).json({ control: platformControlEnabled(), online: false, error: String(e?.message || e) }); }
+});
+app.post('/api/platform/wake', async (req, res) => {
+  const mode = req.body?.mode === 'indefinite' ? 'indefinite' : 'hour';
+  const by = String(req.body?.by || '').trim() || 'teams';
+  try { res.json(await platformWake(mode, by)); }
+  catch (e) { res.status(502).json({ error: 'wake-failed', detail: String(e?.message || e) }); }
+});
+app.post('/api/platform/sleep', async (_req, res) => {
+  try { res.json(await platformSleep()); }
+  catch (e) { res.status(502).json({ error: 'sleep-failed', detail: String(e?.message || e) }); }
+});
 
 // Demo showcase roster (one identity per role) sourced from the orchestrator, which
 // only returns it when DEMO_PROFILES is enabled. Cached — the roster is static.
@@ -187,4 +207,5 @@ const port = config.server.port;
 app.listen(port, () => {
   console.log(`Deal Room Teams app listening on :${port} — mode: ${isDemoMode() ? 'demo' : 'live'}`);
   if (startEventPoller()) console.log('[teams] deal-event notifier active (polling shared backend signals).');
+  if (startPlatformEnforcer()) console.log('[teams] platform power control active (orchestrator sleep/wake + auto-stop).');
 });

@@ -113,6 +113,9 @@ var botKey = empty(botBackendKey) ? uniqueString(subscription().id, workload, en
 var roleIds = {
   acrPull: '7f951dda-4ed3-4680-a7ca-43fe172d538d'
   storageBlobDataOwner: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
+  // Contributor — scoped ONLY to the orchestrator container app so the Teams app's
+  // managed identity can sleep/wake it (start/stop + lease tags) for cost control.
+  contributor: 'b24988ac-6180-42a0-af88-e6f3d25f5c58'
 }
 
 // Log Analytics lives in the core RG — reference it to wire Container Apps logs.
@@ -320,6 +323,13 @@ resource teamsApp 'Microsoft.App/containerApps@2024-03-01' = if (deployTeamsApp)
           env: [
             { name: 'PORT', value: string(teamsTargetPort) }
             { name: 'AZURE_CLIENT_ID', value: uamiClientId }
+            // Platform power control — lets the Teams app sleep/wake the orchestrator
+            // (start/stop the container app + set a lease tag) to keep an idle demo cheap.
+            { name: 'PLATFORM_CONTROL', value: 'true' }
+            { name: 'PLATFORM_LEASE_HOURS', value: '1' }
+            { name: 'AZURE_SUBSCRIPTION_ID', value: subscription().subscriptionId }
+            { name: 'ORCH_RESOURCE_GROUP', value: resourceGroup().name }
+            { name: 'ORCH_APP_NAME', value: orchestratorApp.name }
             // Single source of truth — the Teams app forwards to the shared backend.
             { name: 'SHARED_BACKEND_URL', value: 'https://${orchestratorApp.properties.configuration.ingress.fqdn}' }
             { name: 'APP_BASE_URL', value: 'https://ca-${workload}-teams-${environmentName}-${locationShort}.${caEnv.properties.defaultDomain}' }
@@ -473,6 +483,18 @@ resource raFuncStorageOwner 'Microsoft.Authorization/roleAssignments@2022-04-01'
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleIds.storageBlobDataOwner)
     principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Power control — the Teams app (shared UAMI) may start/stop + tag ONLY the
+// orchestrator container app, so it can sleep/wake the data plane for cost control.
+resource raOrchPowerControl 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(orchestratorApp.id, uamiPrincipalId, roleIds.contributor)
+  scope: orchestratorApp
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleIds.contributor)
+    principalId: uamiPrincipalId
     principalType: 'ServicePrincipal'
   }
 }

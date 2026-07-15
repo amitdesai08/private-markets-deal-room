@@ -39,6 +39,17 @@ export const config = Object.freeze({
   mcp: {
     host: str(env.MCP_HOST, '').trim(),
   },
+  // Platform power control — lets the Teams app sleep/wake the orchestrator (the
+  // data plane) to save cost. Uses the Teams app's managed identity (AZURE_CLIENT_ID)
+  // against Azure Resource Manager. Disabled automatically when the target isn't set.
+  platform: {
+    enabled: env.PLATFORM_CONTROL === undefined ? true : /^true$/i.test(String(env.PLATFORM_CONTROL)),
+    subscriptionId: str(env.AZURE_SUBSCRIPTION_ID, '').trim(),
+    resourceGroup: str(env.ORCH_RESOURCE_GROUP, '').trim(),
+    appName: str(env.ORCH_APP_NAME, '').trim(),
+    clientId: str(env.AZURE_CLIENT_ID, '').trim(),
+    leaseHours: int(env.PLATFORM_LEASE_HOURS, 1) > 0 ? int(env.PLATFORM_LEASE_HOURS, 1) : 1,
+  },
 });
 
 export const isBackendLive = () => !!config.backend.url;

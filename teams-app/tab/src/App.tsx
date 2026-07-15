@@ -14,6 +14,7 @@ import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Lifecycle from './Lifecycle';
 import Fund from './Fund';
+import Offline, { OnlineLeaseBanner, type PlatformStatus } from './Offline';
 import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipeline } from './types';
 
 type TeamsConfig = { demoMode: boolean; backend: string; sso: boolean; bot: boolean; backendUrl?: string; appBaseUrl?: string };
@@ -66,6 +67,9 @@ export default function App() {
   const [roleLabel, setRoleLabel] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'lifecycle' | 'fund'>('overview');
+  // Platform power state (sleep/wake). null until first probe; when control is on and
+  // the orchestrator is asleep, the whole app is replaced by the Offline gate.
+  const [platform, setPlatform] = useState<PlatformStatus | null>(null);
 
   // Only surface the agents this user (or the role they are viewing as) may use.
   // The orchestrator (always shown) plus any persona agent in allowedPersonas.
@@ -84,6 +88,7 @@ export default function App() {
   useEffect(() => {
     (async () => {
       setTeams(await initTeams());
+      fetch('/api/platform/status').then((r) => r.json()).then(setPlatform).catch(() => setPlatform(null));
       fetch('/api/teams/config').then((r) => r.json()).then(setCfg).catch(() => {});
       fetch('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
       fetch('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
@@ -140,9 +145,25 @@ export default function App() {
     setChatOpen(true);
   }
 
+  async function extendLease() {
+    try {
+      const s: PlatformStatus = await fetch('/api/platform/wake', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: 'hour' }),
+      }).then((r) => r.json());
+      setPlatform(s);
+    } catch { /* ignore */ }
+  }
+
+  // Platform asleep (power control on, orchestrator offline) → show the wake gate.
+  if (platform && platform.control && !platform.online) {
+    return <Offline status={platform} />;
+  }
+
   return (
     <div className="appwrap">
       <style>{GLOBAL_CSS}</style>
+
+      {platform ? <OnlineLeaseBanner status={platform} onExtend={extendLease} /> : null}
 
       <header className="topbar">
         <div className="brand">
