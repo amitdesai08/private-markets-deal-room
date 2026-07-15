@@ -38,7 +38,7 @@ and hosted agents · subscription-agnostic **Bicep** on **Azure Container Apps**
 | **AI & agents** | **10 role-governed Foundry agents** (analyst, partner, principal, 3 sector MDs, operating partner, fund CFO, GC, investor relations) · a **Deal MCP server** for M365 Copilot / hosted agents · Foundry inference via managed identity · **Fabric / OneLake** market intelligence |
 | **Identity-aware governance** | **RBAC** resolved by *who is asking* (admin / partner / deal-team / analyst) · **role-based agent routing** · hierarchy **“view-as-down”** · one-click **demo profiles** |
 | **Real data & documents** | **Keyless** SEC EDGAR/XBRL, GLEIF & GDELT data — real numbers, no paid provider · per-user **Word / Excel** generation on the requester's own M365 licence · CSV export |
-| **Azure-native platform** | One-command **`azd up`** · subscription-agnostic **Bicep** · **domain-split resource groups** · a **pluggable store** (blob-per-document by default — *no Cosmos* — or Cosmos DB) · **managed identity** end-to-end |
+| **Azure-native platform** | One-command **`azd up`** · subscription-agnostic **Bicep** · **domain-split resource groups** · a **pluggable store** (blob-per-document by default — *no Cosmos* — or Cosmos DB) · **managed identity** end-to-end · **cost control** — one-command sleep/wake of the whole platform + an in-Teams offline gate |
 
 ## 🚀 Deploy this accelerator
 
@@ -113,6 +113,12 @@ Identity-aware access is a **parameter, not a configuration step**:
 - **Persistence** — pick the backend with `storeDriver` (`blob` = lean default, `cosmos` = production) behind the single [`app/lib/repo`](app/lib/repo) seam.
 - **Data** — replace the seeded record with your source of truth behind the single `/api` + store seam; wire your own providers alongside the keyless pack in [`app/lib/providers`](app/lib/providers).
 - **Surfaces** — the Teams tab is the *same build* as the standalone web console; add tabs/cards (like the **Decision artifacts** tab) without touching the backend.
+
+### Cost control — sleep & wake the platform
+An idle demo shouldn't cost anything. The platform's cost is dominated by its two Container Apps, and you can power them off/on as one unit:
+- **Whole-platform switch** — [`scripts/platform-power.ps1`](scripts/platform-power.ps1) / [`.sh`](scripts/platform-power.sh) with `stop` (everything off), `start` (everything on), `sleep` (orchestrator off, Teams gate stays up) or `status`.
+- **Self-service in Teams** — when the orchestrator is asleep, the tab shows an **offline gate**: anyone can **bring it online for 1 hour** (it then auto-stops) or, via the advanced path, **keep it online indefinitely**. The Teams app enforces the auto-stop and stores the "lease" as a tag on the orchestrator (no extra datastore).
+- **How it's wired** — the Teams app's managed identity is granted rights to start/stop only the orchestrator (`raOrchPowerControl` in [`infra/modules/app.bicep`](infra/modules/app.bicep)); set `PLATFORM_LEASE_HOURS` to change the lease. Turn it off with `PLATFORM_CONTROL=false`.
 
 ---
 
