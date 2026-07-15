@@ -115,10 +115,10 @@ Identity-aware access is a **parameter, not a configuration step**:
 - **Surfaces** — the Teams tab is the *same build* as the standalone web console; add tabs/cards (like the **Decision artifacts** tab) without touching the backend.
 
 ### Cost control — sleep & wake the platform
-An idle demo shouldn't cost anything. The platform's cost is dominated by its two Container Apps, and you can power them off/on as one unit:
-- **Whole-platform switch** — [`scripts/platform-power.ps1`](scripts/platform-power.ps1) / [`.sh`](scripts/platform-power.sh) with `stop` (everything off), `start` (everything on), `sleep` (orchestrator off, Teams gate stays up) or `status`.
-- **Self-service in Teams** — when the orchestrator is asleep, the tab shows an **offline gate**: anyone can **bring it online for 1 hour** (it then auto-stops) or, via the advanced path, **keep it online indefinitely**. The Teams app enforces the auto-stop and stores the "lease" as a tag on the orchestrator (no extra datastore).
-- **How it's wired** — the Teams app's managed identity is granted rights to start/stop only the orchestrator (`raOrchPowerControl` in [`infra/modules/app.bicep`](infra/modules/app.bicep)); set `PLATFORM_LEASE_HOURS` to change the lease. Turn it off with `PLATFORM_CONTROL=false`.
+An idle demo shouldn't cost anything. You can power the platform off/on as one unit:
+- **Whole-platform switch** — [`scripts/platform-power.ps1`](scripts/platform-power.ps1) / [`.sh`](scripts/platform-power.sh) with `stop`, `start`, `sleep` (orchestrator off, Teams gate stays up) or `status`. `stop`/`start` also stop/start the **Function App** and **suspend/resume Fabric capacity**, and print a **standing-cost report** for resources that keep billing and can't be stopped (AI Search, API Management, Container Registry, Log Analytics, App Insights, Cosmos). Use `-ComputeOnly` for just the container apps.
+- **Self-service in Teams** — when the orchestrator is asleep, the tab shows an **offline gate**: anyone can **bring it online for 1 hour** (it then auto-stops), while **keeping it online indefinitely is admin-only** (gated by `ADMIN_IDS`, enforced server-side). The Teams app enforces the auto-stop and stores the "lease" as a tag on the orchestrator (no extra datastore).
+- **How it's wired** — the Teams app's managed identity is granted rights to start/stop only the orchestrator (`raOrchPowerControl` in [`infra/modules/app.bicep`](infra/modules/app.bicep)); set `PLATFORM_LEASE_HOURS` to change the lease and `ADMIN_IDS` to gate the indefinite path (empty = anyone may). Turn it all off with `PLATFORM_CONTROL=false`.
 
 ---
 
