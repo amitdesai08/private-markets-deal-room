@@ -330,6 +330,9 @@ resource teamsApp 'Microsoft.App/containerApps@2024-03-01' = if (deployTeamsApp)
             { name: 'AZURE_SUBSCRIPTION_ID', value: subscription().subscriptionId }
             { name: 'ORCH_RESOURCE_GROUP', value: resourceGroup().name }
             { name: 'ORCH_APP_NAME', value: orchestratorApp.name }
+            // Admins allowed to keep the platform online indefinitely (same list as the
+            // orchestrator). Empty = anyone may (gate off), matching open-mode RBAC.
+            { name: 'ADMIN_IDS', value: join(adminIds, ',') }
             // Single source of truth — the Teams app forwards to the shared backend.
             { name: 'SHARED_BACKEND_URL', value: 'https://${orchestratorApp.properties.configuration.ingress.fqdn}' }
             { name: 'APP_BASE_URL', value: 'https://ca-${workload}-teams-${environmentName}-${locationShort}.${caEnv.properties.defaultDomain}' }

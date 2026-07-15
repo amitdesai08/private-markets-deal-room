@@ -33,16 +33,24 @@ app.get('/healthz', (_req, res) => res.json({ status: 'ok', uptime: process.upti
 // ---- Platform power control ------------------------------------------------
 // These are served by the Teams app itself (NOT proxied) so they work even when
 // the orchestrator is asleep. The tab uses /status to render an "offline" gate and
-// /wake to bring the orchestrator back (for 1 hour, or indefinitely).
-app.get('/api/platform/status', async (_req, res) => {
-  try { res.json(await platformStatus()); }
+// /wake to bring the orchestrator back (for 1 hour, or indefinitely — admin only).
+function ssoIdentity(req) {
+  const tok = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.ssoToken || '';
+  return identityFromSsoToken(tok);
+}
+app.get('/api/platform/status', async (req, res) => {
+  try { res.json(await platformStatus(ssoIdentity(req))); }
   catch (e) { res.status(502).json({ control: platformControlEnabled(), online: false, error: String(e?.message || e) }); }
 });
 app.post('/api/platform/wake', async (req, res) => {
   const mode = req.body?.mode === 'indefinite' ? 'indefinite' : 'hour';
-  const by = String(req.body?.by || '').trim() || 'teams';
-  try { res.json(await platformWake(mode, by)); }
-  catch (e) { res.status(502).json({ error: 'wake-failed', detail: String(e?.message || e) }); }
+  const identity = ssoIdentity(req);
+  const by = String(req.body?.by || identity?.name || '').trim() || 'teams';
+  try {
+    const result = await platformWake(mode, { by, identity });
+    if (result?.error === 'admin-required') return res.status(403).json(result);
+    res.json(result);
+  } catch (e) { res.status(502).json({ error: 'wake-failed', detail: String(e?.message || e) }); }
 });
 app.post('/api/platform/sleep', async (_req, res) => {
   try { res.json(await platformSleep()); }

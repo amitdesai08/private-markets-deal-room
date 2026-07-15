@@ -12,27 +12,37 @@ export type PlatformStatus = {
   running?: string;
   appName?: string | null;
   leaseHours?: number;
+  isAdmin?: boolean;
+  adminGated?: boolean;
   lease?: { mode: string; expiresAt?: string | null; minutesRemaining?: number | null; setBy?: string | null } | null;
 };
 
 const hrs = (n: number) => `${n} hour${n > 1 ? 's' : ''}`;
 
-export default function Offline({ status }: { status: PlatformStatus }) {
+export default function Offline({ status, ssoToken }: { status: PlatformStatus; ssoToken?: string | null }) {
   const [phase, setPhase] = useState<'idle' | 'starting'>('idle');
   const [mode, setMode] = useState<'hour' | 'indefinite'>('hour');
   const [err, setErr] = useState('');
   const leaseHours = status.leaseHours || 1;
+  const canIndefinite = status.isAdmin !== false; // gate off, or the caller is an admin
 
   async function wake(m: 'hour' | 'indefinite') {
     setMode(m);
     setPhase('starting');
     setErr('');
     try {
+      const headers: Record<string, string> = { 'content-type': 'application/json' };
+      if (ssoToken) headers.authorization = `Bearer ${ssoToken}`;
       const r = await fetch('/api/platform/wake', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ mode: m }),
+        headers,
+        body: JSON.stringify({ mode: m, ssoToken: ssoToken || undefined }),
       });
+      if (r.status === 403) {
+        setErr('Only an admin can keep the platform online indefinitely. Use “for ' + hrs(leaseHours) + '”, or ask an admin.');
+        setPhase('idle');
+        return;
+      }
       if (!r.ok) throw new Error(`Couldn't start the platform (${r.status}).`);
     } catch (e) {
       setErr(String((e as Error).message || e));
@@ -81,11 +91,17 @@ export default function Offline({ status }: { status: PlatformStatus }) {
             </p>
             <div className="off-actions">
               <button className="off-btn primary" onClick={() => wake('hour')}>▶ Bring online for {hrs(leaseHours)}</button>
-              <button className="off-btn ghost" onClick={() => wake('indefinite')}>Keep online indefinitely →</button>
+              {canIndefinite ? (
+                <button className="off-btn ghost" onClick={() => wake('indefinite')}>Keep online indefinitely →</button>
+              ) : null}
             </div>
             <p className="off-note">
               <strong>{hrs(leaseHours)}</strong> automatically powers back down when the time is up — ideal for a quick look.
-              <br /><strong>Indefinitely</strong> stays on until someone stops it (the admin shutdown path).
+              {canIndefinite ? (
+                <><br /><strong>Indefinitely</strong> stays on until someone stops it (the admin shutdown path).</>
+              ) : (
+                <><br />Keeping it online <strong>indefinitely</strong> is an admin action.</>
+              )}
             </p>
             {err ? <p className="off-err">{err}</p> : null}
           </>

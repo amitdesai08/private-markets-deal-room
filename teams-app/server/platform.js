@@ -30,6 +30,24 @@ export function platformControlEnabled() {
   return !!(p.enabled && p.subscriptionId && p.resourceGroup && p.appName);
 }
 
+// The "indefinite" wake path is gated to admins. The gate is only active when an
+// admin list is configured (PLATFORM_ADMIN_IDS / ADMIN_IDS) — otherwise anyone may,
+// matching the app's open-mode default. Identity comes from the Teams SSO token.
+const localPart = (u) => String(u || '').split('@')[0].toLowerCase();
+export function platformAdminGated() {
+  return (config.platform.adminIds || []).length > 0;
+}
+export function isPlatformAdmin(identity) {
+  if (!platformAdminGated()) return true;
+  if (!identity) return false;
+  const ids = new Set(config.platform.adminIds);
+  return (
+    ids.has(String(identity.oid || '').toLowerCase()) ||
+    ids.has(String(identity.upn || '').toLowerCase()) ||
+    ids.has(localPart(identity.upn))
+  );
+}
+
 // ---- Azure Resource Manager helpers (managed-identity bearer token) ---------
 let _cred = null;
 let _tok = null;
@@ -110,10 +128,14 @@ async function backendReachable() {
 
 // ---- public API -------------------------------------------------------------
 // Status is safe to call even when the orchestrator is asleep (it never proxies).
-export async function platformStatus() {
+// `identity` (from the Teams SSO token) determines whether the caller may use the
+// admin-only "keep online indefinitely" path.
+export async function platformStatus(identity = null) {
   const control = platformControlEnabled();
   const online = await backendReachable();
-  const base = { control, online, appName: config.platform.appName || null, leaseHours: config.platform.leaseHours };
+  const isAdmin = isPlatformAdmin(identity);
+  const adminGated = platformAdminGated();
+  const base = { control, online, isAdmin, adminGated, appName: config.platform.appName || null, leaseHours: config.platform.leaseHours };
   if (!control) return { ...base, running: online ? 'Running' : 'Unknown', lease: null };
   try {
     const app = await armGetApp();
@@ -128,8 +150,12 @@ export async function platformStatus() {
 }
 
 // Wake for `mode` = 'hour' (temporary, auto-stops) or 'indefinite' (stays up).
-export async function platformWake(mode = 'hour', by = 'teams') {
+// 'indefinite' is admin-only (see isPlatformAdmin).
+export async function platformWake(mode = 'hour', { by = 'teams', identity = null } = {}) {
   if (!platformControlEnabled()) return { control: false, error: 'platform-control-not-configured' };
+  if (mode === 'indefinite' && !isPlatformAdmin(identity)) {
+    return { control: true, error: 'admin-required', ...(await platformStatus(identity)) };
+  }
   const tags =
     mode === 'indefinite'
       ? { [TAG_MODE]: 'indefinite', [TAG_EXPIRES]: '', [TAG_BY]: by }
@@ -137,7 +163,7 @@ export async function platformWake(mode = 'hour', by = 'teams') {
   // Set the lease BEFORE starting so the enforcer never races a fresh boot.
   await armMergeTags(tags);
   await armAction('start');
-  return platformStatus();
+  return platformStatus(identity);
 }
 
 // Put the orchestrator back to sleep now (used by the enforcer and the scripts).

@@ -49,6 +49,10 @@ export const config = Object.freeze({
     appName: str(env.ORCH_APP_NAME, '').trim(),
     clientId: str(env.AZURE_CLIENT_ID, '').trim(),
     leaseHours: int(env.PLATFORM_LEASE_HOURS, 1) > 0 ? int(env.PLATFORM_LEASE_HOURS, 1) : 1,
+    // Admins allowed to keep the platform online INDEFINITELY (oids and/or UPNs).
+    // Falls back to the orchestrator's ADMIN_IDS. Empty = gate off (anyone may).
+    adminIds: (str(env.PLATFORM_ADMIN_IDS, '') || str(env.ADMIN_IDS, ''))
+      .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
   },
 });
 

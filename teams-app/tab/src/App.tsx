@@ -70,6 +70,7 @@ export default function App() {
   // Platform power state (sleep/wake). null until first probe; when control is on and
   // the orchestrator is asleep, the whole app is replaced by the Offline gate.
   const [platform, setPlatform] = useState<PlatformStatus | null>(null);
+  const [ssoToken, setSsoToken] = useState<string>('');
 
   // Only surface the agents this user (or the role they are viewing as) may use.
   // The orchestrator (always shown) plus any persona agent in allowedPersonas.
@@ -88,7 +89,12 @@ export default function App() {
   useEffect(() => {
     (async () => {
       setTeams(await initTeams());
-      fetch('/api/platform/status').then((r) => r.json()).then(setPlatform).catch(() => setPlatform(null));
+      // SSO token identifies the caller so /platform/status can report isAdmin (the
+      // "keep online indefinitely" path is admin-only). Absent outside Teams — fine.
+      const tok = await getSsoToken().catch(() => null);
+      if (tok) setSsoToken(tok);
+      fetch('/api/platform/status', tok ? { headers: { authorization: `Bearer ${tok}` } } : undefined)
+        .then((r) => r.json()).then(setPlatform).catch(() => setPlatform(null));
       fetch('/api/teams/config').then((r) => r.json()).then(setCfg).catch(() => {});
       fetch('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
       fetch('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
@@ -148,7 +154,9 @@ export default function App() {
   async function extendLease() {
     try {
       const s: PlatformStatus = await fetch('/api/platform/wake', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: 'hour' }),
+        method: 'POST',
+        headers: ssoToken ? { 'content-type': 'application/json', authorization: `Bearer ${ssoToken}` } : { 'content-type': 'application/json' },
+        body: JSON.stringify({ mode: 'hour', ssoToken: ssoToken || undefined }),
       }).then((r) => r.json());
       setPlatform(s);
     } catch { /* ignore */ }
@@ -156,7 +164,7 @@ export default function App() {
 
   // Platform asleep (power control on, orchestrator offline) → show the wake gate.
   if (platform && platform.control && !platform.online) {
-    return <Offline status={platform} />;
+    return <Offline status={platform} ssoToken={ssoToken} />;
   }
 
   return (
