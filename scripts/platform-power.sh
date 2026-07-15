@@ -54,9 +54,13 @@ if [ -z "$ORCH_ID" ]; then
   echo "Orchestrator app '$ORCH' not found in '$APP_RG'. Set RESOURCE_GROUP/ORCH_APP/ENV." >&2
   exit 1
 fi
+TEAMS_ID="$(az containerapp show -n "$TEAMS" -g "$APP_RG" --query id -o tsv 2>/dev/null || true)"
 
 rg_exists() { [ "$(az group exists -n "$1")" = "true" ]; }
 running() { az containerapp show -n "$1" -g "$APP_RG" --query 'properties.runningStatus' -o tsv 2>/dev/null || echo 'Unknown'; }
+# Start/stop a container app via ARM — works on any az CLI (`az containerapp stop`
+# isn't available on older versions).
+ca_power() { [ -n "$1" ] || return 0; az rest --method post --url "https://management.azure.com$1/$2?api-version=2024-03-01" --only-show-errors >/dev/null 2>&1 || true; }
 set_lease() { az tag update --resource-id "$ORCH_ID" --operation Merge \
   --tags "dealroom-lease-mode=$1" "dealroom-lease-expires=${2:-0}" 'dealroom-lease-by=script' >/dev/null; }
 confirm() {
@@ -112,23 +116,23 @@ case "$ACTION" in
   sleep)
     confirm "put the orchestrator to sleep (Teams gate stays up)" || { echo 'Cancelled.'; exit 0; }
     set_lease asleep
-    az containerapp stop -n "$ORCH" -g "$APP_RG" >/dev/null
+    ca_power "$ORCH_ID" stop
     echo "Orchestrator asleep. The Teams app stays up so users can wake it from the offline gate."
     ;;
   stop)
     scope="the whole platform (apps + functions + Fabric)"; [ "$COMPUTE_ONLY" = "true" ] && scope="the container apps"
     confirm "STOP $scope" || { echo 'Cancelled.'; exit 0; }
     set_lease asleep
-    az containerapp stop -n "$ORCH" -g "$APP_RG" >/dev/null
-    az containerapp stop -n "$TEAMS" -g "$APP_RG" >/dev/null
+    ca_power "$ORCH_ID" stop
+    ca_power "$TEAMS_ID" stop
     functions_op stop
     fabric_op suspend
     echo "Platform stopped. Run '$0 start' to bring it back up."
     standing_costs
     ;;
   start)
-    az containerapp start -n "$ORCH" -g "$APP_RG" >/dev/null
-    az containerapp start -n "$TEAMS" -g "$APP_RG" >/dev/null
+    ca_power "$ORCH_ID" start
+    ca_power "$TEAMS_ID" start
     functions_op start
     fabric_op resume
     set_lease indefinite

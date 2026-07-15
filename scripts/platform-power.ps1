@@ -61,9 +61,16 @@ if (-not $orchId) {
   Write-Error "Orchestrator app '$OrchestratorApp' not found in '$appRg'. Pass -ResourceGroup/-OrchestratorApp/-Env."
   exit 1
 }
+$teamsId = az containerapp show -n $TeamsApp -g $appRg --query id -o tsv 2>$null
 
 function Test-Rg($rg) { (az group exists -n $rg) -eq 'true' }
 function Get-Running($name, $rg) { az containerapp show -n $name -g $rg --query 'properties.runningStatus' -o tsv 2>$null }
+# Start/stop a container app via ARM — works on any az CLI (`az containerapp stop`
+# isn't available on older versions).
+function Invoke-CaPower($id, $action) {
+  if (-not $id) { return }
+  az rest --method post --url ("https://management.azure.com{0}/{1}?api-version=2024-03-01" -f $id, $action) --only-show-errors 2>$null | Out-Null
+}
 function Set-Lease($mode, $expires = '0') {
   az tag update --resource-id $orchId --operation Merge `
     --tags "dealroom-lease-mode=$mode" "dealroom-lease-expires=$expires" 'dealroom-lease-by=script' | Out-Null
@@ -126,23 +133,23 @@ switch ($Action) {
   'sleep' {
     if (-not (Confirm-Action "put the orchestrator to sleep (Teams gate stays up)")) { Write-Host 'Cancelled.'; return }
     Set-Lease 'asleep'
-    az containerapp stop -n $OrchestratorApp -g $appRg | Out-Null
+    Invoke-CaPower $orchId 'stop'
     Write-Host "Orchestrator asleep. The Teams app stays up so users can wake it from the offline gate."
   }
   'stop' {
     $scope = if ($ComputeOnly) { 'the container apps' } else { 'the whole platform (apps + functions + Fabric)' }
     if (-not (Confirm-Action "STOP $scope")) { Write-Host 'Cancelled.'; return }
     Set-Lease 'asleep'
-    az containerapp stop -n $OrchestratorApp -g $appRg | Out-Null
-    az containerapp stop -n $TeamsApp -g $appRg | Out-Null
+    Invoke-CaPower $orchId 'stop'
+    Invoke-CaPower $teamsId 'stop'
     Invoke-Functions 'stop'
     Invoke-Fabric 'suspend'
     Write-Host "Platform stopped. Run '-Action start' to bring it back up."
     Show-StandingCosts
   }
   'start' {
-    az containerapp start -n $OrchestratorApp -g $appRg | Out-Null
-    az containerapp start -n $TeamsApp -g $appRg | Out-Null
+    Invoke-CaPower $orchId 'start'
+    Invoke-CaPower $teamsId 'start'
     Invoke-Functions 'start'
     Invoke-Fabric 'resume'
     Set-Lease 'indefinite'
