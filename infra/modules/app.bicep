@@ -113,9 +113,6 @@ var botKey = empty(botBackendKey) ? uniqueString(subscription().id, workload, en
 var roleIds = {
   acrPull: '7f951dda-4ed3-4680-a7ca-43fe172d538d'
   storageBlobDataOwner: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
-  // Contributor — scoped ONLY to the orchestrator container app so the Teams app's
-  // managed identity can sleep/wake it (start/stop + lease tags) for cost control.
-  contributor: 'b24988ac-6180-42a0-af88-e6f3d25f5c58'
 }
 
 // Log Analytics lives in the core RG — reference it to wire Container Apps logs.
@@ -490,13 +487,38 @@ resource raFuncStorageOwner 'Microsoft.Authorization/roleAssignments@2022-04-01'
   }
 }
 
-// Power control — the Teams app (shared UAMI) may start/stop + tag ONLY the
-// orchestrator container app, so it can sleep/wake the data plane for cost control.
+// Power control — a LEAST-PRIVILEGE custom role: exactly the four operations the
+// Teams app needs to sleep/wake the orchestrator (read it, start it, stop it, and
+// write the lease tag). Scoped to the orchestrator container app only — no broad
+// Contributor. lib/platform.js in the Teams app is the sole caller.
+resource caPowerRoleDef 'Microsoft.Authorization/roleDefinitions@2022-04-01' = {
+  name: guid(orchestratorApp.id, 'dealroom-power-control')
+  properties: {
+    roleName: 'Deal Room Power Control (${namePrefix})'
+    description: 'Minimal rights for the Teams app to sleep/wake the orchestrator container app (read + start + stop + lease tag).'
+    type: 'CustomRole'
+    permissions: [
+      {
+        actions: [
+          'Microsoft.App/containerApps/read'
+          'Microsoft.App/containerApps/start/action'
+          'Microsoft.App/containerApps/stop/action'
+          'Microsoft.Resources/tags/write'
+        ]
+        notActions: []
+        dataActions: []
+        notDataActions: []
+      }
+    ]
+    assignableScopes: [ orchestratorApp.id ]
+  }
+}
+
 resource raOrchPowerControl 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(orchestratorApp.id, uamiPrincipalId, roleIds.contributor)
+  name: guid(orchestratorApp.id, uamiPrincipalId, 'dealroom-power-control')
   scope: orchestratorApp
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleIds.contributor)
+    roleDefinitionId: caPowerRoleDef.id
     principalId: uamiPrincipalId
     principalType: 'ServicePrincipal'
   }
