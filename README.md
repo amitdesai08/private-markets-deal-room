@@ -21,7 +21,7 @@ paid data providers required to demo, and no Cosmos DB required to run.
 Framework** agent + **Entra-SSO channel tab** · a **Deal MCP server** for M365 Copilot
 and hosted agents · subscription-agnostic **Bicep** on **Azure Container Apps**.
 
-> 📘 [Architecture](docs/architecture.drawio) · 🎬 [Demo walkthrough](docs/DEMO-WALKTHROUGH.md) · 🚚 [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Demo runbook](docs/DEMO-RUNBOOK.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+> 📘 [Architecture](docs/architecture.drawio) · 🎬 [Demo walkthrough](docs/DEMO-WALKTHROUGH.md) · 🚚 [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Demo runbook](docs/DEMO-RUNBOOK.md) · [Operations plan](docs/OPERATIONS-PLAN.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 >
 > *Tip: use GitHub's **outline** button (top-right of this file) to jump between sections.*
 
