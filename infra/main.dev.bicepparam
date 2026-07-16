@@ -30,6 +30,11 @@ param openAiDeployments = [
 param appModelDeployment = 'gpt-5-mini'
 
 param searchSku = 'basic'
+// Azure AI Search is UNUSED by the app (~$75/mo standing cost). Kept true here to
+// avoid an unattended deletion on redeploy; set to false to remove it and save.
+param deploySearch = true
+// Cap Log Analytics ingestion at 1 GB/day in dev (well above actual usage). -1 = unlimited.
+param logAnalyticsDailyQuotaGb = 1
 param storageSku = 'Standard_LRS'
 
 // Fabric needs an admin — leave empty to skip, or add a UPN/objectId to provision.

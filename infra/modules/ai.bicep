@@ -12,6 +12,8 @@ param suffix string
 param tags object
 param enablePrivateEndpoints bool
 param searchSku string
+@description('Provision Azure AI Search. Off by default — the app does not use it; enable only for a feature that needs search / vector retrieval.')
+param deploySearch bool = false
 param openAiDeployments array
 @description('Principal ID of the core UAMI granted data-plane access to the AI services.')
 param uamiPrincipalId string
@@ -152,7 +154,7 @@ resource speech 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
   }
 }
 
-resource search 'Microsoft.Search/searchServices@2023-11-01' = {
+resource search 'Microsoft.Search/searchServices@2023-11-01' = if (deploySearch) {
   name: 'srch-${workload}-${environmentName}-${suffix}'
   location: location
   tags: tags
@@ -204,7 +206,7 @@ resource raContentSafetyUser 'Microsoft.Authorization/roleAssignments@2022-04-01
   }
 }
 
-resource raSearchIndexContrib 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource raSearchIndexContrib 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deploySearch) {
   name: guid(search.id, uamiPrincipalId, roleIds.searchIndexDataContributor)
   scope: search
   properties: {
@@ -214,7 +216,7 @@ resource raSearchIndexContrib 'Microsoft.Authorization/roleAssignments@2022-04-0
   }
 }
 
-resource raSearchServiceContrib 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource raSearchServiceContrib 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deploySearch) {
   name: guid(search.id, uamiPrincipalId, roleIds.searchServiceContributor)
   scope: search
   properties: {
@@ -236,6 +238,6 @@ output documentIntelligenceEndpoint string = docIntelligence.properties.endpoint
 output contentSafetyEndpoint string = contentSafety.properties.endpoint
 output bingConnectionId string = bingConnection.id
 output speechEndpoint string = speech.properties.endpoint
-output searchId string = search.id
-output searchName string = search.name
-output searchEndpoint string = 'https://${search.name}.search.windows.net'
+output searchId string = deploySearch ? search.id : ''
+output searchName string = deploySearch ? search.name : ''
+output searchEndpoint string = deploySearch ? 'https://${search.name}.search.windows.net' : ''

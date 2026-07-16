@@ -1,0 +1,57 @@
+name: deal-room-sleep
+
+# Scheduled cost control: put the orchestrator to sleep off-hours so an idle
+# environment costs almost nothing. Users self-wake it from the in-Teams offline
+# gate (1-hour lease), so there is no functionality compromise.
+#
+# Opt-in: set repository variable ENABLE_SCHEDULED_SLEEP=true and configure the
+# AZURE_* OIDC secrets (same as deal-room-infra). The OIDC identity needs rights to
+# stop/start the container apps (Contributor on the app resource group is enough).
+#
+#   schedule         → nightly 'sleep' (orchestrator off, Teams gate stays up)
+#   workflow_dispatch → run sleep | stop | start | status on demand, any environment
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 03:00 UTC nightly
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Power action
+        type: choice
+        options: [ sleep, stop, start, status ]
+        default: sleep
+      environment:
+        description: Target environment
+        type: choice
+        options: [ dev, test, prod ]
+        default: dev
+
+concurrency:
+  group: sleep-${{ github.event.inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  power:
+    name: Platform power
+    if: vars.ENABLE_SCHEDULED_SLEEP == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    env:
+      ACTION: ${{ github.event.inputs.action || 'sleep' }}
+      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ${{ env.ACTION }} the platform (${{ env.ENVIRONMENT }})
+        run: bash scripts/platform-power.sh "$ACTION" --env "$ENVIRONMENT" --yes

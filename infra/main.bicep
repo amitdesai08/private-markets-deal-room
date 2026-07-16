@@ -71,6 +71,12 @@ param openAiDeployments array = [
 ])
 param searchSku string = 'standard'
 
+@description('Provision Azure AI Search (unused by the app — off by default to save ~$75/mo; enable for a search / vector feature).')
+param deploySearch bool = false
+
+@description('Log Analytics daily ingestion cap in GB (-1 = unlimited).')
+param logAnalyticsDailyQuotaGb int = -1
+
 @description('Storage SKU for the ADLS Gen2 deal-estate landing account.')
 @allowed([
   'Standard_LRS'
@@ -329,6 +335,7 @@ module core 'modules/core.bicep' = {
     tags: tags
     enablePrivateEndpoints: enablePrivateEndpoints
     keyVaultPurgeProtection: keyVaultPurgeProtection
+    logAnalyticsDailyQuotaGb: logAnalyticsDailyQuotaGb
   }
 }
 
@@ -343,6 +350,7 @@ module ai 'modules/ai.bicep' = {
     tags: tags
     enablePrivateEndpoints: enablePrivateEndpoints
     searchSku: searchSku
+    deploySearch: deploySearch
     openAiDeployments: openAiDeployments
     uamiPrincipalId: core.outputs.uamiPrincipalId
   }

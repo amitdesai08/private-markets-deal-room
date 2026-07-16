@@ -61,6 +61,13 @@ without a valid Entra token + RBAC. This gives us a cheap near-term option.
 Because access is RBAC-only, leaving `publicNetworkAccess=Enabled` is acceptable.
 The real issue is *something disabling it*. Steps:
 
+> **✅ Investigated (dev, 2026-07-16):** the only policy touching Cosmos is the
+> `Azure_Security_Baseline` assignment with effect **audit** — it *flags* public
+> access but does **not** enforce or disable it. No Deny/Modify assignment was found.
+> So the Disabled state was a **manual/one-off action, not automatic enforcement** —
+> keeping public access **Enabled will persist**. (The audit baseline is only
+> *satisfied* by Option B's private endpoints.)
+
 1. **Find what disabled it** — check for an Azure Policy assignment forcing
    `publicNetworkAccess=Disabled` on Cosmos:
    ```powershell
@@ -124,30 +131,36 @@ Ranked by monthly saving. Container-apps idle cost is already handled by the
 anywhere in the application code** — the app uses Foundry, Fabric and the keyless
 data providers, not AI Search. It is pure standing cost.
 
-- **Now:** delete it — `az search service delete -n srch-dealhub-dev-<suffix> -g rg-dealhub-ai-dev-swc` *(find the name with `az search service list -g rg-dealhub-ai-dev-swc -o table`)*
-- **Future deploys:** gate it behind a `deploySearch=false` param in
-  `infra/modules/ai.bicep` (add the flag if not present) so it isn't provisioned
-  unless a feature actually needs it.
+- **📦 Staged:** gated behind `deploySearch` (default **false**) in
+  [`infra/modules/ai.bicep`](../infra/modules/ai.bicep) + `infra/main.bicep`. Fresh /
+  customer deploys **skip it**. The next infra deploy of the dev stack will **remove**
+  the existing unused Search (deployment-stack `deleteResources`) — the ~$75/mo saving
+  lands then. Set `deploySearch=true` if you ever need search / vector retrieval.
+- **Optional (immediate):** delete the live one now —
+  `az search service delete -n <name> -g rg-dealhub-ai-dev-swc`
+  (`az search service list -g rg-dealhub-ai-dev-swc -o table` for the name).
+  *Not done autonomously — destructive.*
 
-> Deletion is destructive — run it once you've confirmed no future roadmap item
-> needs Search (semantic/vector retrieval). It's re-creatable from Bicep in minutes.
+### 3.2 Cap Log Analytics ingestion — ✅ applied
+The workspace had **no daily cap** (`dailyQuotaGb = -1`) and 30-day retention.
 
-### 3.2 Cap Log Analytics ingestion — currently **unbounded**
-The workspace `log-dealhub-dev-swc` has **no daily cap** (`dailyQuotaGb = -1`) and
-30-day retention. Runaway ingestion is the classic surprise bill.
+- **✅ Applied (dev):** daily cap set to **1 GB** (well above dev's actual usage).
+  Reverse with `az monitor log-analytics workspace update -n log-dealhub-dev-swc -g rg-dealhub-core-dev-swc --set workspaceCapping.dailyQuotaGb=-1`.
+- **📦 Staged:** `logAnalyticsDailyQuotaGb` param (default -1) added to
+  [`infra/modules/core.bicep`](../infra/modules/core.bicep) + `infra/main.bicep` so
+  it's durable — set it per environment.
+- Consider App Insights / Container Apps log **sampling** to cut volume further.
 
-- Set a modest daily cap (dev): `az monitor log-analytics workspace update -n log-dealhub-dev-swc -g rg-dealhub-core-dev-swc --set workspaceCapping.dailyQuotaGb=1`
-- Reduce Application Insights / Container Apps log **sampling** to cut volume.
-- 30-day retention is already the free-tier default — fine.
+**Compromise:** logs stop for the day if the cap is hit (fine for dev; raise/remove for prod).
 
-**Saving:** bounds an open-ended cost; **compromise:** logs stop for the day if the
-cap is hit (acceptable for dev/demo; raise or remove for prod).
+### 3.3 Scheduled off-hours auto-sleep — ✅ staged (workflow added)
+Run the `sleep` action on a nightly schedule so the orchestrator is down off-hours;
+users self-wake from the Teams gate when needed.
 
-### 3.3 Scheduled off-hours auto-sleep — compute savings, wakes on demand
-Run the existing `sleep` action on a nightly schedule so the orchestrator is down
-outside working hours; users self-wake from the Teams gate when needed.
-
-- A GitHub Actions `schedule` cron calling `scripts/platform-power.ps1 -Action sleep`, or an Azure Automation runbook / Logic App.
+- **📦 Staged:** [`.github/workflows/deal-room-sleep.yml`](../.github/workflows/deal-room-sleep.yml)
+  — nightly `sleep` (03:00 UTC) + on-demand `sleep|stop|start|status`. **Opt-in:** set
+  repo variable `ENABLE_SCHEDULED_SLEEP=true` and the `AZURE_*` OIDC secrets (the
+  identity needs rights to stop/start the container apps).
 - **No functionality compromise** — the offline gate + 1-hour wake covers ad-hoc use.
 
 ### 3.4 Optional — orchestrator scale-to-zero (`minReplicas 0`)
@@ -164,9 +177,9 @@ gate's health timeout / cold-start handling. Keep `maxReplicas=1` (single-writer
 - **Function App** — Flex Consumption (scales to zero) + stopped by the power script.
 
 ### Rough monthly impact (dev)
-| Action | Est. saving | Effort | Compromise |
-|---|---|---|---|
-| Remove AI Search | ~$75 | low | none (unused) |
-| Cap Log Analytics | bounds open-ended | low | logs capped/day |
-| Nightly auto-sleep | compute off ~16 h/day | low–med | none |
-| Orchestrator min=0 | small | med | cold-start vs gate |
+| Action | Est. saving | Status |
+|---|---|---|
+| Remove AI Search | ~$75/mo | 📦 gated off (removed on next deploy) |
+| Cap Log Analytics | bounds open-ended | ✅ applied + gated in Bicep |
+| Nightly auto-sleep | ~16 h/day compute | 📦 workflow added (opt-in) |
+| Orchestrator min=0 | small | not staged (cold-start tradeoff) |

@@ -13,6 +13,9 @@ param tags object
 param enablePrivateEndpoints bool
 param keyVaultPurgeProtection bool
 
+@description('Log Analytics daily ingestion cap in GB (-1 = unlimited).')
+param logAnalyticsDailyQuotaGb int = -1
+
 var pna = enablePrivateEndpoints ? 'Disabled' : 'Enabled'
 var netDefaultAction = enablePrivateEndpoints ? 'Deny' : 'Allow'
 
@@ -32,6 +35,7 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   properties: {
     sku: { name: 'PerGB2018' }
     retentionInDays: 30
+    workspaceCapping: { dailyQuotaGb: logAnalyticsDailyQuotaGb }
     features: { enableLogAccessUsingOnlyResourcePermissions: true }
   }
 }
