@@ -72,6 +72,18 @@ param botAppType = 'MultiTenant'
 param teamsAppCatalogId = ''   // org app-catalog id (per tenant; from the Teams admin center)
 param m365PublishGroup = 'Private Equity Deals'
 
+// ─────────────────────────── CUTOVER SWITCHES ───────────────────────────
+// The VNet / private-endpoint posture is STAGED and inert while these stay off.
+// To CUT OVER to the private (VNet-integrated) topology on command:
+//   1. enablePrivateEndpoints = true   // VNet-integrates the CA env (snet-cae) + creates
+//                                       // private endpoints + sets publicNetworkAccess =
+//                                       // Disabled on Cosmos / Storage / Key Vault / Foundry.
+//   2. deploySearch            = false // drop the unused AI Search (~$75/mo) in the same
+//                                       // maintenance window (bundled cost cutover).
+// PREREQUISITE (immutable env): an existing CA env cannot gain vnetConfiguration in place —
+// DELETE cae-* + both container apps FIRST, then deploy. Keep Cosmos publicNetworkAccess =
+// Enabled until private endpoints + DNS are confirmed. Full runbook: docs/OPERATIONS-PLAN.md.
+// Leave both at the safe values below for routine (non-cutover) deploys.
 param enablePrivateEndpoints = false
 param keyVaultPurgeProtection = false
 

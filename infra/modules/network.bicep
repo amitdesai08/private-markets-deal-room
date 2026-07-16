@@ -54,6 +54,21 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
           privateEndpointNetworkPolicies: 'Disabled'
         }
       }
+      {
+        // Container Apps environment infrastructure subnet (Consumption needs a /23),
+        // delegated to Microsoft.App/environments. Consumed by app.bicep `caeSubnetId`
+        // when VNet-integrating the CA env.
+        name: 'snet-cae'
+        properties: {
+          addressPrefix: '10.40.6.0/23'
+          delegations: [
+            {
+              name: 'aca'
+              properties: { serviceName: 'Microsoft.App/environments' }
+            }
+          ]
+        }
+      }
     ]
   }
 }
@@ -182,3 +197,4 @@ resource privateEndpointDns 'Microsoft.Network/privateEndpoints/privateDnsZoneGr
 
 output vnetId string = vnet.id
 output vnetName string = vnet.name
+output snetCaeId string = '${vnet.id}/subnets/snet-cae'

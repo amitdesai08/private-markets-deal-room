@@ -15,6 +15,8 @@ param environmentName string
 param suffix string
 param tags object
 param enablePrivateEndpoints bool
+@description('Infrastructure subnet id for VNet-integrating the Container Apps environment. Empty = public environment (no VNet integration).')
+param caeSubnetId string = ''
 param acrSku string
 param containerTargetPort int
 param orchestratorImage string
@@ -143,6 +145,15 @@ resource caEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
         customerId: logAnalytics.properties.customerId
         sharedKey: logAnalytics.listKeys().primarySharedKey
       }
+    }
+    // VNet-integrate the environment when a CA subnet is supplied (private-endpoint
+    // posture). internal:false keeps a PUBLIC ingress endpoint while routing outbound
+    // through the VNet, so the apps stay reachable but reach Cosmos/storage over private
+    // endpoints. NOTE: this property is IMMUTABLE — turning it on for an existing env
+    // requires deleting + recreating the environment (see docs/OPERATIONS-PLAN.md).
+    vnetConfiguration: empty(caeSubnetId) ? null : {
+      infrastructureSubnetId: caeSubnetId
+      internal: false
     }
   }
 }

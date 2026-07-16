@@ -406,6 +406,10 @@ module app 'modules/app.bicep' = {
     suffix: suffix
     tags: tags
     enablePrivateEndpoints: enablePrivateEndpoints
+    // VNet-integrate the CA env when private endpoints are on (empty otherwise). This
+    // makes `app` depend on `network` so the VNet/subnet exist first — no cycle since
+    // network only consumes ai/data/integration/core outputs.
+    caeSubnetId: enablePrivateEndpoints ? network.outputs.snetCaeId : ''
     acrSku: acrSku
     containerTargetPort: containerTargetPort
     orchestratorImage: orchestratorImage
