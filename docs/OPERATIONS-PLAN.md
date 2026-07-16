@@ -120,11 +120,11 @@ Ranked by monthly saving. Container-apps idle cost is already handled by the
 **sleep/wake + auto-stop** feature; these target the *standing* costs.
 
 ### 3.1 Remove Azure AI Search — **biggest win, zero functionality impact**
-`srch-dealhub-dev-p3tks` is **Basic** (~**$75/mo**) and is **not referenced
+`srch-dealhub-dev-<suffix>` is **Basic** (~**$75/mo**) and is **not referenced
 anywhere in the application code** — the app uses Foundry, Fabric and the keyless
 data providers, not AI Search. It is pure standing cost.
 
-- **Now:** delete it — `az search service delete -n srch-dealhub-dev-p3tks -g rg-dealhub-ai-dev-swc`
+- **Now:** delete it — `az search service delete -n srch-dealhub-dev-<suffix> -g rg-dealhub-ai-dev-swc` *(find the name with `az search service list -g rg-dealhub-ai-dev-swc -o table`)*
 - **Future deploys:** gate it behind a `deploySearch=false` param in
   `infra/modules/ai.bicep` (add the flag if not present) so it isn't provisioned
   unless a feature actually needs it.
