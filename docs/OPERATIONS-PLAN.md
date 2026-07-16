@@ -85,14 +85,21 @@ reachable (but RBAC-gated).
 
 ### Option B — Hardened (target state): private endpoints + VNet-integrated CA env
 Route orchestrator → Cosmos entirely over the VNet so public access can stay
-**Disabled permanently**. Most scaffolding already exists:
+**Disabled permanently**. Most scaffolding already exists, but there is a
+**Bicep ↔ live drift** that must be reconciled first (verified 2026-07-16):
 
-- ✅ VNet `vnet-dealhub-dev-swc` (`10.40.0.0/16`) with `snet-cae` (for the CA env)
-  and `snet-pe` (for private endpoints).
-- ✅ Private-endpoint + private-DNS definitions for Cosmos, data storage (blob+dfs),
-  Foundry, Key Vault, AI Search and Service Bus in
+- ✅ **`snet-cae` exists in the live VNet:** `10.40.6.0/23`, delegated to
+  `Microsoft.App/environments` — correctly sized/delegated for a Consumption CA env.
+- ✅ `snet-pe` (`10.40.4.0/24`) exists; private-endpoint + private-DNS definitions for
+  Cosmos, data storage (blob+dfs), Foundry, Key Vault, AI Search and Service Bus are in
   [`infra/modules/network.bicep`](../infra/modules/network.bicep), gated by
   `enablePrivateEndpoints` (default `false`).
+- ⚠️ **DRIFT — reconcile before Option B:** `network.bicep` defines `snet-app`
+  (`10.40.3.0/24`, delegated) but **not** `snet-cae`; the live `snet-cae` (`/23`) was
+  added out-of-band. A Consumption CA env needs a **/23** — `snet-app` at `/24` is too
+  small. So the network module must be updated to **define `snet-cae` (`10.40.6.0/23`,
+  delegated)** and **output its subnet id** before this is deployable. A flag-flip alone
+  would fail.
 - ❌ The Container Apps environment (`caEnv` in `app.bicep`) has **no**
   `vnetConfiguration` — and **a CA environment cannot be VNet-joined after
   creation**. It must be **recreated** with an infrastructure subnet.
@@ -103,10 +110,16 @@ public endpoint and can't reach the private one). Sequence carefully:
 
 | Phase | Change | Notes / risk |
 |---|---|---|
-| 0 · Prep | Confirm `snet-cae` sizing + delegation. Consumption-only env needs a **/23**; a workload-profile env needs a **/27**. Delegate `snet-cae` to `Microsoft.App/environments`. | Resize the subnet if needed (may require redeploying the VNet). |
-| 1 · CA env recreate | Add `vnetConfiguration.infrastructureSubnetId = snet-cae` to `caEnv` in `app.bicep`; redeploy. This **recreates** the environment **and both container apps** → brief downtime + **new default FQDNs**. | Update the Teams manifest `validDomains`, the bot messaging endpoint, and any bookmarked URLs. `SHARED_BACKEND_URL` / `APP_BASE_URL` are Bicep-derived and update automatically. Consider a **custom domain** to keep a stable URL across env recreates. |
-| 2 · Private endpoints | Deploy with `enablePrivateEndpoints=true` → PEs + private DNS zones/links for Cosmos et al.; each service's `publicNetworkAccess` flips to `Disabled`. | The `main.prod.bicepparam` profile already sets this posture. |
-| 3 · Verify | From the orchestrator, `privatelink.documents.azure.com` resolves to the PE IP; `/api/config` shows `datastore: cosmos` with deals; Cosmos `publicNetworkAccess=Disabled` permanently. | Roll back by re-enabling public access if resolution fails. |
+| 0 · Reconcile Bicep | In `network.bicep`, **add `snet-cae` (`10.40.6.0/23`, delegated to `Microsoft.App/environments`)** to match the live VNet, and **`output` its subnet id**. (Leave/retire the too-small `snet-app`.) `az bicep build` + `what-if` — should be a no-op against the live VNet. | Pure IaC reconciliation; no runtime change. Validates the drift is closed before any recreate. |
+| 1 · Wire subnet → app | Add a `caeSubnetId` param to `app.bicep`; in `main.bicep` pass `network.outputs.snetCaeId` to the `app` module. Bicep reorders so **network runs before app** (network depends only on core/ai/data/integration — no cycle, app doesn't feed network). | Reference-based dependency; verify with `az bicep build` (no BCP circular-dependency error). |
+| 2 · CA env recreate | Add `vnetConfiguration.infrastructureSubnetId = caeSubnetId` to `caEnv` (gate on `enablePrivateEndpoints`); redeploy. This **recreates** the environment **and both container apps** → brief downtime + **new default FQDNs**. | Update the Teams manifest `validDomains` + the bot messaging endpoint; re-upload the Teams app. `SHARED_BACKEND_URL` / `APP_BASE_URL` are Bicep-derived and update automatically. A **custom domain** keeps a stable URL across recreates. **Confirm Cosmos public access is Enabled during the cutover** so the orchestrator boots with data. |
+| 3 · Private endpoints | Deploy with `enablePrivateEndpoints=true` → PEs + private DNS zones/links for Cosmos et al.; each service's `publicNetworkAccess` flips to `Disabled`. Do this **with** (not before) Phase 2 so the CA env is already in the VNet. | The `main.prod.bicepparam` profile already sets this posture. |
+| 4 · Verify | From the orchestrator, `privatelink.documents.azure.com` resolves to the PE IP; `/api/config` shows `datastore: cosmos` with deals; Cosmos `publicNetworkAccess=Disabled` permanently. | Roll back by re-enabling Cosmos public access if resolution fails. |
+
+> **Why not staged in Bicep yet:** the CA-env recreate + subnet rewiring can't be
+> validated without a live deploy, and a subtly-wrong VNet/subnet change is risky on a
+> shared env. This is intentionally left as an execution-ready runbook for a maintenance
+> window (rehearse in a scratch RG first), not pre-committed IaC.
 
 **Effort:** high (env recreate + new FQDNs). **Risk:** medium — do it in a
 maintenance window and rehearse in a scratch RG first. **Payoff:** the Cosmos
