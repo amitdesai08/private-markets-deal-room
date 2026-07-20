@@ -1,0 +1,446 @@
+{
+  "source": "fabric:Deal Room/deal_room_starter",
+  "sqlEndpoint": "",
+  "capacity": "dealroomfabric",
+  "extractedAt": "2026-07-20T20:01:42.817Z",
+  "companies": [
+    {
+      "ticker": "W",
+      "name": "Wayfair Inc.",
+      "sector": "Consumer Cyclical",
+      "industry": "Internet Retail",
+      "employees": 11800,
+      "marketCap": 12429450240,
+      "revenue": 12657999872
+    },
+    {
+      "ticker": "BIRD",
+      "name": "Allbirds Inc.",
+      "sector": "Consumer Cyclical",
+      "industry": "Apparel Retail",
+      "employees": 362,
+      "marketCap": 37734808,
+      "revenue": 142671008
+    },
+    {
+      "ticker": "PTON",
+      "name": "Peloton Interactive Inc.",
+      "sector": "Consumer Cyclical",
+      "industry": "Leisure",
+      "employees": 2605,
+      "marketCap": 2545992704,
+      "revenue": 2445199872
+    }
+  ],
+  "comparableDeals": [
+    {
+      "company": "Peloton Interactive Inc.",
+      "ticker": "PTON",
+      "dealType": "Recapitalization",
+      "dealValue": 344741157.8889518,
+      "impliedValuation": 2163650159.7064185,
+      "evEbitda": null,
+      "stage": "Near Close",
+      "status": "Closed Lost",
+      "thesis": "Strategic acquisition to expand Peloton Interactive Inc.'s market position",
+      "dealDate": "2026-04-15"
+    },
+    {
+      "company": "Wayfair Inc.",
+      "ticker": "W",
+      "dealType": "Minority Investment",
+      "dealValue": 340446004.6972835,
+      "impliedValuation": 1215107452.4178534,
+      "evEbitda": null,
+      "stage": "Closed",
+      "status": "On Hold",
+      "thesis": "Strategic acquisition to expand Wayfair Inc.'s market position",
+      "dealDate": "2026-03-07"
+    },
+    {
+      "company": "Allbirds Inc.",
+      "ticker": "BIRD",
+      "dealType": "Recapitalization",
+      "dealValue": 280199700.78781724,
+      "impliedValuation": 824657384.631189,
+      "evEbitda": null,
+      "stage": "Near Close",
+      "status": "On Hold",
+      "thesis": "Strategic acquisition to expand Allbirds Inc.'s market position",
+      "dealDate": "2026-01-19"
+    },
+    {
+      "company": "Allbirds Inc.",
+      "ticker": "BIRD",
+      "dealType": "Platform",
+      "dealValue": 179869512.8633439,
+      "impliedValuation": 518885032.3874129,
+      "evEbitda": null,
+      "stage": "Screening",
+      "status": "Closed Won",
+      "thesis": "Strategic acquisition to expand Allbirds Inc.'s market position",
+      "dealDate": "2025-12-10"
+    },
+    {
+      "company": "Wayfair Inc.",
+      "ticker": "W",
+      "dealType": "Add-on",
+      "dealValue": 411876400.1091077,
+      "impliedValuation": 2273001799.984909,
+      "evEbitda": null,
+      "stage": "Negotiation",
+      "status": "Closed Won",
+      "thesis": "Strategic acquisition to expand Wayfair Inc.'s market position",
+      "dealDate": "2025-09-05"
+    },
+    {
+      "company": "Wayfair Inc.",
+      "ticker": "W",
+      "dealType": "Add-on",
+      "dealValue": 172729986.88284025,
+      "impliedValuation": 631562422.1122533,
+      "evEbitda": null,
+      "stage": "Due Diligence",
+      "status": "On Hold",
+      "thesis": "Strategic acquisition to expand Wayfair Inc.'s market position",
+      "dealDate": "2025-08-13"
+    }
+  ],
+  "benchmarkFindings": [
+    {
+      "workstream": "Commercial",
+      "total": 18,
+      "byRisk": {
+        "Critical": 6,
+        "Medium": 2,
+        "Low": 6,
+        "High": 4
+      },
+      "samples": [
+        {
+          "type": "Legal Flag",
+          "description": "Legal Flag identified in Commercial workstream during DD",
+          "risk": "High",
+          "remediation": "Action item 3 for Commercial",
+          "status": "Resolved",
+          "owner": "Commercial Lead",
+          "targetResolution": "2025-09-12"
+        },
+        {
+          "type": "Commercial Concern",
+          "description": "Commercial Concern identified in Commercial workstream during DD",
+          "risk": "Critical",
+          "remediation": "Action item 1 for Commercial",
+          "status": "In Progress",
+          "owner": "Commercial Lead",
+          "targetResolution": "2025-09-12"
+        },
+        {
+          "type": "Commercial Concern",
+          "description": "Commercial Concern identified in Commercial workstream during DD",
+          "risk": "Critical",
+          "remediation": "Action item 1 for Commercial",
+          "status": "Escalated",
+          "owner": "Commercial Lead",
+          "targetResolution": "2026-02-18"
+        }
+      ]
+    },
+    {
+      "workstream": "Financial",
+      "total": 18,
+      "byRisk": {
+        "High": 4,
+        "Medium": 4,
+        "Critical": 4,
+        "Low": 6
+      },
+      "samples": [
+        {
+          "type": "Compliance Issue",
+          "description": "Compliance Issue identified in Financial workstream during DD",
+          "risk": "Critical",
+          "remediation": "Action item 2 for Financial",
+          "status": "Open",
+          "owner": "Financial Lead",
+          "targetResolution": "2025-09-12"
+        },
+        {
+          "type": "Financial Risk",
+          "description": "Financial Risk identified in Financial workstream during DD",
+          "risk": "Critical",
+          "remediation": "Action item 4 for Financial",
+          "status": "Escalated",
+          "owner": "Financial Lead",
+          "targetResolution": "2025-09-12"
+        },
+        {
+          "type": "Compliance Issue",
+          "description": "Compliance Issue identified in Financial workstream during DD",
+          "risk": "Critical",
+          "remediation": "Action item 3 for Financial",
+          "status": "Escalated",
+          "owner": "Financial Lead",
+          "targetResolution": "2026-02-18"
+        }
+      ]
+    },
+    {
+      "workstream": "Legal",
+      "total": 22,
+      "byRisk": {
+        "Low": 7,
+        "High": 5,
+        "Critical": 8,
+        "Medium": 2
+      },
+      "samples": [
+        {
+          "type": "Compliance Issue",
+          "description": "Compliance Issue identified in Legal workstream during DD",
+          "risk": "High",
+          "remediation": "Action item 3 for Legal",
+          "status": "Open",
+          "owner": "Legal Lead",
+          "targetResolution": "2025-09-12"
+        },
+        {
+          "type": "Operational Gap",
+          "description": "Operational Gap identified in Legal workstream during DD",
+          "risk": "Critical",
+          "remediation": "Action item 4 for Legal",
+          "status": "Open",
+          "owner": "Legal Lead",
+          "targetResolution": "2026-05-15"
+        },
+        {
+          "type": "Financial Risk",
+          "description": "Financial Risk identified in Legal workstream during DD",
+          "risk": "Critical",
+          "remediation": "Action item 3 for Legal",
+          "status": "Open",
+          "owner": "Legal Lead",
+          "targetResolution": "2026-05-15"
+        }
+      ]
+    },
+    {
+      "workstream": "Operational",
+      "total": 17,
+      "byRisk": {
+        "Low": 5,
+        "High": 4,
+        "Medium": 4,
+        "Critical": 4
+      },
+      "samples": [
+        {
+          "type": "Legal Flag",
+          "description": "Legal Flag identified in Operational workstream during DD",
+          "risk": "Critical",
+          "remediation": "Action item 4 for Operational",
+          "status": "Escalated",
+          "owner": "Operational Lead",
+          "targetResolution": "2026-04-06"
+        },
+        {
+          "type": "Operational Gap",
+          "description": "Operational Gap identified in Operational workstream during DD",
+          "risk": "High",
+          "remediation": "Action item 2 for Operational",
+          "status": "Open",
+          "owner": "Operational Lead",
+          "targetResolution": "2025-10-05"
+        },
+        {
+          "type": "Operational Gap",
+          "description": "Operational Gap identified in Operational workstream during DD",
+          "risk": "High",
+          "remediation": "Action item 1 for Operational",
+          "status": "Open",
+          "owner": "Operational Lead",
+          "targetResolution": "2025-10-05"
+        }
+      ]
+    },
+    {
+      "workstream": "Tax",
+      "total": 21,
+      "byRisk": {
+        "Medium": 1,
+        "Low": 14,
+        "High": 3,
+        "Critical": 3
+      },
+      "samples": [
+        {
+          "type": "Financial Risk",
+          "description": "Financial Risk identified in Tax workstream during DD",
+          "risk": "High",
+          "remediation": "Action item 5 for Tax",
+          "status": "Resolved",
+          "owner": "Tax Lead",
+          "targetResolution": "2025-10-05"
+        },
+        {
+          "type": "Commercial Concern",
+          "description": "Commercial Concern identified in Tax workstream during DD",
+          "risk": "High",
+          "remediation": "Action item 3 for Tax",
+          "status": "In Progress",
+          "owner": "Tax Lead",
+          "targetResolution": "2025-10-05"
+        },
+        {
+          "type": "Commercial Concern",
+          "description": "Commercial Concern identified in Tax workstream during DD",
+          "risk": "Critical",
+          "remediation": "Action item 1 for Tax",
+          "status": "Resolved",
+          "owner": "Tax Lead",
+          "targetResolution": "2026-05-15"
+        }
+      ]
+    }
+  ],
+  "icPrecedents": [
+    {
+      "deal": "BIRD - Strategic Initiative 1",
+      "decision": "Approved",
+      "votesFor": 5,
+      "votesAgainst": 2,
+      "votesAbstain": 1,
+      "conditions": [
+        "Condition 1: Finalize legal docs",
+        "Condition 2: Verify financials"
+      ],
+      "closingStatus": "All met",
+      "meetingDate": "2026-03-16"
+    },
+    {
+      "deal": "W - Strategic Initiative 1",
+      "decision": "Approved",
+      "votesFor": 4,
+      "votesAgainst": 2,
+      "votesAbstain": 1,
+      "conditions": [
+        "Condition 1: Finalize legal docs",
+        "Condition 2: Verify financials"
+      ],
+      "closingStatus": "All met",
+      "meetingDate": "2026-01-21"
+    },
+    {
+      "deal": "PTON - Strategic Initiative 1",
+      "decision": "Rejected",
+      "votesFor": 2,
+      "votesAgainst": 0,
+      "votesAbstain": 1,
+      "conditions": [
+        "Condition 1: Finalize legal docs",
+        "Condition 2: Verify financials"
+      ],
+      "closingStatus": "Not met",
+      "meetingDate": "2026-09-02"
+    }
+  ],
+  "companyFinancials": {
+    "W": {
+      "Assets": {
+        "value": 3440000000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2026-04-30"
+      },
+      "Liabilities": {
+        "value": 6222000000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2026-04-30"
+      },
+      "NetIncomeLoss": {
+        "value": -113000000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2026-04-30"
+      },
+      "StockholdersEquity": {
+        "value": -2842000000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2026-04-30"
+      },
+      "Revenues": {
+        "value": 10474305000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2020-11-03"
+      }
+    },
+    "PTON": {
+      "Revenues": {
+        "value": 1883900000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2026-05-07"
+      },
+      "NetIncomeLoss": {
+        "value": -140500000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2026-05-07"
+      },
+      "Assets": {
+        "value": 2125300000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2026-05-07"
+      },
+      "Liabilities": {
+        "value": 2539100000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2026-05-07"
+      },
+      "StockholdersEquity": {
+        "value": -519100000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2026-05-07"
+      }
+    },
+    "BIRD": {
+      "Assets": {
+        "value": 109419000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2026-05-15"
+      },
+      "Liabilities": {
+        "value": 73505000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2026-05-15"
+      },
+      "StockholdersEquity": {
+        "value": 101685000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2026-05-15"
+      },
+      "NetIncomeLoss": {
+        "value": -21875000,
+        "unit": "USD",
+        "form": "10-Q",
+        "filed": "2026-05-15"
+      }
+    }
+  },
+  "counts": {
+    "companies": 3,
+    "comparableDeals": 6,
+    "benchmarkFindingWorkstreams": 5,
+    "icPrecedents": 3,
+    "secTickers": 3
+  }
+}

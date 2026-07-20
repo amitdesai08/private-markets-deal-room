@@ -14,6 +14,10 @@
 //                      that scripts/extract_fabric_cache.py wrote from OneLake. Used
 //                      when live is off, or attempted-but-unavailable (liveError set) —
 //                      it is still real Fabric data, just point-in-time.
+//   • 'seed'         — served from the bundled snapshot shipped in the image
+//                      (data/fabric-cache.json, produced by scripts/extract-fabric-seed.mjs
+//                      from the same lakehouse). The packaged-demo baseline: runs with no
+//                      Fabric or Cosmos dependency. Same real data shape, point-in-time.
 //   • 'unconfigured' — no snapshot and no live binding.
 //
 // There are no fabricated values in any mode: if live cannot connect it degrades to
@@ -21,6 +25,9 @@
 
 import { connectors } from './repo/index.js';
 import { DefaultAzureCredential } from '@azure/identity';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const SQL_ENDPOINT = process.env.FABRIC_SQL_ENDPOINT || '';
 const SQL_DATABASE = process.env.FABRIC_SQL_DATABASE || 'deal_room_starter';
@@ -163,6 +170,23 @@ async function loadMaterialized() {
   return false;
 }
 
+// Bundled demo snapshot shipped in the image (data/fabric-cache.json, produced by
+// scripts/extract-fabric-seed.mjs from the real lakehouse). The packaged-demo baseline:
+// serves the market-intel dataset with no Fabric or Cosmos dependency.
+function loadSeed() {
+  try {
+    const p = resolve(dirname(fileURLToPath(import.meta.url)), '../data/fabric-cache.json');
+    const snap = JSON.parse(readFileSync(p, 'utf8'));
+    if (snap && (Array.isArray(snap.companies) || Array.isArray(snap.comparableDeals))) {
+      _snapshot = snap;
+      _mode = 'seed';
+      _loadedAt = new Date().toISOString();
+      return true;
+    }
+  } catch { /* no bundled seed present */ }
+  return false;
+}
+
 // Load Fabric data at boot (and on refresh). Serves the real materialized snapshot
 // immediately (fast, never blocks boot); when FABRIC_LIVE is on it then attempts a
 // direct live lakehouse query in the background and swaps to live data on success,
@@ -170,9 +194,9 @@ async function loadMaterialized() {
 export async function loadFabric() {
   _liveError = null;
   try {
-    await loadMaterialized();
+    if (!(await loadMaterialized())) loadSeed();
   } catch {
-    if (!_snapshot) _mode = 'unconfigured';
+    if (!_snapshot) loadSeed();
   }
   if (LIVE) attemptLive(); // background upgrade; does not block boot
   return fabricInfo();
@@ -186,7 +210,7 @@ export async function refreshFabric() {
     await attemptLive();
     if (_mode === 'live') return fabricInfo();
   }
-  try { await loadMaterialized(); } catch { /* keep prior snapshot */ }
+  try { if (!(await loadMaterialized()) && !_snapshot) loadSeed(); } catch { if (!_snapshot) loadSeed(); }
   return fabricInfo();
 }
 
