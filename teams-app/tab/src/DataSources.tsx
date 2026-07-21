@@ -24,6 +24,7 @@ const STATUS_LABEL: Record<string, string> = {
 const TIERS: { key: string; title: string; blurb: string; match: (c: Connector) => boolean }[] = [
   { key: 'free', title: 'Free & open (no subscription)', blurb: 'Keyless public data — on by default for demos.', match: (c) => c.free && c.kind !== 'web' },
   { key: 'web', title: 'Live web search', blurb: 'Bing-grounded Foundry agent (Azure-metered).', match: (c) => c.kind === 'web' },
+  { key: 'fabric-agent', title: 'Fabric Data Agent', blurb: 'Natural-language Q&A over the fund\u2019s lakehouse (live or grounded).', match: (c) => c.kind === 'fabric-agent' },
   { key: 'mcp', title: 'Subscription providers', blurb: 'Vendor data over MCP — sign in to connect.', match: (c) => c.kind === 'mcp' },
   { key: 'm365', title: 'Microsoft 365', blurb: 'Delegated Teams / SharePoint / mailbox.', match: (c) => c.kind === 'm365' },
   { key: 'database', title: 'Not wired', blurb: 'Vendor DBs shown for context — no live connection.', match: (c) => c.kind === 'database' },

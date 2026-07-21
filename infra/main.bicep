@@ -236,6 +236,8 @@ param fabricSqlEndpoint string = ''
 param fabricSqlDatabase string = 'deal_room_starter'
 param fabricWorkspace string = 'Deal Room'
 param fabricLakehouse string = 'deal_room_starter'
+@description('Published Microsoft Fabric Data Agent endpoint URL (optional; empty = grounded fallback on the snapshot).')
+param fabricDataAgentUrl string = ''
 param onelakeWorkspaceId string = ''
 param onelakeLakehouseId string = ''
 
@@ -462,6 +464,7 @@ module app 'modules/app.bicep' = {
     fabricSqlDatabase: fabricSqlDatabase
     fabricWorkspace: fabricWorkspace
     fabricLakehouse: fabricLakehouse
+    fabricDataAgentUrl: fabricDataAgentUrl
     onelakeWorkspaceId: onelakeWorkspaceId
     onelakeLakehouseId: onelakeLakehouseId
   }

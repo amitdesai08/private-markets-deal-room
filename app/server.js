@@ -106,6 +106,7 @@ import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMc
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
 import { listConnectors, testConnector, disconnectConnector } from './lib/connectors.js';
 import { setConnectorEnabled } from './lib/connectorSettings.js';
+import { askFabricDataAgent, fabricDataAgentInfo } from './lib/fabricDataAgent.js';
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import m365LoginRouter from './lib/m365/loginRoutes.js';
 import { m365Configured, m365Connected, m365FilesScope, listDealDocuments, saveDealDocument, M365NotConnectedError } from './lib/m365/graph.js';
@@ -152,6 +153,7 @@ api.get('/config', (_req, res) => {
     m365: { configured: m365Configured(), connected: m365Connected(), files: m365FilesScope() },
     morningstar: morningstarReady() ? 'live' : 'demo',
     fabric: fabricStatus(),
+    fabricDataAgent: fabricDataAgentInfo(),
     onelake: oneLakeStatus(),
     datastore: repoMode()
   });
@@ -600,6 +602,21 @@ api.get('/news/gdelt', async (req, res) => {
   if (!q) return res.status(400).json({ error: 'q required' });
   try { res.json(await gdeltNews(q, { max: Math.min(25, Number(req.query.max) || 12) })); }
   catch (err) { res.status(502).json({ error: 'gdelt-failed', detail: String(err?.message || err) }); }
+});
+// Microsoft Fabric Data Agent — natural-language questions over the lakehouse
+// market intelligence (live when FABRIC_DATA_AGENT_URL is bound, else grounded on
+// the local snapshot). GET ?q= or POST { question }.
+api.get('/fabric/ask', async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'q required' });
+  try { res.json(await askFabricDataAgent(q)); }
+  catch (err) { res.status(502).json({ error: 'fabric-agent-failed', detail: String(err?.message || err) }); }
+});
+api.post('/fabric/ask', async (req, res) => {
+  const q = String(req.body?.question || req.body?.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'question required' });
+  try { res.json(await askFabricDataAgent(q)); }
+  catch (err) { res.status(502).json({ error: 'fabric-agent-failed', detail: String(err?.message || err) }); }
 });
 // Live news search via the Bing-grounded Foundry agent (seed fallback on failure).
 api.post('/news/find-more', async (req, res) => {

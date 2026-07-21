@@ -19,6 +19,7 @@ import { hasLogin, clearTokens } from './mcp/oauth.js';
 import { testFilings, filingsConfigured } from './filings.js';
 import { gdeltNews, gdeltConfigured } from './providers/gdelt.js';
 import { leiLookup, gleifConfigured } from './providers/gleif.js';
+import { fabricDataAgentConfigured, fabricDataAgentInfo } from './fabricDataAgent.js';
 import { isConnectorEnabled } from './connectorSettings.js';
 import { m365Configured, m365Connected, me as m365Me } from './m365/graph.js';
 
@@ -51,6 +52,11 @@ export const CONNECTORS = [
     primaryJob: 'Credit ratings, research & risk assessment',
     sweetSpot: 'Credit & default-risk cross-check',
     mcpUrl: config.connectors.moodysMcpUrl
+  },
+  {
+    id: 'fabric-agent', name: 'Fabric Data Agent', kind: 'fabric-agent', role: 'quality',
+    primaryJob: 'Ask the fund’s Fabric lakehouse in natural language (Data Agent)',
+    sweetSpot: 'NL Q&A over comps, findings, IC precedents & financials'
   },
   {
     id: 'edgar', name: 'SEC EDGAR', kind: 'edgar', role: 'confirm',
@@ -110,6 +116,7 @@ function isConfigured(c) {
   if (c.kind === 'edgar') return filingsConfigured();
   if (c.kind === 'gdelt') return gdeltConfigured();
   if (c.kind === 'gleif') return gleifConfigured();
+  if (c.kind === 'fabric-agent') return fabricDataAgentConfigured();
   if (c.kind === 'm365') return m365Connected();
   return false;
 }
@@ -189,6 +196,21 @@ async function testGleif(c) {
   }
 }
 
+async function testFabricAgent(c) {
+  const t0 = Date.now();
+  try {
+    const info = fabricDataAgentInfo();
+    markSync(c.id);
+    const latencyMs = Date.now() - t0;
+    const label = info.liveConfigured
+      ? `Live Data Agent bound (${info.url})`
+      : `Grounded on the ${info.lakehouse} snapshot (${info.mode} mode)`;
+    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Ready · ${label}` });
+  } catch (e) {
+    return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Error · ${String(e.message || e).slice(0, 80)}` });
+  }
+}
+
 async function testM365(c) {
   if (!m365Connected()) {
     return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Not connected — sign in with your Microsoft 365 account to enable Teams, SharePoint and mailbox steps.' });
@@ -220,6 +242,7 @@ export async function testConnector(id, { force = false } = {}) {
   if (c.kind === 'edgar') return testEdgar(c);
   if (c.kind === 'gdelt') return testGdelt(c);
   if (c.kind === 'gleif') return testGleif(c);
+  if (c.kind === 'fabric-agent') return testFabricAgent(c);
   if (c.kind === 'm365') return testM365(c);
   return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Integration not wired — no live connection.' });
 }
@@ -244,7 +267,7 @@ export function listConnectors() {
       free,
       enabled,
       configured,
-      testable: free ? true : (c.kind === 'mcp' || c.kind === 'm365' ? configured : false),
+      testable: free || c.kind === 'fabric-agent' ? true : (c.kind === 'mcp' || c.kind === 'm365' ? configured : false),
       connectable: c.kind === 'mcp' || c.kind === 'm365', // can be signed-in via OAuth
       status: !enabled ? 'disabled' : (cached ? cached.status : c.kind === 'database' ? 'disconnected' : configured ? 'unknown' : 'disconnected'),
       latencyMs: cached ? cached.latencyMs : null,
