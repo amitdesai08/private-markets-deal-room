@@ -180,6 +180,34 @@ app.post('/api/deals/:id/documents/:kind', async (req, res) => {
   }
 });
 
+// Admin (role builder / persona designer) — inject the resolved requesting identity
+// (SSO or demo "view as") so the orchestrator can enforce administrator-only access.
+// Registered before the generic proxy so it wins for /api/admin/*.
+app.use('/api/admin', async (req, res) => {
+  if (!isBackendLive()) return res.status(502).json({ error: 'shared-backend-not-configured' });
+  const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  const identity = identityFromSsoToken(ssoToken);
+  const asOverride = String(req.body?.as || '').trim();
+  const requestingUser = asOverride
+    ? { name: asOverride }
+    : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : null);
+  const body = { ...(req.body || {}) };
+  delete body.ssoToken; delete body.as;
+  body.requestingUser = requestingUser;
+  const headers = { 'content-type': 'application/json' };
+  if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
+  try {
+    const upstream = await fetch(`${config.backend.url}${req.originalUrl}`, {
+      method: 'POST', headers, body: JSON.stringify(body),
+    });
+    res.status(upstream.status);
+    res.setHeader('content-type', upstream.headers.get('content-type') || 'application/json');
+    res.send(Buffer.from(await upstream.arrayBuffer()));
+  } catch (e) {
+    res.status(502).json({ error: 'backend-unreachable', detail: String(e?.message || e) });
+  }
+});
+
 // Everything else under /api forwards to the shared backend (single data source).
 app.use('/api', proxyToBackend);
 

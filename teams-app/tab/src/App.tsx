@@ -15,6 +15,7 @@ import Stage2 from './Stage2';
 import Lifecycle from './Lifecycle';
 import Fund from './Fund';
 import DataSources from './DataSources';
+import Admin from './Admin';
 import Offline, { OnlineLeaseBanner, type PlatformStatus } from './Offline';
 import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipeline } from './types';
 
@@ -67,7 +68,7 @@ export default function App() {
   const [viewAsRole, setViewAsRole] = useState('');
   const [roleLabel, setRoleLabel] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'lifecycle' | 'fund' | 'sources'>('overview');
+  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'lifecycle' | 'fund' | 'sources' | 'admin'>('overview');
   // Platform power state (sleep/wake). null until first probe; when control is on and
   // the orchestrator is asleep, the whole app is replaced by the Offline gate.
   const [platform, setPlatform] = useState<PlatformStatus | null>(null);
@@ -76,6 +77,12 @@ export default function App() {
   // Only surface the agents this user (or the role they are viewing as) may use.
   // The orchestrator (always shown) plus any persona agent in allowedPersonas.
   const visibleAgents = agents.filter((a) => a.kind === 'orchestrator' || !allowedPersonas || (a.persona && allowedPersonas.includes(a.persona)));
+
+  const mainTabs: [typeof mainTab, string][] = [
+    ['overview', 'Deals Overview'], ['stage1', 'Stage 1 — Origination'], ['stage2', 'Stage 2 — Diligence'],
+    ['lifecycle', 'Lifecycle'], ['fund', 'Fund & Portfolio'], ['sources', 'Data Sources'],
+    ...(isAdmin ? ([['admin', 'Admin']] as [typeof mainTab, string][]) : []),
+  ];
 
   function applyAccess(ctx: any) {
     if (!ctx) return;
@@ -202,7 +209,7 @@ export default function App() {
       </header>
 
       <nav className="maintabs">
-        {([['overview', 'Deals Overview'], ['stage1', 'Stage 1 — Origination'], ['stage2', 'Stage 2 — Diligence'], ['lifecycle', 'Lifecycle'], ['fund', 'Fund & Portfolio'], ['sources', 'Data Sources']] as const).map(([k, label]) => (
+        {mainTabs.map(([k, label]) => (
           <button key={k} className={`maintab${mainTab === k ? ' on' : ''}`} onClick={() => setMainTab(k)}>{label}</button>
         ))}
       </nav>
@@ -219,6 +226,8 @@ export default function App() {
             <Fund />
           ) : mainTab === 'sources' ? (
             <DataSources />
+          ) : mainTab === 'admin' ? (
+            <Admin ssoToken={ssoToken} viewAs={viewAs} />
           ) : (
             <Stage2 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           )}
