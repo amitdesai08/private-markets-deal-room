@@ -22,7 +22,10 @@ const WORKSPACE = process.env.FABRIC_WORKSPACE || 'Deal Room';
 const LAKEHOUSE = process.env.FABRIC_LAKEHOUSE || 'deal_room_starter';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const OUT = resolve(here, '../data/fabric-cache.json');
+// Default output is the committed seed; FABRIC_SEED_OUT redirects to a backup path.
+const OUT = process.env.FABRIC_SEED_OUT
+  ? resolve(process.cwd(), process.env.FABRIC_SEED_OUT)
+  : resolve(here, '../data/fabric-cache.json');
 
 const num = (v) => {
   if (v == null) return null;

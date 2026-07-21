@@ -73,3 +73,6 @@ infra/main.dev.json
 infra/main.test.json
 infra/main.prod.json
 infra/main.sample.json
+
+# Local point-in-time data backups (not for the public repo)
+backups/
