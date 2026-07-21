@@ -100,6 +100,8 @@ param onelakeLakehouseId string = ''
 
 @description('Identity-aware RBAC (prefab roles) — Entra object IDs (users/groups) per role.')
 param adminIds array = []
+@description('Day-0 super-user (UPN, object id, or display name) granted the administrator role on first deploy. Always resolves to admin, independent of the editable access config.')
+param bootstrapAdmin string = ''
 param partnerIds array = []
 param dealTeamIds array = []
 param analystIds array = []
@@ -257,6 +259,7 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'MCP_READONLY_KEY', secretRef: 'mcp-readonly-key' }
             { name: 'BOT_BACKEND_KEY', secretRef: 'bot-backend-key' }
             { name: 'ADMIN_IDS', value: join(adminIds, ',') }
+            { name: 'BOOTSTRAP_ADMIN', value: bootstrapAdmin }
             { name: 'PARTNER_IDS', value: join(partnerIds, ',') }
             { name: 'DEAL_TEAM_IDS', value: join(dealTeamIds, ',') }
             { name: 'ANALYST_IDS', value: join(analystIds, ',') }

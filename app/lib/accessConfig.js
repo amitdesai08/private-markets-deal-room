@@ -98,3 +98,25 @@ export async function setPersonaStages(id, stages) {
   await persist();
   return _cfg.personaStages[id];
 }
+
+// Bulk role assignment (e.g. from a CSV import). `rows` = [{ user, role }]. `mode`
+// 'merge' adds to each role's existing assignments; 'replace' overwrites the roles
+// present in the import. Returns a per-role count summary. One persist for the batch.
+export async function importAssignments(rows, { mode = 'merge' } = {}) {
+  const byRole = {};
+  let skipped = 0;
+  for (const r of rows || []) {
+    const user = String(r?.user || '').trim();
+    const role = String(r?.role || '').trim().toLowerCase();
+    if (!user || !role) { skipped++; continue; }
+    (byRole[role] ||= []).push(user);
+  }
+  const applied = {};
+  for (const [role, users] of Object.entries(byRole)) {
+    const existing = mode === 'replace' ? [] : (_cfg.assignments[role] || []);
+    _cfg.assignments[role] = Array.from(new Set([...existing, ...users].map((s) => String(s).trim()).filter(Boolean)));
+    applied[role] = _cfg.assignments[role].length;
+  }
+  await persist();
+  return { applied, roles: Object.keys(byRole), skipped };
+}

@@ -176,6 +176,8 @@ param botAppType string = 'MultiTenant'
 //------------------------------------------------------------------------------
 @description('Entra object IDs (users or groups) granted the ADMIN role (superuser: sees & can call every agent, may view-as any lower role).')
 param adminIds array = []
+@description('Day-0 super-user (UPN, object id, or display name) granted the administrator role on first deploy.')
+param bootstrapAdmin string = ''
 @description('Entra object IDs (users or groups) granted the PARTNER role (full access + write).')
 param partnerIds array = []
 @description('Entra object IDs (users or groups) granted the DEAL-TEAM role (stage-2 + write).')
@@ -440,6 +442,7 @@ module app 'modules/app.bicep' = {
     botAppPassword: botAppPassword
     botAppType: botAppType
     adminIds: adminIds
+    bootstrapAdmin: bootstrapAdmin
     partnerIds: partnerIds
     dealTeamIds: dealTeamIds
     analystIds: analystIds

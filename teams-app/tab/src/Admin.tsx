@@ -75,6 +75,64 @@ function CheckGrid({ options, value, onChange, labels }: { options: string[]; va
   );
 }
 
+function BulkAssign({ data, post, reload }: any) {
+  const [csv, setCsv] = useState('');
+  const [mode, setMode] = useState<'merge' | 'replace'>('merge');
+  const [result, setResult] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const parse = (text: string) => {
+    const rows: { user: string; role: string }[] = [];
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line) continue;
+      const cols = line.split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
+      if (cols.length < 2) continue;
+      if (cols[0].toLowerCase() === 'user' && cols[1].toLowerCase() === 'role') continue; // header
+      rows.push({ user: cols[0], role: cols[1] });
+    }
+    return rows;
+  };
+  const template = () => {
+    const ex = (data.roles || []).slice(0, 3).map((r: Role) => `user@contoso.com,${r.id}`).join('\n');
+    const url = URL.createObjectURL(new Blob([`user,role\n${ex}\n`], { type: 'text/csv' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'role-assignments-template.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const onFile = (e: any) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const rd = new FileReader(); rd.onload = () => setCsv(String(rd.result || '')); rd.readAsText(f);
+  };
+  const importNow = async () => {
+    const rows = parse(csv);
+    if (!rows.length) { setResult('No rows parsed — expected "user,role" lines.'); return; }
+    setBusy(true);
+    try {
+      const out = await post('/assignments/import', { assignments: rows, mode });
+      const per = Object.entries(out.applied || {}).map(([r, n]) => `${r}: ${n}`).join(', ');
+      const unk = (out.unknownRoles || []).length ? ` · skipped unknown roles: ${out.unknownRoles.join(', ')}` : '';
+      setResult(`Imported ${out.imported} assignment(s) (${mode}). Totals — ${per || 'none'}${unk}`);
+      await reload();
+    } catch (e: any) { setResult(`Import failed: ${String(e.message || e)}`); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="adm-bulk">
+      <div className="adm-bulk-h"><strong>Bulk assign roles (CSV)</strong> <span className="adm-note">columns: <code>user,role</code> — user = oid / upn / name</span></div>
+      <textarea className="adm-csv" rows={4} placeholder={'user,role\nalice@contoso.com,partner\nbob@contoso.com,analyst'} value={csv} onChange={(e) => setCsv(e.target.value)} />
+      <div className="adm-bulk-ctl">
+        <input type="file" accept=".csv,text/csv" onChange={onFile} />
+        <label className="adm-flag"><input type="radio" checked={mode === 'merge'} onChange={() => setMode('merge')} />merge</label>
+        <label className="adm-flag"><input type="radio" checked={mode === 'replace'} onChange={() => setMode('replace')} />replace</label>
+        <button className="adm-btn" type="button" onClick={template}>Download template</button>
+        <button className="adm-btn primary" disabled={busy || !csv.trim()} onClick={importNow}>Import</button>
+      </div>
+      {result ? <p className="adm-bulk-res">{result}</p> : null}
+    </div>
+  );
+}
+
 function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
   const [draft, setDraft] = useState<Record<string, Role>>({});
   const [newRole, setNewRole] = useState({ id: '', label: '', rank: 50 });
@@ -101,6 +159,7 @@ function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
 
   return (
     <div>
+      <BulkAssign data={data} post={post} reload={reload} />
       <div className="adm-add">
         <input placeholder="role id (e.g. compliance)" value={newRole.id} onChange={(e) => setNewRole({ ...newRole, id: e.target.value })} />
         <input placeholder="label" value={newRole.label} onChange={(e) => setNewRole({ ...newRole, label: e.target.value })} />
@@ -256,4 +315,10 @@ const CSS = `
 .adm-btn.primary { border-color: var(--accent, #6ea8fe); color: var(--accent, #6ea8fe); }
 .adm-btn.danger { border-color: #a44; color: #d88; }
 .adm-btn:disabled { opacity: .5; cursor: default; }
+.adm-bulk { border: 1px dashed var(--border, #33333f); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+.adm-bulk-h { font-size: 13px; margin-bottom: 8px; }
+.adm-csv { width: 100%; border: 1px solid var(--border, #33333f); background: var(--bg, #14141a); color: var(--fg); border-radius: 6px; padding: 8px; font-size: 12.5px; font-family: ui-monospace, monospace; resize: vertical; }
+.adm-bulk-ctl { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+.adm-bulk-res { margin: 8px 0 0; font-size: 12px; color: var(--accent, #6ea8fe); }
+.adm-bulk code { background: rgba(140,140,150,.16); padding: 0 4px; border-radius: 4px; }
 `;

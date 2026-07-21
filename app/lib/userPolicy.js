@@ -31,6 +31,10 @@ const ADMIN_IDS = withDemo('admin', listEnv('ADMIN_IDS'));
 const PARTNER_IDS = withDemo('partner', listEnv('PARTNER_IDS'));
 const DEAL_TEAM_IDS = withDemo('deal-team', listEnv('DEAL_TEAM_IDS'));
 const ANALYST_IDS = withDemo('analyst', listEnv('ANALYST_IDS'));
+// Day-0 "super user": the initial administrator set at deploy time. Always resolves
+// to admin (independent of ADMIN_IDS / the editable config) so first-run setup has a
+// guaranteed administrator who can then assign everyone else in the Admin UI.
+const BOOTSTRAP_ADMIN = listEnv('BOOTSTRAP_ADMIN');
 // What an unauthenticated/unknown caller gets (the tab/web paths that don't pass a
 // trusted identity). Keep 'deal-team' to preserve existing demos; set 'analyst' to
 // make every unidentified caller read-only.
@@ -68,7 +72,7 @@ const labelOf = (id) => (roleSpec(id)?.label) || BUILTIN_LABEL[id] || id;
 const rankOf = (role) => (roleSpec(role)?.rank ?? 0);
 
 // Env-based id lists for the four built-in assignable roles.
-const ENV_IDS = { admin: ADMIN_IDS, partner: PARTNER_IDS, 'deal-team': DEAL_TEAM_IDS, analyst: ANALYST_IDS };
+const ENV_IDS = { admin: [...ADMIN_IDS, ...BOOTSTRAP_ADMIN], partner: PARTNER_IDS, 'deal-team': DEAL_TEAM_IDS, analyst: ANALYST_IDS };
 
 // Resolve a VERIFIED identity to a role. `identity` = { oid, upn, name }.
 export function roleForUser(identity = {}) {

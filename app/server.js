@@ -116,7 +116,7 @@ import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
 import { accessFor, authorizePersona, authorizeDealAccess, describeAccess, describeDemoProfiles, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
 import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
-import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages } from './lib/accessConfig.js';
+import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments } from './lib/accessConfig.js';
 
 validateConfig({ strict: false });
 
@@ -893,6 +893,25 @@ api.post('/admin/personas/:id/delete', async (req, res) => {
   if (!requireAdmin(req, res)) return;
   await deletePersona(req.params.id);
   res.json({ id: req.params.id, deleted: true });
+});
+// Bulk role assignment from a CSV import. Body: { assignments:[{user,role}], mode }.
+// Unknown role ids are skipped and reported (validated against the effective roles).
+api.post('/admin/assignments/import', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const rows = Array.isArray(req.body?.assignments) ? req.body.assignments : [];
+  const mode = req.body?.mode === 'replace' ? 'replace' : 'merge';
+  const validRoles = new Set(rolesView().map((r) => r.id));
+  const good = [];
+  const unknown = [];
+  for (const r of rows) {
+    const role = String(r?.role || '').trim().toLowerCase();
+    const user = String(r?.user || '').trim();
+    if (!user) continue;
+    if (validRoles.has(role)) good.push({ user, role });
+    else if (role) unknown.push(role);
+  }
+  const out = await importAssignments(good, { mode });
+  res.json({ ...out, imported: good.length, unknownRoles: Array.from(new Set(unknown)) });
 });
 // Chat with a specific persona agent. It reads the pipeline and ACTS on it through
 // its persona-scoped tools (server-side persona authorization enforced on writes).
