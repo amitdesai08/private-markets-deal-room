@@ -13,10 +13,17 @@
 // no matter what arguments the agent emits — the same defense-in-depth pattern the
 // read tools already use for deal `scope`.
 
+import { getPersonaOverrides, getPersonaActionOverrides, getPersonaStageOverrides } from './accessConfig.js';
+
 // The persona ids (== data/personas.js ids). The first five are the original
 // deal + sector-MD agents; the rest are the wider deal-team roles common across
 // PE firms (deal lead, value creation, finance, legal, investor relations).
 export const PERSONAS = ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md', 'principal', 'operating-partner', 'fund-cfo', 'legal-gc', 'ir-lp'];
+
+// A persona is valid if it is built-in OR an admin-defined custom persona.
+function isPersona(p) {
+  return PERSONAS.includes(p) || Object.prototype.hasOwnProperty.call(getPersonaOverrides() || {}, p);
+}
 
 // Each lane-owning persona owns exactly one diligence lane.
 export const PERSONA_LANE = {
@@ -68,17 +75,34 @@ export const ACTIONS = {
 
 // Is `persona` allowed to perform `action`? For lane-scoped actions, `lane` must
 // match the persona's owned lane (sector MDs) — analyst/partner may touch any lane.
-export function can(persona, action, { lane } = {}) {
+export function can(persona, action, { lane, stage } = {}) {
   const spec = ACTIONS[action];
   if (!spec) return { ok: false, reason: `Unknown action "${action}".` };
-  if (!PERSONAS.includes(persona)) return { ok: false, reason: `Unknown persona "${persona}".` };
-  if (!spec.personas.includes(persona)) {
-    return { ok: false, reason: `The ${PERSONA_LABEL[persona]} is not authorized to ${spec.label.toLowerCase()}. This is reserved for: ${spec.personas.map((p) => PERSONA_LABEL[p]).join(', ')}.` };
+  if (!isPersona(persona)) return { ok: false, reason: `Unknown persona "${persona}".` };
+
+  // Admin-authored per-persona workflow allowlist is authoritative when the persona
+  // key is present in config (even empty = no workflow actions); else the built-in
+  // ACTIONS allowlist governs.
+  const actOv = getPersonaActionOverrides() || {};
+  const permitted = Object.prototype.hasOwnProperty.call(actOv, persona)
+    ? (actOv[persona] || []).includes(action)
+    : (spec.personas || []).includes(persona);
+  if (!permitted) {
+    return { ok: false, reason: `The ${PERSONA_LABEL[persona] || persona} is not authorized to ${spec.label.toLowerCase()}. This is reserved for: ${(spec.personas || []).map((p) => PERSONA_LABEL[p] || p).join(', ')}.` };
   }
-  if (spec.laneScoped && PERSONA_LANE[persona]) {
+
+  // Workflow-management stage restriction: an admin may confine a persona to acting
+  // only in specific stages (empty / unset = all stages).
+  const stageOv = (getPersonaStageOverrides() || {})[persona];
+  if (stage && Array.isArray(stageOv) && stageOv.length && !stageOv.includes(String(stage))) {
+    return { ok: false, reason: `The ${PERSONA_LABEL[persona] || persona} may only manage opportunities in stages ${stageOv.join(', ')} (not ${stage}).` };
+  }
+
+  const personaLane = (getPersonaOverrides()[persona]?.lane) || PERSONA_LANE[persona];
+  if (spec.laneScoped && personaLane) {
     // A sector MD may only contribute to its own lane.
-    if (lane && lane !== PERSONA_LANE[persona]) {
-      return { ok: false, reason: `The ${PERSONA_LABEL[persona]} owns the ${LANE_LABEL[PERSONA_LANE[persona]]} lane and cannot contribute to the ${LANE_LABEL[lane] || lane} lane.` };
+    if (lane && lane !== personaLane) {
+      return { ok: false, reason: `The ${PERSONA_LABEL[persona] || persona} owns the ${LANE_LABEL[personaLane] || personaLane} lane and cannot contribute to the ${LANE_LABEL[lane] || lane} lane.` };
     }
   }
   return { ok: true };
@@ -127,9 +151,34 @@ function parseMap(s) {
 
 export function resolvePersona({ argPersona, auth } = {}) {
   const arg = (argPersona || '').trim().toLowerCase();
-  if (arg && PERSONAS.includes(arg)) return { persona: arg, source: 'arg' };
+  if (arg && isPersona(arg)) return { persona: arg, source: 'arg' };
   const appId = (auth?.appId || '').toLowerCase();
   if (appId && APPID_PERSONA[appId]) return { persona: APPID_PERSONA[appId], source: 'appid' };
-  if (DEFAULT_PERSONA && PERSONAS.includes(DEFAULT_PERSONA)) return { persona: DEFAULT_PERSONA, source: 'default' };
+  if (DEFAULT_PERSONA && isPersona(DEFAULT_PERSONA)) return { persona: DEFAULT_PERSONA, source: 'default' };
   return { persona: null, source: 'none' };
 }
+
+// ---- Admin (persona designer) catalog + views ------------------------------
+// Catalog of workflow actions, for the persona designer to build allowlists.
+export function actionsCatalog() {
+  return Object.entries(ACTIONS).map(([id, a]) => ({ id, label: a.label, personas: a.personas, laneScoped: !!a.laneScoped }));
+}
+
+// Effective personas (built-in + admin-defined) with metadata + current overrides.
+// `actions: null` means the persona uses its built-in defaults (not overridden).
+export function personasView() {
+  const ov = getPersonaOverrides() || {};
+  const actOv = getPersonaActionOverrides() || {};
+  const stageOv = getPersonaStageOverrides() || {};
+  const ids = Array.from(new Set([...PERSONAS, ...Object.keys(ov)]));
+  return ids.map((id) => ({
+    id,
+    label: ov[id]?.label || PERSONA_LABEL[id] || id,
+    lane: ov[id]?.lane || PERSONA_LANE[id] || null,
+    builtin: PERSONAS.includes(id),
+    actions: Object.prototype.hasOwnProperty.call(actOv, id) ? actOv[id] : null,
+    stages: stageOv[id] || [],
+  }));
+}
+
+export const LANES_CATALOG = LANE_LABEL;

@@ -114,7 +114,9 @@ import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
-import { accessFor, authorizePersona, authorizeDealAccess, describeAccess, describeDemoProfiles } from './lib/userPolicy.js';
+import { accessFor, authorizePersona, authorizeDealAccess, describeAccess, describeDemoProfiles, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
+import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
+import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages } from './lib/accessConfig.js';
 
 validateConfig({ strict: false });
 
@@ -841,6 +843,57 @@ api.post('/me/access', (req, res) => {
 // Demo showcase roster — one named identity per role (empty unless DEMO_PROFILES is
 // enabled). Powers the "view as" switcher so the access model is demoable end-to-end.
 api.get('/demo-profiles', (_req, res) => res.json(describeDemoProfiles()));
+
+// ---- Admin: in-app role builder / persona designer (administrator persona only) ----
+// Every route requires the VERIFIED caller to resolve to an admin role; a client can
+// never widen its own powers (same server-side trust seam as the agents).
+const WORKFLOW_STAGES = ['O1', 'O2', 'O3', 'O4', 'SCR', 'D1', 'D2', 'D3', 'D4', 'D5'];
+function requireAdmin(req, res) {
+  const access = accessFor(requestingIdentity(req));
+  if (!access.isAdmin) {
+    res.status(403).json({ error: 'administrator only', role: access.role });
+    return null;
+  }
+  return access;
+}
+// Read the current access config + the catalogs the builder UI needs.
+api.post('/admin/access-config', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  res.json({
+    config: getAccessConfig(),
+    roles: rolesView(),
+    personas: personasView(),
+    actions: actionsCatalog(),
+    lanes: LANES_CATALOG,
+    allPersonaIds: ALL_PERSONA_IDS,
+    stages: WORKFLOW_STAGES,
+  });
+}); 
+api.post('/admin/roles/:id', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const { patch, assignments } = req.body || {};
+  const out = await upsertRole(req.params.id, patch || {});
+  if (Array.isArray(assignments)) await setRoleAssignments(req.params.id, assignments);
+  res.json({ id: req.params.id, role: out });
+});
+api.post('/admin/roles/:id/delete', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  await deleteRole(req.params.id);
+  res.json({ id: req.params.id, deleted: true });
+});
+api.post('/admin/personas/:id', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const { patch, actions, stages } = req.body || {};
+  const out = await upsertPersona(req.params.id, patch || {});
+  if (Array.isArray(actions)) await setPersonaActions(req.params.id, actions);
+  if (Array.isArray(stages)) await setPersonaStages(req.params.id, stages);
+  res.json({ id: req.params.id, persona: out });
+});
+api.post('/admin/personas/:id/delete', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  await deletePersona(req.params.id);
+  res.json({ id: req.params.id, deleted: true });
+});
 // Chat with a specific persona agent. It reads the pipeline and ACTS on it through
 // its persona-scoped tools (server-side persona authorization enforced on writes).
 // Body: { message, dealId?, previousResponseId? }.

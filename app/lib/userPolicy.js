@@ -21,6 +21,7 @@ const listEnv = (name, dflt = '') =>
 // grants a role by demo name. When on, each role's id list is augmented with
 // its demo identity ids so the "view as" roster resolves out of the box.
 import { demoProfiles, demoRoleIds } from '../data/demoProfiles.js';
+import { getRoleOverrides, getRoleAssignments } from './accessConfig.js';
 export const demoProfilesEnabled = /^(1|true|yes|on)$/i.test(String(process.env.DEMO_PROFILES ?? ''));
 const withDemo = (role, ids) => (demoProfilesEnabled ? [...ids, ...(demoRoleIds[role] || [])] : ids);
 
@@ -41,7 +42,7 @@ const DEFAULT_ROLE = (process.env.DEFAULT_AGENT_ROLE || 'deal-team').trim();
 // deal-team roles (deal lead, value creation, finance, legal, investor relations).
 const ALL_PERSONAS = ['analyst', 'partner', 'retail-md', 'ai-md', 'supply-md', 'principal', 'operating-partner', 'fund-cfo', 'legal-gc', 'ir-lp'];
 const DEAL_TEAM_PERSONAS = ['analyst', 'retail-md', 'ai-md', 'supply-md', 'principal', 'operating-partner', 'fund-cfo', 'legal-gc'];
-const ROLE = {
+const BUILTIN_ROLE = {
   admin:       { rank: 100, personas: ALL_PERSONAS,       write: true,  stage2: true, all: true },
   partner:     { rank: 80,  personas: ALL_PERSONAS,       write: true,  stage2: true },
   'deal-team': { rank: 60,  personas: DEAL_TEAM_PERSONAS, write: true,  stage2: true },
@@ -49,19 +50,35 @@ const ROLE = {
   member:      { rank: 20,  personas: ['analyst'],                                               write: false, stage2: false },
 };
 
-const ROLE_LABEL = {
+const BUILTIN_LABEL = {
   admin: 'Administrator', partner: 'Partner / Deal Sponsor', 'deal-team': 'Deal Team', analyst: 'Analyst', member: 'Member',
 };
-const rankOf = (role) => (ROLE[role]?.rank ?? 0);
+
+// Effective roles = built-in defaults merged with admin-authored overrides / custom
+// roles from accessConfig (persisted). Empty config = built-in behavior unchanged.
+function effRoles() {
+  const out = {};
+  for (const [id, base] of Object.entries(BUILTIN_ROLE)) out[id] = { ...base };
+  const ov = getRoleOverrides() || {};
+  for (const [id, patch] of Object.entries(ov)) out[id] = { ...(out[id] || {}), ...(patch || {}) };
+  return out;
+}
+const roleSpec = (id) => effRoles()[id];
+const labelOf = (id) => (roleSpec(id)?.label) || BUILTIN_LABEL[id] || id;
+const rankOf = (role) => (roleSpec(role)?.rank ?? 0);
+
+// Env-based id lists for the four built-in assignable roles.
+const ENV_IDS = { admin: ADMIN_IDS, partner: PARTNER_IDS, 'deal-team': DEAL_TEAM_IDS, analyst: ANALYST_IDS };
 
 // Resolve a VERIFIED identity to a role. `identity` = { oid, upn, name }.
 export function roleForUser(identity = {}) {
   const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn), norm(identity.name)].filter(Boolean);
+  const assign = getRoleAssignments() || {};
+  const idsFor = (id) => [...(ENV_IDS[id] || []), ...((assign[id] || []).map((s) => norm(s)))];
   const hit = (list) => keys.some((k) => list.includes(k));
-  if (hit(ADMIN_IDS)) return 'admin';
-  if (hit(PARTNER_IDS)) return 'partner';
-  if (hit(DEAL_TEAM_IDS)) return 'deal-team';
-  if (hit(ANALYST_IDS)) return 'analyst';
+  // Highest-rank matching role wins (covers custom roles + config assignments).
+  const ranked = Object.keys(effRoles()).filter((r) => r !== 'member').sort((a, b) => rankOf(b) - rankOf(a));
+  for (const id of ranked) if (hit(idsFor(id))) return id;
   return 'member';
 }
 
@@ -69,14 +86,14 @@ export function roleForUser(identity = {}) {
 function actualRoleFor(identity) {
   return identity && (identity.oid || identity.upn || identity.name)
     ? roleForUser(identity)
-    : (ROLE[DEFAULT_ROLE] ? DEFAULT_ROLE : 'member');
+    : (roleSpec(DEFAULT_ROLE) ? DEFAULT_ROLE : 'member');
 }
 
 // Roles a user may impersonate DOWN to — their own role and every lower one. Powers a
 // "view as" so a senior reviewer sees exactly what a junior role would (never up).
 export function viewAsRolesFor(identity) {
   const mine = rankOf(actualRoleFor(identity));
-  return Object.keys(ROLE).filter((r) => rankOf(r) <= mine).sort((a, b) => rankOf(b) - rankOf(a));
+  return Object.keys(effRoles()).filter((r) => rankOf(r) <= mine).sort((a, b) => rankOf(b) - rankOf(a));
 }
 
 // Full access profile. When `viewAsRole` is at or below the caller's actual rank the
@@ -85,18 +102,24 @@ export function viewAsRolesFor(identity) {
 export function accessFor(identity, viewAsRole = null) {
   const actualRole = actualRoleFor(identity);
   let role = actualRole;
-  if (viewAsRole && ROLE[viewAsRole] && rankOf(viewAsRole) <= rankOf(actualRole)) role = viewAsRole;
-  const spec = ROLE[role] || ROLE.member;
+  if (viewAsRole && roleSpec(viewAsRole) && rankOf(viewAsRole) <= rankOf(actualRole)) role = viewAsRole;
+  const spec = roleSpec(role) || roleSpec('member') || BUILTIN_ROLE.member;
   return {
     role,
     actualRole,
     viewingAs: role !== actualRole ? role : null,
-    roleLabel: ROLE_LABEL[role] || role,
-    actualRoleLabel: ROLE_LABEL[actualRole] || actualRole,
-    isAdmin: !!ROLE[actualRole]?.all,
-    allowedPersonas: spec.personas,
-    canWrite: spec.write,
-    canViewStage2: spec.stage2,
+    roleLabel: labelOf(role),
+    actualRoleLabel: labelOf(actualRole),
+    isAdmin: !!(roleSpec(actualRole)?.all),
+    allowedPersonas: spec.personas || [],
+    canWrite: !!spec.write,
+    canViewStage2: !!spec.stage2,
+    // Data sovereignty: allowed deal regions / jurisdictions (empty = all).
+    regions: spec.regions || [],
+    // Workflow management: may advance the pipeline, and the stages this role may act
+    // in (empty = all). advanceWorkflow defaults to the role's write capability.
+    advanceWorkflow: spec.advanceWorkflow === undefined ? !!spec.write : !!spec.advanceWorkflow,
+    allowedStages: spec.allowedStages || [],
   };
 }
 
@@ -104,7 +127,7 @@ export function accessFor(identity, viewAsRole = null) {
 export function describeAccess(identity, viewAsRole = null) {
   return {
     ...accessFor(identity, viewAsRole),
-    viewAsRoles: viewAsRolesFor(identity).map((r) => ({ role: r, label: ROLE_LABEL[r] || r })),
+    viewAsRoles: viewAsRolesFor(identity).map((r) => ({ role: r, label: labelOf(r) })),
   };
 }
 
@@ -142,12 +165,42 @@ export function authorizePersona(identity, requestedPersona, viewAsRole = null) 
 }
 
 // Gate access to a specific deal by its stage (Stage-2 diligence = deal-team/partner only).
-export function authorizeDealAccess(identity, dealStageOrName, viewAsRole = null) {
+export function authorizeDealAccess(identity, dealStageOrName, viewAsRole = null, region = null) {
   const access = accessFor(identity, viewAsRole);
   const s = String(dealStageOrName || '');
   const isStage2 = /^d/i.test(s) || /diligence|approval/i.test(s);
   if (isStage2 && !access.canViewStage2) {
     return { ok: false, access, reason: `This deal is in Stage 2 (Diligence & Approval), which is restricted to the deal team. As ${access.roleLabel} you don’t have access.` };
   }
+  // Data sovereignty: when the role restricts regions, a deal tagged to another
+  // region is not visible (empty regions = no restriction).
+  if (region && access.regions.length && !access.regions.map((x) => String(x).toLowerCase()).includes(String(region).toLowerCase())) {
+    return { ok: false, access, reason: `This opportunity is in a data-residency region (${region}) your role (${access.roleLabel}) is not cleared for.` };
+  }
   return { ok: true, access };
 }
+
+// Admin view of the effective roles (built-in defaults + admin overrides / custom
+// roles) for the in-app role builder. Includes which are built-in and current
+// config assignments.
+export function rolesView() {
+  const eff = effRoles();
+  const assign = getRoleAssignments() || {};
+  return Object.entries(eff).map(([id, r]) => ({
+    id,
+    label: labelOf(id),
+    rank: r.rank ?? 0,
+    personas: r.personas || [],
+    write: !!r.write,
+    stage2: !!r.stage2,
+    advanceWorkflow: r.advanceWorkflow === undefined ? !!r.write : !!r.advanceWorkflow,
+    allowedStages: r.allowedStages || [],
+    regions: r.regions || [],
+    isAdminRole: !!r.all,
+    builtin: !!BUILTIN_ROLE[id],
+    assignments: assign[id] || [],
+    envAssignedCount: (ENV_IDS[id] || []).length,
+  })).sort((a, b) => b.rank - a.rank);
+}
+
+export const ALL_PERSONA_IDS = ALL_PERSONAS;

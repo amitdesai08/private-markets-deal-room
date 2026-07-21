@@ -33,6 +33,7 @@ import {
 } from '../data/candidates.js';
 import { initRepo, repoMode, repoReady, companies as coRepo, deals as dealRepo, signals as sigRepo, recordEvent } from './repo/index.js';
 import { initConnectorSettings } from './connectorSettings.js';
+import { initAccessConfig } from './accessConfig.js';
 import { primeTokenCache } from './mcp/oauth.js';
 import { computeICReadiness, currentAssumptions } from './icReadiness.js';
 import { validateCitations } from './citations.js';
@@ -218,6 +219,7 @@ function startBackgroundSync() {
 export async function hydrate() {
   const info = await initRepo();
   await initConnectorSettings().catch(() => {});
+  await initAccessConfig().catch(() => {});
   if (!repoReady()) return { mode: repoMode(), companies: 0, deals: 0 };
   await primeTokenCache().catch(() => {});
   await loadFabric().catch(() => {});
