@@ -32,6 +32,7 @@ import {
   stageIndex as candStageIndex
 } from '../data/candidates.js';
 import { initRepo, repoMode, repoReady, companies as coRepo, deals as dealRepo, signals as sigRepo, recordEvent } from './repo/index.js';
+import { initConnectorSettings } from './connectorSettings.js';
 import { primeTokenCache } from './mcp/oauth.js';
 import { computeICReadiness, currentAssumptions } from './icReadiness.js';
 import { validateCitations } from './citations.js';
@@ -216,6 +217,7 @@ function startBackgroundSync() {
 // Load persisted state from Cosmos at startup (empty on a fresh datastore).
 export async function hydrate() {
   const info = await initRepo();
+  await initConnectorSettings().catch(() => {});
   if (!repoReady()) return { mode: repoMode(), companies: 0, deals: 0 };
   await primeTokenCache().catch(() => {});
   await loadFabric().catch(() => {});

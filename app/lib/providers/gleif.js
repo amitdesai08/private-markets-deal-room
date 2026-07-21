@@ -4,6 +4,8 @@
 // ownership mapping: resolve a company name to its Legal Entity Identifier (LEI),
 // then walk the ownership tree (direct + ultimate parent). No key required.
 
+import { isConnectorEnabled } from '../connectorSettings.js';
+
 const BASE = 'https://api.gleif.org/api/v1';
 const HEADERS = { Accept: 'application/vnd.api+json' };
 
@@ -26,6 +28,7 @@ function toRecord(d) {
 
 // Resolve a company name to candidate LEI records (fuzzy legal-name match).
 export async function leiLookup(name) {
+  if (!isConnectorEnabled('gleif')) return { found: false, source: 'gleif', disabled: true, records: [] };
   const url = `${BASE}/lei-records?filter[entity.legalName]=${encodeURIComponent(name)}&page[size]=5`;
   const r = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(12000) });
   if (!r.ok) return { found: false, source: 'gleif', records: [] };

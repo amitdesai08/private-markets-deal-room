@@ -4,6 +4,8 @@
 // catalyst classifier has live articles to work on in a demo without a paid news
 // provider. Returns recent articles (title, url, domain, date, tone) for a query.
 
+import { isConnectorEnabled } from '../connectorSettings.js';
+
 const DOC_API = 'https://api.gdeltproject.org/api/v2/doc/doc';
 
 export function gdeltConfigured() {
@@ -11,6 +13,7 @@ export function gdeltConfigured() {
 }
 
 export async function gdeltNews(query, { max = 12, timespan = '1m' } = {}) {
+  if (!isConnectorEnabled('gdelt')) return { found: false, source: 'gdelt', disabled: true, articles: [] };
   const q = String(query || '').trim();
   if (!q) return { found: false, source: 'gdelt', articles: [] };
   const params = new URLSearchParams({ query: q, mode: 'ArtList', maxrecords: String(max), format: 'json', sort: 'DateDesc' });

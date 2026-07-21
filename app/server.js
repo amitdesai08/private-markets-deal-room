@@ -105,6 +105,7 @@ import { chatPersonaAgent, personaAgentsInfo } from './lib/personaAgent.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
 import { listConnectors, testConnector, disconnectConnector } from './lib/connectors.js';
+import { setConnectorEnabled } from './lib/connectorSettings.js';
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import m365LoginRouter from './lib/m365/loginRoutes.js';
 import { m365Configured, m365Connected, m365FilesScope, listDealDocuments, saveDealDocument, M365NotConnectedError } from './lib/m365/graph.js';
@@ -550,6 +551,17 @@ api.post('/connectors/:id/disconnect', async (req, res) => {
     res.json(out);
   } catch (err) {
     res.status(500).json({ error: 'disconnect failed', detail: String(err?.message || err) });
+  }
+});
+// Enable/disable a connector from the Data Sources config menu. Persisted; a
+// disabled source is skipped by its provider + reports 'disabled' in the panel.
+api.post('/connectors/:id/enable', async (req, res) => {
+  const enabled = req.body?.enabled !== false;
+  try {
+    const out = await setConnectorEnabled(req.params.id, enabled);
+    res.json({ id: req.params.id, enabled: out });
+  } catch (err) {
+    res.status(500).json({ error: 'enable toggle failed', detail: String(err?.message || err) });
   }
 });
 // In-app OAuth sign-in for MCP connectors: /connectors/:provider/login|callback

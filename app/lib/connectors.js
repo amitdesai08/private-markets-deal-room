@@ -17,6 +17,9 @@ import { McpSession } from './mcp/morningstar.js';
 import { config } from './config.js';
 import { hasLogin, clearTokens } from './mcp/oauth.js';
 import { testFilings, filingsConfigured } from './filings.js';
+import { gdeltNews, gdeltConfigured } from './providers/gdelt.js';
+import { leiLookup, gleifConfigured } from './providers/gleif.js';
+import { isConnectorEnabled } from './connectorSettings.js';
 import { m365Configured, m365Connected, me as m365Me } from './m365/graph.js';
 
 export const CONNECTORS = [
@@ -53,6 +56,16 @@ export const CONNECTORS = [
     id: 'edgar', name: 'SEC EDGAR', kind: 'edgar', role: 'confirm',
     primaryJob: 'US regulatory filings — 10-K, 10-Q, 8-K, proxies (free, official)',
     sweetSpot: 'Real public-company filings with clickable sources'
+  },
+  {
+    id: 'gdelt', name: 'GDELT', kind: 'gdelt', role: 'discover',
+    primaryJob: 'Global news & event stream — live catalyst signals (free, keyless)',
+    sweetSpot: 'Broad live news without a paid provider'
+  },
+  {
+    id: 'gleif', name: 'GLEIF', kind: 'gleif', role: 'confirm',
+    primaryJob: 'Legal-entity (LEI) + corporate ownership lookup (free, keyless)',
+    sweetSpot: 'KYC / entity resolution & ultimate-parent mapping'
   },
   {
     id: 'pitchbook', name: 'PitchBook', kind: 'database', role: 'discover',
@@ -95,6 +108,8 @@ function isConfigured(c) {
   if (c.kind === 'web') return newsAgentConfigured();
   if (c.kind === 'mcp') return hasLogin(c.provider);
   if (c.kind === 'edgar') return filingsConfigured();
+  if (c.kind === 'gdelt') return gdeltConfigured();
+  if (c.kind === 'gleif') return gleifConfigured();
   if (c.kind === 'm365') return m365Connected();
   return false;
 }
@@ -150,6 +165,30 @@ async function testEdgar(c) {
   }
 }
 
+async function testGdelt(c) {
+  const t0 = Date.now();
+  try {
+    await gdeltNews('Apple', { max: 1 });
+    const latencyMs = Date.now() - t0;
+    markSync(c.id);
+    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Healthy · GDELT reachable in ${latencyMs}ms (free, no key)` });
+  } catch (e) {
+    return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Unreachable · ${String(e.message || e).slice(0, 80)}` });
+  }
+}
+
+async function testGleif(c) {
+  const t0 = Date.now();
+  try {
+    await leiLookup('Apple');
+    const latencyMs = Date.now() - t0;
+    markSync(c.id);
+    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Healthy · GLEIF reachable in ${latencyMs}ms (free, no key)` });
+  } catch (e) {
+    return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Unreachable · ${String(e.message || e).slice(0, 80)}` });
+  }
+}
+
 async function testM365(c) {
   if (!m365Connected()) {
     return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Not connected — sign in with your Microsoft 365 account to enable Teams, SharePoint and mailbox steps.' });
@@ -170,12 +209,17 @@ async function testM365(c) {
 export async function testConnector(id, { force = false } = {}) {
   const c = byId[id];
   if (!c) return null;
+  if (!isConnectorEnabled(id)) {
+    return result(c, { ok: false, status: 'disabled', latencyMs: null, message: 'Disabled in Data Sources settings.' });
+  }
   const cached = lastResult[id];
   if (!force && cached && Date.now() - new Date(cached.checkedAt).getTime() < CACHE_MS) return cached;
 
   if (c.kind === 'web') return testWeb(c);
   if (c.kind === 'mcp') return testMcp(c);
   if (c.kind === 'edgar') return testEdgar(c);
+  if (c.kind === 'gdelt') return testGdelt(c);
+  if (c.kind === 'gleif') return testGleif(c);
   if (c.kind === 'm365') return testM365(c);
   return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Integration not wired — no live connection.' });
 }
@@ -184,8 +228,10 @@ export async function testConnector(id, { force = false } = {}) {
 // be tested/connected + the last known result (if any this session).
 export function listConnectors() {
   return CONNECTORS.map((c) => {
+    const enabled = isConnectorEnabled(c.id);
     const configured = isConfigured(c);
     const cached = lastResult[c.id];
+    const free = c.kind === 'web' || c.kind === 'edgar' || c.kind === 'gdelt' || c.kind === 'gleif';
     return {
       id: c.id,
       name: c.name,
@@ -195,13 +241,15 @@ export function listConnectors() {
       loginUrl: c.loginUrl || null,
       primaryJob: c.primaryJob,
       sweetSpot: c.sweetSpot,
+      free,
+      enabled,
       configured,
-      testable: c.kind === 'web' || c.kind === 'edgar' ? true : c.kind === 'mcp' || c.kind === 'm365' ? configured : false,
+      testable: free ? true : (c.kind === 'mcp' || c.kind === 'm365' ? configured : false),
       connectable: c.kind === 'mcp' || c.kind === 'm365', // can be signed-in via OAuth
-      status: cached ? cached.status : c.kind === 'database' ? 'disconnected' : configured ? 'unknown' : 'disconnected',
+      status: !enabled ? 'disabled' : (cached ? cached.status : c.kind === 'database' ? 'disconnected' : configured ? 'unknown' : 'disconnected'),
       latencyMs: cached ? cached.latencyMs : null,
       lastSync: getLastSync(c.id),
-      message: cached ? cached.message : null
+      message: !enabled ? 'Disabled in Data Sources settings.' : (cached ? cached.message : null)
     };
   });
 }

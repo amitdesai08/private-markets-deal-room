@@ -7,6 +7,7 @@
 // column from seeded text into live regulatory filings with clickable sources.
 
 import { config } from './config.js';
+import { isConnectorEnabled } from './connectorSettings.js';
 
 const UA = config.filings.secEdgarUserAgent;
 const HEADERS = { 'User-Agent': UA, Accept: 'application/json' };
@@ -478,6 +479,7 @@ function latestAnnual(facts, aliases) {
 }
 
 export async function companyFundamentals(name, ticker = null) {
+  if (!isConnectorEnabled('edgar')) return { found: false, source: 'sec-xbrl', disabled: true };
   const hit = await resolveCik(name, ticker);
   if (!hit) return { found: false, source: 'sec-xbrl' };
   const r = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${hit.cik}.json`, { headers: HEADERS, signal: AbortSignal.timeout(15000) });

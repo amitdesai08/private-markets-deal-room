@@ -14,6 +14,7 @@ import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Lifecycle from './Lifecycle';
 import Fund from './Fund';
+import DataSources from './DataSources';
 import Offline, { OnlineLeaseBanner, type PlatformStatus } from './Offline';
 import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipeline } from './types';
 
@@ -66,7 +67,7 @@ export default function App() {
   const [viewAsRole, setViewAsRole] = useState('');
   const [roleLabel, setRoleLabel] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'lifecycle' | 'fund'>('overview');
+  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'lifecycle' | 'fund' | 'sources'>('overview');
   // Platform power state (sleep/wake). null until first probe; when control is on and
   // the orchestrator is asleep, the whole app is replaced by the Offline gate.
   const [platform, setPlatform] = useState<PlatformStatus | null>(null);
@@ -201,7 +202,7 @@ export default function App() {
       </header>
 
       <nav className="maintabs">
-        {([['overview', 'Deals Overview'], ['stage1', 'Stage 1 — Origination'], ['stage2', 'Stage 2 — Diligence'], ['lifecycle', 'Lifecycle'], ['fund', 'Fund & Portfolio']] as const).map(([k, label]) => (
+        {([['overview', 'Deals Overview'], ['stage1', 'Stage 1 — Origination'], ['stage2', 'Stage 2 — Diligence'], ['lifecycle', 'Lifecycle'], ['fund', 'Fund & Portfolio'], ['sources', 'Data Sources']] as const).map(([k, label]) => (
           <button key={k} className={`maintab${mainTab === k ? ' on' : ''}`} onClick={() => setMainTab(k)}>{label}</button>
         ))}
       </nav>
@@ -216,6 +217,8 @@ export default function App() {
             <Lifecycle />
           ) : mainTab === 'fund' ? (
             <Fund />
+          ) : mainTab === 'sources' ? (
+            <DataSources />
           ) : (
             <Stage2 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           )}
