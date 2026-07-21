@@ -7,7 +7,7 @@ contact_links:
     url: https://github.com/amitdesai08/private-markets-deal-room/blob/main/docs/DEPLOYMENT-CHECKLIST.md
     about: Step-by-step to stand up the accelerator in your subscription.
   - name: 🎬 Demo runbook
-    url: https://github.com/amitdesai08/private-markets-deal-room/blob/main/docs/DEMO-RUNBOOK.md
+    url: https://github.com/amitdesai08/private-markets-deal-room/blob/main/docs/Demos/DEMO-RUNBOOK.md
     about: The ~15-minute guided demo script.
   - name: 🛠️ Contributing & local setup
     url: https://github.com/amitdesai08/private-markets-deal-room/blob/main/CONTRIBUTING.md
