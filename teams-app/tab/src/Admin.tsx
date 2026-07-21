@@ -1,12 +1,9 @@
 // The "Admin" tab — in-app RBAC role builder + persona designer. Visible only to an
 // administrator (App gates it on isAdmin; the orchestrator re-enforces admin-only on
-// every write). Lets an admin define custom roles and personas without a code change:
-//   • Data sovereignty — the deal regions/jurisdictions a role may see.
-//   • Access level     — which persona agents a role may act as, plus write / Stage-2.
-//   • Workflow mgmt    — may advance the pipeline, which stages a role may act in, and
-//                        (per persona) exactly which workflow actions + stages are allowed.
-//
-// All edits persist server-side (Cosmos) and layer over the built-in defaults.
+// every write). Custom roles/personas persist server-side and layer over the built-in
+// defaults. Layout: two sub-tabs (Roles · Personas); each row is a collapsed summary
+// that expands into clearly-grouped sections (Identity · Access · Workflow · Data
+// sovereignty · Assignment) to keep the surface uncluttered.
 import { useEffect, useState } from 'react';
 
 type Role = {
@@ -42,17 +39,19 @@ export default function Admin({ ssoToken, viewAs }: { ssoToken?: string; viewAs?
   if (!data) return <div className="adm"><style>{CSS}</style><p className="adm-empty">Loading access configuration…</p></div>;
 
   const personaIds = data.personas.map((p) => p.id);
+  const roleCount = { total: data.roles.length, custom: data.roles.filter((r) => !r.builtin).length };
+  const pCount = { total: data.personas.length, custom: data.personas.filter((p) => !p.builtin).length };
 
   return (
     <div className="adm">
       <style>{CSS}</style>
       <div className="adm-head">
         <h2>Access administration</h2>
-        <p>Design custom RBAC roles and personas — data sovereignty, access level, and workflow rights. Changes persist and layer over the built-in defaults.</p>
+        <p>Define custom RBAC roles and personas — data sovereignty, access level, and workflow rights. Select a row to expand and edit; changes persist and layer over the built-in defaults.</p>
       </div>
       <nav className="adm-tabs">
-        <button className={tab === 'roles' ? 'on' : ''} onClick={() => setTab('roles')}>Roles</button>
-        <button className={tab === 'personas' ? 'on' : ''} onClick={() => setTab('personas')}>Personas</button>
+        <button className={tab === 'roles' ? 'on' : ''} onClick={() => setTab('roles')}>Roles <span className="adm-count">{roleCount.total}</span></button>
+        <button className={tab === 'personas' ? 'on' : ''} onClick={() => setTab('personas')}>Personas <span className="adm-count">{pCount.total}</span></button>
       </nav>
 
       {tab === 'roles'
@@ -62,6 +61,24 @@ export default function Admin({ ssoToken, viewAs }: { ssoToken?: string; viewAs?
   );
 }
 
+// ---- small presentational helpers -------------------------------------------
+function Section({ title, hint, children }: { title: string; hint?: string; children: any }) {
+  return (
+    <section className="adm-sec">
+      <div className="adm-sec-h"><span className="adm-sec-t">{title}</span>{hint ? <span className="adm-sec-hint">{hint}</span> : null}</div>
+      <div className="adm-sec-body">{children}</div>
+    </section>
+  );
+}
+function Field({ label, hint, col, children }: { label: string; hint?: string; col?: boolean; children: any }) {
+  return (
+    <div className={`adm-field${col ? ' col' : ''}`}>
+      <span className="adm-flabel">{label}{hint ? <em> {hint}</em> : null}</span>
+      <div className="adm-fctl">{children}</div>
+    </div>
+  );
+}
+function Chip({ children }: { children: any }) { return <span className="adm-mchip">{children}</span>; }
 function CheckGrid({ options, value, onChange, labels }: { options: string[]; value: string[]; onChange: (v: string[]) => void; labels?: Record<string, string> }) {
   const toggle = (o: string) => onChange(value.includes(o) ? value.filter((x) => x !== o) : [...value, o]);
   return (
@@ -118,8 +135,8 @@ function BulkAssign({ data, post, reload }: any) {
   };
 
   return (
-    <div className="adm-bulk">
-      <div className="adm-bulk-h"><strong>Bulk assign roles (CSV)</strong> <span className="adm-note">columns: <code>user,role</code> — user = oid / upn / name</span></div>
+    <div className="adm-panel">
+      <p className="adm-panel-lead">Assign many users at once. Columns: <code>user,role</code> (user = object id / UPN / display name). Unknown roles are skipped.</p>
       <textarea className="adm-csv" rows={4} placeholder={'user,role\nalice@contoso.com,partner\nbob@contoso.com,analyst'} value={csv} onChange={(e) => setCsv(e.target.value)} />
       <div className="adm-bulk-ctl">
         <input type="file" accept=".csv,text/csv" onChange={onFile} />
@@ -135,6 +152,8 @@ function BulkAssign({ data, post, reload }: any) {
 
 function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
   const [draft, setDraft] = useState<Record<string, Role>>({});
+  const [open, setOpen] = useState<string | null>(null);
+  const [panel, setPanel] = useState<'' | 'add' | 'import'>('');
   const [newRole, setNewRole] = useState({ id: '', label: '', rank: 50 });
   const roleOf = (r: Role): Role => draft[r.id] || r;
   const edit = (id: string, patch: Partial<Role>) => setDraft((d: any) => ({ ...d, [id]: { ...(d[id] || data.roles.find((x: Role) => x.id === id)), ...patch } }));
@@ -150,129 +169,198 @@ function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
       await reload();
     } finally { setBusy(false); }
   };
-  const del = async (id: string) => { setBusy(true); try { await post(`/roles/${id}/delete`); await reload(); } finally { setBusy(false); } };
+  const del = async (id: string) => { setBusy(true); try { await post(`/roles/${id}/delete`); if (open === id) setOpen(null); await reload(); } finally { setBusy(false); } };
   const addRole = async () => {
     if (!newRole.id.trim()) return;
     setBusy(true);
-    try { await post(`/roles/${newRole.id.trim().toLowerCase()}`, { patch: { label: newRole.label || newRole.id, rank: Number(newRole.rank), personas: [], write: false, stage2: false, advanceWorkflow: false, allowedStages: [], regions: [] } }); setNewRole({ id: '', label: '', rank: 50 }); await reload(); } finally { setBusy(false); }
+    try {
+      const id = newRole.id.trim().toLowerCase();
+      await post(`/roles/${id}`, { patch: { label: newRole.label || newRole.id, rank: Number(newRole.rank), personas: [], write: false, stage2: false, advanceWorkflow: false, allowedStages: [], regions: [] } });
+      setNewRole({ id: '', label: '', rank: 50 }); setPanel(''); await reload(); setOpen(id);
+    } finally { setBusy(false); }
   };
 
   return (
     <div>
-      <BulkAssign data={data} post={post} reload={reload} />
-      <div className="adm-add">
-        <input placeholder="role id (e.g. compliance)" value={newRole.id} onChange={(e) => setNewRole({ ...newRole, id: e.target.value })} />
-        <input placeholder="label" value={newRole.label} onChange={(e) => setNewRole({ ...newRole, label: e.target.value })} />
-        <input type="number" placeholder="rank" value={newRole.rank} onChange={(e) => setNewRole({ ...newRole, rank: Number(e.target.value) })} style={{ width: 70 }} />
-        <button className="adm-btn primary" disabled={busy || !newRole.id.trim()} onClick={addRole}>Add role</button>
+      <div className="adm-toolbar">
+        <button className={`adm-tbtn${panel === 'add' ? ' on' : ''}`} onClick={() => setPanel(panel === 'add' ? '' : 'add')}>+ New role</button>
+        <button className={`adm-tbtn${panel === 'import' ? ' on' : ''}`} onClick={() => setPanel(panel === 'import' ? '' : 'import')}>Import CSV…</button>
       </div>
+      {panel === 'add' ? (
+        <div className="adm-panel">
+          <div className="adm-addrow">
+            <input placeholder="role id (e.g. compliance)" value={newRole.id} onChange={(e) => setNewRole({ ...newRole, id: e.target.value })} />
+            <input placeholder="label" value={newRole.label} onChange={(e) => setNewRole({ ...newRole, label: e.target.value })} />
+            <input type="number" placeholder="rank" value={newRole.rank} onChange={(e) => setNewRole({ ...newRole, rank: Number(e.target.value) })} style={{ width: 76 }} />
+            <button className="adm-btn primary" disabled={busy || !newRole.id.trim()} onClick={addRole}>Create</button>
+          </div>
+          <p className="adm-panel-lead">New roles start with no access — expand the row to grant personas, write, stages, and regions.</p>
+        </div>
+      ) : null}
+      {panel === 'import' ? <BulkAssign data={data} post={post} reload={reload} /> : null}
 
-      {data.roles.map((base: Role) => {
-        const r = roleOf(base);
-        const dirty = isDirty(base, r);
-        return (
-          <article key={base.id} className="adm-card">
-            <div className="adm-card-h">
-              <input className="adm-label" value={r.label} onChange={(e) => edit(base.id, { label: e.target.value })} />
-              <span className="adm-id">{base.id}{base.builtin ? ' · built-in' : ' · custom'}{base.isAdminRole ? ' · admin' : ''}</span>
-              <label className="adm-rank">rank <input type="number" value={r.rank} onChange={(e) => edit(base.id, { rank: Number(e.target.value) })} /></label>
-            </div>
-            <div className="adm-row"><span className="adm-k">Access level</span>
-              <label className="adm-flag"><input type="checkbox" checked={r.write} onChange={(e) => edit(base.id, { write: e.target.checked })} />can write</label>
-              <label className="adm-flag"><input type="checkbox" checked={r.stage2} onChange={(e) => edit(base.id, { stage2: e.target.checked })} />see Stage 2</label>
-              <label className="adm-flag"><input type="checkbox" checked={r.advanceWorkflow} onChange={(e) => edit(base.id, { advanceWorkflow: e.target.checked })} />advance workflow</label>
-            </div>
-            <div className="adm-row col"><span className="adm-k">Personas this role may act as</span>
-              <CheckGrid options={personaIds} value={r.personas} onChange={(v) => edit(base.id, { personas: v })} />
-            </div>
-            <div className="adm-row col"><span className="adm-k">Workflow stages this role may manage <em>(none = all)</em></span>
-              <CheckGrid options={data.stages} value={r.allowedStages} onChange={(v) => edit(base.id, { allowedStages: v })} />
-            </div>
-            <div className="adm-row"><span className="adm-k">Data sovereignty — allowed regions <em>(comma; none = all)</em></span>
-              <input className="adm-text" value={r.regions.join(', ')} onChange={(e) => edit(base.id, { regions: splitCsv(e.target.value) })} placeholder="e.g. US, EU" />
-            </div>
-            <div className="adm-row"><span className="adm-k">Assigned users <em>(oid / upn / name, comma)</em></span>
-              <input className="adm-text" value={r.assignments.join(', ')} onChange={(e) => edit(base.id, { assignments: splitCsv(e.target.value) })} placeholder="alice@contoso.com, ..." />
-              {base.envAssignedCount ? <span className="adm-note">+{base.envAssignedCount} from env</span> : null}
-            </div>
-            <div className="adm-foot">
-              <button className="adm-btn primary" disabled={busy || !dirty} onClick={() => save(r)}>Save</button>
-              {!base.builtin ? <button className="adm-btn danger" disabled={busy} onClick={() => del(base.id)}>Delete</button> : null}
-            </div>
-          </article>
-        );
-      })}
+      <div className="adm-list">
+        {data.roles.map((base: Role) => {
+          const r = roleOf(base);
+          const isOpen = open === base.id;
+          const dirty = isDirty(base, r);
+          return (
+            <article key={base.id} className={`adm-item${isOpen ? ' open' : ''}`}>
+              <button className="adm-sum" onClick={() => setOpen(isOpen ? null : base.id)}>
+                <span className="adm-caret">{isOpen ? '▾' : '▸'}</span>
+                <span className="adm-sum-name">{base.label}</span>
+                <span className={`adm-tag${base.builtin ? '' : ' custom'}`}>{base.builtin ? 'built-in' : 'custom'}</span>
+                {base.isAdminRole ? <span className="adm-tag admin">admin</span> : null}
+                {dirty ? <span className="adm-dot" title="Unsaved changes">●</span> : null}
+                <span className="adm-sum-meta">
+                  <Chip>rank {base.rank}</Chip>
+                  <Chip>{base.personas.length} personas</Chip>
+                  <Chip>{base.write ? 'write' : 'read-only'}</Chip>
+                  {base.stage2 ? <Chip>Stage 2</Chip> : null}
+                  <Chip>{base.regions.length ? base.regions.join(' / ') : 'all regions'}</Chip>
+                  <Chip>{base.assignments.length + base.envAssignedCount} users</Chip>
+                </span>
+              </button>
+              {isOpen ? (
+                <div className="adm-body">
+                  <Section title="Identity">
+                    <Field label="Label"><input className="adm-text" value={r.label} onChange={(e) => edit(base.id, { label: e.target.value })} /></Field>
+                    <Field label="Rank" hint="(seniority; higher wins on conflict, and “view-as” only goes down)"><input className="adm-num" type="number" value={r.rank} onChange={(e) => edit(base.id, { rank: Number(e.target.value) })} /></Field>
+                  </Section>
+                  <Section title="Access level" hint="What this role can see and do">
+                    <div className="adm-flags">
+                      <label className="adm-flag"><input type="checkbox" checked={r.write} onChange={(e) => edit(base.id, { write: e.target.checked })} />Can write</label>
+                      <label className="adm-flag"><input type="checkbox" checked={r.stage2} onChange={(e) => edit(base.id, { stage2: e.target.checked })} />See Stage 2 (diligence)</label>
+                    </div>
+                    <Field label="Personas this role may act as" col><CheckGrid options={personaIds} value={r.personas} onChange={(v) => edit(base.id, { personas: v })} /></Field>
+                  </Section>
+                  <Section title="Workflow management" hint="Advancing the pipeline and the stages this role may manage">
+                    <div className="adm-flags">
+                      <label className="adm-flag"><input type="checkbox" checked={r.advanceWorkflow} onChange={(e) => edit(base.id, { advanceWorkflow: e.target.checked })} />May advance the workflow</label>
+                    </div>
+                    <Field label="Stages this role may manage" hint="(none = all)" col><CheckGrid options={data.stages} value={r.allowedStages} onChange={(v) => edit(base.id, { allowedStages: v })} /></Field>
+                  </Section>
+                  <Section title="Data sovereignty" hint="Regions / jurisdictions this role may see">
+                    <Field label="Allowed regions" hint="(comma-separated; none = all)"><input className="adm-text" value={r.regions.join(', ')} onChange={(e) => edit(base.id, { regions: splitCsv(e.target.value) })} placeholder="e.g. US, EU" /></Field>
+                  </Section>
+                  <Section title="Assignment" hint="Users mapped to this role">
+                    <Field label="Assigned users" hint="(object id / UPN / name, comma-separated)">
+                      <input className="adm-text" value={r.assignments.join(', ')} onChange={(e) => edit(base.id, { assignments: splitCsv(e.target.value) })} placeholder="alice@contoso.com, …" />
+                    </Field>
+                    {base.envAssignedCount ? <p className="adm-note">+{base.envAssignedCount} additional user(s) assigned from the deploy configuration (read-only).</p> : null}
+                  </Section>
+                  <div className="adm-foot">
+                    <button className="adm-btn primary" disabled={busy || !dirty} onClick={() => save(r)}>Save changes</button>
+                    <button className="adm-btn" disabled={busy || !dirty} onClick={() => setDraft((d: any) => { const c = { ...d }; delete c[base.id]; return c; })}>Reset</button>
+                    {!base.builtin ? <button className="adm-btn danger" disabled={busy} onClick={() => del(base.id)}>Delete role</button> : null}
+                  </div>
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 function PersonasEditor({ data, busy, setBusy, post, reload }: any) {
   const [draft, setDraft] = useState<Record<string, Persona>>({});
+  const [open, setOpen] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
   const [newP, setNewP] = useState({ id: '', label: '', lane: '' });
   const actionIds = data.actions.map((a: Action) => a.id);
   const actionLabels: Record<string, string> = Object.fromEntries(data.actions.map((a: Action) => [a.id, a.label]));
   const pOf = (p: Persona): Persona => draft[p.id] || p;
   const edit = (id: string, patch: Partial<Persona>) => setDraft((d: any) => ({ ...d, [id]: { ...(d[id] || data.personas.find((x: Persona) => x.id === id)), ...patch } }));
+  const laneLabel = (k: string | null) => (k ? (data.lanes[k] || k) : 'no lane');
 
   const save = async (p: Persona) => {
     setBusy(true);
     try {
-      await post(`/personas/${p.id}`, {
-        patch: { label: p.label, lane: p.lane || undefined },
-        actions: p.actions == null ? undefined : p.actions,
-        stages: p.stages,
-      });
+      await post(`/personas/${p.id}`, { patch: { label: p.label, lane: p.lane || undefined }, actions: p.actions == null ? undefined : p.actions, stages: p.stages });
       setDraft((d: any) => { const c = { ...d }; delete c[p.id]; return c; });
       await reload();
     } finally { setBusy(false); }
   };
-  const del = async (id: string) => { setBusy(true); try { await post(`/personas/${id}/delete`); await reload(); } finally { setBusy(false); } };
+  const del = async (id: string) => { setBusy(true); try { await post(`/personas/${id}/delete`); if (open === id) setOpen(null); await reload(); } finally { setBusy(false); } };
   const addP = async () => {
     if (!newP.id.trim()) return;
     setBusy(true);
-    try { await post(`/personas/${newP.id.trim().toLowerCase()}`, { patch: { label: newP.label || newP.id, lane: newP.lane || undefined }, actions: [], stages: [] }); setNewP({ id: '', label: '', lane: '' }); await reload(); } finally { setBusy(false); }
+    try {
+      const id = newP.id.trim().toLowerCase();
+      await post(`/personas/${id}`, { patch: { label: newP.label || newP.id, lane: newP.lane || undefined }, actions: [], stages: [] });
+      setNewP({ id: '', label: '', lane: '' }); setShowAdd(false); await reload(); setOpen(id);
+    } finally { setBusy(false); }
   };
 
   return (
     <div>
-      <div className="adm-add">
-        <input placeholder="persona id (e.g. esg-lead)" value={newP.id} onChange={(e) => setNewP({ ...newP, id: e.target.value })} />
-        <input placeholder="label" value={newP.label} onChange={(e) => setNewP({ ...newP, label: e.target.value })} />
-        <select value={newP.lane} onChange={(e) => setNewP({ ...newP, lane: e.target.value })}>
-          <option value="">(no lane)</option>
-          {Object.entries(data.lanes).map(([k, v]) => <option key={k} value={k}>{v as string}</option>)}
-        </select>
-        <button className="adm-btn primary" disabled={busy || !newP.id.trim()} onClick={addP}>Add persona</button>
+      <div className="adm-toolbar">
+        <button className={`adm-tbtn${showAdd ? ' on' : ''}`} onClick={() => setShowAdd((v) => !v)}>+ New persona</button>
       </div>
+      {showAdd ? (
+        <div className="adm-panel">
+          <div className="adm-addrow">
+            <input placeholder="persona id (e.g. esg-lead)" value={newP.id} onChange={(e) => setNewP({ ...newP, id: e.target.value })} />
+            <input placeholder="label" value={newP.label} onChange={(e) => setNewP({ ...newP, label: e.target.value })} />
+            <select value={newP.lane} onChange={(e) => setNewP({ ...newP, lane: e.target.value })}>
+              <option value="">(no lane)</option>
+              {Object.entries(data.lanes).map(([k, v]) => <option key={k} value={k}>{v as string}</option>)}
+            </select>
+            <button className="adm-btn primary" disabled={busy || !newP.id.trim()} onClick={addP}>Create</button>
+          </div>
+          <p className="adm-panel-lead">New personas start with no workflow actions — expand the row to grant actions and stage limits.</p>
+        </div>
+      ) : null}
 
-      {data.personas.map((base: Persona) => {
-        const p = pOf(base);
-        const effActions = p.actions == null ? data.actions.filter((a: Action) => a.personas.includes(base.id)).map((a: Action) => a.id) : p.actions;
-        return (
-          <article key={base.id} className="adm-card">
-            <div className="adm-card-h">
-              <input className="adm-label" value={p.label} onChange={(e) => edit(base.id, { label: e.target.value })} />
-              <span className="adm-id">{base.id}{base.builtin ? ' · built-in' : ' · custom'}</span>
-              <label className="adm-rank">lane
-                <select value={p.lane || ''} onChange={(e) => edit(base.id, { lane: e.target.value || null })}>
-                  <option value="">(none)</option>
-                  {Object.entries(data.lanes).map(([k, v]) => <option key={k} value={k}>{v as string}</option>)}
-                </select>
-              </label>
-            </div>
-            <div className="adm-row col"><span className="adm-k">Workflow actions this persona may perform{p.actions == null ? <em> (built-in defaults — edit to override)</em> : null}</span>
-              <CheckGrid options={actionIds} value={effActions} labels={actionLabels} onChange={(v) => edit(base.id, { actions: v })} />
-            </div>
-            <div className="adm-row col"><span className="adm-k">Restrict to stages <em>(none = all)</em></span>
-              <CheckGrid options={data.stages} value={p.stages} onChange={(v) => edit(base.id, { stages: v })} />
-            </div>
-            <div className="adm-foot">
-              <button className="adm-btn primary" disabled={busy} onClick={() => save(p)}>Save</button>
-              {!base.builtin ? <button className="adm-btn danger" disabled={busy} onClick={() => del(base.id)}>Delete</button> : null}
-            </div>
-          </article>
-        );
-      })}
+      <div className="adm-list">
+        {data.personas.map((base: Persona) => {
+          const p = pOf(base);
+          const dirty = isDirty(base, p);
+          const isOpen = open === base.id;
+          const effActions = p.actions == null ? data.actions.filter((a: Action) => a.personas.includes(base.id)).map((a: Action) => a.id) : p.actions;
+          return (
+            <article key={base.id} className={`adm-item${isOpen ? ' open' : ''}`}>
+              <button className="adm-sum" onClick={() => setOpen(isOpen ? null : base.id)}>
+                <span className="adm-caret">{isOpen ? '▾' : '▸'}</span>
+                <span className="adm-sum-name">{base.label}</span>
+                <span className={`adm-tag${base.builtin ? '' : ' custom'}`}>{base.builtin ? 'built-in' : 'custom'}</span>
+                {dirty ? <span className="adm-dot" title="Unsaved changes">●</span> : null}
+                <span className="adm-sum-meta">
+                  <Chip>{laneLabel(base.lane)}</Chip>
+                  <Chip>{base.actions == null ? 'default actions' : `${base.actions.length} actions`}</Chip>
+                  <Chip>{base.stages.length ? `${base.stages.length} stage(s)` : 'all stages'}</Chip>
+                </span>
+              </button>
+              {isOpen ? (
+                <div className="adm-body">
+                  <Section title="Identity">
+                    <Field label="Label"><input className="adm-text" value={p.label} onChange={(e) => edit(base.id, { label: e.target.value })} /></Field>
+                    <Field label="Diligence lane">
+                      <select className="adm-sel" value={p.lane || ''} onChange={(e) => edit(base.id, { lane: e.target.value || null })}>
+                        <option value="">(none)</option>
+                        {Object.entries(data.lanes).map(([k, v]) => <option key={k} value={k}>{v as string}</option>)}
+                      </select>
+                    </Field>
+                  </Section>
+                  <Section title="Workflow actions" hint={p.actions == null ? 'Built-in defaults — toggle any to start overriding' : 'Custom allowlist'}>
+                    <CheckGrid options={actionIds} value={effActions} labels={actionLabels} onChange={(v) => edit(base.id, { actions: v })} />
+                  </Section>
+                  <Section title="Stage restriction" hint="Limit this persona to acting only in these stages">
+                    <Field label="Allowed stages" hint="(none = all)" col><CheckGrid options={data.stages} value={p.stages} onChange={(v) => edit(base.id, { stages: v })} /></Field>
+                  </Section>
+                  <div className="adm-foot">
+                    <button className="adm-btn primary" disabled={busy || !dirty} onClick={() => save(p)}>Save changes</button>
+                    <button className="adm-btn" disabled={busy || !dirty} onClick={() => setDraft((d: any) => { const c = { ...d }; delete c[base.id]; return c; })}>Reset</button>
+                    {!base.builtin ? <button className="adm-btn danger" disabled={busy} onClick={() => del(base.id)}>Delete persona</button> : null}
+                  </div>
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -281,44 +369,71 @@ function isDirty(a: any, b: any) { return JSON.stringify(a) !== JSON.stringify(b
 function splitCsv(s: string) { return s.split(',').map((x) => x.trim()).filter(Boolean); }
 
 const CSS = `
-.adm { padding: 16px 20px 48px; max-width: 1000px; }
+.adm { padding: 16px 20px 48px; max-width: 940px; }
 .adm-empty, .adm-err { color: var(--muted); }
 .adm-err { color: #d66; }
 .adm-head h2 { margin: 0 0 4px; font-size: 20px; }
 .adm-head p { margin: 0 0 14px; color: var(--muted); font-size: 13px; max-width: 760px; line-height: 1.5; }
-.adm-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
-.adm-tabs button { border: 1px solid var(--border, #2a2a35); background: none; color: var(--muted); border-radius: 6px; padding: 4px 14px; font-size: 13px; cursor: pointer; }
-.adm-tabs button.on { color: var(--accent, #6ea8fe); border-color: var(--accent, #6ea8fe); }
-.adm-add { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-.adm-add input, .adm-add select { border: 1px solid var(--border, #33333f); background: var(--card, #1b1b22); color: var(--fg); border-radius: 6px; padding: 5px 8px; font-size: 13px; }
-.adm-card { border: 1px solid var(--border, #2a2a35); border-radius: 10px; padding: 12px 14px; background: var(--card, #1b1b22); margin-bottom: 12px; }
-.adm-card-h { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
-.adm-label { font-weight: 600; font-size: 14px; background: none; border: none; border-bottom: 1px solid transparent; color: var(--fg); padding: 2px 0; }
-.adm-label:hover, .adm-label:focus { border-bottom-color: var(--border, #33333f); outline: none; }
-.adm-id { font-size: 11px; color: var(--muted); }
-.adm-rank { margin-left: auto; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-.adm-rank input, .adm-rank select { width: 64px; border: 1px solid var(--border, #33333f); background: var(--bg, #14141a); color: var(--fg); border-radius: 5px; padding: 2px 6px; }
-.adm-rank select { width: auto; }
-.adm-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; flex-wrap: wrap; font-size: 12.5px; }
-.adm-row.col { flex-direction: column; align-items: stretch; }
-.adm-k { color: var(--muted); min-width: 180px; }
-.adm-k em { font-style: normal; opacity: .7; }
-.adm-flag { display: flex; align-items: center; gap: 5px; color: var(--fg); }
-.adm-text { flex: 1; min-width: 200px; border: 1px solid var(--border, #33333f); background: var(--bg, #14141a); color: var(--fg); border-radius: 6px; padding: 4px 8px; font-size: 12.5px; }
-.adm-note { font-size: 11px; color: var(--muted); }
-.adm-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.adm-tabs { display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--border, #2a2a35); }
+.adm-tabs button { border: none; background: none; color: var(--muted); border-bottom: 2px solid transparent; padding: 6px 12px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.adm-tabs button.on { color: var(--accent, #6ea8fe); border-bottom-color: var(--accent, #6ea8fe); }
+.adm-count { font-size: 11px; background: rgba(140,140,150,.18); color: var(--muted); border-radius: 999px; padding: 0 7px; }
+.adm-tabs button.on .adm-count { background: rgba(110,168,254,.2); color: var(--accent, #6ea8fe); }
+
+.adm-toolbar { display: flex; gap: 8px; margin-bottom: 10px; }
+.adm-tbtn { border: 1px solid var(--border, #33333f); background: none; color: var(--fg); border-radius: 6px; padding: 5px 12px; font-size: 12.5px; cursor: pointer; }
+.adm-tbtn.on { border-color: var(--accent, #6ea8fe); color: var(--accent, #6ea8fe); }
+.adm-panel { border: 1px solid var(--border, #2a2a35); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; background: var(--card, #1b1b22); }
+.adm-panel-lead { margin: 8px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.adm-panel-lead code, .adm-panel code { background: rgba(140,140,150,.16); padding: 0 4px; border-radius: 4px; }
+.adm-addrow { display: flex; gap: 8px; flex-wrap: wrap; }
+.adm-addrow input, .adm-addrow select { border: 1px solid var(--border, #33333f); background: var(--bg, #14141a); color: var(--fg); border-radius: 6px; padding: 5px 8px; font-size: 13px; }
+
+.adm-list { display: flex; flex-direction: column; gap: 8px; }
+.adm-item { border: 1px solid var(--border, #2a2a35); border-radius: 10px; background: var(--card, #1b1b22); overflow: hidden; }
+.adm-item.open { border-color: var(--accent, #6ea8fe); }
+.adm-sum { width: 100%; display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: none; border: none; color: var(--fg); cursor: pointer; text-align: left; flex-wrap: wrap; }
+.adm-sum:hover { background: rgba(255,255,255,.02); }
+.adm-caret { color: var(--muted); font-size: 11px; width: 12px; }
+.adm-sum-name { font-weight: 600; font-size: 14px; }
+.adm-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); border: 1px solid var(--border, #33333f); border-radius: 4px; padding: 1px 6px; }
+.adm-tag.custom { color: #6ea8fe; border-color: rgba(110,168,254,.4); }
+.adm-tag.admin { color: #d8a; border-color: rgba(210,140,170,.4); }
+.adm-dot { color: #e0a13a; font-size: 12px; }
+.adm-sum-meta { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.adm-mchip { font-size: 11px; color: var(--muted); background: rgba(140,140,150,.14); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+
+.adm-body { border-top: 1px solid var(--border, #2a2a35); padding: 6px 14px 14px; }
+.adm-sec { padding: 12px 0; border-bottom: 1px solid var(--border, #23232c); }
+.adm-sec:last-of-type { border-bottom: none; }
+.adm-sec-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.adm-sec-t { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--fg); }
+.adm-sec-hint { font-size: 11.5px; color: var(--muted); }
+.adm-sec-body { display: flex; flex-direction: column; gap: 8px; }
+.adm-field { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.adm-field.col { flex-direction: column; align-items: stretch; gap: 5px; }
+.adm-flabel { font-size: 12.5px; color: var(--muted); min-width: 150px; }
+.adm-flabel em { font-style: normal; opacity: .75; }
+.adm-fctl { flex: 1; min-width: 220px; }
+.adm-flags { display: flex; gap: 16px; flex-wrap: wrap; }
+.adm-flag { display: flex; align-items: center; gap: 6px; color: var(--fg); font-size: 12.5px; }
+.adm-text, .adm-num, .adm-sel { border: 1px solid var(--border, #33333f); background: var(--bg, #14141a); color: var(--fg); border-radius: 6px; padding: 5px 8px; font-size: 12.5px; }
+.adm-text { width: 100%; }
+.adm-num { width: 90px; }
+.adm-note { margin: 6px 0 0; font-size: 11.5px; color: var(--muted); }
+
+.adm-grid { display: flex; flex-wrap: wrap; gap: 6px; }
 .adm-chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border, #33333f); border-radius: 999px; padding: 2px 10px; font-size: 12px; color: var(--muted); cursor: pointer; }
-.adm-chip.on { color: var(--accent, #6ea8fe); border-color: var(--accent, #6ea8fe); }
+.adm-chip.on { color: var(--accent, #6ea8fe); border-color: var(--accent, #6ea8fe); background: rgba(110,168,254,.08); }
 .adm-chip input { display: none; }
-.adm-foot { display: flex; gap: 8px; margin-top: 10px; }
-.adm-btn { border: 1px solid var(--border, #33333f); background: none; color: var(--fg); border-radius: 6px; padding: 4px 14px; font-size: 12.5px; cursor: pointer; }
+
+.adm-foot { display: flex; gap: 8px; margin-top: 12px; }
+.adm-btn { border: 1px solid var(--border, #33333f); background: none; color: var(--fg); border-radius: 6px; padding: 5px 14px; font-size: 12.5px; cursor: pointer; }
 .adm-btn.primary { border-color: var(--accent, #6ea8fe); color: var(--accent, #6ea8fe); }
-.adm-btn.danger { border-color: #a44; color: #d88; }
-.adm-btn:disabled { opacity: .5; cursor: default; }
-.adm-bulk { border: 1px dashed var(--border, #33333f); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
-.adm-bulk-h { font-size: 13px; margin-bottom: 8px; }
+.adm-btn.danger { border-color: #a44; color: #d88; margin-left: auto; }
+.adm-btn:disabled { opacity: .45; cursor: default; }
+
 .adm-csv { width: 100%; border: 1px solid var(--border, #33333f); background: var(--bg, #14141a); color: var(--fg); border-radius: 6px; padding: 8px; font-size: 12.5px; font-family: ui-monospace, monospace; resize: vertical; }
-.adm-bulk-ctl { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+.adm-bulk-ctl { display: flex; align-items: center; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
 .adm-bulk-res { margin: 8px 0 0; font-size: 12px; color: var(--accent, #6ea8fe); }
-.adm-bulk code { background: rgba(140,140,150,.16); padding: 0 4px; border-radius: 4px; }
 `;
