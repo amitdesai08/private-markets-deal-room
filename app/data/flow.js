@@ -46,6 +46,18 @@ export const STAGES = [
       { group: 'Work surfaces', items: ['Teams', 'Word', 'Excel', 'SharePoint', 'Purview'] }
     ],
     skills: ['@financing-structuring', '@closing-orchestration']
+  },
+  {
+    id: 'ownership',
+    num: 4,
+    name: 'Value Creation & Exit',
+    tagline: 'Own, grow & realise',
+    accent: '#7c3aed',
+    dataSources: [
+      { group: 'Portfolio', items: ['100-day plan', 'KPI pack', 'Board reporting', 'Value-creation levers'] },
+      { group: 'Work surfaces', items: ['Teams', 'Planner', 'Power BI', 'Excel', 'SharePoint'] }
+    ],
+    skills: ['@value-creation', '@exit-readiness']
   }
 ];
 
@@ -244,6 +256,49 @@ export const STEPS = [
     m365Action: 'Stand up the portfolio workspace & 100-day plan in Teams + Planner',
     owner: 'Operating Partner',
     actionLabel: 'Kick off the 100-day plan & handover'
+  },
+  {
+    key: 'V1',
+    stage: 'ownership',
+    code: 1,
+    title: 'Value Creation',
+    what: 'The Operating Partner executes the 100-day plan and the value-creation levers — standing up the AI / data capability and the commercial and cost programmes agreed at IC.',
+    agent: 'Value-Creation Agent',
+    inputs: ['100-day plan', 'Value-creation thesis', 'Baseline KPIs'],
+    produces: ['Levers in flight', 'Quick-win realisation', 'EBITDA-bridge tracker'],
+    m365: ['Teams', 'Planner', 'Excel', 'SharePoint'],
+    m365Action: 'Run the 100-day plan in Planner; track the EBITDA bridge in Excel',
+    owner: 'Operating Partner',
+    actionLabel: 'Execute the 100-day plan & levers'
+  },
+  {
+    key: 'V2',
+    stage: 'ownership',
+    code: 2,
+    title: 'Portfolio Monitoring',
+    what: 'The team monitors the asset against the value-creation plan — KPI packs, board reporting and LP updates generated from the live record.',
+    agent: 'Portfolio-Monitoring Agent',
+    inputs: ['Live KPIs', 'Board-pack template', 'Covenant tests'],
+    produces: ['Quarterly KPI pack', 'Board & LP reporting', 'Covenant / risk flags'],
+    m365: ['Power BI', 'Teams', 'Excel', 'Word'],
+    m365Action: 'Refresh KPI packs in Power BI; assemble board & LP reporting',
+    owner: 'Fund CFO + Operating Partner',
+    actionLabel: 'Refresh KPIs & board reporting'
+  },
+  {
+    key: 'V3',
+    stage: 'ownership',
+    code: 3,
+    title: 'Exit',
+    what: 'The Partner runs the exit — assessing readiness and route (trade sale / secondary / IPO), preparing the vendor pack and realising the return for LPs.',
+    agent: 'Exit-Readiness Agent',
+    inputs: ['Value-creation outcome', 'Market comps', 'Exit options'],
+    produces: ['Exit-readiness score', 'Vendor diligence pack', 'Realised return (IRR / MOIC)'],
+    m365: ['PowerPoint', 'Excel', 'Teams', 'SharePoint'],
+    m365Action: 'Assemble the vendor pack in PowerPoint; model realised returns in Excel',
+    owner: 'Partner / MD',
+    actionLabel: 'Assess readiness & run the exit',
+    isGate: true
   }
 ];
 

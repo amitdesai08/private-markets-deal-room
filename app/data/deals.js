@@ -341,3 +341,150 @@ function hoursAgo(h) {
   t.setHours(t.getHours() - h);
   return t.toISOString();
 }
+
+// Later-stage showcase deals for Stage 3 (Execution & Closing) and Stage 4 (Value
+// Creation & Exit). Seeded idempotently at boot by lib/store.js so the new stages have
+// live deals to open. Distinct 'demo-' ids so they never collide with the pipeline seed.
+export const demoStageDeals = [
+  {
+    id: 'demo-helvetia',
+    company: 'Helvetia Diagnostics',
+    sector: 'Healthcare',
+    subSector: 'Diagnostics / Lab Services',
+    hq: 'Basel, Switzerland',
+    dealSize: 640,
+    currency: 'EUR',
+    stage: 'E2',
+    stageName: 'Signing (SPA)',
+    status: 'signed',
+    sponsorPersona: 'partner',
+    leadAnalyst: 'analyst',
+    targetICDate: daysFromNow(-14),
+    baselineDays: 45,
+    thesis:
+      'Buy-and-build of a #2 European diagnostics lab network, approved at IC. Post-approval execution: debt package secured at 4.1x, SPA in signing with a locked-box mechanism; close targeted in three weeks.',
+    keyFigures: [
+      { label: 'Revenue (LTM)', value: '€418M', source: 'QoE final', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '€92M', source: 'QoE final', confidence: 'high' },
+      { label: 'Entry multiple', value: '7.9x EV/EBITDA', source: 'Signed structure', confidence: 'high' },
+      { label: 'Leverage', value: '4.1x net debt / EBITDA', source: 'Debt commitment', confidence: 'high' }
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [
+        { text: 'Payer mix resilient; 62% public reimbursement with contracted volume floors — downside protected.', severity: 'positive', source: 'Commercial DD (final)' }
+      ] },
+      { lane: 'techai', owner: 'ai-md', status: 'complete', progress: 100, findings: [
+        { text: 'LIMS consolidation + AI triage adds ~180 bps margin by Y2; roadmap costed into the plan.', severity: 'positive', source: 'Tech/AI DD (final)' }
+      ] },
+      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [
+        { text: 'Reagent supply concentrated in two vendors; dual-sourcing clause negotiated into the SPA.', severity: 'neutral', source: 'Ops DD (final)' }
+      ] }
+    ],
+    memoSections: [
+      { key: 'thesis', title: 'Investment thesis', status: 'approved', content: 'Approved at IC 14 days ago. Consolidation of a fragmented lab network with a costed AI/LIMS margin programme.', citations: ['IC memo v5', 'QoE final'] },
+      { key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'IC approved with conditions: dual-source reagents (met) and leverage ≤ 4.25x (met at 4.1x).', citations: ['IC minutes'] }
+    ],
+    compliance: [
+      { check: 'Antitrust / merger clearance (CH + EU)', framework: 'Regulatory', status: 'in_progress' },
+      { check: 'Sanctions / UBO screening', framework: 'KYC', status: 'passed' },
+      { check: 'Financing conditions precedent', framework: 'Legal', status: 'in_progress' }
+    ],
+    activity: [
+      { actor: 'Financing-Structuring Agent', action: 'Locked debt package at 4.1x; funds-flow drafted', when: hoursAgo(30) },
+      { actor: 'Legal-Negotiation Agent', action: 'Circulated SPA v7 with the negotiated CP list', when: hoursAgo(10) }
+    ],
+    hoursSaved: 34
+  },
+  {
+    id: 'demo-meridian',
+    company: 'Meridian Logistics',
+    sector: 'Industrials',
+    subSector: 'Contract Logistics / 3PL',
+    hq: 'Lyon, France',
+    dealSize: 550,
+    currency: 'EUR',
+    stage: 'V2',
+    stageName: 'Value Creation',
+    status: 'owned',
+    sponsorPersona: 'operating-partner',
+    leadAnalyst: 'analyst',
+    targetICDate: daysFromNow(-140),
+    baselineDays: 45,
+    thesis:
+      'Portfolio company, closed ~5 months ago. Value-creation plan in flight: network optimisation, an AI routing/pricing capability and a bolt-on pipeline to re-rate the 3PL platform.',
+    keyFigures: [
+      { label: 'Revenue (LTM)', value: '€1.12B', source: 'Board pack Q2', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '€134M', source: 'Board pack Q2', confidence: 'high' },
+      { label: 'EBITDA vs entry', value: '+9.4%', source: 'Value-creation tracker', confidence: 'high' },
+      { label: 'Bolt-ons closed', value: '2 of 5', source: 'Pipeline tracker', confidence: 'high' }
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [
+        { text: 'Cross-sell into the acquired base is tracking ahead of plan (+€14M annualised).', severity: 'positive', source: 'VC lever 2' }
+      ] },
+      { lane: 'techai', owner: 'ai-md', status: 'in_progress', progress: 65, findings: [
+        { text: 'AI routing pilot live in 3 hubs; ~7% cost-per-drop reduction, rolling to the network.', severity: 'positive', source: 'VC lever 3' }
+      ] },
+      { lane: 'operations', owner: 'supply-md', status: 'in_progress', progress: 55, findings: [
+        { text: 'Warehouse consolidation on track; one site slipped a quarter on lease timing.', severity: 'caution', source: 'VC lever 1' }
+      ] }
+    ],
+    memoSections: [
+      { key: 'value-creation', title: 'Value creation plan', status: 'in_progress', content: '100-day plan complete; three of four levers in flight, EBITDA +9.4% vs entry.', citations: ['VC plan v3', 'Board pack Q2'] }
+    ],
+    compliance: [
+      { check: 'Quarterly LP reporting (ILPA)', framework: 'ILPA', status: 'passed' },
+      { check: 'Covenant compliance test', framework: 'Financing', status: 'passed' }
+    ],
+    activity: [
+      { actor: 'Value-Creation Agent', action: 'Updated the EBITDA-bridge tracker (+9.4% vs entry)', when: hoursAgo(48) },
+      { actor: 'Portfolio-Monitoring Agent', action: 'Assembled the Q2 board pack + LP update', when: hoursAgo(20) }
+    ],
+    hoursSaved: 41
+  },
+  {
+    id: 'demo-aurora',
+    company: 'Aurora Software',
+    sector: 'Software',
+    subSector: 'Vertical SaaS',
+    hq: 'Dublin, Ireland',
+    dealSize: 720,
+    currency: 'USD',
+    stage: 'V3',
+    stageName: 'Exit Preparation',
+    status: 'exiting',
+    sponsorPersona: 'partner',
+    leadAnalyst: 'analyst',
+    targetICDate: daysFromNow(-1080),
+    baselineDays: 45,
+    thesis:
+      'Mature holding (~3 years). Exit process underway: readiness assessed, vendor diligence pack in preparation, dual-track trade sale / secondary at a projected 2.8x MOIC.',
+    keyFigures: [
+      { label: 'ARR', value: '$286M', source: 'Vendor pack draft', confidence: 'high' },
+      { label: 'Rule of 40', value: '52%', source: 'KPI pack', confidence: 'high' },
+      { label: 'Projected MOIC', value: '2.8x', source: 'Exit model v2', confidence: 'medium' },
+      { label: 'Projected gross IRR', value: '31%', source: 'Exit model v2', confidence: 'medium' }
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [
+        { text: 'Net revenue retention 118%; durable growth supports a strategic premium.', severity: 'positive', source: 'Vendor DD' }
+      ] },
+      { lane: 'techai', owner: 'ai-md', status: 'complete', progress: 100, findings: [
+        { text: 'Platform re-architecture complete; AI features now 22% of new bookings — a clear equity story.', severity: 'positive', source: 'Vendor DD' }
+      ] },
+      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [] }
+    ],
+    memoSections: [
+      { key: 'recommendation', title: 'Exit recommendation', status: 'draft', content: 'Dual-track trade sale / secondary; readiness score 86/100; target close within two quarters at ~2.8x MOIC.', citations: ['Exit model v2', 'Readiness assessment'] }
+    ],
+    compliance: [
+      { check: 'Vendor diligence data-room prep', framework: 'Process', status: 'in_progress' },
+      { check: 'Sell-side QoE engagement', framework: 'Finance', status: 'in_progress' }
+    ],
+    activity: [
+      { actor: 'Exit-Readiness Agent', action: 'Scored exit readiness 86/100; flagged 2 pre-sale fixes', when: hoursAgo(72) },
+      { actor: 'IC-Memo Agent', action: 'Drafted the exit recommendation for the exit committee', when: hoursAgo(26) }
+    ],
+    hoursSaved: 29
+  }
+];

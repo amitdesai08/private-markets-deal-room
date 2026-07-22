@@ -4,7 +4,7 @@
 // themes / screens / flow / personas remain in-memory config. lib/repo falls
 // back to an in-memory Map when COSMOS_ENDPOINT is unset so local dev still runs.
 
-import { seedSourcing } from '../data/deals.js';
+import { seedSourcing, demoStageDeals } from '../data/deals.js';
 import { personas } from '../data/personas.js';
 import { STAGES, STEPS, STEP_KEYS, FLOW, GATE, stepByKey, stepIndex } from '../data/flow.js';
 import { runStep as runStepAgent } from './agents.js';
@@ -229,6 +229,16 @@ export async function hydrate() {
     candidates = cos.filter((c) => c.kind === 'candidate');
     const ds = await dealRepo.list();
     deals = attachWorkspaces(ds);
+    // Idempotently seed the later-stage showcase deals (Stage 3 Execution / Stage 4
+    // Ownership) so those tabs have live deals — insert missing by id, never overwrite.
+    const haveDealIds = new Set(deals.map((d) => d.id));
+    for (const demo of demoStageDeals) {
+      if (haveDealIds.has(demo.id)) continue;
+      const dd = clone(demo);
+      attachWorkspaces([dd]);
+      deals.push(dd);
+      persistDeal(dd);
+    }
     signalCompanies = await sigRepo.list();
     reseedSequences();
   } catch {

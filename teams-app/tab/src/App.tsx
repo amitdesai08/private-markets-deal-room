@@ -13,6 +13,7 @@ import DealDetail from './DealDetail';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
+import Stage4 from './Stage4';
 import Lifecycle from './Lifecycle';
 import Fund from './Fund';
 import DataSources from './DataSources';
@@ -69,7 +70,7 @@ export default function App() {
   const [viewAsRole, setViewAsRole] = useState('');
   const [roleLabel, setRoleLabel] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'stage3' | 'lifecycle' | 'fund' | 'sources' | 'admin'>('overview');
+  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'stage3' | 'stage4' | 'lifecycle' | 'fund' | 'sources' | 'admin'>('overview');
   // Platform power state (sleep/wake). null until first probe; when control is on and
   // the orchestrator is asleep, the whole app is replaced by the Offline gate.
   const [platform, setPlatform] = useState<PlatformStatus | null>(null);
@@ -81,7 +82,7 @@ export default function App() {
 
   const mainTabs: [typeof mainTab, string][] = [
     ['overview', 'Deals Overview'], ['stage1', 'Stage 1 — Origination'], ['stage2', 'Stage 2 — Diligence'],
-    ['stage3', 'Stage 3 — Execution'], ['lifecycle', 'Lifecycle'], ['fund', 'Fund & Portfolio'], ['sources', 'Data Sources'],
+    ['stage3', 'Stage 3 — Execution'], ['stage4', 'Stage 4 — Value & Exit'], ['lifecycle', 'Lifecycle'], ['fund', 'Fund & Portfolio'], ['sources', 'Data Sources'],
     ...(isAdmin ? ([['admin', 'Admin']] as [typeof mainTab, string][]) : []),
   ];
 
@@ -223,6 +224,8 @@ export default function App() {
             <Stage1 onChanged={refreshData} onOpenDeal={setOpenDealId} />
           ) : mainTab === 'stage3' ? (
             <Stage3 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
+          ) : mainTab === 'stage4' ? (
+            <Stage4 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           ) : mainTab === 'lifecycle' ? (
             <Lifecycle />
           ) : mainTab === 'fund' ? (
