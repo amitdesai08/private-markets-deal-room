@@ -34,6 +34,18 @@ export const STAGES = [
       { group: 'Intelligence', items: ['Work IQ', 'Fabric IQ', 'Foundry IQ', 'Purview'] }
     ],
     skills: ['@diligence-planner', '@ic-memo']
+  },
+  {
+    id: 'execution',
+    num: 3,
+    name: 'Execution & Closing',
+    tagline: 'From IC approval to close',
+    accent: '#059669',
+    dataSources: [
+      { group: 'Deal execution', items: ['Financing model', 'SPA & legal', 'Data room', 'CP checklist'] },
+      { group: 'Work surfaces', items: ['Teams', 'Word', 'Excel', 'SharePoint', 'Purview'] }
+    ],
+    skills: ['@financing-structuring', '@closing-orchestration']
   }
 ];
 
@@ -174,6 +186,64 @@ export const STEPS = [
     owner: 'Analyst',
     actionLabel: 'Archive with full audit trail',
     panel: 'audit'
+  },
+  {
+    key: 'E1',
+    stage: 'execution',
+    code: 1,
+    title: 'Financing & Structuring',
+    what: 'The Fund CFO finalises the capital structure and arranges the debt & equity financing — building the funds-flow and confirming leverage against the approved IC case.',
+    agent: 'Financing-Structuring Agent',
+    inputs: ['Approved IC memo', 'Deal model', 'Lender term sheets'],
+    produces: ['Final capital structure', 'Debt package secured', 'Funds-flow statement'],
+    m365: ['Excel', 'Teams', 'SharePoint'],
+    m365Action: 'Model the structure in Excel; coordinate lenders over Teams',
+    owner: 'Fund CFO',
+    actionLabel: 'Finalise structure & arrange financing'
+  },
+  {
+    key: 'E2',
+    stage: 'execution',
+    code: 2,
+    title: 'Signing (SPA)',
+    what: 'Legal negotiates and signs the Sale & Purchase Agreement — locking the reps & warranties, the price mechanism and the conditions precedent to closing.',
+    agent: 'Legal-Negotiation Agent',
+    inputs: ['Final structure', 'Diligence findings', 'Draft SPA'],
+    produces: ['Signed SPA', 'Reps & warranties schedule', 'Conditions precedent (CP) list'],
+    m365: ['Word', 'Teams', 'SharePoint', 'Purview'],
+    m365Action: 'Co-author and redline the SPA in Word with a Purview audit trail',
+    owner: 'General Counsel',
+    actionLabel: 'Negotiate & sign the SPA',
+    isGate: true
+  },
+  {
+    key: 'E3',
+    stage: 'execution',
+    code: 3,
+    title: 'Closing',
+    what: 'The team clears the conditions precedent, runs the funds flow and completes the legal close — transferring ownership and releasing the consideration.',
+    agent: 'Closing-Orchestration Agent',
+    inputs: ['Signed SPA', 'CP checklist', 'Funds-flow statement'],
+    produces: ['CPs cleared', 'Completion / ownership transfer', 'Closing binder'],
+    m365: ['Teams', 'SharePoint', 'Power Automate', 'Purview'],
+    m365Action: 'Track CP clearance in Teams; archive the closing binder to SharePoint',
+    owner: 'General Counsel + Fund CFO',
+    actionLabel: 'Clear CPs & complete the close',
+    isGate: true
+  },
+  {
+    key: 'E4',
+    stage: 'execution',
+    code: 4,
+    title: 'Onboarding & Handover',
+    what: 'The Operating Partner takes the asset into the portfolio — kicking off the 100-day plan and standing up value-creation and monitoring on the shared record.',
+    agent: 'Value-Creation Onboarding Agent',
+    inputs: ['Completed deal', 'Value-creation thesis', 'IC conditions'],
+    produces: ['100-day plan', 'Portfolio company record', 'Monitoring KPIs'],
+    m365: ['Teams', 'Planner', 'Excel', 'SharePoint'],
+    m365Action: 'Stand up the portfolio workspace & 100-day plan in Teams + Planner',
+    owner: 'Operating Partner',
+    actionLabel: 'Kick off the 100-day plan & handover'
   }
 ];
 
