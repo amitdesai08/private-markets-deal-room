@@ -205,9 +205,9 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
   const artifact = deal?.artifacts?.[viewStep];
   const verdict = ic?.verdict;
   const ws = deal?.workspace || {};
-  // Stage 2 (Diligence & Approval) is deal-team only. A deal is "in Stage 2"
-  // once its stage code is D* or its stage name mentions diligence/approval.
-  const inStage2 = /^d/i.test(String(deal?.stage || '')) || /diligence|approval/i.test(String(deal?.stageName || ''));
+  // Post-screening stages (Diligence D*, Execution E*, Ownership V*) are deal-team only
+  // — they hold diligence findings, signed terms, financing and exit valuations.
+  const inStage2 = /^[dev]/i.test(String(deal?.stage || '')) || /diligence|approval|execution|closing|signing|financing|value|monitoring|ownership|exit/i.test(String(deal?.stageName || ''));
   const stage2Locked = inStage2 && !canViewStage2;
 
   return (
@@ -249,8 +249,8 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
               {stage2Locked ? (
                 <div className="dd-panel" style={{ textAlign: 'center', padding: '28px 18px' }}>
                   <div style={{ fontSize: 26 }}>🔒</div>
-                  <div style={{ fontWeight: 700, marginTop: 6 }}>Stage 2 — Diligence &amp; Approval</div>
-                  <div className="muted" style={{ marginTop: 6 }}>This deal has entered Stage 2, which is restricted to the deal team. Ask a deal-team member (user1–user4) for access.</div>
+                  <div style={{ fontWeight: 700, marginTop: 6 }}>{deal.stageName || deal.stage || 'Restricted stage'}</div>
+                  <div className="muted" style={{ marginTop: 6 }}>This deal has advanced past screening and is restricted to the deal team. Ask a deal-team member for access.</div>
                 </div>
               ) : (
               <>

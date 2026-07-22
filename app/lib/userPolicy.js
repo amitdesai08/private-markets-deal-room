@@ -172,9 +172,12 @@ export function authorizePersona(identity, requestedPersona, viewAsRole = null) 
 export function authorizeDealAccess(identity, dealStageOrName, viewAsRole = null, region = null) {
   const access = accessFor(identity, viewAsRole);
   const s = String(dealStageOrName || '');
-  const isStage2 = /^d/i.test(s) || /diligence|approval/i.test(s);
-  if (isStage2 && !access.canViewStage2) {
-    return { ok: false, access, reason: `This deal is in Stage 2 (Diligence & Approval), which is restricted to the deal team. As ${access.roleLabel} you don’t have access.` };
+  // Post-screening stages — Diligence (D*), Execution (E*) and Ownership (V*) — are
+  // restricted to the deal team (diligence findings, signed terms, financing & exit
+  // valuations). Origination / screening (O*, SCR) stay open to all roles.
+  const isRestricted = /^[dev]/i.test(s) || /diligence|approval|execution|closing|signing|financing|value|monitoring|ownership|exit/i.test(s);
+  if (isRestricted && !access.canViewStage2) {
+    return { ok: false, access, reason: `This deal has advanced past screening (${s || 'restricted stage'}) and is restricted to the deal team. As ${access.roleLabel} you don’t have access.` };
   }
   // Data sovereignty: when the role restricts regions, a deal tagged to another
   // region is not visible (empty regions = no restriction).

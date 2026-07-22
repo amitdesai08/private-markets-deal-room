@@ -202,7 +202,6 @@ export default function App() {
               {demoUsers.map((u) => (<option key={u.id} value={u.upn}>👤 {u.label}</option>))}
             </select>
           ) : null}
-          <span className={`rolechip ${canViewStage2 ? 'full' : 'ltd'}`} title="Stage 2 (Diligence) is restricted to the deal team">{canViewStage2 ? 'Stage 1 + 2' : 'Stage 1 only'}</span>
           {teamsInfo?.inTeams ? <a className="dashlink" href={cfg?.appBaseUrl || window.location.origin} target="_blank" rel="noopener noreferrer">Open web console ↗</a> : null}
           <button className={`asktoggle${chatOpen ? ' on' : ''}`} onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide agents' : '💬 Ask agents'}</button>
           <button className={`gearbtn${settingsOpen ? ' on' : ''}`} onClick={() => setSettingsOpen((v) => !v)} title="Settings — data sources & administration" aria-label="Settings">⚙</button>
