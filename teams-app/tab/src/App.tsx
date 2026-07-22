@@ -15,8 +15,7 @@ import Stage2 from './Stage2';
 import Stage3 from './Stage3';
 import Stage4 from './Stage4';
 import Fund from './Fund';
-import DataSources from './DataSources';
-import Admin from './Admin';
+import Settings from './Settings';
 import Offline, { OnlineLeaseBanner, type PlatformStatus } from './Offline';
 import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipeline } from './types';
 
@@ -69,7 +68,8 @@ export default function App() {
   const [viewAsRole, setViewAsRole] = useState('');
   const [roleLabel, setRoleLabel] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'stage3' | 'stage4' | 'fund' | 'sources' | 'admin'>('overview');
+  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'stage3' | 'stage4' | 'fund'>('overview');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // Platform power state (sleep/wake). null until first probe; when control is on and
   // the orchestrator is asleep, the whole app is replaced by the Offline gate.
   const [platform, setPlatform] = useState<PlatformStatus | null>(null);
@@ -81,8 +81,7 @@ export default function App() {
 
   const mainTabs: [typeof mainTab, string][] = [
     ['overview', 'Deals Overview'], ['stage1', 'Stage 1 — Origination'], ['stage2', 'Stage 2 — Diligence'],
-    ['stage3', 'Stage 3 — Execution'], ['stage4', 'Stage 4 — Value & Exit'], ['fund', 'Fund & Portfolio'], ['sources', 'Data Sources'],
-    ...(isAdmin ? ([['admin', 'Admin']] as [typeof mainTab, string][]) : []),
+    ['stage3', 'Stage 3 — Execution'], ['stage4', 'Stage 4 — Value & Exit'], ['fund', 'Fund & Portfolio'],
   ];
 
   function applyAccess(ctx: any) {
@@ -206,18 +205,21 @@ export default function App() {
           <span className={`rolechip ${canViewStage2 ? 'full' : 'ltd'}`} title="Stage 2 (Diligence) is restricted to the deal team">{canViewStage2 ? 'Stage 1 + 2' : 'Stage 1 only'}</span>
           {teamsInfo?.inTeams ? <a className="dashlink" href={cfg?.appBaseUrl || window.location.origin} target="_blank" rel="noopener noreferrer">Open web console ↗</a> : null}
           <button className={`asktoggle${chatOpen ? ' on' : ''}`} onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide agents' : '💬 Ask agents'}</button>
+          <button className={`gearbtn${settingsOpen ? ' on' : ''}`} onClick={() => setSettingsOpen((v) => !v)} title="Settings — data sources & administration" aria-label="Settings">⚙</button>
         </div>
       </header>
 
       <nav className="maintabs">
         {mainTabs.map(([k, label]) => (
-          <button key={k} className={`maintab${mainTab === k ? ' on' : ''}`} onClick={() => setMainTab(k)}>{label}</button>
+          <button key={k} className={`maintab${!settingsOpen && mainTab === k ? ' on' : ''}`} onClick={() => { setSettingsOpen(false); setMainTab(k); }}>{label}</button>
         ))}
       </nav>
 
       <div className="layout">
         <main className="main">
-          {mainTab === 'overview' ? (
+          {settingsOpen ? (
+            <Settings isAdmin={isAdmin} ssoToken={ssoToken} viewAs={viewAs} onClose={() => setSettingsOpen(false)} />
+          ) : mainTab === 'overview' ? (
             <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} agentCount={visibleAgents.length} onAsk={askAbout} onOpen={setOpenDealId} />
           ) : mainTab === 'stage1' ? (
             <Stage1 onChanged={refreshData} onOpenDeal={setOpenDealId} />
@@ -227,10 +229,6 @@ export default function App() {
             <Stage4 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           ) : mainTab === 'fund' ? (
             <Fund />
-          ) : mainTab === 'sources' ? (
-            <DataSources />
-          ) : mainTab === 'admin' ? (
-            <Admin ssoToken={ssoToken} viewAs={viewAs} />
           ) : (
             <Stage2 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           )}
@@ -262,6 +260,9 @@ html, body, #root { margin: 0; height: 100%; }
 .dashlink:hover { text-decoration: underline; }
 .asktoggle { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); padding: 7px 12px; border-radius: 8px; cursor: pointer; font: inherit; font-weight: 600; }
 .asktoggle.on { background: transparent; color: var(--accent); }
+.gearbtn { border: 1px solid var(--border, #33333f); background: none; color: var(--muted); width: 34px; height: 34px; border-radius: 8px; cursor: pointer; font-size: 16px; line-height: 1; }
+.gearbtn:hover { color: var(--fg); border-color: var(--fg); }
+.gearbtn.on { color: var(--accent); border-color: var(--accent); }
 .layout { flex: 1; display: flex; min-height: 0; }
 .main { flex: 1; overflow-y: auto; min-width: 0; }
 .maintabs { display: flex; gap: 4px; padding: 8px 16px 0; background: var(--surface); border-bottom: 1px solid var(--border); flex: 0 0 auto; }
