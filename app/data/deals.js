@@ -496,5 +496,110 @@ export const demoStageDeals = [
       { actor: 'IC-Memo Agent', action: 'Drafted the exit recommendation for the exit committee', when: hoursAgo(26) }
     ],
     hoursSaved: 29
+  },
+  {
+    id: 'demo-sterling',
+    company: 'Project Sterling (listed payments processor)',
+    // Confidential take-private under a standstill/NDA — deal-team only. Hidden from the
+    // status tier (analyst never sees it); only its named team + admins know it exists.
+    team: ['partner', 'principal'],
+    confidential: true,
+    sector: 'Financials',
+    subSector: 'Payments / Fintech',
+    hq: 'London, United Kingdom',
+    dealSize: 480,
+    currency: 'GBP',
+    stage: 'D2',
+    stageName: 'Diligence',
+    status: 'in_diligence',
+    sponsorPersona: 'partner',
+    leadAnalyst: 'principal',
+    targetICDate: daysFromNow(28),
+    baselineDays: 45,
+    thesis:
+      'Confidential public-to-private of a UK-listed payments processor under a standstill/NDA. Buy-and-build thesis in embedded finance; disciplined take-private before a rule-2.7 announcement.',
+    keyFigures: [
+      { label: 'Revenue (LTM)', value: '£612M', source: 'Broker model', confidence: 'medium' },
+      { label: 'EBITDA (LTM)', value: '£131M', source: 'Broker model', confidence: 'medium' },
+      { label: 'Take-private premium', value: '~34%', source: 'Offer model v1', confidence: 'medium' },
+      { label: 'Net leverage at close', value: '4.1x', source: 'Financing plan', confidence: 'medium' }
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 60, findings: [
+        { text: 'Merchant churn concentrated in SMB tail; enterprise book is sticky and re-prices well.', severity: 'caution', source: 'Commercial DD' }
+      ] },
+      { lane: 'financial', owner: 'fund-cfo', status: 'in_progress', progress: 55, findings: [
+        { text: 'Take-private financing pre-underwritten by two banks; covenant headroom modelled at 18%.', severity: 'positive', source: 'QoE draft' }
+      ] },
+      { lane: 'legal', owner: 'legal-gc', status: 'in_progress', progress: 40, findings: [
+        { text: 'Takeover Code (rule 2.7) timetable and irrevocables are the critical path.', severity: 'caution', source: 'Legal DD' }
+      ] }
+    ],
+    memoSections: [
+      { key: 'thesis', title: 'Take-private thesis', status: 'in_progress', content: 'Undervalued listed processor; embedded-finance buy-and-build with a pre-underwritten financing package.', citations: ['Offer model v1', 'Financing plan'] }
+    ],
+    compliance: [
+      { check: 'Standstill / NDA in force', framework: 'Confidentiality', status: 'passed' },
+      { check: 'Market abuse (MAR) inside-information log', framework: 'MAR', status: 'in_progress' },
+      { check: 'FCA change-in-control (Part XII) pre-assessment', framework: 'FCA', status: 'in_progress' }
+    ],
+    activity: [
+      { actor: 'Diligence-Orchestration Agent', action: 'Opened the clean-team data room; restricted to the named deal team', when: hoursAgo(30) },
+      { actor: 'Financing Agent', action: 'Assembled the pre-underwritten financing package (two banks)', when: hoursAgo(12) }
+    ],
+    hoursSaved: 34
+  },
+  {
+    id: 'demo-onyx',
+    company: 'Project Onyx (specialty-chemicals carve-out)',
+    // Confidential carve-out on a clean-team protocol — BUT analyst "Maya" is read-in on
+    // a need-to-know basis, so she gets the full workspace even though the deal is hidden
+    // from the wider status tier. Showcases confidential + explicit need-to-know together.
+    team: ['analyst', 'partner', 'legal-gc'],
+    confidential: true,
+    sector: 'Industrials',
+    subSector: 'Carve-out / Specialty Chemicals',
+    hq: 'Rotterdam, Netherlands',
+    dealSize: 610,
+    currency: 'EUR',
+    stage: 'E2',
+    stageName: 'Signing (SPA)',
+    status: 'signing',
+    sponsorPersona: 'partner',
+    leadAnalyst: 'analyst',
+    targetICDate: daysFromNow(-14),
+    baselineDays: 45,
+    thesis:
+      'Confidential corporate carve-out of a specialty-chemicals division. Complex transitional services (TSA) and clean-team protocol; standalone value-creation on separation and margin recovery.',
+    keyFigures: [
+      { label: 'Revenue (carve-out)', value: '€840M', source: 'Carve-out P&L', confidence: 'high' },
+      { label: 'Adj. EBITDA', value: '€142M', source: 'Carve-out P&L', confidence: 'high' },
+      { label: 'One-time separation cost', value: '€47M', source: 'Separation plan', confidence: 'medium' },
+      { label: 'TSA duration', value: '18 months', source: 'TSA schedule', confidence: 'high' }
+    ],
+    workstreams: [
+      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [
+        { text: 'Standalone operating model validated; shared-service exit fully scoped across the 18-month TSA.', severity: 'positive', source: 'Separation DD' }
+      ] },
+      { lane: 'legal', owner: 'legal-gc', status: 'in_progress', progress: 80, findings: [
+        { text: 'SPA and TSA substantially agreed; two reps & warranties points open pre-signing.', severity: 'caution', source: 'Legal DD' }
+      ] },
+      { lane: 'esg', owner: 'esg-md', status: 'complete', progress: 100, findings: [
+        { text: 'Environmental liabilities ring-fenced and indemnified by the seller.', severity: 'positive', source: 'ESG DD' }
+      ] }
+    ],
+    memoSections: [
+      { key: 'execution', title: 'Signing readiness', status: 'in_progress', content: 'SPA/TSA substantially agreed; clean-team findings folded in; targeting signing within the fortnight.', citations: ['SPA v6', 'TSA schedule'] }
+    ],
+    compliance: [
+      { check: 'Clean-team protocol in force', framework: 'Confidentiality', status: 'passed' },
+      { check: 'Merger control (EU) filing readiness', framework: 'Antitrust', status: 'in_progress' },
+      { check: 'Seller environmental indemnity', framework: 'Legal', status: 'passed' }
+    ],
+    activity: [
+      { actor: 'Legal-Execution Agent', action: 'Reconciled SPA v6 against the clean-team markups; 2 points open', when: hoursAgo(20) },
+      { actor: 'Separation Agent', action: 'Finalised the 18-month TSA exit schedule', when: hoursAgo(8) }
+    ],
+    hoursSaved: 37
   }
 ];
