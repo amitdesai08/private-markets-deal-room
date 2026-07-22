@@ -231,10 +231,24 @@ export async function hydrate() {
     const ds = await dealRepo.list();
     deals = attachWorkspaces(ds);
     // Idempotently seed the later-stage showcase deals (Stage 3 Execution / Stage 4
-    // Ownership) so those tabs have live deals — insert missing by id, never overwrite.
-    const haveDealIds = new Set(deals.map((d) => d.id));
+    // Ownership) so those tabs have live deals — insert missing by id, never clobbering
+    // user progress. For deals that already exist we still re-assert the demo GOVERNANCE
+    // metadata (deal team + confidential flag) so RBAC policy changes apply without a
+    // data reset.
+    const byId = new Map(deals.map((d) => [d.id, d]));
     for (const demo of demoStageDeals) {
-      if (haveDealIds.has(demo.id)) continue;
+      const existing = byId.get(demo.id);
+      if (existing) {
+        const nextTeam = Array.isArray(demo.team) ? demo.team : [];
+        const teamChanged = JSON.stringify(existing.team || []) !== JSON.stringify(nextTeam);
+        const confChanged = !!existing.confidential !== !!demo.confidential;
+        if (teamChanged || confChanged) {
+          existing.team = clone(nextTeam);
+          existing.confidential = !!demo.confidential;
+          persistDeal(existing);
+        }
+        continue;
+      }
       const dd = clone(demo);
       attachWorkspaces([dd]);
       deals.push(dd);
