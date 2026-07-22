@@ -1,30 +1,29 @@
-import { useEffect, useState } from 'react';
 import type { Deal } from './types';
+import StageGuide from './StageGuide';
 
-// Native Stage 4 — Value Creation & Exit. The ownership phase: it shows the three
-// ownership steps (value creation → monitoring → exit) from the shared flow model,
-// plus a roster of portfolio companies the fund now owns / is exiting (opening the
-// full workspace via DealDetail). Complements the fund-level Fund & Portfolio tab.
+// Native Stage 4 — Value Creation & Exit. Deal-centric: a roster of the portfolio
+// companies the fund now owns or is exiting, each opening the full workspace. The
+// process description lives in the collapsible "How this stage works" at the bottom.
 
-type Step = {
-  key: string; stage: string; title: string; what: string; agent: string;
-  owner: string; produces: string[]; isGate?: boolean;
+type AnyDeal = Deal & {
+  subSector?: string; hq?: string; currency?: string; stageName?: string; status?: string;
+  thesis?: string; hoursSaved?: number;
+  keyFigures?: { label: string; value: string }[];
+  workstreams?: { lane: string; status?: string; progress?: number }[];
 };
 
-const money = (n?: number) => (n == null ? '—' : n >= 1000 ? `$${(n / 1000).toFixed(1)}B` : `$${n}M`);
+const dealMoney = (d: AnyDeal) => {
+  const n = d.dealSize; if (n == null) return '—';
+  const sym = d.currency === 'EUR' ? '€' : d.currency === 'GBP' ? '£' : '$';
+  return `${sym}${n >= 1000 ? `${(n / 1000).toFixed(1)}B` : `${n}M`}`;
+};
+const STATUS_LABEL: Record<string, string> = { owned: 'Owned · value creation', monitoring: 'Monitoring', exiting: 'In exit', exited: 'Exited' };
 
 export default function Stage4({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen: (id: string) => void; onAsk: (id: string) => void }) {
-  const [steps, setSteps] = useState<Step[]>([]);
-  useEffect(() => {
-    fetch('/api/flow').then((r) => (r.ok ? r.json() : null)).then((f) => {
-      if (f?.steps) setSteps(f.steps.filter((s: Step) => s.stage === 'ownership'));
-    }).catch(() => {});
-  }, []);
-
-  const owned = (deals || []).filter((d) => {
-    const st = String((d as any).stage || '').toUpperCase();
-    const name = String((d as any).stageName || '');
-    const status = String((d as any).status || '').toLowerCase();
+  const owned = ((deals || []) as AnyDeal[]).filter((d) => {
+    const st = String(d.stage || '').toUpperCase();
+    const name = String(d.stageName || '');
+    const status = String(d.status || '').toLowerCase();
     return st.startsWith('V') || /value creation|monitoring|ownership|exit/i.test(name) || ['owned', 'monitoring', 'exiting', 'exited'].includes(status);
   });
 
@@ -32,62 +31,51 @@ export default function Stage4({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen
     <div className="stage4">
       <style>{CSS}</style>
       <section className="panel">
-        <div className="panel-h">Value Creation &amp; Exit<span className="muted">own · grow · realise</span></div>
-        <div className="s4-steps">
-          {steps.map((s, i) => (
-            <article key={s.key} className={`s4-step${s.isGate ? ' gate' : ''}`}>
-              <div className="s4-top">
-                <span className="s4-num">{i + 1}</span>
-                <span className="s4-title">{s.title}</span>
-                {s.isGate ? <span className="s4-gate" title="Exit decision gate">⛳ gate</span> : null}
-              </div>
-              <p className="s4-what">{s.what}</p>
-              <div className="s4-meta">
-                <span title="Owner">👤 {s.owner}</span>
-                <span title="Agent">🤖 {s.agent}</span>
-              </div>
-              <div className="s4-produces">{(s.produces || []).slice(0, 3).map((p) => <span key={p} className="s4-chip">{p}</span>)}</div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-h">Portfolio &amp; exits<span className="muted">{owned.length} compan{owned.length === 1 ? 'y' : 'ies'} owned / exiting</span></div>
+        <div className="panel-h">Value Creation &amp; Exit<span className="muted">{owned.length} compan{owned.length === 1 ? 'y' : 'ies'} owned / exiting · own → grow → realise</span></div>
         {!owned.length ? (
           <div className="empty-panel">No owned companies yet. Close a deal in Stage 3 to move it into value creation, monitoring &amp; exit here.</div>
         ) : (
           <div className="deals">
-            {owned.map((d) => (
-              <div className="dealcard" key={d.id} onClick={() => onOpen(d.id)} style={{ cursor: 'pointer' }}>
-                <div className="dc-top">
-                  <span className="dc-co">{(d as any).company}</span>
-                  <span className="dc-size">{money((d as any).dealSize)}</span>
+            {owned.map((d) => {
+              const figs = (d.keyFigures || []).slice(0, 3);
+              const lanes = d.workstreams || [];
+              const avg = lanes.length ? Math.round(lanes.reduce((s, w) => s + (w.progress || 0), 0) / lanes.length) : 0;
+              return (
+                <div className="dealcard rich" key={d.id} onClick={() => onOpen(d.id)} role="button" tabIndex={0}>
+                  <div className="dc-top">
+                    <span className="dc-co">{d.company}</span>
+                    <span className="dc-size">{dealMoney(d)}</span>
+                  </div>
+                  <div className="dc-meta">{[d.sector, d.subSector, d.hq].filter(Boolean).join(' · ')}</div>
+                  <div className="dc-tags">
+                    <span className="dc-pill own">{d.stageName || d.stage}</span>
+                    {d.status ? <span className="dc-st">{STATUS_LABEL[d.status] || d.status}</span> : null}
+                  </div>
+                  {figs.length ? <div className="dc-figs">{figs.map((f) => <span key={f.label} className="dc-fig"><b>{f.value}</b> {f.label}</span>)}</div> : null}
+                  {d.thesis ? <p className="dc-thesis">{d.thesis.length > 180 ? `${d.thesis.slice(0, 180)}…` : d.thesis}</p> : null}
+                  <div className="dc-foot">
+                    <span className="muted">Value-creation plan {avg}% executed</span>
+                    <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
+                  </div>
                 </div>
-                <div className="dc-meta">{[(d as any).sector, (d as any).stageName || (d as any).stage].filter(Boolean).join(' · ')}</div>
-                <div className="dc-foot">
-                  <span className="muted">{(d as any).stageName || 'In portfolio'}</span>
-                  <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
+      <StageGuide stage="ownership" />
     </div>
   );
 }
 
 const CSS = `
-.stage4 .s4-steps { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-.s4-step { border: 1px solid var(--border, #2a2a35); border-radius: 10px; padding: 12px 14px; background: var(--card, #1b1b22); }
-.s4-step.gate { border-color: rgba(124,58,237,.5); }
-.s4-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.s4-num { width: 22px; height: 22px; border-radius: 50%; background: #7c3aed; color: #fff; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
-.s4-title { font-weight: 600; font-size: 13.5px; }
-.s4-gate { margin-left: auto; font-size: 11px; color: #a78bfa; }
-.s4-what { margin: 0 0 8px; font-size: 12px; color: var(--muted); line-height: 1.45; }
-.s4-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: var(--muted); margin-bottom: 8px; }
-.s4-produces { display: flex; flex-wrap: wrap; gap: 5px; }
-.s4-chip { font-size: 11px; color: var(--fg); border: 1px solid var(--border, #33333f); border-radius: 999px; padding: 1px 8px; }
+.stage4 .dealcard.rich { display: flex; flex-direction: column; gap: 7px; }
+.stage4 .dc-tags { display: flex; align-items: center; gap: 8px; }
+.stage4 .dc-pill { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 9px; }
+.stage4 .dc-pill.own { color: #a78bfa; background: rgba(124,58,237,.14); }
+.stage4 .dc-st { font-size: 11.5px; color: var(--muted); }
+.stage4 .dc-figs { display: flex; flex-wrap: wrap; gap: 14px; }
+.stage4 .dc-fig { font-size: 11.5px; color: var(--muted); }
+.stage4 .dc-fig b { color: var(--fg); font-size: 13px; margin-right: 3px; }
+.stage4 .dc-thesis { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
 `;

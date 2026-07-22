@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import StageGuide from './StageGuide';
 
 // Native Stage 1 — Origination & Screening. Three sub-surfaces over the shared
 // backend (single data source):
@@ -342,6 +343,7 @@ export default function Stage1({ onChanged, onOpenDeal }: { onChanged: () => voi
           </section>
         </>
       )}
+      <StageGuide stage="origination" />
     </div>
   );
 }

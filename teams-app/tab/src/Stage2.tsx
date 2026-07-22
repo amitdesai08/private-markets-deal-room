@@ -1,4 +1,5 @@
 import type { Deal } from './types';
+import StageGuide from './StageGuide';
 
 // Native Stage 2 — Diligence & Approval. A focused roster of the deals that have
 // entered diligence (launched / D-stage). Each opens the full Deal Workspace
@@ -42,6 +43,7 @@ export default function Stage2({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen
           </div>
         )}
       </section>
+      <StageGuide stage="diligence" />
     </div>
   );
 }

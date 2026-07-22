@@ -23,7 +23,7 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
   const kpis = [
     { label: 'Live deals', value: String(analytics?.deals ?? deals.length ?? 0), sub: `${analytics?.inDiligence ?? 0} in diligence` },
     { label: 'Avg IC readiness', value: `${analytics?.avgReadiness ?? 0}%`, sub: `${analytics?.cycleReductionPct ?? 0}% cycle cut` },
-    { label: 'Fabric market intel', value: fabric?.mode === 'live' ? 'Live' : (fabric?.mode || '—'), sub: `${comps.length} comps · ${precedents.length} IC precedents` },
+    { label: 'Fabric market intel', value: fabric?.mode === 'live' ? 'Live' : (fabric?.mode ? 'Materialized' : '—'), sub: `${comps.length} comps · ${precedents.length} IC precedents` },
     { label: 'Deal-flow agents', value: String(agentCount), sub: config?.newsAgent === 'live' ? 'news scout live' : 'agents ready' },
   ];
 
