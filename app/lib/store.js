@@ -43,6 +43,14 @@ import { loadFabric, fabricInfo, getMarketIntel, getComparableDeals, getBenchmar
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 
+// Demo governance overlay: the deal team + confidential flag for the showcase deals.
+// Applied on every deal load (see attachWorkspaces) so RBAC need-to-know holds even if
+// the persisted Cosmos record predates these fields (the background sync reloads from
+// Cosmos every few seconds, so an in-memory-only patch would otherwise be wiped).
+const DEMO_GOVERNANCE = new Map(
+  demoStageDeals.map((d) => [d.id, { team: Array.isArray(d.team) ? d.team.slice() : [], confidential: !!d.confidential }]),
+);
+
 // Backfill the first-class functional lanes (financial / legal / tax / ESG) onto
 // deals created before they existed: add any missing workstream and any missing
 // workspace swimlane, preserving existing progress/owners. Persists if changed so
@@ -75,6 +83,9 @@ function ensureFirstClassLanes(d) {
 // is populated for all of them (screened deals get theirs on launch).
 function attachWorkspaces(list) {
   for (const d of list) {
+    // Re-assert demo governance (deal team + confidential) from the fixtures.
+    const gov = DEMO_GOVERNANCE.get(d.id);
+    if (gov) { d.team = gov.team.slice(); d.confidential = gov.confidential; }
     if (d.status !== 'screened' && !d.workspace) {
       const lanes = d.workstreams || [];
       const maturity = lanes.length
@@ -230,25 +241,12 @@ export async function hydrate() {
     candidates = cos.filter((c) => c.kind === 'candidate');
     const ds = await dealRepo.list();
     deals = attachWorkspaces(ds);
-    // Idempotently seed the later-stage showcase deals (Stage 3 Execution / Stage 4
-    // Ownership) so those tabs have live deals — insert missing by id, never clobbering
-    // user progress. For deals that already exist we still re-assert the demo GOVERNANCE
-    // metadata (deal team + confidential flag) so RBAC policy changes apply without a
-    // data reset.
-    const byId = new Map(deals.map((d) => [d.id, d]));
+    // Overlay of demo governance (deal team + confidential) is applied inside
+    // attachWorkspaces above, so it survives the periodic Cosmos background sync.
+    // Seed any missing later-stage showcase deals (insert by id, never clobbering progress).
+    const haveDealIds = new Set(deals.map((d) => d.id));
     for (const demo of demoStageDeals) {
-      const existing = byId.get(demo.id);
-      if (existing) {
-        const nextTeam = Array.isArray(demo.team) ? demo.team : [];
-        const teamChanged = JSON.stringify(existing.team || []) !== JSON.stringify(nextTeam);
-        const confChanged = !!existing.confidential !== !!demo.confidential;
-        if (teamChanged || confChanged) {
-          existing.team = clone(nextTeam);
-          existing.confidential = !!demo.confidential;
-          persistDeal(existing);
-        }
-        continue;
-      }
+      if (haveDealIds.has(demo.id)) continue;
       const dd = clone(demo);
       attachWorkspaces([dd]);
       deals.push(dd);
