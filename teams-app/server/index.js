@@ -208,6 +208,38 @@ app.use('/api/admin', async (req, res) => {
   }
 });
 
+// Deal list / detail / subresources — inject the resolved requesting identity (SSO or
+// demo "view as USER") so the orchestrator can enforce two-tier access + deal-team
+// need-to-know. Registered before the generic proxy so it wins for /api/deals/*.
+app.use('/api/deals', async (req, res) => {
+  if (!isBackendLive()) return proxyToBackend(req, res);
+  const ssoToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.ssoToken || '';
+  const identity = identityFromSsoToken(ssoToken);
+  const asOverride = String(req.headers['x-dr-as'] || req.body?.as || req.query.as || '').trim();
+  const viewAsRole = String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || req.query.viewAsRole || '').trim();
+  const requestingUser = asOverride
+    ? { name: asOverride }
+    : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : null);
+  const headers = { 'content-type': 'application/json' };
+  if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
+  if (requestingUser) headers['x-dr-user'] = JSON.stringify(requestingUser);
+  if (viewAsRole) headers['x-dr-view-as'] = viewAsRole;
+  const hasBody = !['GET', 'HEAD'].includes(req.method);
+  const body = hasBody
+    ? JSON.stringify({ ...(req.body || {}), requestingUser, viewAsRole: viewAsRole || undefined })
+    : undefined;
+  try {
+    const upstream = await fetch(`${config.backend.url}${req.originalUrl}`, { method: req.method, headers, body });
+    res.status(upstream.status);
+    const cd = upstream.headers.get('content-disposition');
+    if (cd) res.setHeader('Content-Disposition', cd);
+    res.setHeader('content-type', upstream.headers.get('content-type') || 'application/json');
+    res.send(Buffer.from(await upstream.arrayBuffer()));
+  } catch (e) {
+    res.status(502).json({ error: 'backend-unreachable', detail: String(e?.message || e) });
+  }
+});
+
 // Everything else under /api forwards to the shared backend (single data source).
 app.use('/api', proxyToBackend);
 

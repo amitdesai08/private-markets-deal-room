@@ -349,6 +349,10 @@ export const demoStageDeals = [
   {
     id: 'demo-helvetia',
     company: 'Helvetia Diagnostics',
+    // Need-to-know: analyst "Maya" is named on this deal team, so she gets the full
+    // workspace even though her role tier would normally see status-only.
+    team: ['analyst'],
+    confidential: false,
     sector: 'Healthcare',
     subSector: 'Diagnostics / Lab Services',
     hq: 'Basel, Switzerland',
@@ -398,6 +402,8 @@ export const demoStageDeals = [
   {
     id: 'demo-meridian',
     company: 'Meridian Logistics',
+    team: ['operating-partner', 'fund-cfo'],
+    confidential: false,
     sector: 'Industrials',
     subSector: 'Contract Logistics / 3PL',
     hq: 'Lyon, France',
@@ -445,6 +451,10 @@ export const demoStageDeals = [
   {
     id: 'demo-aurora',
     company: 'Aurora Software',
+    // Confidential exit: exists only for its named team (+ admins). Everyone else
+    // never sees it in the pipeline at all.
+    team: ['partner', 'fund-cfo'],
+    confidential: true,
     sector: 'Software',
     subSector: 'Vertical SaaS',
     hq: 'Dublin, Ireland',

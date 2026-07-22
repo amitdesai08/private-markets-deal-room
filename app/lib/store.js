@@ -34,6 +34,7 @@ import {
 import { initRepo, repoMode, repoReady, companies as coRepo, deals as dealRepo, signals as sigRepo, recordEvent } from './repo/index.js';
 import { initConnectorSettings } from './connectorSettings.js';
 import { initAccessConfig } from './accessConfig.js';
+import { dealAccessLevel } from './userPolicy.js';
 import { primeTokenCache } from './mcp/oauth.js';
 import { computeICReadiness, currentAssumptions } from './icReadiness.js';
 import { validateCitations } from './citations.js';
@@ -450,8 +451,18 @@ function summarize(deal) {
   };
 }
 
-export function listDeals() {
-  return deals.map(summarize);
+export function listDeals(identity, viewAsRole = null) {
+  const scoped = arguments.length > 0;            // no-arg = system/agent view (unredacted)
+  const out = [];
+  for (const d of deals) {
+    const level = scoped ? dealAccessLevel(identity, d, viewAsRole) : 'full';
+    if (level === 'none') continue;               // confidential deal you can't see
+    const s = summarize(d);
+    s.accessLevel = level;
+    if (level === 'status') { s.thesis = undefined; s.locked = true; } // status tier: metadata only
+    out.push(s);
+  }
+  return out;
 }
 
 export function getDealRaw(id) {

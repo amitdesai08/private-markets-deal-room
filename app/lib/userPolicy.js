@@ -187,6 +187,60 @@ export function authorizeDealAccess(identity, dealStageOrName, viewAsRole = null
   return { ok: true, access };
 }
 
+// ---- Two-tier deal access + deal-team need-to-know ---------------------------
+// A deal may carry a `team` (user ids on the deal) and a `confidential` flag. Access
+// resolves to one of three levels:
+//   'full'   — the confidential workspace (financials, findings, terms, valuations, docs)
+//   'status' — metadata only (company, sector, stage, status, size) for pipeline awareness
+//   'none'   — not visible at all (a confidential deal you are not on the team of)
+
+const RESTRICTED_STAGE_RE = /^[dev]/i;
+const RESTRICTED_NAME_RE = /diligence|approval|execution|closing|signing|financing|value|monitoring|ownership|exit/i;
+
+// Is this identity (or its view-as) on a deal's team? Matches by oid / upn-local / upn /
+// name, like roleForUser.
+export function onDealTeam(identity, team) {
+  const list = (team || []).map((s) => norm(s));
+  if (!list.length || !identity) return false;
+  const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn), norm(identity.name)].filter(Boolean);
+  return keys.some((k) => list.includes(k));
+}
+
+// The effective access level for a specific deal: 'full' | 'status' | 'none'.
+export function dealAccessLevel(identity, deal, viewAsRole = null) {
+  const access = accessFor(identity, viewAsRole);
+  const s = String((deal && (deal.stage || deal.stageName)) || '');
+  const restricted = RESTRICTED_STAGE_RE.test(s) || RESTRICTED_NAME_RE.test(s);
+  const team = onDealTeam(identity, deal && deal.team);
+  const confidential = !!(deal && deal.confidential);
+  // Data sovereignty: a region-restricted role can't see out-of-region deals at all.
+  const region = deal && (deal.region || deal.jurisdiction);
+  if (region && access.regions.length && !access.isAdmin && !team && !access.regions.map((x) => String(x).toLowerCase()).includes(String(region).toLowerCase())) return 'none';
+  // Base level (ignoring confidential): admins + deal-team members (need-to-know) + open
+  // (origination) stages get the full workspace; deal-team-tier roles get full on
+  // restricted stages; everyone else gets status-only on restricted stages.
+  let level;
+  if (access.isAdmin || team) level = 'full';
+  else if (!restricted) level = 'full';
+  else if (access.canViewStage2) level = 'full';
+  else level = 'status';
+  // Confidential deals hide their very existence from the status tier — only the named
+  // team, admins and full-tier roles know they exist. Full access is unchanged.
+  if (confidential && level === 'status') return 'none';
+  return level;
+}
+
+// Content gate for a deal's workspace (documents, actions, agent chat). ok only at 'full'.
+export function authorizeDealContent(identity, deal, viewAsRole = null) {
+  const access = accessFor(identity, viewAsRole);
+  const level = dealAccessLevel(identity, deal, viewAsRole);
+  if (level === 'full') return { ok: true, access, level };
+  const reason = level === 'none'
+    ? 'This deal is restricted to its named team.'
+    : `This deal has advanced past screening and its workspace is restricted to the deal team. As ${access.roleLabel} you can see its status but not its detail.`;
+  return { ok: false, access, level, reason };
+}
+
 // Admin view of the effective roles (built-in defaults + admin overrides / custom
 // roles) for the in-app role builder. Includes which are built-in and current
 // config assignments.

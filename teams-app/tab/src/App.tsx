@@ -7,6 +7,7 @@
 // shared backend. Add a new main tab by extending the mainTab union + the nav map.
 import { useEffect, useState } from 'react';
 import { initTeams, getSsoToken, type TeamsInfo } from './teams';
+import { af, setAuthContext } from './authFetch';
 import Dashboard from './Dashboard';
 import ChatPanel from './ChatPanel';
 import DealDetail from './DealDetail';
@@ -100,14 +101,14 @@ export default function App() {
       // SSO token identifies the caller so /platform/status can report isAdmin (the
       // "keep online indefinitely" path is admin-only). Absent outside Teams — fine.
       const tok = await getSsoToken().catch(() => null);
-      if (tok) setSsoToken(tok);
+      if (tok) { setSsoToken(tok); setAuthContext({ ssoToken: tok }); }
       fetch('/api/platform/status', tok ? { headers: { authorization: `Bearer ${tok}` } } : undefined)
         .then((r) => r.json()).then(setPlatform).catch(() => setPlatform(null));
       fetch('/api/teams/config').then((r) => r.json()).then(setCfg).catch(() => {});
       fetch('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
       fetch('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
       fetch('/api/market-intel').then((r) => r.json()).then(setMarket).catch(() => {});
-      fetch('/api/deals').then((r) => (r.ok ? r.json() : [])).then((d) => { if (Array.isArray(d)) setDeals(d); }).catch(() => {});
+      af('/api/deals').then((r) => (r.ok ? r.json() : [])).then((d) => { if (Array.isArray(d)) setDeals(d); }).catch(() => {});
 
       fetch('/api/config').then((r) => r.json()).then((backendCfg: BackendConfig) => {
         setConfig(backendCfg);
@@ -143,13 +144,18 @@ export default function App() {
   useEffect(() => {
     if (!viewAs) return;
     (async () => {
+      // Identity for deal need-to-know follows the demo "view as" selection + role.
+      setAuthContext({ as: viewAs, viewAsRole });
       const ctx = await fetch('/api/teams/context', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ as: viewAs, viewAsRole }) }).then((r) => r.json()).catch(() => null);
       applyAccess(ctx);
+      // Re-pull the pipeline as the newly selected identity so status-only / hidden
+      // deals are reflected in the list.
+      af('/api/deals').then((r) => (r.ok ? r.json() : [])).then((d) => { if (Array.isArray(d)) setDeals(d); }).catch(() => {});
     })();
   }, [viewAs, viewAsRole]);
 
   async function refreshData() {
-    fetch('/api/deals').then((r) => (r.ok ? r.json() : [])).then((d) => { if (Array.isArray(d)) setDeals(d); }).catch(() => {});
+    af('/api/deals').then((r) => (r.ok ? r.json() : [])).then((d) => { if (Array.isArray(d)) setDeals(d); }).catch(() => {});
     fetch('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
     fetch('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
   }

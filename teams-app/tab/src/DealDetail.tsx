@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getSsoToken } from './teams';
+import { af } from './authFetch';
 import DealArtifacts from './DealArtifacts';
 
 // Native Deal Workspace (single-deal scope) — brings the webapp's Stages,
@@ -16,6 +17,7 @@ type DealFull = {
   readiness?: number; daysToIC?: number; thesis?: string; keyFigures?: KeyFigure[]; workstreams?: Workstream[];
   currentStep?: string; stepNumber?: number; totalSteps?: number; completedSteps?: string[];
   workspaceReady?: boolean; memoSections?: MemoSection[]; artifacts?: Record<string, any>; workspace?: any;
+  accessLevel?: 'full' | 'status'; locked?: boolean;
 };
 type Verdict = { state?: string; headline?: string; gating?: string[] };
 type Artifact = { key: string; label: string; complete: boolean; detail?: string };
@@ -75,8 +77,8 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
 
   async function load(setSel = false) {
     const [d, i] = await Promise.all([
-      fetch(`/api/deals/${dealId}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(`/api/deals/${dealId}/ic-readiness`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      af(`/api/deals/${dealId}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      af(`/api/deals/${dealId}/ic-readiness`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]);
     setDeal(d); setIc(i);
     if (setSel && d?.currentStep) setSelStep(d.currentStep);
@@ -101,7 +103,7 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
         sector ? fetch(`/api/market-intel/comps?sector=${sector}`).then((r) => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null),
       ]).then(([mi, comps]) => setMarket({ ...(mi || {}), comparableDeals: (comps && comps.length ? comps : mi?.comparableDeals) || [] }));
     }
-    if (!citations) fetch(`/api/deals/${dealId}/citations`).then((r) => (r.ok ? r.json() : null)).then(setCitations).catch(() => {});
+    if (!citations) af(`/api/deals/${dealId}/citations`).then((r) => (r.ok ? r.json() : null)).then(setCitations).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, dealId]);
 
@@ -109,7 +111,7 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
   useEffect(() => {
     if (tab !== 'documents') return;
     setDocs(null);
-    fetch(`/api/deals/${dealId}/documents`)
+    af(`/api/deals/${dealId}/documents`)
       .then(async (r) => { const d = await r.json().catch(() => ({})); setDocs(r.ok ? d : { error: d?.error || `Failed (${r.status})`, notConnected: !!d?.notConnected }); })
       .catch((e) => setDocs({ error: String(e?.message || e) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,7 +140,7 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
         const d = await r.json().catch(() => ({}));
         if (r.ok && d?.document?.webUrl) window.open(d.document.webUrl, '_blank', 'noopener');
         else setNote(d?.reason || d?.error || 'Could not save the document.');
-        const lr = await fetch(`/api/deals/${dealId}/documents`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+        const lr = await af(`/api/deals/${dealId}/documents`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
         if (lr) setDocs(lr);
       }
     } catch (e: any) {
@@ -208,7 +210,10 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
   // Post-screening stages (Diligence D*, Execution E*, Ownership V*) are deal-team only
   // — they hold diligence findings, signed terms, financing and exit valuations.
   const inStage2 = /^[dev]/i.test(String(deal?.stage || '')) || /diligence|approval|execution|closing|signing|financing|value|monitoring|ownership|exit/i.test(String(deal?.stageName || ''));
-  const stage2Locked = inStage2 && !canViewStage2;
+  // Server is authoritative: it returns accessLevel 'status' when this caller is not on
+  // the deal team and lacks the deal-team role tier. Fall back to the client heuristic
+  // only if the backend didn't tag the payload.
+  const statusOnly = deal ? (deal.accessLevel ? deal.accessLevel === 'status' : (inStage2 && !canViewStage2)) : false;
 
   return (
     <div className="drawer-scrim" onClick={onClose}>
@@ -235,7 +240,7 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
               </div>
             </div>
 
-            {!stage2Locked && (
+            {!statusOnly && (
             <div className="dd-tabs">
               {(['overview', 'stages', 'workspace', 'research', 'artifacts', 'documents', 'ic'] as Tab[]).map((t) => (
                 <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>
@@ -246,11 +251,23 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
             )}
 
             <div className="drawer-body">
-              {stage2Locked ? (
-                <div className="dd-panel" style={{ textAlign: 'center', padding: '28px 18px' }}>
-                  <div style={{ fontSize: 26 }}>🔒</div>
-                  <div style={{ fontWeight: 700, marginTop: 6 }}>{deal.stageName || deal.stage || 'Restricted stage'}</div>
-                  <div className="muted" style={{ marginTop: 6 }}>This deal has advanced past screening and is restricted to the deal team. Ask a deal-team member for access.</div>
+              {statusOnly ? (
+                <div className="dd-panel" style={{ padding: '22px 18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 22 }}>🔒</span>
+                    <div style={{ fontWeight: 700 }}>Status-only view</div>
+                  </div>
+                  <div className="muted" style={{ marginTop: 6 }}>
+                    This deal has advanced past screening. Its workspace — diligence findings, financials, signed terms and valuations — is restricted to the deal team on a need-to-know basis. You can see where it stands in the pipeline; ask a deal-team member to be added for full access.
+                  </div>
+                  <div className="dd-statusgrid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 10, marginTop: 16 }}>
+                    <div><div className="muted" style={{ fontSize: 12 }}>Company</div><div style={{ fontWeight: 600 }}>{deal.company}</div></div>
+                    <div><div className="muted" style={{ fontSize: 12 }}>Sector</div><div style={{ fontWeight: 600 }}>{[deal.sector, deal.subSector].filter(Boolean).join(' · ') || '—'}</div></div>
+                    <div><div className="muted" style={{ fontSize: 12 }}>Deal size</div><div style={{ fontWeight: 600 }}>{money(deal.dealSize)}</div></div>
+                    <div><div className="muted" style={{ fontSize: 12 }}>Stage</div><div style={{ fontWeight: 600 }}>{deal.stageName || deal.stage || '—'}</div></div>
+                    <div><div className="muted" style={{ fontSize: 12 }}>Status</div><div style={{ fontWeight: 600, textTransform: 'capitalize' }}>{deal.status || '—'}</div></div>
+                    <div><div className="muted" style={{ fontSize: 12 }}>IC readiness</div><div style={{ fontWeight: 600 }}>{deal.readiness ?? 0}%</div></div>
+                  </div>
                 </div>
               ) : (
               <>

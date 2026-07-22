@@ -114,7 +114,7 @@ import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
-import { accessFor, authorizePersona, authorizeDealAccess, describeAccess, describeDemoProfiles, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
+import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent, dealAccessLevel, describeAccess, describeDemoProfiles, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
 import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
 import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments } from './lib/accessConfig.js';
 
@@ -128,10 +128,21 @@ app.use(express.json({ limit: '1mb' }));
 // treated as unidentified (DEFAULT_AGENT_ROLE) so a client can't spoof a role.
 const BOT_BACKEND_KEY = (process.env.BOT_BACKEND_KEY || '').trim();
 function requestingIdentity(req) {
-  const ru = req.body?.requestingUser;
-  if (!ru) return null;
+  // Only honour a supplied identity when the caller proves it is the Teams bot.
   if (BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY) return null;
-  return { oid: ru.oid, upn: ru.upn, name: ru.name };
+  const ru = req.body?.requestingUser;
+  if (ru) return { oid: ru.oid, upn: ru.upn, name: ru.name };
+  // GET requests (deal list / detail) carry the identity in a trusted header.
+  const hdr = req.headers['x-dr-user'];
+  if (hdr) {
+    try { const u = JSON.parse(hdr); return { oid: u.oid, upn: u.upn, name: u.name }; } catch { /* ignore */ }
+  }
+  return null;
+}
+
+// The role the caller is previewing as (demo "view as"), from body or trusted header.
+function requestingViewAs(req) {
+  return req.body?.viewAsRole || req.headers['x-dr-view-as'] || null;
 }
 
 // ---- API ----
@@ -168,7 +179,7 @@ api.get('/flow', (_req, res) => res.json(getFlow()));
 // The full institutional PE deal lifecycle (phases → stages/gates with owners &
 // artifacts). Additive to /flow; powers the Lifecycle view.
 api.get('/lifecycle', (_req, res) => res.json({ phases: lifecycleByPhase(), stages: LIFECYCLE, gates: LIFECYCLE_GATES }));
-api.get('/deals', (_req, res) => res.json(listDeals()));
+api.get('/deals', (req, res) => res.json(listDeals(requestingIdentity(req), requestingViewAs(req))));
 api.get('/analytics', (_req, res) => res.json(portfolioStats()));
 
 // Fund / portfolio lens (post-IC). Owned-portfolio monitoring, fund/LP
@@ -305,7 +316,7 @@ api.get('/deals/:id/documents', async (req, res) => {
   const deal = getDealRaw(req.params.id);
   if (!deal) return res.status(404).json({ error: 'not-found' });
   const identity = requestingIdentity(req);
-  const gate = authorizeDealAccess(identity, deal.stage || deal.stageName);
+  const gate = authorizeDealContent(identity, deal, requestingViewAs(req));
   if (!gate.ok) return res.status(403).json({ denied: true, reason: gate.reason });
   try {
     const out = await listDealDocuments(deal);
@@ -322,7 +333,7 @@ api.post('/deals/:id/documents/:kind', async (req, res) => {
   const deal = getDealRaw(id);
   if (!deal) return res.status(404).json({ error: 'not-found' });
   const identity = requestingIdentity(req);
-  const gate = authorizeDealAccess(identity, deal.stage || deal.stageName);
+  const gate = authorizeDealContent(identity, deal, requestingViewAs(req));
   if (!gate.ok) return res.status(403).json({ denied: true, reason: gate.reason });
   // Destination: 'download' streams a personal working copy to the requester
   // (built on their license, needs no Graph); 'sharepoint' publishes into the
@@ -784,9 +795,19 @@ api.post('/screens', (req, res) => {
 });
 
 api.get('/deals/:id', (req, res) => {
+  const raw = getDealRaw(req.params.id);
+  if (!raw) return res.status(404).json({ error: 'deal not found' });
+  const level = dealAccessLevel(requestingIdentity(req), raw, requestingViewAs(req));
+  // Need-to-know: a confidential deal you're not on doesn't exist for you.
+  if (level === 'none') return res.status(404).json({ error: 'deal not found' });
+  // Status tier: metadata only, no confidential workspace.
+  if (level === 'status') {
+    const [summary] = listDeals(requestingIdentity(req), requestingViewAs(req)).filter((d) => d.id === raw.id);
+    return res.json({ ...(summary || {}), accessLevel: 'status', locked: true });
+  }
   const deal = getDeal(req.params.id);
   if (!deal) return res.status(404).json({ error: 'deal not found' });
-  res.json(deal);
+  res.json({ ...deal, accessLevel: 'full' });
 });
 
 api.get('/sourcing', (_req, res) => res.json(listSourcing()));
@@ -926,8 +947,8 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   const viewAs = req.body?.viewAsRole || null;
   const access = accessFor(identity, viewAs);
   if (dealId) {
-    const d = getDeal(dealId);
-    const gate = authorizeDealAccess(identity, d?.stage || d?.stageName, viewAs);
+    const d = getDealRaw(dealId);
+    const gate = authorizeDealContent(identity, d, viewAs);
     if (!gate.ok) return res.status(403).json({ reply: gate.reason, denied: true, role: access.role });
   }
   // Read-only users (analyst / member roles) never reach the write-capable persona
@@ -972,8 +993,8 @@ api.post('/deal-agent/chat', async (req, res) => {
   const identity = requestingIdentity(req);
   const viewAs = req.body?.viewAsRole || null;
   if (dealId) {
-    const d = getDeal(dealId);
-    const gate = authorizeDealAccess(identity, d?.stage || d?.stageName, viewAs);
+    const d = getDealRaw(dealId);
+    const gate = authorizeDealContent(identity, d, viewAs);
     if (!gate.ok) return res.status(403).json({ reply: gate.reason, denied: true, role: gate.access.role });
   }
   try {
