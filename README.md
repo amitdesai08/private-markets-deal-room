@@ -168,14 +168,14 @@ the dashboard knows *who* is looking.
 
 ![The Deal Room dashboard rendered inside Microsoft Teams](teams-app/docs/teams-dashboard.png)
 
-## 🗂️ Stage 1 & Stage 2 — the deal areas
+## 🗂️ The deal areas — one workspace per stage
 
-The app *is* the process — four stage areas from origination to exit (**Stage 1 —
-Origination**, **Stage 2 — Diligence**, **Stage 3 — Execution**, **Stage 4 — Value &
-Exit**), plus a **Fund & Portfolio** roll-up. Stages 1 & 2 below are joined by the
-**PURSUE** gate:
+The app *is* the process: each phase of the buyout has its own workspace, and a deal
+simply advances from one to the next, gated at every hand-off. Origination and
+diligence are shown in depth below; execution, ownership and the fund roll-up follow
+the same pattern.
 
-### Stage 1 · Origination & Screening — the funnel
+### 1 · Origination & Screening — the funnel
 
 | Area | What it does |
 |---|---|
@@ -199,7 +199,7 @@ recommendation) — all sourced live and cited:
 > and a **SharePoint virtual data room** — via delegated Microsoft Graph, with a
 > durable channel↔deal mapping that keeps the agent's context correct as deals scale.
 
-### Stage 2 · Diligence & Approval — the deal hub
+### 2 · Diligence & Approval — the deal hub
 
 | Area | What it does |
 |---|---|
@@ -210,14 +210,34 @@ recommendation) — all sourced live and cited:
 
 ![Stage 2 — Diligence & Approval in the Teams tab](teams-app/docs/teams-stage2.png)
 
-## 🏛️ The full deal lifecycle
+### 3 · Execution — sign & close
 
-Stage 1 & 2 are the demo spine; **Stage 3 — Execution** and **Stage 4 — Value & Exit**
-carry each deal through to owned-company monitoring and exit, and the **Fund &
-Portfolio** view rolls them up. Together they model the complete institutional
-mid-market buyout process — **15 stages across 3 phases**, with the six **decision
-gates** (⛔) where capital & resources are committed. Each stage names the accountable
-**persona** and the artifacts it produces (`GET /api/lifecycle`).
+| Area | What it does |
+|---|---|
+| **IC & terms** | The IOI/LOI, the IC-readiness verdict, and the approved investment case carried into execution. |
+| **Signing (SPA)** | Legal execution — SPA, reps & warranties and conditions to close — led by the General Counsel persona. |
+| **Financing** | The debt package — sources & uses, leverage and covenant headroom — with the Fund CFO. |
+| **Close & hand-off** | Completion, then a clean hand-off into ownership and the 100-day plan. |
+
+### 4 · Value & Exit — own & realise
+
+| Area | What it does |
+|---|---|
+| **Value creation** | The 100-day plan and quantified levers, tracked on an **EBITDA bridge** vs entry, with the Operating Partner. |
+| **Portfolio monitoring** | Current **MOIC / IRR**, KPIs vs plan, the add-on pipeline, and LP-ready board packs. |
+| **Exit** | **Exit-readiness** scoring and a dual-track exit recommendation to the exit committee. |
+
+### Fund & Portfolio — the LP lens
+
+A fund-level roll-up across every owned company: **DPI · TVPI · RVPI**, deployed vs dry
+powder, and concentration vs LPA limits — the executive value dashboard.
+
+## 🏛️ The lifecycle behind the areas
+
+Behind those workspaces sits the complete institutional mid-market buyout process —
+**15 stages across 3 phases**, with the six **decision gates** (⛔) where capital &
+resources are committed. Each stage names the accountable **persona** and the artifacts
+it produces (`GET /api/lifecycle`).
 
 | Phase | Stages | Gates |
 |---|---|---|
