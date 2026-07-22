@@ -22,7 +22,7 @@ let _cfg = emptyCfg();
 let _loaded = false;
 
 function emptyCfg() {
-  return { roles: {}, assignments: {}, personas: {}, personaActions: {}, personaStages: {} };
+  return { roles: {}, assignments: {}, personas: {}, personaActions: {}, personaStages: {}, settings: {} };
 }
 function normalize(rec) {
   const e = emptyCfg();
@@ -49,6 +49,17 @@ export function getRoleAssignments() { return _cfg.assignments; }
 export function getPersonaOverrides() { return _cfg.personas; }
 export function getPersonaActionOverrides() { return _cfg.personaActions; }
 export function getPersonaStageOverrides() { return _cfg.personaStages; }
+
+// Runtime platform settings (admin-editable, persisted). getDemoModeOverride returns
+// the admin's demo-mode choice (true/false) or undefined when never set — in which case
+// the deploy-time DEMO_PROFILES env default applies (resolved in userPolicy).
+export function getRuntimeSettings() { return { ...(_cfg.settings || {}) }; }
+export function getDemoModeOverride() { return _cfg.settings ? _cfg.settings.demoMode : undefined; }
+export async function setDemoMode(on) {
+  _cfg.settings = { ...(_cfg.settings || {}), demoMode: !!on };
+  await persist();
+  return _cfg.settings.demoMode;
+}
 
 async function persist() {
   try {

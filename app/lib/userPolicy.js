@@ -21,8 +21,18 @@ const listEnv = (name, dflt = '') =>
 // grants a role by demo name. When on, each role's id list is augmented with
 // its demo identity ids so the "view as" roster resolves out of the box.
 import { demoProfiles, demoRoleIds } from '../data/demoProfiles.js';
-import { getRoleOverrides, getRoleAssignments } from './accessConfig.js';
+import { getRoleOverrides, getRoleAssignments, getDemoModeOverride } from './accessConfig.js';
 export const demoProfilesEnabled = /^(1|true|yes|on)$/i.test(String(process.env.DEMO_PROFILES ?? ''));
+
+// Whether demo mode is ACTIVE right now. DEMO_PROFILES (the deploy-time / AZD toggle)
+// is the hard gate: a production deploy with it off can never turn demo mode on at
+// runtime. When the deploy allows it, an administrator can flip it off/on from Settings
+// (persisted override); unset means "follow the deploy default" (on).
+export function demoModeActive() {
+  if (!demoProfilesEnabled) return false;
+  const override = getDemoModeOverride();
+  return override === undefined ? true : !!override;
+}
 const withDemo = (role, ids) => (demoProfilesEnabled ? [...ids, ...(demoRoleIds[role] || [])] : ids);
 
 // Role → user ids, from env (real Entra object ids in production) plus the demo
@@ -129,9 +139,13 @@ export function accessFor(identity, viewAsRole = null) {
 
 // The per-user access summary the UI consumes (which agents to show + view-as roles).
 export function describeAccess(identity, viewAsRole = null) {
+  const demo = demoModeActive();
   return {
     ...accessFor(identity, viewAsRole),
-    viewAsRoles: viewAsRolesFor(identity).map((r) => ({ role: r, label: labelOf(r) })),
+    // The demo-only affordances ("view as ROLE") are suppressed when demo mode is off
+    // so a production tab shows only the caller's real role.
+    viewAsRoles: demo ? viewAsRolesFor(identity).map((r) => ({ role: r, label: labelOf(r) })) : [],
+    demoMode: demo,
   };
 }
 
@@ -139,7 +153,7 @@ export function describeAccess(identity, viewAsRole = null) {
 // with the access its role confers so the "view as" switcher can show, e.g.,
 // "Eleanor Bishop · Partner · 5 agents" vs "Maya Olsen · Analyst · 1 agent".
 export function describeDemoProfiles() {
-  if (!demoProfilesEnabled) return [];
+  if (!demoModeActive()) return [];
   return demoProfiles.map((p) => {
     const a = accessFor({ name: p.id });
     const n = a.allowedPersonas.length;

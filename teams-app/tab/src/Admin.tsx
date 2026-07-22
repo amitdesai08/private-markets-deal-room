@@ -16,6 +16,7 @@ type Action = { id: string; label: string; personas: string[]; laneScoped: boole
 type AdminData = {
   config: any; roles: Role[]; personas: Persona[]; actions: Action[];
   lanes: Record<string, string>; allPersonaIds: string[]; stages: string[];
+  demoMode?: boolean; demoModeConfigurable?: boolean;
 };
 
 export default function Admin({ ssoToken, viewAs }: { ssoToken?: string; viewAs?: string }) {
@@ -49,6 +50,30 @@ export default function Admin({ ssoToken, viewAs }: { ssoToken?: string; viewAs?
         <h2>Access administration</h2>
         <p>Define custom RBAC roles and personas — data sovereignty, access level, and workflow rights. Select a row to expand and edit; changes persist and layer over the built-in defaults.</p>
       </div>
+
+      {data.demoModeConfigurable ? (
+        <div className="adm-demo">
+          <div className="adm-demo-txt">
+            <div className="adm-demo-t">Demo mode {data.demoMode ? <span className="adm-demo-on">On</span> : <span className="adm-demo-off">Off</span>}</div>
+            <div className="adm-demo-s">Shows the “View as” switcher and showcase personas so the access model is demoable. Turn this off for a production-style experience — every user then sees only their own role and identity.</div>
+          </div>
+          <label className="adm-toggle" title={data.demoMode ? 'Disable demo mode' : 'Enable demo mode'}>
+            <input
+              type="checkbox"
+              checked={!!data.demoMode}
+              disabled={busy}
+              onChange={async (e) => {
+                const on = e.target.checked;
+                setBusy(true);
+                try { await post('/demo-mode', { on }); window.location.reload(); }
+                catch (err: any) { setErr(String(err?.message || err)); setBusy(false); }
+              }}
+            />
+            <span className="adm-toggle-track"><span className="adm-toggle-knob" /></span>
+          </label>
+        </div>
+      ) : null}
+
       <nav className="adm-tabs">
         <button className={tab === 'roles' ? 'on' : ''} onClick={() => setTab('roles')}>Roles <span className="adm-count">{roleCount.total}</span></button>
         <button className={tab === 'personas' ? 'on' : ''} onClick={() => setTab('personas')}>Personas <span className="adm-count">{pCount.total}</span></button>
@@ -374,6 +399,19 @@ const CSS = `
 .adm-err { color: #d66; }
 .adm-head h2 { margin: 0 0 4px; font-size: 20px; }
 .adm-head p { margin: 0 0 14px; color: var(--muted); font-size: 13px; max-width: 760px; line-height: 1.5; }
+.adm-demo { display: flex; align-items: center; gap: 16px; justify-content: space-between; padding: 12px 14px; margin: 0 0 16px; border: 1px solid var(--border, #2a2a35); border-radius: 10px; background: var(--panel, rgba(255,255,255,0.02)); }
+.adm-demo-txt { min-width: 0; }
+.adm-demo-t { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.adm-demo-s { color: var(--muted); font-size: 12.5px; line-height: 1.45; margin-top: 3px; max-width: 640px; }
+.adm-demo-on { font-size: 11px; font-weight: 700; color: #34d399; border: 1px solid #34d39955; border-radius: 999px; padding: 1px 8px; }
+.adm-demo-off { font-size: 11px; font-weight: 700; color: var(--muted); border: 1px solid var(--border, #2a2a35); border-radius: 999px; padding: 1px 8px; }
+.adm-toggle { flex: 0 0 auto; cursor: pointer; }
+.adm-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.adm-toggle-track { display: inline-block; width: 42px; height: 24px; border-radius: 999px; background: var(--border, #3a3a46); position: relative; transition: background .15s ease; }
+.adm-toggle-knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s ease; }
+.adm-toggle input:checked + .adm-toggle-track { background: #2f81f7; }
+.adm-toggle input:checked + .adm-toggle-track .adm-toggle-knob { left: 21px; }
+.adm-toggle input:disabled + .adm-toggle-track { opacity: 0.5; }
 .adm-tabs { display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--border, #2a2a35); }
 .adm-tabs button { border: none; background: none; color: var(--muted); border-bottom: 2px solid transparent; padding: 6px 12px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 .adm-tabs button.on { color: var(--accent, #6ea8fe); border-bottom-color: var(--accent, #6ea8fe); }

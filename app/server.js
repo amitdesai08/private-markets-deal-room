@@ -114,9 +114,9 @@ import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
-import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent, dealAccessLevel, describeAccess, describeDemoProfiles, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
+import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent, dealAccessLevel, describeAccess, describeDemoProfiles, demoModeActive, demoProfilesEnabled, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
 import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
-import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments } from './lib/accessConfig.js';
+import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments, setDemoMode } from './lib/accessConfig.js';
 
 validateConfig({ strict: false });
 
@@ -888,8 +888,20 @@ api.post('/admin/access-config', (req, res) => {
     lanes: LANES_CATALOG,
     allPersonaIds: ALL_PERSONA_IDS,
     stages: WORKFLOW_STAGES,
+    // Demo mode: whether it's currently active, and whether the deploy even allows it
+    // to be toggled (DEMO_PROFILES / the deployDemoProfiles AZD parameter).
+    demoMode: demoModeActive(),
+    demoModeConfigurable: demoProfilesEnabled,
   });
 }); 
+// Toggle demo mode at runtime (admin only). Only has effect when the deploy allows it
+// (DEMO_PROFILES on); a production deploy with it off can never enable demo mode here.
+api.post('/admin/demo-mode', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!demoProfilesEnabled) return res.status(409).json({ error: 'demo mode is disabled for this deployment (DEMO_PROFILES is off)' });
+  await setDemoMode(!!req.body?.on);
+  res.json({ demoMode: demoModeActive(), demoModeConfigurable: demoProfilesEnabled });
+});
 api.post('/admin/roles/:id', async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const { patch, assignments } = req.body || {};

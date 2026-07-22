@@ -58,18 +58,21 @@ app.post('/api/platform/sleep', async (_req, res) => {
 });
 
 // Demo showcase roster (one identity per role) sourced from the orchestrator, which
-// only returns it when DEMO_PROFILES is enabled. Cached — the roster is static.
+// only returns it when demo mode is active (deploy-time DEMO_PROFILES + the runtime
+// admin toggle). Short TTL cache so an admin toggling demo mode off is reflected quickly.
 let _demoProfiles = null;
+let _demoProfilesAt = 0;
+const DEMO_TTL_MS = 15000;
 async function getDemoProfiles() {
-  if (_demoProfiles) return _demoProfiles;
+  if (_demoProfiles && Date.now() - _demoProfilesAt < DEMO_TTL_MS) return _demoProfiles;
   if (!isBackendLive()) return [];
   try {
     const headers = {};
     if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
     const r = await fetch(`${config.backend.url}/api/demo-profiles`, { headers });
-    if (r.ok) { _demoProfiles = await r.json(); return _demoProfiles; }
+    if (r.ok) { _demoProfiles = await r.json(); _demoProfilesAt = Date.now(); return _demoProfiles; }
   } catch { /* backend not ready — return empty, retry next request */ }
-  return [];
+  return _demoProfiles || [];
 }
 
 // Teams app status (interface-level; data status comes from the shared backend).
@@ -123,6 +126,7 @@ app.post('/api/teams/context', async (req, res) => {
     viewingAsRole: acc?.viewingAs || null,
     canViewStage2: acc?.canViewStage2 ?? fallback.canViewStage2,
     viewingAs: asOverride || identity?.upn || null,
+    demoMode: acc?.demoMode ?? false,
     demoUsers: await getDemoProfiles(),
   });
 });
