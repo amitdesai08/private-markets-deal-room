@@ -36,7 +36,7 @@ and hosted agents · subscription-agnostic **Bicep** on **Azure Container Apps**
 | **Decision & IC** | **Decision artifacts** — LBO/returns (IRR/MOIC + sensitivity), value-creation / 100-day plan, risk register, IOI/LOI — each derived from the live record and exportable to **Excel** · an **IC-readiness** board with a READY / CONDITIONAL / NOT-READY verdict |
 | **Fund & portfolio** *(post-IC)* | **Owned-company monitoring** (hold, current MOIC/IRR, value-creation progress, KPIs vs plan) · a **fund / LP view** (DPI · TVPI · RVPI, deployed vs dry powder, concentration vs LPA limits) · an **executive value dashboard** |
 | **AI & agents** | **10 role-governed Foundry agents** (analyst, partner, principal, 3 sector MDs, operating partner, fund CFO, GC, investor relations) · a **Deal MCP server** for M365 Copilot / hosted agents · Foundry inference via managed identity · **Fabric / OneLake** market intelligence |
-| **Identity-aware governance** | **RBAC** resolved by *who is asking* (admin / partner / deal-team / analyst) · **role-based agent routing** · hierarchy **“view-as-down”** · one-click **demo profiles** |
+| **Identity-aware governance** | **RBAC** resolved by *who is asking* · a two-tier **status-vs-full** deal model with **deal-team need-to-know** and **confidential deals** · **role-based agent routing** · hierarchy **“view-as-down”** · a runtime **Demo Mode** toggle + one-click demo profiles |
 | **Real data & documents** | **Keyless** SEC EDGAR/XBRL, GLEIF & GDELT data — real numbers, no paid provider · per-user **Word / Excel** generation on the requester's own M365 licence · CSV export |
 | **Azure-native platform** | One-command **`azd up`** · subscription-agnostic **Bicep** · **domain-split resource groups** · a **pluggable store** (blob-per-document by default — *no Cosmos* — or Cosmos DB) · **managed identity** end-to-end · **cost control** — one-command sleep/wake of the whole platform + an in-Teams offline gate |
 
@@ -103,7 +103,7 @@ Identity-aware access is a **parameter, not a configuration step**:
 - **Prefab roles** — supply Entra **object IDs** (users *or* groups) for `adminIds`, `partnerIds`, `dealTeamIds`, `analystIds`. Access is enforced immediately, no code changes.
 - **Your own roles** — edit [`app/lib/userPolicy.js`](app/lib/userPolicy.js) (the single policy seam these parameters feed) to define custom roles, personas and permissions.
 - **Open mode** — leave the arrays empty; `defaultAgentRole` applies to everyone.
-- **Demo profiles** — set `deployDemoProfiles = true` (or `azd env set DEPLOY_DEMO_PROFILES true`) to seed one named showcase identity per role for an instant end-to-end demo; **off by default** in production.
+- **Demo Mode** — set `deployDemoProfiles = true` (or `azd env set DEPLOY_DEMO_PROFILES true`) to seed one named showcase identity per role for an instant end-to-end demo, and to expose the in-app **Demo Mode** toggle (Settings → Access administration) so an admin can turn the “view as” switcher and showcase personas off/on live. **Off by default** in production.
 
 ### Customize & extend (agentic skills)
 - **New agents** — copy [`app/scripts/create_agent.py`](app/scripts/create_agent.py), edit the name + instructions, and run it to provision your own Foundry specialist agent (it gets the whole read-only research surface via the Deal MCP server automatically). Add its id to [`personaPolicy.js`](app/lib/personaPolicy.js) / [`personaAgent.js`](app/lib/personaAgent.js) / [`userPolicy.js`](app/lib/userPolicy.js) to surface it as an RBAC-governed persona in the app.
@@ -170,7 +170,10 @@ the dashboard knows *who* is looking.
 
 ## 🗂️ Stage 1 & Stage 2 — the deal areas
 
-The app *is* the process: two stages joined by the **PURSUE** gate.
+The app *is* the process — four stage areas from origination to exit (**Stage 1 —
+Origination**, **Stage 2 — Diligence**, **Stage 3 — Execution**, **Stage 4 — Value &
+Exit**), plus a **Fund & Portfolio** roll-up. Stages 1 & 2 below are joined by the
+**PURSUE** gate:
 
 ### Stage 1 · Origination & Screening — the funnel
 
@@ -209,10 +212,12 @@ recommendation) — all sourced live and cited:
 
 ## 🏛️ The full deal lifecycle
 
-The two stages above are the demo spine; the **Lifecycle** tab renders the complete
-institutional mid-market buyout process — **15 stages across 3 phases**, with the six
-**decision gates** (⛔) where capital & resources are committed. Each stage names the
-accountable **persona** and the artifacts it produces (`GET /api/lifecycle`).
+Stage 1 & 2 are the demo spine; **Stage 3 — Execution** and **Stage 4 — Value & Exit**
+carry each deal through to owned-company monitoring and exit, and the **Fund &
+Portfolio** view rolls them up. Together they model the complete institutional
+mid-market buyout process — **15 stages across 3 phases**, with the six **decision
+gates** (⛔) where capital & resources are committed. Each stage names the accountable
+**persona** and the artifacts it produces (`GET /api/lifecycle`).
 
 | Phase | Stages | Gates |
 |---|---|---|
@@ -249,31 +254,40 @@ private endpoint, no cost. Switch to `cosmos` only when you need it.
 
 ## 🔐 Identity-aware access (RBAC)
 
-What the agent returns — and what it will *do* — depends on the **requesting Teams
-user's identity**, resolved server-side (a client can never widen its own powers):
+Every answer — and every action — is scoped to **who is asking**, resolved server-side
+so a client can never widen its own powers. Access resolves on **two tiers**:
 
-| Role | Agents available | Stage-2 deal data | Write actions |
-|---|---|---|---|
-| **Administrator** | **all 10** (superuser) | ✓ | ✓ |
-| **Partner** | all 10 specialists | ✓ | ✓ |
-| **Deal team** | analyst + MDs + deal-lead/ops/finance/legal (8) | ✓ | ✓ |
-| **Analyst** | analyst only (1) | — (denied) | — (read-only) |
-| **Member** | analyst only (1) | — (denied) | — (read-only) |
+- **Status tier — pipeline awareness for everyone.** Every role sees the *metadata* of
+  every non-confidential deal (company, sector, size, stage, status, IC readiness).
+  Analysts get a clean **status-only view** of post-screening deals — never a dead-end
+  lock.
+- **Content tier — the workspace, on need-to-know.** The confidential workspace
+  (financials, diligence findings, signed terms, valuations, documents and the agents)
+  opens to the **deal-team role**, **admins**, or **anyone named on that deal's team**.
 
-- **Role-based agent routing** — the orchestrator surfaces *only* the agents a role is
-  entitled to; an **Administrator** sees and can call **every** agent.
-- **Hierarchy “view-as-down”** — a senior role can view the room **as any lower role**
-  (an MD can see exactly what an Analyst would), and **never** upward — so it can't be
-  used to self-elevate.
+| Role | Agents | Deal metadata | Deal workspace | Write |
+|---|---|---|---|---|
+| **Administrator** | **all 10** | every deal | every deal | ✓ |
+| **Partner** | all 10 | every deal | every deal | ✓ |
+| **Deal team** | 8 | every deal | every deal | ✓ |
+| **Analyst / Member** | 1 | every deal *(status)* | only deals they're **named on** | read-only |
+
+- **Deal-team need-to-know** — add a user to a specific deal's team (`deal.team`) and
+  they get the **full** workspace for *that* deal regardless of their role tier — true
+  least-privilege, deal by deal.
+- **Confidential deals** — flag a deal `confidential` and it disappears from the status
+  tier entirely: only its named team and admins even know it exists. Built for
+  take-privates under NDA, carve-outs on a clean-team protocol, or a live exit.
+- **Role-based agent routing** — the orchestrator surfaces *only* the agents a role may
+  call; an Administrator can call **every** agent.
+- **Hierarchy “view-as-down”** — a senior role can preview the room **as any lower
+  role**, and **never** upward — so it can't self-elevate.
 - **Graceful downgrade** — an unauthorised persona request is quietly narrowed to a
   read-only analyst view rather than refused, so the conversation keeps flowing.
-- **Stage-2 gating** — diligence / approval data is withheld from read-only roles.
-- A **partner** and an **analyst** asking the *same* question get appropriately
-  different answers.
 
-![Role-gated access — an Analyst is blocked from a Stage-2 deal in the Teams tab](teams-app/docs/teams-rbac.png)
+![Role-gated access in the Teams tab](teams-app/docs/teams-rbac.png)
 
-<sub>*Viewing as an Analyst, opening a Stage-2 deal returns a lock — "restricted to the deal team" — while a partner or deal-team member sees the full record.*</sub>
+<sub>*Viewing as an Analyst, a post-screening deal shows a status-only summary — the full financials, findings and terms stay with the deal team, and confidential deals don't appear at all — while a partner, admin or a **named deal-team member** sees the whole record.*</sub>
 
 ### Demo profiles — the whole access model, in one click
 
@@ -296,8 +310,19 @@ the orchestrator — the switcher even shows how many agents each identity may c
 | **Sofia Marchetti** — Investor Relations | partner | **10** |
 | **Maya Olsen** — Analyst | analyst | 1 · read-only |
 
-With the toggle **off** (the production default) no demo name grants a role — only the
-Entra object IDs you supply in the harness apply.
+> 🕵️ **Need-to-know, live in the demo.** The seeded pipeline ships with **confidential
+> deals** — a take-private under NDA, a carve-out on a clean-team protocol, and a live
+> exit — plus a real **need-to-know grant**. Sign in as **Maya (Analyst)** and the wider
+> pipeline is **status-only**, the confidential take-private and exit are **invisible**,
+> yet she gets the **full** workspace on the two deals she's *named on* — including the
+> confidential carve-out. Switch to **Eleanor (Partner)** or **Sam (Admin)** and every
+> deal opens. No code, no redeploy — just the switcher.
+
+**Demo Mode is a live switch, too.** `deployDemoProfiles` sets the initial state (and,
+in a production deploy, hard-disables it), but an administrator can flip Demo Mode
+off/on at runtime from **Settings → Access administration** — with it off, the “view
+as” switcher and showcase personas disappear and every user sees only their own role
+and identity. Only the Entra object IDs you supply in the harness then apply.
 
 ## Under the hood — one backend, two surfaces
 
