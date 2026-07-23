@@ -58,30 +58,30 @@
         </mxCell>
 
         <!-- ================= BACKEND ================= -->
-        <mxCell id="bApi" value="/api  (REST, anonymous)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+        <mxCell id="bApi" value="/api  (REST · identity-aware RBAC)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
           <mxGeometry x="610" y="110" width="260" height="40" as="geometry" />
         </mxCell>
         <mxCell id="bMcp" value="/mcp  (Entra-secured · deals.read)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
           <mxGeometry x="610" y="165" width="260" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="bLib" value="app/lib — agent engine, deal tools,&#10;store seam (Cosmos / demo fallback)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+        <mxCell id="bLib" value="app/lib — agent engine, deal tools,&#10;store seam (blob default · Cosmos optional)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
           <mxGeometry x="610" y="220" width="260" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="bTools" value="MCP tools: list_deals · get_deal · search_deals" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+        <mxCell id="bTools" value="MCP tools: list_deals · get_deal · get_returns · …" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
           <mxGeometry x="610" y="295" width="260" height="40" as="geometry" />
         </mxCell>
         <mxCell id="bGraph" value="Graph webhook /api/graph (mailbox signals)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
           <mxGeometry x="610" y="350" width="260" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="bWeb" value="Serves React web client (client/dist)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+        <mxCell id="bWeb" value="Graph provisioning + docs&#10;Teams channel · SharePoint VDR · Word/Excel" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
           <mxGeometry x="610" y="405" width="260" height="40" as="geometry" />
         </mxCell>
 
         <!-- ================= DATA & AI ================= -->
-        <mxCell id="cosmos" value="Azure Cosmos DB&#10;(deals, signals, agent state)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+        <mxCell id="cosmos" value="Store: Blob (default) / Cosmos DB&#10;(deals, signals, agent state)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
           <mxGeometry x="940" y="110" width="210" height="55" as="geometry" />
         </mxCell>
-        <mxCell id="foundry" value="AI Foundry (aif) + project&#10;deal-room-analyst agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+        <mxCell id="foundry" value="AI Foundry (aif) + project&#10;Deal Orchestrator + 10 persona agents" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
           <mxGeometry x="940" y="185" width="210" height="60" as="geometry" />
         </mxCell>
         <mxCell id="models" value="Models: gpt-5-mini / nano + embeddings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
@@ -98,10 +98,10 @@
         <mxCell id="uami" value="UAMI (core)&#10;cross-RG RBAC · managed identity" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
           <mxGeometry x="1220" y="110" width="220" height="55" as="geometry" />
         </mxCell>
-        <mxCell id="entraSso" value="Entra app — Tab SSO&#10;43ec8f74 · access_as_user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+        <mxCell id="entraSso" value="Entra app — Tab SSO&#10;access_as_user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
           <mxGeometry x="1220" y="180" width="220" height="45" as="geometry" />
         </mxCell>
-        <mxCell id="entraBot" value="Entra app — Bot&#10;6a48d630 (SingleTenant)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+        <mxCell id="entraBot" value="Entra app — Bot&#10;(SingleTenant)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
           <mxGeometry x="1220" y="235" width="220" height="45" as="geometry" />
         </mxCell>
         <mxCell id="entraMcp" value="Entra app — MCP&#10;deals.read scope" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">

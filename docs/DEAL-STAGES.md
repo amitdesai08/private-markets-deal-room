@@ -5,9 +5,9 @@
 > **per-deal document repository** (Teams channel + SharePoint data room + one-click Word /
 > Excel generation).
 >
-> New here? Start with the [README](../README.md). This page is the detail behind its
-> [deal areas](../README.md#-the-deal-areas--one-workspace-per-stage) and
-> [lifecycle](../README.md#-the-lifecycle-behind-the-areas) sections.
+> New here? Start with the [README](../README.md). This is the detail behind its
+> [lifecycle overview](../README.md#-the-whole-lifecycle--source-to-exit), and pairs with the
+> [Access model](ACCESS-MODEL.md) and [How it works](HOW-IT-WORKS.md).
 
 ---
 
@@ -15,7 +15,7 @@
 
 A deal is a single record that advances through the lifecycle. The workspace *is* the
 process — you drive it from the deal's **Stages & orchestration** tab, and every action is
-grounded in the live record and gated by [who's asking](../README.md#-identity-aware-access-rbac).
+grounded in the live record and gated by [who's asking](ACCESS-MODEL.md).
 
 | Action | What it does | API |
 |---|---|---|
@@ -35,8 +35,6 @@ grounded in the live record and gated by [who's asking](../README.md#-identity-a
 
 ### 1 · Origination & Screening — the funnel
 
-<sub>[← Stage 1 on the overview](../README.md#1--origination--screening--the-funnel)</sub>
-
 Find, frame and rank targets, then commit to pursue.
 
 | You can | Detail |
@@ -50,8 +48,6 @@ Find, frame and rank targets, then commit to pursue.
 **Personas:** Analyst · MDs · Partner  ·  **Produces:** screened deal, thesis, screen scorecard
 
 ### 2 · Diligence & Approval — the deal hub
-
-<sub>[← Stage 2 on the overview](../README.md#2--diligence--approval--the-deal-hub)</sub>
 
 Work the deal across specialist lanes and roll findings up to the IC.
 
@@ -67,8 +63,6 @@ Work the deal across specialist lanes and roll findings up to the IC.
 
 ### 3 · Execution — sign & close
 
-<sub>[← Stage 3 on the overview](../README.md#3--execution--sign--close)</sub>
-
 Carry the approved case through terms, signing and financing to close.
 
 | You can | Detail |
@@ -82,8 +76,6 @@ Carry the approved case through terms, signing and financing to close.
 
 ### 4 · Value & Exit — own & realise
 
-<sub>[← Stage 4 on the overview](../README.md#4--value--exit--own--realise)</sub>
-
 Run the value-creation plan, monitor the company, and take it to exit.
 
 | You can | Detail |
@@ -96,8 +88,6 @@ Run the value-creation plan, monitor the company, and take it to exit.
 
 ### Fund & Portfolio — the LP lens
 
-<sub>[← Fund & Portfolio on the overview](../README.md#fund--portfolio--the-lp-lens)</sub>
-
 A fund-level roll-up across every owned company: **DPI · TVPI · RVPI**, deployed vs dry
 powder, and concentration vs LPA limits — the executive value dashboard.
 
@@ -105,7 +95,7 @@ powder, and concentration vs LPA limits — the executive value dashboard.
 
 ## Inside a deal — the workspace tabs
 
-Open any deal for a single-scope workspace. What you see is [scoped to your access](../README.md#-identity-aware-access-rbac):
+Open any deal for a single-scope workspace. What you see is [scoped to your access](ACCESS-MODEL.md):
 a **full** workspace if you're on the deal team (or a deal-team-tier role / admin), a
 **status-only** summary otherwise, and **nothing** for a confidential deal you're not on.
 
@@ -180,4 +170,4 @@ What a deal shows — and what you can do in it — follows the two-tier need-to
 - **Status-only** summary (metadata, no confidential workspace) for the status tier.
 - **Invisible** — a `confidential` deal doesn't appear at all unless you're on its team.
 
-See [Identity-aware access (RBAC)](../README.md#-identity-aware-access-rbac) for the full model.
+See [the Access model](ACCESS-MODEL.md) for the full model.
