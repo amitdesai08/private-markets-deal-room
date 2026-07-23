@@ -35,6 +35,8 @@ grounded in the live record and gated by [who's asking](../README.md#-identity-a
 
 ### 1 · Origination & Screening — the funnel
 
+<sub>[← Stage 1 on the overview](../README.md#1--origination--screening--the-funnel)</sub>
+
 Find, frame and rank targets, then commit to pursue.
 
 | You can | Detail |
@@ -48,6 +50,8 @@ Find, frame and rank targets, then commit to pursue.
 **Personas:** Analyst · MDs · Partner  ·  **Produces:** screened deal, thesis, screen scorecard
 
 ### 2 · Diligence & Approval — the deal hub
+
+<sub>[← Stage 2 on the overview](../README.md#2--diligence--approval--the-deal-hub)</sub>
 
 Work the deal across specialist lanes and roll findings up to the IC.
 
@@ -63,6 +67,8 @@ Work the deal across specialist lanes and roll findings up to the IC.
 
 ### 3 · Execution — sign & close
 
+<sub>[← Stage 3 on the overview](../README.md#3--execution--sign--close)</sub>
+
 Carry the approved case through terms, signing and financing to close.
 
 | You can | Detail |
@@ -76,6 +82,8 @@ Carry the approved case through terms, signing and financing to close.
 
 ### 4 · Value & Exit — own & realise
 
+<sub>[← Stage 4 on the overview](../README.md#4--value--exit--own--realise)</sub>
+
 Run the value-creation plan, monitor the company, and take it to exit.
 
 | You can | Detail |
@@ -87,6 +95,8 @@ Run the value-creation plan, monitor the company, and take it to exit.
 **Personas:** Operating Partner · Portfolio team · IR  ·  **Produces:** VCP tracker, board packs, exit recommendation
 
 ### Fund & Portfolio — the LP lens
+
+<sub>[← Fund & Portfolio on the overview](../README.md#fund--portfolio--the-lp-lens)</sub>
 
 A fund-level roll-up across every owned company: **DPI · TVPI · RVPI**, deployed vs dry
 powder, and concentration vs LPA limits — the executive value dashboard.

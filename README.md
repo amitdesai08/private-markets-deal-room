@@ -177,6 +177,8 @@ the same pattern.
 
 ### 1 · Origination & Screening — the funnel
 
+<sub>🔎 [Deep dive — everything you can do in this stage →](docs/DEAL-STAGES.md#1--origination--screening--the-funnel)</sub>
+
 | Area | What it does |
 |---|---|
 | **Deal Sourcing** | A CxO Signals explorer (M365 mail / chats / meetings + Dynamics 365 CRM), a News & Filings desk with an AI **catalyst classifier**, and Analyst Reports thesis context. |
@@ -201,6 +203,8 @@ recommendation) — all sourced live and cited:
 
 ### 2 · Diligence & Approval — the deal hub
 
+<sub>🔎 [Deep dive — everything you can do in this stage →](docs/DEAL-STAGES.md#2--diligence--approval--the-deal-hub)</sub>
+
 | Area | What it does |
 |---|---|
 | **Launch** | Stands up the diligence workspace — DD checklist, playbook templates, and advisor-paired swimlanes, each node linking out. |
@@ -212,6 +216,8 @@ recommendation) — all sourced live and cited:
 
 ### 3 · Execution — sign & close
 
+<sub>🔎 [Deep dive — everything you can do in this stage →](docs/DEAL-STAGES.md#3--execution--sign--close)</sub>
+
 | Area | What it does |
 |---|---|
 | **IC & terms** | The IOI/LOI, the IC-readiness verdict, and the approved investment case carried into execution. |
@@ -221,6 +227,8 @@ recommendation) — all sourced live and cited:
 
 ### 4 · Value & Exit — own & realise
 
+<sub>🔎 [Deep dive — everything you can do in this stage →](docs/DEAL-STAGES.md#4--value--exit--own--realise)</sub>
+
 | Area | What it does |
 |---|---|
 | **Value creation** | The 100-day plan and quantified levers, tracked on an **EBITDA bridge** vs entry, with the Operating Partner. |
@@ -228,6 +236,8 @@ recommendation) — all sourced live and cited:
 | **Exit** | **Exit-readiness** scoring and a dual-track exit recommendation to the exit committee. |
 
 ### Fund & Portfolio — the LP lens
+
+<sub>🔎 [Deep dive →](docs/DEAL-STAGES.md#fund--portfolio--the-lp-lens)</sub>
 
 A fund-level roll-up across every owned company: **DPI · TVPI · RVPI**, deployed vs dry
 powder, and concentration vs LPA limits — the executive value dashboard.
