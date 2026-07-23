@@ -16,7 +16,7 @@ The Deal Room's Azure architecture — drawn with **official Microsoft Azure ico
 >
 > Prefer to edit? Open `docs/architecture.drawio` in VS Code with the **Draw.io Integration** extension — the icons are embedded, so the file is fully self-contained.
 
-The diagram lays out the four layers: the **clients** (Microsoft Teams, the web console, M365 Copilot), the two **container-app tiers** (Teams console + shared backend), the **data & AI** plane (AI Foundry, Azure OpenAI, AI Search, Cosmos / Blob), and the **identity & platform** layer (Entra app registrations, managed identity, Key Vault, Log Analytics / App Insights). The sections below walk each one.
+The diagram shows both the **separation** and the **interactions**: your Microsoft 365 tenant, the Azure subscription split into its domain **resource groups** (`app · ai · data · integration · core`), Microsoft Entra, and the external keyless data sources — joined by **numbered flows** (SSO/OBO, the **identity trust boundary** into the backend, managed-identity model inference, the single deal store, per-deal Teams-channel + SharePoint data-room provisioning, the MCP surface, and event-driven signals). The sections below walk each layer.
 
 ---
 
