@@ -21,7 +21,7 @@ paid data providers required to demo, and no Cosmos DB required to run.
 Framework** agent + **Entra-SSO channel tab** · a **Deal MCP server** for M365 Copilot
 and hosted agents · subscription-agnostic **Bicep** on **Azure Container Apps**.
 
-> 📘 [Architecture](docs/architecture.drawio) · 🎬 [Demo walkthrough](docs/Demos/DEMO-WALKTHROUGH.md) · 🚚 [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Demo runbook](docs/Demos/DEMO-RUNBOOK.md) · [Operations plan](docs/OPERATIONS-PLAN.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+> 📘 [Architecture](docs/architecture.drawio) · 🗂️ [Inside a deal — stages & data room](docs/DEAL-STAGES.md) · 🎬 [Demo walkthrough](docs/Demos/DEMO-WALKTHROUGH.md) · 🚚 [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Demo runbook](docs/Demos/DEMO-RUNBOOK.md) · [Operations plan](docs/OPERATIONS-PLAN.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 >
 > *Tip: use GitHub's **outline** button (top-right of this file) to jump between sections.*
 
@@ -231,6 +231,18 @@ recommendation) — all sourced live and cited:
 
 A fund-level roll-up across every owned company: **DPI · TVPI · RVPI**, deployed vs dry
 powder, and concentration vs LPA limits — the executive value dashboard.
+
+### 📁 Every deal gets its own data room
+
+The moment a deal is pursued it gets a **Teams channel** and a **SharePoint virtual data
+room**, provisioned via delegated Microsoft Graph. From the deal's **Documents** tab you
+generate board-ready **Word IC memos** and **Excel deal / returns models** straight from
+the live record — **download** a personal copy on your own M365 licence, or **publish** into
+the shared data room (write-gated to the deal team, authored *as you* via on-behalf-of Graph).
+
+> 🗂️ **Go deeper:** [**Inside a deal — stages, workspace & the data room**](docs/DEAL-STAGES.md)
+> — a tab-by-tab tour of everything you can do on a deal (orchestration, decision artifacts,
+> market research, IC readiness) and the per-deal document repository.
 
 ## 🏛️ The lifecycle behind the areas
 
