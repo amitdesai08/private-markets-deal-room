@@ -8,65 +8,15 @@
 
 ---
 
-## Architecture at a glance
+## Architecture
 
-```mermaid
-flowchart LR
-  subgraph Users["People &amp; agents"]
-    U1["PE deal team<br/>in Microsoft Teams"]
-    U2["Standalone<br/>web console"]
-    U3["M365 Copilot /<br/>hosted agents"]
-  end
+The Deal Room's Azure architecture — drawn with **official Microsoft Azure icons**:
 
-  subgraph Teams["Teams console tier — ca-dealhub-teams · holds NO data"]
-    T1["Channel tab + web console (React)"]
-    T2["@mention bot (Bot Framework)"]
-    T3["SSO / OBO<br/>Entra token → Graph"]
-    T4["Identity-injecting /api proxy<br/>+ sleep/wake gate"]
-  end
+> 📐 **[View the interactive architecture diagram →](https://viewer.diagrams.net/?tags=%7B%7D&lightbox=1&nav=1&title=architecture#Uhttps%3A%2F%2Fraw.githubusercontent.com%2Famitdesai08%2Fprivate-markets-deal-room%2Fmain%2Fdocs%2Farchitecture.drawio)**
+>
+> Prefer to edit? Open `docs/architecture.drawio` in VS Code with the **Draw.io Integration** extension — the icons are embedded, so the file is fully self-contained.
 
-  subgraph Orch["Shared backend — ca-dealhub-orch · single source of truth"]
-    O1["/api REST<br/>identity-aware RBAC"]
-    O2["Agent engine<br/>Deal Orchestrator + 10 persona agents"]
-    O3["Deal tools + /mcp server<br/>(Entra-secured)"]
-    O4["Pluggable store seam"]
-    O5["Graph provisioning + docs<br/>Teams channel · SharePoint VDR · Word/Excel"]
-  end
-
-  subgraph Data["Data &amp; AI"]
-    D1["Azure AI Foundry<br/>models + Bing grounding"]
-    D2[("Store: Blob default<br/>· Cosmos optional")]
-    D3["Fabric / OneLake<br/>market intel"]
-    D4["Keyless data<br/>SEC EDGAR · GLEIF · GDELT"]
-  end
-
-  subgraph Plat["Identity &amp; platform"]
-    P1["Managed identity<br/>+ Entra apps"]
-    P2["Key Vault · Log Analytics · App Insights"]
-  end
-
-  U1 --> T1
-  U1 --> T2
-  U2 --> T1
-  U3 -->|"/mcp OAuth"| O3
-  T1 --> T4
-  T2 --> T4
-  T3 -.-> O5
-  T4 -->|"forwards /api,/mcp + identity"| O1
-  O1 --> O2
-  O1 --> O4
-  O2 --> O3
-  O2 --> D1
-  O4 --> D2
-  O2 --> D3
-  O2 --> D4
-  O5 --> D1
-  P1 -.->|"managed identity"| O1
-  P1 -.-> D1
-```
-
-> 🖉 **Editable source:** the diagram above is kept current here; the drawio source
-> ([`docs/architecture.drawio`](architecture.drawio)) is the detailed infra view.
+The diagram lays out the four layers: the **clients** (Microsoft Teams, the web console, M365 Copilot), the two **container-app tiers** (Teams console + shared backend), the **data & AI** plane (AI Foundry, Azure OpenAI, AI Search, Cosmos / Blob), and the **identity & platform** layer (Entra app registrations, managed identity, Key Vault, Log Analytics / App Insights). The sections below walk each one.
 
 ---
 

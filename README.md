@@ -15,7 +15,19 @@ tenant.
 
 <sub>*The same console runs **natively in Microsoft Teams** and as a **standalone web app**, over one shared deal record.*</sub>
 
-> 🧭 **Go deeper —** [**How it works**](docs/HOW-IT-WORKS.md) · [**Inside a deal**](docs/DEAL-STAGES.md) · [**Access model**](docs/ACCESS-MODEL.md) · [**Deploy**](docs/DEPLOY.md) · [Architecture diagram](https://viewer.diagrams.net/?tags=%7B%7D&lightbox=1&nav=1&title=architecture#Uhttps%3A%2F%2Fraw.githubusercontent.com%2Famitdesai08%2Fprivate-markets-deal-room%2Fmain%2Fdocs%2Farchitecture.drawio) · [Demo walkthrough](docs/Demos/DEMO-WALKTHROUGH.md) · [Security](SECURITY.md)
+---
+
+### 📖 Contents
+
+**On this page:** [Why it matters](#why-it-matters) · [What you can do](#what-you-can-do) · [Features](#the-major-features) · [See it in action](#see-it-in-action)
+
+**Deep dives — the "how", for builders:**
+
+| [🧭 How it works](docs/HOW-IT-WORKS.md) | [🗂️ Inside a deal](docs/DEAL-STAGES.md) | [🔐 Access model](docs/ACCESS-MODEL.md) | [☁️ Deploy](docs/DEPLOY.md) | [📐 Architecture](https://viewer.diagrams.net/?tags=%7B%7D&lightbox=1&nav=1&title=architecture#Uhttps%3A%2F%2Fraw.githubusercontent.com%2Famitdesai08%2Fprivate-markets-deal-room%2Fmain%2Fdocs%2Farchitecture.drawio) |
+|:--:|:--:|:--:|:--:|:--:|
+| architecture & internals | stages, workspace & data room | RBAC, need-to-know & demo | one command to your tenant | interactive Azure diagram |
+
+<sub>More: [🎬 Demo walkthrough](docs/Demos/DEMO-WALKTHROUGH.md) · [📋 Demo runbook](docs/Demos/DEMO-RUNBOOK.md) · [🛡️ Security](SECURITY.md) · [🤝 Contributing](CONTRIBUTING.md)</sub>
 
 ---
 
