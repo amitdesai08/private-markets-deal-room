@@ -21,7 +21,7 @@ paid data providers required to demo, and no Cosmos DB required to run.
 Framework** agent + **Entra-SSO channel tab** · a **Deal MCP server** for M365 Copilot
 and hosted agents · subscription-agnostic **Bicep** on **Azure Container Apps**.
 
-> 📘 [Architecture](docs/architecture.drawio) · 🗂️ [Inside a deal — stages & data room](docs/DEAL-STAGES.md) · 🎬 [Demo walkthrough](docs/Demos/DEMO-WALKTHROUGH.md) · 🚚 [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Demo runbook](docs/Demos/DEMO-RUNBOOK.md) · [Operations plan](docs/OPERATIONS-PLAN.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+> 📘 [Architecture diagram](https://viewer.diagrams.net/?tags=%7B%7D&lightbox=1&nav=1&title=architecture#Uhttps%3A%2F%2Fraw.githubusercontent.com%2Famitdesai08%2Fprivate-markets-deal-room%2Fmain%2Fdocs%2Farchitecture.drawio) · 🗂️ [Inside a deal — stages & data room](docs/DEAL-STAGES.md) · 🎬 [Demo walkthrough](docs/Demos/DEMO-WALKTHROUGH.md) · 🚚 [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Demo runbook](docs/Demos/DEMO-RUNBOOK.md) · [Operations plan](docs/OPERATIONS-PLAN.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 >
 > *Tip: use GitHub's **outline** button (top-right of this file) to jump between sections.*
 
@@ -177,7 +177,7 @@ the same pattern.
 
 ### 1 · Origination & Screening — the funnel
 
-<sub>🔎 [Deep dive — everything you can do in this stage →](docs/DEAL-STAGES.md#1--origination--screening--the-funnel)</sub>
+🔎 **[Deep dive — everything you can do in this stage →](docs/DEAL-STAGES.md#1--origination--screening--the-funnel)**
 
 | Area | What it does |
 |---|---|
@@ -203,7 +203,7 @@ recommendation) — all sourced live and cited:
 
 ### 2 · Diligence & Approval — the deal hub
 
-<sub>🔎 [Deep dive — everything you can do in this stage →](docs/DEAL-STAGES.md#2--diligence--approval--the-deal-hub)</sub>
+🔎 **[Deep dive — everything you can do in this stage →](docs/DEAL-STAGES.md#2--diligence--approval--the-deal-hub)**
 
 | Area | What it does |
 |---|---|
@@ -216,7 +216,7 @@ recommendation) — all sourced live and cited:
 
 ### 3 · Execution — sign & close
 
-<sub>🔎 [Deep dive — everything you can do in this stage →](docs/DEAL-STAGES.md#3--execution--sign--close)</sub>
+🔎 **[Deep dive — everything you can do in this stage →](docs/DEAL-STAGES.md#3--execution--sign--close)**
 
 | Area | What it does |
 |---|---|
@@ -227,7 +227,7 @@ recommendation) — all sourced live and cited:
 
 ### 4 · Value & Exit — own & realise
 
-<sub>🔎 [Deep dive — everything you can do in this stage →](docs/DEAL-STAGES.md#4--value--exit--own--realise)</sub>
+🔎 **[Deep dive — everything you can do in this stage →](docs/DEAL-STAGES.md#4--value--exit--own--realise)**
 
 | Area | What it does |
 |---|---|
@@ -237,7 +237,7 @@ recommendation) — all sourced live and cited:
 
 ### Fund & Portfolio — the LP lens
 
-<sub>🔎 [Deep dive →](docs/DEAL-STAGES.md#fund--portfolio--the-lp-lens)</sub>
+🔎 **[Deep dive →](docs/DEAL-STAGES.md#fund--portfolio--the-lp-lens)**
 
 A fund-level roll-up across every owned company: **DPI · TVPI · RVPI**, deployed vs dry
 powder, and concentration vs LPA limits — the executive value dashboard.
