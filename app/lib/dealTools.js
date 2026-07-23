@@ -9,7 +9,7 @@
 // a deal, and the same server-side per-deal scoping guarantees.
 
 import {
-  listDeals, getDeal,
+  listDeals, listAgentDeals, getDeal,
   getPipeline, getCandidatePublic, getCandidateArtifact, getDealArtifact,
   sendToScreening, screenCandidate, triageCandidate, gateCandidate,
   launchDeal, advanceDeal, runStep, assignSwimlane, recordFinding, recordContribution,
@@ -152,7 +152,7 @@ export function searchDealSummaries(query) {
   const q = String(query || '').toLowerCase().trim();
   if (!q) return [];
   const terms = q.split(/\s+/).filter(Boolean);
-  return listDeals()
+  return listAgentDeals()
     .filter((s) => {
       const hay = `${s.company} ${s.sector} ${s.subSector} ${s.thesis}`.toLowerCase();
       return terms.some((t) => hay.includes(t));
@@ -171,7 +171,7 @@ export function dispatchTool(name, args, { scope = 'portfolio', focusId, focusCo
       const s = summaryFor(focusId);
       return { scoped_to: focusCompany, deals: s ? [dealSummary(s)] : [], note: `Scoped to ${focusCompany}; other deals are not accessible in this conversation.` };
     }
-    return { deals: listDeals().map(dealSummary) };
+    return { deals: listAgentDeals().map(dealSummary) };
   }
   if (name === 'get_deal') {
     if (dealScope) {

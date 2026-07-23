@@ -111,8 +111,27 @@ export function guardInternalToolCall(agentName, toolName) {
     return null;
   } catch (e) {
     if (e instanceof SovereigntyError) {
+      auditDenied(agentName, toolName, e.message);
       return { error: 'sovereignty-denied', tool: toolName, reason: e.message };
     }
     throw e;
   }
+}
+
+// Emit ONE structured line to stderr for every refused boundary crossing. Container Apps
+// ships stdout/stderr to Log Analytics (ContainerAppConsoleLogs_CL), so a single KQL
+// filter on `event_s == "sovereignty-denied"` surfaces every attempted violation for
+// alerting/audit. Kept side-effect-only (never throws) so logging can't break a request.
+function auditDenied(agentName, toolName, reason) {
+  try {
+    console.warn(JSON.stringify({
+      event: 'sovereignty-denied',
+      ts: new Date().toISOString(),
+      agent: agentName,
+      agentClass: classOf(agentName),
+      tool: toolName,
+      toolClass: EGRESS_TOOLS.has(toolName) ? 'egress' : (INTERNAL_TOOLS.has(toolName) ? 'internal' : 'unknown'),
+      reason,
+    }));
+  } catch { /* logging must never break the request */ }
 }

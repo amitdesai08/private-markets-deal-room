@@ -477,6 +477,18 @@ export function listDeals(identity, viewAsRole = null) {
   return out;
 }
 
+// Portfolio summaries safe for AGENT reasoning. Excludes `confidential` deals so a
+// portfolio-wide agent conversation (which has no per-user identity thread) never
+// summarizes a deal that is need-to-know. Confidential deals remain reachable only
+// through focused, deal-scope chat, where the HTTP layer gates access by deal team.
+export function listAgentDeals() {
+  return deals.filter((d) => !d.confidential).map((d) => {
+    const s = summarize(d);
+    s.accessLevel = 'full';
+    return s;
+  });
+}
+
 export function getDealRaw(id) {
   return deals.find((d) => d.id === id);
 }

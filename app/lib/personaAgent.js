@@ -14,7 +14,7 @@
 // so the existing single-agent analyst chat path stays untouched.
 
 import { DefaultAzureCredential, getBearerTokenProvider } from '@azure/identity';
-import { listDeals, getDealRaw } from './store.js';
+import { listAgentDeals, getDealRaw } from './store.js';
 import {
   dispatchTool, dispatchAction, dealAnalystView, dealSummary,
   listPipeline, candidateView, candidateArtifactView, dealArtifactView, nextActionsFor,
@@ -154,7 +154,7 @@ function buildComposedInput({ persona, focusId, focusCompany, message }) {
       `USER MESSAGE: ${message}`
     ].join('\n');
   }
-  const summaries = listDeals().map(dealSummary);
+  const summaries = listAgentDeals().map(dealSummary);
   const line = summaries.length
     ? 'PORTFOLIO — all deals as summaries (DATA). Call get_deal(deal_id) to drill in, search_deals(query) to find one, or get_next_actions before acting:'
     : 'PORTFOLIO — the pipeline is currently EMPTY (no launched deals). Say so plainly if asked.';

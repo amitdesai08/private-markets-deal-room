@@ -79,19 +79,56 @@ flowchart LR
 
 ---
 
-## Defence in depth (recommended for production)
+## Defence in depth — status
 
-The application-layer boundary above is the primary control. For a hardened deployment, add:
+The application-layer boundary above is the primary control. The hardening layers below are
+now implemented (app-layer) or staged in infrastructure:
 
-- **Network egress control** — with `enablePrivateEndpoints=true`, keep the orchestrator's
-  outbound path restricted so only the approved endpoints (Foundry/Bing for the web agent, the
-  governed data-plane services) are reachable; deny arbitrary egress. This makes exfiltration
-  impossible even if the app-layer guard were bypassed.
-- **Portfolio-scope need-to-know** — deal-scoped agent chats are gated by the two-tier
-  [access model](ACCESS-MODEL.md) before the agent is invoked. If you expose portfolio-wide
-  agent chat to lower-tier roles, scope the agent's portfolio context to the caller's
-  need-to-know (exclude `confidential` deals) so the agent can't summarise deals the user
-  couldn't otherwise see.
-- **Content Safety** — enable `CONTENT_SAFETY_ENDPOINT` to screen model I/O on both classes.
-- **Audit** — the guard emits a `sovereignty-denied` tool result on any refusal; surface those
-  in Log Analytics to alert on attempted boundary crossings.
+- **Network egress / private endpoints — staged in IaC, confirmed *not yet cut over* in dev.**
+  The Bicep provisions a full private topology behind one switch: `vnet-dealhub` with a
+  Container-Apps-delegated `snet-cae`, a `snet-pe` for private endpoints, private DNS zones,
+  and private endpoints for Cosmos (`privatelink.documents.azure.com`), Foundry, Search,
+  Key Vault, Service Bus and Storage — all gated on `enablePrivateEndpoints`
+  ([`infra/modules/network.bicep`](../infra/modules/network.bicep),
+  [`infra/modules/data.bicep`](../infra/modules/data.bicep)). Prod ships this **on**
+  (`main.prod.bicepparam`); dev ships it **off** (`main.dev.bicepparam`).
+  - **Confirmed current dev posture:** Cosmos `publicNetworkAccess` is public and has **no**
+    private endpoint (`peConnections: null`), and the CA environment is Consumption-only with
+    **no** VNet integration. The app keeps serving because deals are cached in-memory — a cold
+    revision restart while Cosmos public access is *Disabled* would fail to hydrate. So the
+    private topology is real but **inert** until cut over.
+  - **Why not hot-enabled:** a Container-Apps environment cannot gain `vnetConfiguration` in
+    place — enabling it **recreates the CA env and both container apps**, which changes their
+    FQDNs and therefore requires re-pointing the Teams manifest / bot messaging endpoint /
+    redirect URIs. It is a deliberate, supervised maintenance-window cutover, not a hot flip.
+    Full runbook: [OPERATIONS-PLAN.md](OPERATIONS-PLAN.md). Keep Cosmos `publicNetworkAccess =
+    Enabled` until the private endpoints + DNS are confirmed.
+
+- **Portfolio-scope need-to-know — implemented.** Every *portfolio-wide* agent context now
+  excludes `confidential` deals. The deal analyst and the 10 persona agents build their
+  portfolio summaries from [`listAgentDeals()`](../app/lib/store.js) (deals where
+  `confidential` is false), and the portfolio branches of
+  [`dispatchTool`](../app/lib/dealTools.js) (`list_deals` / `search_deals`) use the same
+  filtered list. A confidential deal is therefore never summarised into a portfolio-wide
+  conversation; it remains reachable only through **focused, deal-scope chat**, which the HTTP
+  layer already gates by deal team before the agent is invoked
+  ([access model](ACCESS-MODEL.md)).
+
+- **Content Safety — available.** Set `CONTENT_SAFETY_ENDPOINT` to screen model I/O on both
+  classes via [`screenText`](../app/lib/contentSafety.js).
+
+- **Audit — implemented.** Whenever the guard refuses a boundary-crossing call it both returns
+  a `sovereignty-denied` tool result to the model *and* emits one structured line to stderr
+  ([`auditDenied`](../app/lib/agentSovereignty.js)). Container Apps ships stdout/stderr to Log
+  Analytics, so a single query surfaces every attempted violation for alerting:
+
+  ```kusto
+  ContainerAppConsoleLogs_CL
+  | where Log_s has "sovereignty-denied"
+  | extend d = parse_json(Log_s)
+  | where d.event == "sovereignty-denied"
+  | project TimeGenerated, agent = d.agent, agentClass = d.agentClass,
+            tool = d.tool, toolClass = d.toolClass, reason = d.reason
+  | order by TimeGenerated desc
+  ```
+
