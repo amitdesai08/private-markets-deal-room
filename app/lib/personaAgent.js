@@ -23,6 +23,7 @@ import {
   fundOverviewView, portfolioView, fundValueView
 } from './dealTools.js';
 import { PERSONAS, PERSONA_LABEL } from './personaPolicy.js';
+import { guardInternalToolCall } from './agentSovereignty.js';
 
 const PROJECT_ENDPOINT = (process.env.FOUNDRY_PROJECT_ENDPOINT || '').replace(/\/$/, '');
 const AGENT_MODEL = process.env.DEAL_AGENT_MODEL || 'gpt-5-mini';
@@ -221,7 +222,12 @@ async function runToolLoop({ persona, focusId, focusCompany, message, previousRe
     const outputs = [];
     for (const call of calls.slice(0, MAX_CALLS_PER_TURN)) {
       let result;
-      if (READ_TOOLS.has(call.name)) {
+      // Data-sovereignty guard: a persona agent is internal-data; refuse any web/egress
+      // tool before dispatch so deal data can never leave through it.
+      const denied = guardInternalToolCall(PERSONA_AGENT[persona], call.name);
+      if (denied) {
+        result = denied;
+      } else if (READ_TOOLS.has(call.name)) {
         result = await readDispatch(call.name, call.args, { persona, focusId, focusCompany });
       } else {
         // Actions: persona is injected by the SERVER, not taken from the model.

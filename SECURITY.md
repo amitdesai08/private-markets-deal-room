@@ -47,6 +47,33 @@ acknowledge within a few business days.
   private endpoints + private DNS for the data-plane services and denies public
   network access.
 
+## Data sovereignty — agent isolation
+
+The AI agents are split into **two hard classes** with a **server-enforced** boundary
+([`app/lib/agentSovereignty.js`](app/lib/agentSovereignty.js)) — an agent's class is set from
+its name, never self-asserted by a model:
+
+| Class | Agents | Reads the fund's data | Reaches the public web |
+|---|---|:--:|:--:|
+| **internal-data** | deal analyst · the 10 persona agents · Fabric Data Agent | ✓ governed, deal-scoped | ✗ **never** |
+| **external-web** | news scout (Bing-grounded) | ✗ **never** | ✓ sourcing only |
+
+- **Objective scoping** — every tool call is checked against the agent's class allow-list; a
+  tool outside the objective is refused **before** it runs.
+- **No cross-pollination** — an internal-data agent can never call a web/egress tool (no
+  exfiltration path), and the external-web agent can never call an internal deal tool (nothing
+  internal is ever sent to a web-facing model). The guard runs at the dispatch seam, so
+  **prompt-injection or a manipulated orchestration loop cannot cross the boundary** — the
+  decision is the server's, not the model's.
+- **Deal-scope enforcement** — inside the internal class, `dispatchTool` hard-filters to the
+  focused deal server-side (a deal-locked conversation can't reach another deal's data no
+  matter what the model emits), and persona write-authority is server-set
+  ([`app/lib/personaPolicy.js`](app/lib/personaPolicy.js)).
+- **Freshness without leakage** — live web search / scraping for non-stale sourcing lives
+  **only** in the external-web class, isolated from every internal record.
+
+Full model + the requirement mapping: [docs/DATA-SOVEREIGNTY.md](docs/DATA-SOVEREIGNTY.md).
+
 ## Demo profiles are not a production auth mechanism
 
 The demo "sign in as" profiles are gated behind `deployDemoProfiles` and are for

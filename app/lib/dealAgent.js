@@ -22,6 +22,7 @@
 import { DefaultAzureCredential, getBearerTokenProvider } from '@azure/identity';
 import { listDeals, getDeal, getDealRaw, getPersonas } from './store.js';
 import { dispatchTool, dealAnalystView, dealSummary } from './dealTools.js';
+import { guardInternalToolCall } from './agentSovereignty.js';
 import { chat as directDealChat } from './agents.js';
 import { config } from './config.js';
 import { screenText } from './contentSafety.js';
@@ -173,7 +174,11 @@ async function runToolLoop({ scope, focusId, focusCompany, message, previousResp
     const outputs = [];
     for (const call of calls.slice(0, MAX_CALLS_PER_TURN)) {
       toolNamesUsed.push(call.name);
-      const result = dispatchTool(call.name, call.args, { scope, focusId, focusCompany });
+      // Data-sovereignty guard: this is an internal-data agent, so refuse any web/egress
+      // tool before it runs (no path to exfiltrate deal data), regardless of what the
+      // model emitted. Governed reads/writes fall through to dispatchTool as before.
+      const denied = guardInternalToolCall(AGENT_NAME, call.name);
+      const result = denied || dispatchTool(call.name, call.args, { scope, focusId, focusCompany });
       outputs.push({
         type: 'function_call_output',
         call_id: call.callId,
