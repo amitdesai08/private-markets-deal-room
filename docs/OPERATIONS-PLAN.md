@@ -131,10 +131,87 @@ maintenance window and rehearse in a scratch RG first. **Payoff:** the Cosmos
 public-access toggle problem disappears for good, plus defense-in-depth for all
 data services.
 
+### Pre-cutover capture & recovery (verified 2026-07-23)
+
+> **Status: execution deferred.** With downtime now acceptable (no demos scheduled),
+> Option B was scoped in full and the following recovery gaps were pinned down. The
+> cutover is **not executed** — this subsection is the actionable capture/recovery
+> checklist to run when we schedule the window.
+
+**Deploy mechanism (grounded):** the platform deploys via
+[`scripts/deploy.ps1`](../scripts/deploy.ps1) → **`az deployment sub create`**
+(incremental, deployment name `dealhub-dev`) — **not** a deployment stack. Incremental
+mode **does not delete** resources absent from the template, so a redeploy reconciles the
+*declared* resources only; it won't garbage-collect drift. The env recreate in Phase 2 is
+therefore an **explicit manual delete**, not a side effect of the deploy.
+
+Three drift/recovery facts that must be handled around the recreate:
+
+1. **App secrets are literal, not Key Vault refs — but recoverable by re-provisioning.**
+   The live container-app secrets (`m365-client-secret`, `teams-tab-secret`,
+   `bot-app-password`, `mcp-readonly-key`) are stored as **literal values** on the apps
+   (no `keyVaultUrl`), so they **cannot be read back** from the running apps, and there is
+   **no local `entra.generated.bicepparam` / secrets file** (the deploy writes secrets to a
+   temp file that is deleted after wiring). **Recovery path:** re-run
+   [`scripts/provision-entra.ps1`](../scripts/provision-entra.ps1) — it is **idempotent**
+   (finds the existing app registrations by display name, so the **app IDs stay stable**)
+   and **regenerates** the client secrets into a fresh `entra.generated.bicepparam` +
+   temp secrets file, which `deploy.ps1` then wires into the recreated apps. Net effect:
+   the Entra **client secrets rotate** (old literals are discarded with the deleted apps);
+   Teams SSO / bot / MCP app IDs are unchanged. No manual secret archival is required.
+
+2. **`orchestratorImage` param is a placeholder by design — real image is rolled *after*.**
+   `infra/main.dev.bicepparam` sets `orchestratorImage` to the `helloworld` placeholder;
+   the live orchestrator runs `acrdealhubdevp3tks.azurecr.io/deal-room:needtoknow-202607231821`
+   applied imperatively. This is the **intended** workflow (`deploy.ps1` ends with a
+   "build + roll the images" step). **Recovery path:** after the recreate, re-roll **both**
+   images with `az containerapp update` — capture the exact current digests first:
+   ```powershell
+   az containerapp show -n ca-dealhub-orch-dev-swc  -g rg-dealhub-app-dev-swc `
+     --query "properties.template.containers[0].image" -o tsv   # orchestrator
+   az containerapp show -n ca-dealhub-teams-dev-swc -g rg-dealhub-app-dev-swc `
+     --query "properties.template.containers[0].image" -o tsv   # teams tab/bot
+   ```
+   Known current values: orch `deal-room:needtoknow-202607231821`, teams
+   `deal-room-teams:demomode-202607221207` (confirm at capture time).
+
+3. **Env-var / feature-flag drift is reconciled to Bicep on deploy — re-apply imperatives.**
+   The full `deploy.ps1` deploy reconciles the apps' env vars from `app.bicep`, so any
+   setting applied **imperatively only** (e.g. runtime `DEMO_PROFILES` / access-config
+   toggles not present in the bicepparam) is **reset** on recreate. **Recovery path:**
+   before Phase 2, snapshot the live env for both apps and diff against `app.bicep`; fold
+   anything intentional into the bicepparam or re-apply it post-deploy:
+   ```powershell
+   az containerapp show -n ca-dealhub-orch-dev-swc -g rg-dealhub-app-dev-swc `
+     --query "properties.template.containers[0].env" -o json > orch-env.pre.json
+   az containerapp show -n ca-dealhub-teams-dev-swc -g rg-dealhub-app-dev-swc `
+     --query "properties.template.containers[0].env" -o json > teams-env.pre.json
+   ```
+
+**Pre-cutover capture checklist (run, save outputs, then start Phase 2):**
+
+- [ ] Confirm Cosmos `publicNetworkAccess=Enabled` (must boot with data during cutover).
+- [ ] Capture both container-app **image digests** (snippet in #2).
+- [ ] Capture both container-app **env vars** to `*.pre.json` (snippet in #3).
+- [ ] Record current **FQDNs** (orch + teams) and the Teams manifest `validDomains` + bot
+      messaging endpoint they point at (for rollback + for the Phase-4 repoint diff).
+- [ ] Record current **Entra app IDs** (Teams SSO / M365 / Bot / MCP) so the idempotent
+      re-provision is confirmed to update *those* apps, not create duplicates.
+- [ ] Announce the maintenance window.
+
+**Revised phase ordering with recovery folded in:** Phase 1 (pre-flight) now includes the
+capture checklist above; Phase 3 (cutover deploy) is run via `deploy.ps1 -Mode full
+-Identity provision` so the **re-provision + secret regen** happen inline; a new **Phase
+3b** re-rolls both container images to the captured digests; Phase 4 repoints Teams/bot to
+the new FQDNs (the re-provision already refreshes Entra redirect URIs when passed the new
+FQDNs).
+
 ### Recommendation
 Do **Option A now** (stop the drift — minutes; already the persisting state). **Option B
-is now staged + `az bicep build`-validated** behind the CUTOVER SWITCHES — execute it on
-command in a maintenance window (rehearse the env recreate in a scratch RG first).
+is staged + `az bicep build`-validated** behind the CUTOVER SWITCHES, and its
+capture/recovery gaps are now pinned down (above). **Execution is deferred by choice** —
+schedule a maintenance window, run the capture checklist, rehearse the env recreate in a
+scratch RG, then execute Phases 1–5 (+3b).
 
 ---
 
