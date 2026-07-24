@@ -201,6 +201,37 @@ app.post('/api/powerbi/embed', async (req, res) => {
   res.json({ ...base, available: true, token, tokenType: 'Aad' });
 });
 
+// Agent chat — inject the resolved requesting identity (SSO or demo "view as") + the
+// shared bot key so the orchestrator gates every agent read by the caller's need-to-know
+// (an agent can't be used to reach a deal the caller can't see). Registered BEFORE the
+// generic proxy so it wins for the chat endpoints.
+async function forwardChat(path, req, res) {
+  if (!isBackendLive()) return res.status(502).json({ error: 'shared-backend-not-configured' });
+  const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  const identity = identityFromSsoToken(ssoToken);
+  const asOverride = String(req.headers['x-dr-as'] || req.body?.as || '').trim();          // demo "view as USER"
+  const viewAsRole = String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim() || null;
+  const requestingUser = asOverride
+    ? { name: asOverride }
+    : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : null);
+  const headers = { 'content-type': 'application/json' };
+  if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
+  const body = { ...(req.body || {}) };
+  delete body.ssoToken; delete body.as;
+  body.requestingUser = requestingUser;
+  body.viewAsRole = viewAsRole;
+  try {
+    const upstream = await fetch(`${config.backend.url}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
+    res.status(upstream.status);
+    res.setHeader('content-type', upstream.headers.get('content-type') || 'application/json');
+    res.send(Buffer.from(await upstream.arrayBuffer()));
+  } catch (e) {
+    res.status(502).json({ error: 'backend-unreachable', detail: String(e?.message || e) });
+  }
+}
+app.post('/api/deal-agent/chat', (req, res) => forwardChat('/api/deal-agent/chat', req, res));
+app.post('/api/persona-agents/:persona/chat', (req, res) => forwardChat(`/api/persona-agents/${encodeURIComponent(req.params.persona)}/chat`, req, res));
+
 // Admin (role builder / persona designer) — inject the resolved requesting identity
 // (SSO or demo "view as") so the orchestrator can enforce administrator-only access.
 // Registered before the generic proxy so it wins for /api/admin/*.

@@ -5,6 +5,7 @@
 // forwarded so the backend answers as the impersonated (never-elevated) role.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderMarkdown } from './md';
+import { af } from './authFetch';
 import type { Agent, Deal } from './types';
 
 type Msg = { role: 'user' | 'agent'; text: string; source?: string; tools?: string[]; pending?: boolean };
@@ -48,7 +49,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
     if (agent.kind === 'orchestrator') body.scope = dealId ? 'deal' : 'portfolio';
     if (viewAsRole) body.viewAsRole = viewAsRole;
     try {
-      const res = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await af(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       const data = await res.json();
       const reply = data?.reply || data?.error || 'No response.';
       const tools = Array.isArray(data?.toolCalls) && data.toolCalls.length ? Array.from(new Set(data.toolCalls)) as string[] : undefined;
