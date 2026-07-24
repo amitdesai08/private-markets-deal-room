@@ -16,14 +16,14 @@
 import { DefaultAzureCredential, getBearerTokenProvider } from '@azure/identity';
 import { listAgentDeals, getDealRaw } from './store.js';
 import {
-  dispatchTool, dispatchAction, dealAnalystView, dealSummary,
-  listPipeline, candidateView, candidateArtifactView, dealArtifactView, nextActionsFor,
+  dispatchTool, dispatchAction, dealAnalystView, dealSummary,  listPipeline, candidateView, candidateArtifactView, dealArtifactView, nextActionsFor,
   icReadinessView, marketIntelView, citationAuditView, canonicalCompaniesView, canonicalCompanyView,
   returnsView, valueCreationView, riskRegisterView,
   fundOverviewView, portfolioView, fundValueView
 } from './dealTools.js';
 import { PERSONAS, PERSONA_LABEL } from './personaPolicy.js';
 import { guardInternalToolCall } from './agentSovereignty.js';
+import { dispatchWorkiq } from './mcp/workiq.js';
 
 const PROJECT_ENDPOINT = (process.env.FOUNDRY_PROJECT_ENDPOINT || '').replace(/\/$/, '');
 const AGENT_MODEL = process.env.DEAL_AGENT_MODEL || 'gpt-5-mini';
@@ -227,13 +227,15 @@ async function runToolLoop({ persona, focusId, focusCompany, message, previousRe
       const denied = guardInternalToolCall(PERSONA_AGENT[persona], call.name);
       if (denied) {
         result = denied;
+      } else if (call.name.startsWith('workiq_')) {
+        result = await dispatchWorkiq(call.name, call.args);   // M365 work data (SharePoint/Teams/mail) over MCP
       } else if (READ_TOOLS.has(call.name)) {
         result = await readDispatch(call.name, call.args, { persona, focusId, focusCompany });
       } else {
         // Actions: persona is injected by the SERVER, not taken from the model.
         result = await dispatchAction(call.name, call.args, { persona });
       }
-      toolCalls.push({ name: call.name, action: !READ_TOOLS.has(call.name) });
+      toolCalls.push({ name: call.name, action: !READ_TOOLS.has(call.name) && !call.name.startsWith('workiq_') });
       outputs.push({ type: 'function_call_output', call_id: call.callId, output: JSON.stringify(result).slice(0, MAX_OUTPUT_CHARS) });
     }
     data = await postResponses({ model: AGENT_MODEL, agent_reference: agentRef, previous_response_id: data.id, input: outputs });

@@ -22,6 +22,7 @@
 import { DefaultAzureCredential, getBearerTokenProvider } from '@azure/identity';
 import { listAgentDeals, getDeal, getDealRaw, getPersonas } from './store.js';
 import { dispatchTool, dealAnalystView, dealSummary } from './dealTools.js';
+import { dispatchWorkiq } from './mcp/workiq.js';
 import { guardInternalToolCall } from './agentSovereignty.js';
 import { chat as directDealChat } from './agents.js';
 import { config } from './config.js';
@@ -178,7 +179,11 @@ async function runToolLoop({ scope, focusId, focusCompany, message, previousResp
       // tool before it runs (no path to exfiltrate deal data), regardless of what the
       // model emitted. Governed reads/writes fall through to dispatchTool as before.
       const denied = guardInternalToolCall(AGENT_NAME, call.name);
-      const result = denied || dispatchTool(call.name, call.args, { scope, focusId, focusCompany });
+      const result = denied
+        ? denied
+        : call.name.startsWith('workiq_')
+          ? await dispatchWorkiq(call.name, call.args)          // M365 work data (SharePoint/Teams/mail) over MCP
+          : dispatchTool(call.name, call.args, { scope, focusId, focusCompany });
       outputs.push({
         type: 'function_call_output',
         call_id: call.callId,

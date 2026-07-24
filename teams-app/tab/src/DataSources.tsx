@@ -14,6 +14,8 @@ type Connector = {
   free: boolean; enabled: boolean; configured: boolean; testable: boolean;
   connectable: boolean; status: string; latencyMs: number | null;
   lastSync: string | null; message: string | null;
+  configFields?: { key: string; label: string; placeholder?: string; kind?: string }[] | null;
+  config?: Record<string, string>;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -26,13 +28,14 @@ const TIERS: { key: string; title: string; blurb: string; match: (c: Connector) 
   { key: 'web', title: 'Live web search', blurb: 'Bing-grounded Foundry agent (Azure-metered).', match: (c) => c.kind === 'web' },
   { key: 'fabric-agent', title: 'Fabric Data Agent', blurb: 'Natural-language Q&A over the fund\u2019s lakehouse (live or grounded).', match: (c) => c.kind === 'fabric-agent' },
   { key: 'mcp', title: 'Subscription providers', blurb: 'Vendor data over MCP — sign in to connect.', match: (c) => c.kind === 'mcp' },
-  { key: 'm365', title: 'Microsoft 365', blurb: 'Delegated Teams / SharePoint / mailbox.', match: (c) => c.kind === 'm365' },
-  { key: 'database', title: 'Not wired', blurb: 'Vendor DBs shown for context — no live connection.', match: (c) => c.kind === 'database' },
+  { key: 'm365', title: 'Microsoft 365', blurb: 'Delegated Teams / SharePoint / mailbox.', match: (c) => c.kind === 'm365' },  { key: 'workiq', title: 'Work IQ (M365 work data for agents)', blurb: 'SharePoint files \u00b7 Teams threads \u00b7 mailbox over MCP \u2014 set the endpoint, then connect.', match: (c) => c.kind === 'workiq' },  { key: 'database', title: 'Not wired', blurb: 'Vendor DBs shown for context — no live connection.', match: (c) => c.kind === 'database' },
 ];
 
 export default function DataSources() {
   const [rows, setRows] = useState<Connector[] | null>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
+  // Local edits for connectors that expose configFields (e.g. the WorkIQ MCP URL).
+  const [cfgEdit, setCfgEdit] = useState<Record<string, Record<string, string>>>({});
 
   const load = () => fetch('/api/connectors').then((r) => (r.ok ? r.json() : [])).then(setRows).catch(() => setRows([]));
   useEffect(() => { load(); }, []);
@@ -71,6 +74,22 @@ export default function DataSources() {
     setBusyFor(c.id, true);
     try { await fetch(`/api/connectors/${c.id}/disconnect`, { method: 'POST' }); patch(c.id, { status: 'disconnected', message: null }); }
     catch { /* ignore */ }
+    finally { setBusyFor(c.id, false); }
+  };
+
+  const cfgVal = (c: Connector, key: string) => cfgEdit[c.id]?.[key] ?? (c.config?.[key] ?? '');
+  const setCfg = (id: string, key: string, val: string) =>
+    setCfgEdit((p) => ({ ...p, [id]: { ...(p[id] || {}), [key]: val } }));
+  const saveConfig = async (c: Connector) => {
+    const config = { ...(c.config || {}), ...(cfgEdit[c.id] || {}) };
+    setBusyFor(c.id, true);
+    try {
+      await fetch(`/api/connectors/${c.id}/config`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ config }),
+      });
+      patch(c.id, { config });
+      setCfgEdit((p) => { const n = { ...p }; delete n[c.id]; return n; }); // committed
+    } catch { /* keep local edits */ }
     finally { setBusyFor(c.id, false); }
   };
 
@@ -115,6 +134,30 @@ export default function DataSources() {
                   </div>
                   <p className="ds-job">{c.primaryJob}</p>
                   <p className="ds-sweet">{c.sweetSpot}</p>
+                  {c.configFields?.length ? (
+                    <div className="ds-config">
+                      {c.configFields.map((f) => {
+                        const dirty = cfgEdit[c.id]?.[f.key] !== undefined && cfgEdit[c.id][f.key] !== (c.config?.[f.key] ?? '');
+                        return (
+                          <label key={f.key} className="ds-cfg-row">
+                            <span className="ds-cfg-l">{f.label}</span>
+                            <span className="ds-cfg-edit">
+                              <input
+                                className="ds-cfg-in"
+                                type={f.kind === 'url' ? 'url' : 'text'}
+                                value={cfgVal(c, f.key)}
+                                placeholder={f.placeholder || ''}
+                                spellCheck={false}
+                                disabled={!!busy[c.id]}
+                                onChange={(e) => setCfg(c.id, f.key, e.target.value)}
+                              />
+                              <button className="ds-btn" disabled={!!busy[c.id] || !dirty} onClick={() => saveConfig(c)}>Save</button>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                   <div className="ds-foot">
                     <span className={`ds-pill ${c.status}`}>{STATUS_LABEL[c.status] || c.status}</span>
                     {c.latencyMs != null ? <span className="ds-lat">{c.latencyMs}ms</span> : null}
@@ -158,6 +201,12 @@ const CSS = `
 .ds-badge.free { font-size: 10px; font-weight: 600; color: #0a6; background: rgba(0,170,102,.14); border-radius: 4px; padding: 1px 6px; }
 .ds-job { margin: 8px 0 2px; font-size: 12.5px; color: var(--fg); }
 .ds-sweet { margin: 0; font-size: 12px; color: var(--muted); }
+.ds-config { margin: 10px 0 2px; display: flex; flex-direction: column; gap: 8px; }
+.ds-cfg-row { display: flex; flex-direction: column; gap: 4px; }
+.ds-cfg-l { font-size: 11px; color: var(--muted); font-weight: 600; }
+.ds-cfg-edit { display: flex; gap: 6px; }
+.ds-cfg-in { flex: 1; min-width: 0; background: var(--input-bg, #12121a); color: var(--fg); border: 1px solid var(--border, #2a2a35); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 12px; }
+.ds-cfg-in:focus { outline: none; border-color: var(--accent, #5b8cff); }
 .ds-foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .ds-lat { font-size: 11px; color: var(--muted); }
 .ds-actions { margin-left: auto; display: flex; gap: 6px; }

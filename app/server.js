@@ -105,7 +105,7 @@ import { chatPersonaAgent, personaAgentsInfo } from './lib/personaAgent.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
 import { listConnectors, testConnector, disconnectConnector } from './lib/connectors.js';
-import { setConnectorEnabled } from './lib/connectorSettings.js';
+import { setConnectorEnabled, setConnectorConfig } from './lib/connectorSettings.js';
 import { askFabricDataAgent, fabricDataAgentInfo } from './lib/fabricDataAgent.js';
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import m365LoginRouter from './lib/m365/loginRoutes.js';
@@ -577,6 +577,15 @@ api.post('/connectors/:id/enable', async (req, res) => {
     res.json({ id: req.params.id, enabled: out });
   } catch (err) {
     res.status(500).json({ error: 'enable toggle failed', detail: String(err?.message || err) });
+  }
+});
+// Set runtime config for a connector (e.g. the WorkIQ MCP endpoint URL). Persisted.
+api.post('/connectors/:id/config', async (req, res) => {
+  try {
+    const out = await setConnectorConfig(req.params.id, req.body?.config || {});
+    res.json({ id: req.params.id, config: out });
+  } catch (err) {
+    res.status(500).json({ error: 'config update failed', detail: String(err?.message || err) });
   }
 });
 // In-app OAuth sign-in for MCP connectors: /connectors/:provider/login|callback

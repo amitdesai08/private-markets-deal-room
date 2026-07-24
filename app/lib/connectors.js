@@ -20,8 +20,9 @@ import { testFilings, filingsConfigured } from './filings.js';
 import { gdeltNews, gdeltConfigured } from './providers/gdelt.js';
 import { leiLookup, gleifConfigured } from './providers/gleif.js';
 import { fabricDataAgentConfigured, fabricDataAgentInfo } from './fabricDataAgent.js';
-import { isConnectorEnabled } from './connectorSettings.js';
+import { isConnectorEnabled, getConnectorConfig } from './connectorSettings.js';
 import { m365Configured, m365Connected, me as m365Me } from './m365/graph.js';
+import { workiqConfigured, workiqConnected, workiqUrl } from './mcp/workiq.js';
 
 export const CONNECTORS = [
   {
@@ -29,6 +30,13 @@ export const CONNECTORS = [
     primaryJob: 'Microsoft 365 sign-in — Teams, SharePoint & mailbox (delegated)',
     sweetSpot: 'One delegated connection reused by every M365-powered step',
     loginUrl: '/api/m365/login'
+  },
+  {
+    id: 'workiq', name: 'Work IQ', kind: 'workiq', provider: 'workiq', role: 'context',
+    primaryJob: 'M365 work data for agents — SharePoint files, Teams threads & mailbox (delegated, over MCP)',
+    sweetSpot: 'Ground agents in a deal\u2019s real documents, channel discussion & correspondence',
+    // Endpoint is set at runtime from Settings (persisted); no fixed vendor URL.
+    configFields: [{ key: 'mcpUrl', label: 'WorkIQ MCP endpoint URL', placeholder: 'https://\u2026/mcp', kind: 'url' }]
   },
   {
     id: 'web', name: 'Web', kind: 'web', role: 'discover',
@@ -94,8 +102,10 @@ const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
 
 // Provider → MCP config for the in-app OAuth login routes.
 export function mcpProviderConfig(provider) {
-  const c = CONNECTORS.find((x) => x.kind === 'mcp' && x.provider === provider);
-  return c ? { provider, name: c.name, mcpUrl: c.mcpUrl } : null;
+  const c = CONNECTORS.find((x) => (x.kind === 'mcp' || x.kind === 'workiq') && x.provider === provider);
+  if (!c) return null;
+  const mcpUrl = c.kind === 'workiq' ? workiqUrl() : c.mcpUrl;
+  return { provider, name: c.name, mcpUrl };
 }
 
 // Last successful sync per connector (updated by real tests AND real use, e.g. a
@@ -118,6 +128,7 @@ function isConfigured(c) {
   if (c.kind === 'gleif') return gleifConfigured();
   if (c.kind === 'fabric-agent') return fabricDataAgentConfigured();
   if (c.kind === 'm365') return m365Connected();
+  if (c.kind === 'workiq') return workiqConnected();
   return false;
 }
 
@@ -211,6 +222,25 @@ async function testFabricAgent(c) {
   }
 }
 
+async function testWorkiq(c) {
+  if (!workiqConfigured()) {
+    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'No endpoint — set the WorkIQ MCP URL in Data Sources to enable M365 reads for agents.' });
+  }
+  if (!workiqConnected()) {
+    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Endpoint set — Connect (delegated sign-in) to enable SharePoint / Teams / mailbox reads.' });
+  }
+  const t0 = Date.now();
+  try {
+    const session = new McpSession('workiq', workiqUrl());
+    await session.initialize();
+    const latencyMs = Date.now() - t0;
+    markSync(c.id);
+    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Healthy · WorkIQ MCP session established in ${latencyMs}ms` });
+  } catch (e) {
+    return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Reachable but errored · ${String(e.message || e).slice(0, 90)}` });
+  }
+}
+
 async function testM365(c) {
   if (!m365Connected()) {
     return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Not connected — sign in with your Microsoft 365 account to enable Teams, SharePoint and mailbox steps.' });
@@ -244,6 +274,7 @@ export async function testConnector(id, { force = false } = {}) {
   if (c.kind === 'gleif') return testGleif(c);
   if (c.kind === 'fabric-agent') return testFabricAgent(c);
   if (c.kind === 'm365') return testM365(c);
+  if (c.kind === 'workiq') return testWorkiq(c);
   return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Integration not wired — no live connection.' });
 }
 
@@ -267,8 +298,11 @@ export function listConnectors() {
       free,
       enabled,
       configured,
-      testable: free || c.kind === 'fabric-agent' ? true : (c.kind === 'mcp' || c.kind === 'm365' ? configured : false),
-      connectable: c.kind === 'mcp' || c.kind === 'm365', // can be signed-in via OAuth
+      // Runtime-editable config (e.g. WorkIQ MCP URL) surfaced to Settings.
+      configFields: c.configFields || null,
+      config: c.configFields ? getConnectorConfig(c.id) : undefined,
+      testable: free || c.kind === 'fabric-agent' ? true : (c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq' ? configured : false),
+      connectable: c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq', // can be signed-in via OAuth
       status: !enabled ? 'disabled' : (cached ? cached.status : c.kind === 'database' ? 'disconnected' : configured ? 'unknown' : 'disconnected'),
       latencyMs: cached ? cached.latencyMs : null,
       lastSync: getLastSync(c.id),
@@ -284,7 +318,7 @@ export function listConnectors() {
 export async function disconnectConnector(id) {
   const c = CONNECTORS.find((x) => x.id === id);
   if (!c) return null;
-  const tokenKey = c.kind === 'm365' ? 'm365' : c.kind === 'mcp' ? c.provider : null;
+  const tokenKey = c.kind === 'm365' ? 'm365' : (c.kind === 'mcp' || c.kind === 'workiq') ? c.provider : null;
   if (!tokenKey) return { id, name: c.name, disconnected: false, error: 'not-disconnectable' };
   const out = await clearTokens(tokenKey);
   delete lastResult[c.id];

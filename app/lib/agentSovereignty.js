@@ -42,6 +42,9 @@ export const INTERNAL_TOOLS = new Set([
   'send_to_screening', 'screen_candidate', 'triage_candidate', 'gate_candidate',
   'launch_deal', 'advance_deal', 'run_step', 'assign_swimlane', 'record_finding',
   'record_contribution', 'record_issue', 'resolve_issue', 'set_condition', 'snapshot_assumptions',
+  // Work IQ (M365 work-data) reads over MCP — SharePoint files, Teams threads, mailbox.
+  // INTERNAL-DATA: the external-web news scout can never call these (guard refuses it).
+  'workiq_search_files', 'workiq_read_channel', 'workiq_search_mail', 'workiq_search',
 ]);
 
 // Web / egress tool names. Internal-data agents may NEVER call any of these — the guard

@@ -87,6 +87,10 @@ export const config = Object.freeze({
     morningstarMcpUrl: str(env.MORNINGSTAR_MCP_URL, 'https://mcp.morningstar.com/mcp'),
     lsegMcpUrl: str(env.LSEG_MCP_URL, 'https://api.analytics.lseg.com/lfa/mcp'),
     moodysMcpUrl: str(env.MOODYS_MCP_URL, 'https://mcp.moodys.com/genai-ready-data/mcp'),
+    // Work IQ (M365 work-data intelligence) over MCP — SharePoint / Teams / mailbox,
+    // delegated. No default endpoint: it is configured at runtime from Settings →
+    // Data Sources (persisted per tenant), or via WORKIQ_MCP_URL as the seed default.
+    workiqMcpUrl: str(env.WORKIQ_MCP_URL, ''),
     morningstarClientId: str(env.MORNINGSTAR_CLIENT_ID, ''),
     morningstarClientSecret: str(env.MORNINGSTAR_CLIENT_SECRET, ''),
   },
