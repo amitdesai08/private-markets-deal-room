@@ -9,6 +9,21 @@ implemented yet — this is the plan.
 > cost/ops in [OPERATIONS-PLAN.md](OPERATIONS-PLAN.md); agent data-sovereignty
 > model in [DATA-SOVEREIGNTY.md](DATA-SOVEREIGNTY.md).
 
+## Status (2026-07-24)
+
+| Item | Status |
+|---|---|
+| B1 · single demo switcher (removed View-as-ROLE) | ✅ done |
+| B2 · agents panel scoped to own persona (non-demo) | ✅ done |
+| B3 · Good Place roster + "Name — Role" labels | ✅ done |
+| C1 · portfolio totals follow the active persona | ✅ done (KPIs derived from filtered deals) |
+| D1 · "Ask agents" opens chat *inside* the Deal Room | ✅ done |
+| E1 · responsive layout | ✅ done (breakpoints at 860/560) |
+| F1 · agent + skills docs | ✅ done — [AGENTS.md](AGENTS.md) |
+| A1 · WorkIQ tools on agents | ✅ deal analyst (function tools) + persona agents (via deal MCP) |
+| A2 · WorkIQ endpoint + admin consent | ⏳ tenant-admin |
+| A3 · per-user OBO for WorkIQ | ⏳ pending |
+
 ---
 
 ## A · WorkIQ integration (make the scaffold live)

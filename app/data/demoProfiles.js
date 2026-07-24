@@ -12,7 +12,7 @@ import { personaById } from './personas.js';
 // A MINIMAL showcase roster — one character per RBAC tier, so the demo shows the
 // access SEPARATION and guardrails without a crowd of look-alike deal-team profiles.
 // Themed after The Good Place, mapped by personality:
-//   • Michael (the Architect who designs & runs the neighbourhood) → Administrator.
+//   • Michael Realman (the Architect who designs & runs the neighbourhood) → Administrator.
 //   • Eleanor Shellstrop (the reluctant leader who makes the hard call)   → Partner / IC chair.
 //   • Tahani Al-Jamil (the consummate connector & value-builder)          → Deal Team.
 //   • Chidi Anagonye (the rigorous over-thinker who reads every source)   → Analyst (read-only).
@@ -22,7 +22,7 @@ import { personaById } from './personas.js';
 // the `deployDemoProfiles` infra toggle); a production deploy with the flag off
 // never grants a role by demo name.
 const SPEC = [
-  { id: 'admin', role: 'admin', personaId: null, name: 'Michael', title: 'The Architect — Administrator', initials: 'MI', color: '#7c3aed',
+  { id: 'admin', role: 'admin', personaId: null, name: 'Michael Realman', title: 'The Architect — Administrator', initials: 'MR', color: '#7c3aed',
     blurb: 'The Architect who runs the neighbourhood. Oversight & governance — sees and can call every agent, every deal and every stage, and can view the room as any role.' },
   { id: 'partner', role: 'partner', personaId: 'partner', name: 'Eleanor Shellstrop', title: 'Partner — Deal Sponsor & IC Chair', initials: 'ES', color: '#be123c',
     blurb: 'The reluctant leader who makes the call. Sponsors the deal and chairs the IC — full access to every agent and every stage.' },

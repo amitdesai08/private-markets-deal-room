@@ -31,12 +31,12 @@ minutes, plus an explicit **feature → private-equity need** map you can speak 
 | # | Beat (time) | Do / say | Feature shown |
 |---|---|---|---|
 | 0 | **Pitch** (0:30) | Say the one-liner above. "Same console runs in Teams *and* standalone web." | Teams-native + web console |
-| 1 | **Who's asking** (1:00) | "Sign in as" **Sam Rivera (Admin)** → all **10 specialist agents**. Switch to **Maya Olsen (Analyst)** → rail collapses to 1, Stage-2 deals lock. As **Eleanor Bishop (Partner)**, use **"view as → Analyst"**. | Identity-aware access; view-as only ever goes *down*, enforced server-side |
+| 1 | **Who's asking** (1:00) | "Sign in as" **Michael Realman (Admin)** → every specialist agent, all 9 deals. Switch to **Chidi Anagonye (Analyst)** → rail collapses to his 1 read-only agent, the **"Live deals" total drops to 7** (two confidential deals vanish), Stage-2 locks. End on **Jason Mendoza (Member)** → view-only, **zero agents** (the guardrail floor). | Identity-aware access; totals follow the identity; enforced server-side |
 | 2 | **Originate** (1:30) | Open **Stage 1 — Origination**. Show the **News & filings desk**: live catalysts (GDELT) + real SEC filings (EDGAR) on a target; run the screening gate. | Sourcing signals, screening, free live data |
-| 3 | **Diligence** (1:30) | Open a deal → **Stage 2 — Diligence**. Ask a **Sector MD agent** (Retail/AI/Supply) a lane question; show it grounds on **benchmark findings + comparable deals** from the fund's own history. | Specialist persona agents; market-intelligence grounding |
+| 3 | **Diligence** (1:30) | Open a deal → **Stage 2 — Diligence**. Hit **💬 Ask agents** *inside the deal* and ask a **Sector MD** a lane question; show it grounds on **benchmark findings + comparable deals** from the fund's own history. | In-deal agent chat; market-intelligence grounding |
 | 4 | **Decide** (1:30) | Ask the **Fund CFO** for the **LBO case (IRR / MOIC)**; open the **IC memo** and **IC voting precedents**. | Auto-drafted decision artifacts; IC governance |
 | 5 | **Own it** (0:30) | Open **Fund & Portfolio** — the post-IC lens: portfolio monitoring, value-creation, LP-ready fund view. | Full lifecycle beyond the deal |
-| 6 | **Control the sources** (0:30) | Open **Data Sources**: free tier (EDGAR/GDELT/GLEIF) on by default; subscription providers (Morningstar/LSEG/Moody's) sign-in; **toggle a source off** live. | Governed, configurable connectors; cost story |
+| 6 | **Report & connect** (0:45) | In the channel, open the **Deal Room Report (Power BI)** tab. Then **Settings → Data Sources**: free tier on by default, **Work IQ** endpoint for M365 (SharePoint/Teams/mail) agent access, toggle a source off live. | Power BI in Teams; governed connectors incl. Work IQ |
 
 **Ultra-short (3 min):** run beats **0 → 1 → 3 → 4** — the differentiator (access),
 a grounded specialist answer, and the IC artifact. That alone tells the story.

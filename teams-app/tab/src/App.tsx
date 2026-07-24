@@ -66,7 +66,6 @@ export default function App() {
   // Access profile from the orchestrator: which agents this user may use, and
   // the roles they can "view as" (own role + any lower in the hierarchy).
   const [allowedPersonas, setAllowedPersonas] = useState<string[] | null>(null);
-  const [viewAsRoles, setViewAsRoles] = useState<{ role: string; label: string }[]>([]);
   const [viewAsRole, setViewAsRole] = useState('');
   const [roleLabel, setRoleLabel] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -78,8 +77,14 @@ export default function App() {
   const [ssoToken, setSsoToken] = useState<string>('');
 
   // Only surface the agents this user (or the role they are viewing as) may use.
-  // The orchestrator (always shown) plus any persona agent in allowedPersonas.
-  const visibleAgents = agents.filter((a) => a.kind === 'orchestrator' || !allowedPersonas || (a.persona && allowedPersonas.includes(a.persona)));
+  // Demo mode showcases the whole role's roster; a real (non-demo) user sees only
+  // the orchestrator plus THEIR OWN persona — not every persona in their tier.
+  const isDemoMode = demoUsers.length > 0;
+  const visibleAgents = agents.filter((a) => {
+    if (a.kind === 'orchestrator') return true;
+    if (isDemoMode) return !allowedPersonas || (a.persona ? allowedPersonas.includes(a.persona) : false);
+    return !!(a.persona && persona?.id && a.persona === persona.id);
+  });
 
   // Report surface selection (from the channel-tab config): ?view=report renders the
   // print-friendly "Deal Room Report" instead of the console; &deal=<id> narrows it.
@@ -97,7 +102,6 @@ export default function App() {
     if (ctx.persona) setPersona(ctx.persona);
     setCanViewStage2(!!ctx.canViewStage2);
     if (Array.isArray(ctx.allowedPersonas)) setAllowedPersonas(ctx.allowedPersonas);
-    if (Array.isArray(ctx.viewAsRoles)) setViewAsRoles(ctx.viewAsRoles);
     if (typeof ctx.roleLabel === 'string') setRoleLabel(ctx.roleLabel);
     setIsAdmin(!!ctx.isAdmin);
   }
@@ -213,11 +217,6 @@ export default function App() {
         <div className="topbar-r">
           {persona?.name ? <span className="badge" title="Signed-in persona">{persona.name}</span> : null}
           {roleLabel ? <span className="badge" title="Your role">{isAdmin ? '★ ' : ''}{roleLabel}</span> : null}
-          {viewAsRoles.length > 1 ? (
-            <select className="viewas" value={viewAsRole} onChange={(e) => setViewAsRole(e.target.value)} title="View the deal room as this role (you can only view your own role or lower)">
-              {viewAsRoles.map((r) => (<option key={r.role} value={r.role}>👁 View as {r.label}</option>))}
-            </select>
-          ) : null}
           {demoUsers.length ? (
             <select className="viewas" value={viewAs} onChange={(e) => { setViewAsRole(''); setViewAs(e.target.value); }} title="Demo — sign in as one of the showcase profiles to see their agents and access">
               {demoUsers.map((u) => (<option key={u.id} value={u.upn}>👤 {u.label}</option>))}
@@ -256,7 +255,7 @@ export default function App() {
         {chatOpen ? <ChatPanel agents={visibleAgents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} viewAsRole={viewAsRole} /> : null}
       </div>
 
-      {openDealId ? <DealDetail dealId={openDealId} canViewStage2={canViewStage2} onClose={() => setOpenDealId('')} onAsk={(id) => { setOpenDealId(''); askAbout(id); }} /> : null}
+      {openDealId ? <DealDetail dealId={openDealId} canViewStage2={canViewStage2} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onClose={() => setOpenDealId('')} /> : null}
     </div>
   );
 }
@@ -399,11 +398,25 @@ html, body, #root { margin: 0; height: 100%; }
 @media (max-width: 860px) {
   .mi { grid-template-columns: 1fr; }
   .chatpanel { position: fixed; top: 0; right: 0; bottom: 0; width: 92vw; max-width: 420px; z-index: 30; box-shadow: -8px 0 24px rgba(0,0,0,.25); }
+  .topbar { flex-wrap: wrap; gap: 8px; }
+  .brand-s { display: none; }
+  .maintabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .maintab { white-space: nowrap; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .deals { grid-template-columns: 1fr; }
+  .drawer { width: 100vw; }
+  .viewas { max-width: 160px; }
+}
+@media (max-width: 560px) {
+  .kpis { grid-template-columns: 1fr; }
+  .topbar-r { flex-wrap: wrap; justify-content: flex-end; }
 }
 
 /* Deal detail drawer (native Station) */
 .drawer-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 40; display: flex; justify-content: flex-end; }
-.drawer { width: min(560px, 96vw); height: 100%; background: var(--bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,.3); }
+.drawer { width: min(560px, 96vw); height: 100%; position: relative; background: var(--bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,.3); }
+.drawer-chat { position: absolute; inset: 0; z-index: 6; display: flex; background: var(--bg); }
+.drawer-chat .chatpanel { flex: 1; max-width: none; border-left: none; }
 .drawer-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .drawer-title { font-weight: 700; font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chbtn { border: 1px solid var(--accent); background: var(--chip); color: var(--accent); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; }

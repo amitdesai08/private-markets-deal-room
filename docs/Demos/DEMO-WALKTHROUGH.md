@@ -23,16 +23,17 @@ persona who owns it, so the access model, the agents, the lifecycle and the new
   existing demo environment. No datastore is required — the default **blob store**
   means the demo costs almost nothing, and **Cosmos is entirely optional**.
 - Open the **web console** at `https://<teams-fqdn>/`, or the tab inside Teams.
-- Keep the top-bar **"sign in as"** switcher handy — you'll change persona per act.
+- Keep the top-bar **"sign in as"** switcher handy — you'll change profile per act.
 
-**The cast** (each is a one-click demo profile):
+**The cast** — the demo roster is **The Good Place**, one character per RBAC tier. Sign in as a
+tier, then act *through* the specialist persona agents in the panel:
 
-| Persona | Who | Owns the act |
-|---|---|---|
-| Analyst | Maya Olsen | Act 1 — Origination |
-| Sector MDs | Retail / AI / Supply | Act 2 — Diligence |
-| Fund CFO · Principal · Partner | David Osei · Marcus Feld · Eleanor Bishop | Act 3 — Decision & IC |
-| Operating Partner · Fund CFO · IR | Rachel Nguyen · David Osei · Sofia Marchetti | Act 4 — Own & Monitor |
+| Sign in as | Tier | Acts through | Owns the act |
+|---|---|---|---|
+| **Chidi Anagonye** | Analyst (read-only) | Analyst agent | Act 1 — Origination |
+| **Tahani Al-Jamil** | Deal Team | Sector MDs (Retail / AI / Supply) | Act 2 — Diligence |
+| **Eleanor Shellstrop** | Partner | Fund CFO · Principal · Partner | Act 3 — Decision & IC |
+| **Eleanor Shellstrop / Michael Realman** | Partner / Admin | Operating Partner · Fund CFO · IR | Act 4 — Own & Monitor |
 
 ---
 
@@ -48,7 +49,7 @@ Then set the frame: *"Let's follow one deal the whole way through."*
 
 ---
 
-## Act 1 · Origination & screening — *sign in as Maya (Analyst)*  ⏱ 3 min
+## Act 1 · Origination & screening — *sign in as Chidi Anagonye (Analyst)*  ⏱ 3 min
 
 1. **Deals Overview** → note the pipeline and the value strip (deals processed,
    analyst-hours saved, time-to-IC compression). *"This is the ROI story — the
@@ -67,7 +68,7 @@ Then set the frame: *"Let's follow one deal the whole way through."*
 
 ---
 
-## Act 2 · Diligence — *sign in as a Sector MD*  ⏱ 4 min
+## Act 2 · Diligence — *sign in as Tahani Al-Jamil (Deal Team), act as a Sector MD*  ⏱ 4 min
 
 1. Open **Stage 2 — Diligence** and pick the lead deal (the top consumer deal).
 2. Show the **workstream lanes** — Commercial / Tech-AI / Operations — each owned
@@ -81,7 +82,7 @@ Then set the frame: *"Let's follow one deal the whole way through."*
 
 ---
 
-## Act 3 · Decision & IC — *sign in as Fund CFO, then Partner*  ⏱ 5 min
+## Act 3 · Decision & IC — *sign in as Eleanor Shellstrop (Partner)*  ⏱ 5 min
 
 1. Open the deal's **Decision artifacts** tab — the four cards, each derived from
    the live record:
@@ -105,7 +106,7 @@ Then set the frame: *"Let's follow one deal the whole way through."*
 
 ---
 
-## Act 4 · Own & monitor — *sign in as Operating Partner / IR*  ⏱ 5 min  🆕
+## Act 4 · Own & monitor — *sign in as Eleanor Shellstrop (Partner), act as Operating Partner / IR*  ⏱ 5 min  🆕
 
 This is the **post-IC** act most tools stop short of. Open the **Fund & Portfolio**
 tab.

@@ -29,16 +29,24 @@ lifecycle**, the **specialist agents**, the **decision artifacts**, and the
 
 ## 2 · Identity-aware access (2 min) — *the differentiator*
 
-1. In the top bar, open **"sign in as"** and choose **Sam Rivera — Administrator**.
-   - Open the **agents** panel: the admin sees **all 10 specialist agents**.
-2. Switch to **Maya Olsen — Analyst**.
-   - The rail collapses to **1 agent** (read-only), and Stage-2 deals show a lock.
-3. Switch to **Eleanor Bishop — Partner**, then use **"view as"** to drop to *Analyst*.
-   - Same session, but she now sees exactly what an analyst would — **view-as only
-     ever goes down, never up**, and it's enforced server-side.
+The demo roster is **The Good Place** — one character per RBAC tier, so the access
+**separation and guardrails** are the story. Use the single top-bar **"sign in as"**
+dropdown (it shows **Name — Role**, no clutter):
 
-> "Access isn't a UI toggle — it's resolved on the server from the requesting
-> identity. A client can never widen its own powers."
+1. **Michael Realman — Administrator.** Agents panel shows **every** specialist agent; sees
+   **all 9 deals** including the two **confidential** ones; every stage open.
+2. **Tahani Al-Jamil — Deal Team.** Deal-team agents; **Stage-2 diligence unlocked**; writes
+   findings and the value-creation plan.
+3. **Chidi Anagonye — Analyst.** The rail collapses to **his own agent** (read-only), the
+   **"Live deals" total drops to 7** — the two **confidential** deals vanish — and Stage-2 locks.
+4. **Jason Mendoza — Member.** The **guardrail floor**: view-only, **zero persona agents**,
+   dashboard only.
+
+> Two things to call out: the **totals follow the identity** — switch persona and the
+> "Live deals" KPI changes *with* the deal list, not just the stage views; and outside demo
+> mode a real user sees only **their own** persona agent, not the whole tier. Access is
+> resolved **server-side** from the requesting identity — a client can never widen its own
+> powers.
 
 ## 3 · The full deal lifecycle (2 min)
 
@@ -84,28 +92,51 @@ Open the **Fund & Portfolio** tab — the *post-IC* lens most tools stop short o
 
 ## 6 · Talk to the specialists (3 min)
 
-Open the **agents** panel and ask (as **Partner** or **Admin** so all agents show):
+Two ways to chat — both grounded in the live record and persona-framed:
 
+- **Portfolio-wide:** open the **agents** panel (as **Michael** or **Eleanor** so the full
+  roster shows) and ask across deals.
+- **Inside a deal:** open a deal and hit **💬 Ask agents** — the chat now opens **inside the
+  Deal Room drawer**, scoped to that one deal (it no longer bounces back to the main screen).
+
+Ask:
 - **Fund CFO:** *"Pull the returns model — base IRR and MOIC, and does it clear the hurdle?"*
 - **Operating Partner:** *"What are the top value-creation levers across the portfolio?"*
-- **Deal Room Assistant:** *"What's blocking this deal from going to IC?"*
+- **Deal Room Analyst:** *"What's blocking this deal from going to IC?"*
 
 > The agents are Foundry agents that read the pipeline through the governed MCP
 > tools — grounded, cited, and persona-framed.
 
-## 7 · Documents on your own license (1 min)
+## 7 · The Deal Room Report — Power BI in the channel (1 min)
+
+In a Teams channel, add the **Deal Room** tab and choose **View → Deal Room Report (Power BI)**.
+The app serves the fund's **real Power BI report** — Portfolio Overview · Sector & Industry ·
+Pipeline by Stage · Deal Value & Valuation · Time-based metrics — **embedded** for signed-in
+users (user-owns-data), with an **Open in Power BI** deep link and a live native summary as a
+fallback. The report tab is a first-class, app-served surface, not a bolt-on.
+
+## 8 · Work IQ — agents over SharePoint / Teams / mail (1 min)
+
+Open **Settings (⚙) → Data Sources → Work IQ**: paste the MCP endpoint and **Connect**. Once
+connected, the internal-data agents gain **governed, delegated** M365 tools —
+`workiq_search_files` (SharePoint/OneDrive), `workiq_read_channel` (Teams) and
+`workiq_search_mail` (Outlook) — so a diligence question can be grounded in the deal's real
+documents, channel discussion and correspondence. The **external** news scout can **never**
+call them: the data-sovereignty guard refuses any boundary crossing and audit-logs it.
+
+## 9 · Documents on your own license (1 min)
 
 - In a deal's **Documents** tab, generate the **IC memo (Word)** and **Deal model
   (Excel)** — built on the requester's own M365 license (full mode), or downloaded
   as a personal working copy. Show the **live-refreshable** Excel model.
 
-## 8 · Real data, no paid provider (1 min) *(optional)*
+## 10 · Real data, no paid provider (1 min) *(optional)*
 
 - Hit `GET /api/company/Apple/fundamentals?ticker=AAPL` — **real SEC/XBRL
   fundamentals** stand in for a paid data provider, so demos show live numbers
   with **no license**. (`/api/providers/keyless` lists SEC, GLEIF, GDELT.)
 
-## 9 · Close (30s)
+## 11 · Close (30s)
 
 > "One command deploys the whole thing — `azd up`. It's a parameterised Azure
 > accelerator: bring your own roles, personas and data; the lean blob store
@@ -120,12 +151,14 @@ Open the **agents** panel and ask (as **Partner** or **Admin** so all agents sho
 
 | Feature | Where |
 |---|---|
-| RBAC / demo profiles | top-bar "sign in as" + "view as" |
+| RBAC / demo roster (5 Good Place tiers) | top-bar **"sign in as"** (single dropdown, Name — Role) |
 | Lifecycle (15 stages, 6 gates) | **Lifecycle** tab · `GET /api/lifecycle` |
 | Decision artifacts | deal → **Decision artifacts** tab · `/api/deals/:id/{returns,value-creation,risk-register,ioi,loi}` |
 | Returns Excel | deal → **Documents** → *Returns model (Excel)* |
 | Fund & portfolio (post-IC) | **Fund & Portfolio** tab · `/api/fund/{overview,portfolio,value}` |
-| Specialist agents (10) | **agents** panel · `GET /api/persona-agents` |
+| Specialist agents | **agents** panel + in-deal **💬 Ask agents** · `GET /api/persona-agents` |
+| Deal Room Report (Power BI) | channel tab → **View: Deal Room Report** |
+| Work IQ (M365 for agents) | **Settings ⚙ → Data Sources → Work IQ** |
 | Keyless data | `/api/company/:name/fundamentals`, `/api/entity/:name/lei`, `/api/news/gdelt` |
 
 ## Troubleshooting

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { getSsoToken } from './teams';
 import { af } from './authFetch';
 import DealArtifacts from './DealArtifacts';
+import ChatPanel from './ChatPanel';
+import type { Agent, Deal } from './types';
 
 // Native Deal Workspace (single-deal scope) — brings the webapp's Stages,
 // Orchestration and Deal Workspace into the tab. Reads/drives the shared backend:
@@ -60,7 +62,7 @@ const bigMoney = (n?: number) => (n == null ? '—' : n >= 1e9 ? `$${(n / 1e9).t
 
 type Tab = 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'artifacts' | 'documents';
 
-export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { dealId: string; canViewStage2: boolean; onClose: () => void; onAsk: (id: string) => void }) {
+export default function DealDetail({ dealId, canViewStage2, agents, deals, viewAsRole, onClose }: { dealId: string; canViewStage2: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onClose: () => void }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
   const [ic, setIc] = useState<ICReadiness | null>(null);
   const [flow, setFlow] = useState<Flow | null>(null);
@@ -68,6 +70,7 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
   const [citations, setCitations] = useState<Citations | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('overview');
+  const [askOpen, setAskOpen] = useState(false);
   const [selStep, setSelStep] = useState<string>('');
   const [busy, setBusy] = useState<string>('');
   const [note, setNote] = useState<string>('');
@@ -223,8 +226,14 @@ export default function DealDetail({ dealId, canViewStage2, onClose, onAsk }: { 
           <div className="drawer-title">{deal?.company || 'Loading…'}</div>
           {deal ? <button className="chbtn" onClick={dealChannel} disabled={busy === 'channel'} title="Create or open a Teams channel to converse about this deal">{deal.workspace?.teamsProvisioned ? '# Open channel ↗' : busy === 'channel' ? 'Creating…' : '# Deal channel'}</button> : null}
           {deal ? <button className="chbtn spo" onClick={openDataRoom} disabled={busy === 'dataroom'} title="Open the deal's SharePoint data room (VDR)">{deal.workspace?.sharePointProvisioned ? '📁 Data room ↗' : busy === 'dataroom' ? 'Opening…' : '📁 Data room'}</button> : null}
-          <button className="askbtn" onClick={() => onAsk(dealId)}>💬 Ask agents</button>
+          <button className={`askbtn${askOpen ? ' on' : ''}`} onClick={() => setAskOpen((v) => !v)}>💬 {askOpen ? 'Hide agents' : 'Ask agents'}</button>
         </div>
+
+        {askOpen && deal ? (
+          <div className="drawer-chat">
+            <ChatPanel agents={agents} deals={deals} focusDealId={dealId} onClose={() => setAskOpen(false)} viewAsRole={viewAsRole} />
+          </div>
+        ) : null}
 
         {loading || !deal ? (
           <div className="drawer-body"><div className="muted">{loading ? 'Loading deal workspace…' : 'Deal not found.'}</div></div>

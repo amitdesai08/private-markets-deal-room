@@ -20,9 +20,21 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
   const precedents = market?.icPrecedents || [];
   const benchmarks = market?.benchmarkFindings || [];
 
+  // Derive the headline counts from the deals THIS caller can actually see, so the
+  // totals always match the deal cards below (and change when the persona changes).
+  // Falls back to the system analytics only when the deal list hasn't loaded yet.
+  const inDiligenceRe = /diligence|approval/i;
+  const liveDeals = deals.length || analytics?.deals || 0;
+  const inDiligence = deals.length
+    ? deals.filter((d) => inDiligenceRe.test(`${d.stage || ''} ${d.stageName || ''}`)).length
+    : (analytics?.inDiligence ?? 0);
+  const avgReadiness = deals.length
+    ? Math.round(deals.reduce((s, d) => s + (d.readiness || 0), 0) / deals.length)
+    : (analytics?.avgReadiness ?? 0);
+
   const kpis = [
-    { label: 'Live deals', value: String(analytics?.deals ?? deals.length ?? 0), sub: `${analytics?.inDiligence ?? 0} in diligence` },
-    { label: 'Avg IC readiness', value: `${analytics?.avgReadiness ?? 0}%`, sub: `${analytics?.cycleReductionPct ?? 0}% cycle cut` },
+    { label: 'Live deals', value: String(liveDeals), sub: `${inDiligence} in diligence` },
+    { label: 'Avg IC readiness', value: `${avgReadiness}%`, sub: `${analytics?.cycleReductionPct ?? 0}% cycle cut` },
     { label: 'Fabric market intel', value: fabric?.mode === 'live' ? 'Live' : (fabric?.mode ? 'Materialized' : '—'), sub: `${comps.length} comps · ${precedents.length} IC precedents` },
     { label: 'Deal-flow agents', value: String(agentCount), sub: config?.newsAgent === 'live' ? 'news scout live' : 'agents ready' },
   ];

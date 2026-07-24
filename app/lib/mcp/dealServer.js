@@ -24,6 +24,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
+import { dispatchWorkiq } from './workiq.js';
 import {
   dispatchTool, TOOL_DESCRIPTIONS, DEAL_SECTIONS,
   listPipeline, candidateView, candidateArtifactView, dealArtifactView,
@@ -125,6 +126,25 @@ export function buildDealMcpServer(auth = { mode: 'disabled' }) {
   server.registerTool('get_risk_register',
     { title: 'Get risk register', description: TOOL_DESCRIPTIONS.get_risk_register, inputSchema: { deal_id: z.string().describe('The deal id.') } },
     async ({ deal_id }) => toContent(riskRegisterView(deal_id)));
+
+  // ---- READ: Work IQ (M365 work data) — SharePoint / Teams / mailbox ------
+  // Governed + delegated. Inert (returns workiq-not-configured) until an endpoint is
+  // set in Settings -> Data Sources and a delegated sign-in is completed.
+  server.registerTool('workiq_search_files',
+    { title: 'Work IQ · search files', description: 'Search Microsoft 365 SharePoint/OneDrive for deal documents (CIM, QoE, legal, models). Returns file matches with snippets.', inputSchema: { query: z.string().describe("Keywords, e.g. a company plus 'CIM' or 'QoE'."), deal_id: z.string().optional().describe('Optional deal id to scope to that data room.') } },
+    async ({ query, deal_id }) => toContent(await dispatchWorkiq('workiq_search_files', { query, deal_id })));
+
+  server.registerTool('workiq_read_channel',
+    { title: 'Work IQ · read Teams channel', description: "Read a deal's Microsoft Teams channel messages — the discussion, decisions and open questions.", inputSchema: { deal_id: z.string().describe('The deal whose Teams channel to read.'), limit: z.number().int().optional().describe('Max messages (default 20).') } },
+    async ({ deal_id, limit }) => toContent(await dispatchWorkiq('workiq_read_channel', { deal_id, limit })));
+
+  server.registerTool('workiq_search_mail',
+    { title: 'Work IQ · search mail', description: "Search the signed-in user's Outlook mail for deal or counterparty correspondence (scoped to the caller's mailbox).", inputSchema: { query: z.string().describe('Keywords, e.g. a company or counterparty name.') } },
+    async ({ query }) => toContent(await dispatchWorkiq('workiq_search_mail', { query })));
+
+  server.registerTool('workiq_search',
+    { title: 'Work IQ · cross-M365 search', description: 'Cross-M365 search (Work IQ) across SharePoint, Teams and mail for a topic.', inputSchema: { query: z.string().describe('The search topic.') } },
+    async ({ query }) => toContent(await dispatchWorkiq('workiq_search', { query })));
 
   // ---- READ: Fund / portfolio lens (post-IC) ------------------------------
   server.registerTool('get_fund_overview',

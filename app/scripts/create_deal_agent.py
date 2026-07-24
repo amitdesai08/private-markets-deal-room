@@ -62,6 +62,14 @@ does, answer only about that one deal; if the user asks about other deals or the
 tell them you are currently scoped to that one deal and they should switch context. With no focus
 directive you are a portfolio-wide analyst and may reason across all deals.
 
+WORK DATA (Work IQ): when it helps answer a question you may ALSO reach the fund's Microsoft 365
+work data — workiq_search_files (SharePoint/OneDrive documents), workiq_read_channel (a deal's
+Teams discussion), workiq_search_mail (the caller's relevant mail) and workiq_search (cross-M365).
+Use them to ground diligence in the deal's real documents, decisions and correspondence. They are
+governed and run as the signed-in user; if one returns 'workiq-not-configured' or
+'workiq-not-connected', simply proceed without it and say Work IQ isn't connected — never invent its
+contents.
+
 Style: concise, quantitative and decision-grade for an investment professional. Use tight markdown —
 short paragraphs, bullets, and small tables for comparisons. When useful, end with a one-line
 "Sources:" note referencing the deal record(s) you used."""
@@ -112,6 +120,56 @@ def build_tools():
             "the deal id. Returns matching deal summaries.",
             properties={
                 "query": {"type": "string", "description": "Keywords, e.g. a company name or a sector."}
+            },
+            required=["query"],
+        ),
+    ] + workiq_tools()
+
+
+# Work IQ (M365 work data) tools — SharePoint / Teams / mailbox. INTERNAL-DATA only:
+# the backend's sovereignty guard (lib/agentSovereignty.js) allows these for the deal
+# analyst + persona agents and REFUSES them for the external-web news scout. They run
+# delegated + governed and return `workiq-not-configured` until an endpoint is set in
+# Settings -> Data Sources and a delegated sign-in is completed, so it is safe to
+# register them now (the agent degrades gracefully when Work IQ is not connected).
+def workiq_tools():
+    return [
+        _fn(
+            "workiq_search_files",
+            "Search Microsoft 365 work data (SharePoint / OneDrive) for documents relevant to a deal "
+            "— CIMs, QoE reports, legal docs, models. Returns file matches with snippets. Use to ground "
+            "diligence in the deal's real documents.",
+            properties={
+                "query": {"type": "string", "description": "Keywords, e.g. a company name plus 'CIM' or 'QoE'."},
+                "deal_id": {"type": "string", "description": "Optional deal id to scope to that deal's data room."},
+            },
+            required=["query"],
+        ),
+        _fn(
+            "workiq_read_channel",
+            "Read recent Microsoft Teams channel messages for a deal's channel — the deal-room "
+            "discussion, decisions and open questions.",
+            properties={
+                "deal_id": {"type": "string", "description": "The deal whose Teams channel to read."},
+                "limit": {"type": "integer", "description": "Max messages to return (default 20)."},
+            },
+            required=["deal_id"],
+        ),
+        _fn(
+            "workiq_search_mail",
+            "Search the signed-in user's Outlook mail for correspondence relevant to a deal or "
+            "counterparty. Scoped to the caller's mailbox.",
+            properties={
+                "query": {"type": "string", "description": "Keywords, e.g. a company or counterparty name."},
+            },
+            required=["query"],
+        ),
+        _fn(
+            "workiq_search",
+            "Cross-M365 search (Work IQ) across SharePoint, Teams and mail for a topic. Use when you "
+            "don't know which surface holds the answer.",
+            properties={
+                "query": {"type": "string", "description": "The search topic."},
             },
             required=["query"],
         ),
