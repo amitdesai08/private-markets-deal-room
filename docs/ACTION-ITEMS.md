@@ -288,16 +288,28 @@ persona prompts (item 1), then add the missing connectors (item 3).
 ### I1 · Agents can't bypass RBAC — ✅ done
 - **Ask:** users may only get answers/data through agents **for their own role** — an agent
   must never be a side-channel to a deal or figure the caller couldn't otherwise see.
-- **Gap that was closed:** the HTTP layer gated *deal-scoped* chat, but a *portfolio* agent's
-  `get_deal(deal_id)` tool returned any deal unfiltered — a user could ask a portfolio agent to
-  fetch a confidential deal.
-- **Done:** the requesting **identity + view-as role** are now threaded through
-  [dealAgent.js](../app/lib/dealAgent.js) / [personaAgent.js](../app/lib/personaAgent.js) into
-  [dispatchTool](../app/lib/dealTools.js), which gates every read by `dealAccessLevel`:
-  `get_deal` **refuses** (`access-denied`) a deal the caller can't see and **redacts** restricted
-  ones to status-only; `list_deals` / `search_deals` return only the caller's visible deals;
-  deal-scoped chat re-checks access (defense in depth). System/MCP callers keep the
-  confidential-excluding list.
+- **Gaps found + closed (verified live):**
+  1. **Chat carried no identity.** `ChatPanel` used plain `fetch` and the chat endpoints went
+     through the generic proxy, so the caller's identity never reached the backend — chat ran
+     as the *default* role. Fixed: `ChatPanel` uses the identity-aware `af`, and the Teams
+     server now has explicit `/api/deal-agent/chat` + `/api/persona-agents/:persona/chat`
+     routes that inject `requestingUser` + the bot key (like `/api/teams/context`). Analyst
+     chat on a confidential deal now returns **403** (was a full summary).
+  2. **Portfolio `get_deal` was unfiltered.** Threaded identity + view-as through
+     [dealAgent.js](../app/lib/dealAgent.js) / [personaAgent.js](../app/lib/personaAgent.js) into
+     [dispatchTool](../app/lib/dealTools.js): `get_deal` refuses / redacts by `dealAccessLevel`;
+     `list_deals` / `search_deals` return only the caller's visible deals.
+  3. **Hosted-MCP side-channel.** The agents actually read via the hosted MCP
+     ([dealServer.js](../app/lib/mcp/dealServer.js)), which Foundry calls with the *agent's*
+     credentials — the end-user identity is lost at that hop, so function-tool gating didn't
+     apply. Conservative fix: the shared MCP **never returns a confidential deal's detail**
+     (`get_deal` / artifacts / returns / value-creation / risk / IC-readiness all refuse
+     confidential deals). Verified: analyst `get_deal(demo-sterling)` → `access-denied`, no leak.
+- **Known trade-off:** because the shared MCP can't resolve per-user need-to-know, blocking
+  confidential deals there also limits **admin** *agent-chat* on those deals (admin still sees
+  them via the identity-gated UI / `/api/deals/:id`). The proper fix is to **propagate the
+  end-user identity into the MCP call** so it can gate per-user — folded into **I2** (the
+  purpose-based rebuild threads identity through the orchestrator→agent→tool path).
 
 ### I2 · Purpose-based agents + orchestrator delegation — 📋 planned
 - **Direction:** move from **persona** agents (one per role, much overlap) to a small set of
