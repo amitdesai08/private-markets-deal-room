@@ -23,6 +23,8 @@ implemented yet — this is the plan.
 | A1 · WorkIQ tools on agents | ✅ deal analyst (function tools) + persona agents (via deal MCP) |
 | A2 · WorkIQ endpoint + admin consent | ⏳ tenant-admin |
 | A3 · per-user OBO for WorkIQ | ⏳ pending |
+| G · CoWork document engine + WorkIQ surface | 📋 planned (confirm CoWork product) |
+| H · Claude financial-services skills & agents | 📋 planned (brainstorm below) |
 
 ---
 
@@ -200,3 +202,79 @@ inert scaffold into a live capability.
 3. **Responsive pass:** E1.
 4. **Docs:** F1 (and this backlog stays the tracker).
 5. **WorkIQ go-live:** A1 → A2 → A3 (A2 is mostly tenant-admin; A1 unblocks agent calls).
+
+---
+
+## G · CoWork as the agentic document engine + a WorkIQ surface
+
+- **Ask (2026-07-24):** integrate **CoWork** for WorkIQ and use it as the **engine for
+  Word / Excel / PowerPoint** generation.
+- **⚠️ Naming to confirm:** the [anthropics/financial-services](https://github.com/anthropics/financial-services)
+  repo (item H) is built for **Claude Cowork** + the **Claude-for-Microsoft-365 add-in**
+  (Claude running *inside* Word/Excel/PowerPoint/Outlook). Confirm whether "Microsoft
+  CoWork" means that add-in, a Microsoft-badged agentic Office capability, or Claude
+  Cowork specifically — the integration surface differs.
+- **Today:** Office output is **hand-rolled** — [office.js](../app/lib/m365/office.js)
+  builds the IC memo (Word) and returns model (Excel) with `docx`/`exceljs`, one bespoke
+  template each, **no PowerPoint**, published to SharePoint or downloaded.
+- **Target:** swap the bespoke generators for an **agentic document engine** that authors
+  **branded Word memos, live Excel models and PowerPoint IC/pitch decks** from the live
+  deal record + skills, and expose that engine as a **WorkIQ execution surface** (WorkIQ
+  today is read-only — SharePoint/Teams/mail; CoWork adds *produce/edit* over the same
+  M365 documents). Keep the app's model: outputs are **staged for human sign-off**,
+  governed as **internal-data**.
+- **Approach:** (1) an adapter behind the existing `/api/deals/:id/documents/:kind` seam
+  that calls the CoWork/add-in engine instead of `office.js` when configured (feature-flag,
+  fall back to the current generators); (2) a `/ppt-template` equivalent so decks match the
+  firm's branding; (3) surface it in **Settings → Data Sources** next to Work IQ.
+- **Effort:** L (engine integration + M365 add-in / tenant provisioning). **Depends on:**
+  confirming the CoWork product + tenant availability.
+
+## H · Claude financial-services skills & agents — enrich the Deal Room
+
+Brainstorm of how [anthropics/financial-services](https://github.com/anthropics/financial-services)
+("Claude for Financial Services", **Apache-2.0**, file-based markdown/YAML) can flesh out
+our agents. It ships **named agents + vertical *skills* + MCP connectors**, installable as
+**Claude Cowork** plugins or via the **Managed Agents API** — same system prompt + skills
+either way.
+
+**Why it fits:** its **private-equity** vertical is *sourcing → screening → diligence
+checklists → IC memos → portfolio monitoring* — the Deal Room's exact lifecycle — and its
+**financial-analysis** core (comps, DCF, LBO, 3-statement, deck QC, Excel audit) is precisely
+the modeling our fund-CFO / analyst personas do. Their governance stance ("agents draft work
+product for human sign-off; never execute, post, or approve") **matches ours**.
+
+**Four ways to use it (ranked by value/effort):**
+
+1. **Adopt the *skills* into our persona instructions (S, do first).** Skills are markdown
+   domain-method files. Vendor the relevant ones (Apache-2.0, attribute) and fold their
+   methods/conventions into the Foundry persona prompts — mapping onto
+   [AGENTS.md](AGENTS.md) / [personas.js](../app/data/personas.js):
+   | Their skill / agent | Our persona |
+   |---|---|
+   | `financial-analysis` — LBO, DCF, 3-statement | Fund CFO |
+   | `financial-analysis` — comps, deck QC | Analyst · Principal |
+   | `private-equity` — IC memo, diligence checklist | Partner · Principal |
+   | `private-equity` — portfolio monitoring | Operating Partner · IR |
+   | Earnings Reviewer · Market Researcher | Analyst · News Scout |
+   | KYC Screener | Legal / GC |
+   Low-risk, high-value: no runtime dependency, immediately deepens every persona.
+2. **Adopt their slash-commands as persona quick-actions (S).** `/comps` · `/dcf` · `/lbo`
+   · `/ic-memo` · `/ppt-template` map onto our per-stage `skills` in
+   [flow.js](../app/data/flow.js) and the persona `actions`.
+3. **Expand the connector registry (S).** They centralize the **same MCPs we already use**
+   (Morningstar, LSEG, Moody's) and add **FactSet, PitchBook, S&P/Kensho, Daloopa, Box,
+   Egnyte** — drop these into [connectors.js](../app/lib/connectors.js) the same way as the
+   existing MCP connectors (and Work IQ). Subscription-gated.
+4. **Delegate to their named agents (L).** Deploy select agents (Pitch Agent, Model Builder,
+   Valuation Reviewer) via the **Managed Agents API** as sub-agents behind our orchestrator
+   (handoff), or run them in Claude Cowork / the M365 add-in alongside the Deal Room. This is
+   where H meets **G** — the Model Builder / Pitch Agent *are* the Word/Excel/PPT engine.
+
+**Governance:** all of the above are **internal-data**; route any of their MCP connectors and
+agents through our sovereignty guard + Work IQ delegation so they honour need-to-know and the
+external/internal boundary.
+
+**Effort:** M overall (skills = markdown; connectors = config; agent handoff = larger).
+**First step:** vendor the `private-equity` + `financial-analysis` skills and merge into the
+persona prompts (item 1), then add the missing connectors (item 3).
