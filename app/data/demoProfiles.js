@@ -9,31 +9,29 @@
 
 import { personaById } from './personas.js';
 
-// role → the persona character that fronts it in the demo. Admin has no persona
-// lane (it is a cross-cutting oversight role), so it is described inline.
+// A MINIMAL showcase roster — one character per RBAC tier, so the demo shows the
+// access SEPARATION and guardrails without a crowd of look-alike deal-team profiles.
+// Themed after The Good Place, mapped by personality:
+//   • Michael (the Architect who designs & runs the neighbourhood) → Administrator.
+//   • Eleanor Shellstrop (the reluctant leader who makes the hard call)   → Partner / IC chair.
+//   • Tahani Al-Jamil (the consummate connector & value-builder)          → Deal Team.
+//   • Chidi Anagonye (the rigorous over-thinker who reads every source)   → Analyst (read-only).
+//   • Jason Mendoza (along for the ride, out of his depth)                → Member / observer (floor).
+//
+// These are ONLY honoured when DEMO_PROFILES is enabled (see lib/userPolicy.js and
+// the `deployDemoProfiles` infra toggle); a production deploy with the flag off
+// never grants a role by demo name.
 const SPEC = [
-  { id: 'admin', role: 'admin', personaId: null, name: 'Sam Rivera', title: 'Platform Administrator', initials: 'SR', color: '#334155',
-    blurb: 'Oversight & governance — sees and can call every agent, and can view the deal room as any role.' },
-  { id: 'partner', role: 'partner', personaId: 'partner', initials: 'EB',
-    blurb: 'Sponsors the deal and chairs the IC — full access to every agent and every stage.' },
-  { id: 'retail-md', role: 'deal-team', personaId: 'retail-md', initials: 'JW',
-    blurb: 'Owns commercial diligence — deal-team access to the sector, tech and ops agents.' },
-  { id: 'ai-md', role: 'deal-team', personaId: 'ai-md', initials: 'PN',
-    blurb: 'Owns AI & digital value — deal-team access to the sector, tech and ops agents.' },
-  { id: 'supply-md', role: 'deal-team', personaId: 'supply-md', initials: 'DM',
-    blurb: 'Owns operations & supply chain — deal-team access to the sector, tech and ops agents.' },
-  { id: 'principal', role: 'deal-team', personaId: 'principal', initials: 'MF',
-    blurb: 'Runs the deal end-to-end — coordinates the workstreams and owns the IOI/LOI into IC.' },
-  { id: 'operating-partner', role: 'deal-team', personaId: 'operating-partner', initials: 'RN',
-    blurb: 'Owns value creation — the 100-day plan, EBITDA bridge and value-creation levers.' },
-  { id: 'fund-cfo', role: 'deal-team', personaId: 'fund-cfo', initials: 'DO',
-    blurb: 'Owns the returns case — LBO/IRR/MOIC, sources & uses, financing and covenant headroom.' },
-  { id: 'legal-gc', role: 'deal-team', personaId: 'legal-gc', initials: 'PR',
-    blurb: 'Owns legal diligence & execution — SPA, reps & warranties, KYC/AML and clearance.' },
-  { id: 'ir-lp', role: 'partner', personaId: 'ir-lp', initials: 'SM',
-    blurb: 'Owns the LP lens — fund-level exposure, ILPA/SFDR reporting and portfolio concentration.' },
-  { id: 'analyst', role: 'analyst', personaId: 'analyst', initials: 'MO',
-    blurb: 'Sources & screens targets — read-only analyst access, Stage 1 only.' },
+  { id: 'admin', role: 'admin', personaId: null, name: 'Michael', title: 'The Architect — Administrator', initials: 'MI', color: '#7c3aed',
+    blurb: 'The Architect who runs the neighbourhood. Oversight & governance — sees and can call every agent, every deal and every stage, and can view the room as any role.' },
+  { id: 'partner', role: 'partner', personaId: 'partner', name: 'Eleanor Shellstrop', title: 'Partner — Deal Sponsor & IC Chair', initials: 'ES', color: '#be123c',
+    blurb: 'The reluctant leader who makes the call. Sponsors the deal and chairs the IC — full access to every agent and every stage.' },
+  { id: 'deal-team', role: 'deal-team', personaId: 'operating-partner', name: 'Tahani Al-Jamil', title: 'Deal Team — Value Creation', initials: 'TA', color: '#0d9488',
+    blurb: 'The consummate connector and value builder. Deal-team access — Stage 2 diligence, the workstreams and the value-creation plan.' },
+  { id: 'analyst', role: 'analyst', personaId: 'analyst', name: 'Chidi Anagonye', title: 'Analyst — Deal Associate', initials: 'CA', color: '#2563eb',
+    blurb: 'The rigorous over-thinker who reads every source. Read-only analyst access — sources, screens and models in Stage 1; confidential deals stay hidden.' },
+  { id: 'member', role: 'member', personaId: null, name: 'Jason Mendoza', title: 'Member — Observer', initials: 'JM', color: '#64748b',
+    blurb: 'Along for the ride, out of his depth. View-only — sees the portfolio dashboard but has no persona agents and cannot act. The guardrail floor.' },
 ];
 
 export const demoProfiles = SPEC.map((p) => {

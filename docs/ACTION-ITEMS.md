@@ -79,16 +79,26 @@ inert scaffold into a live capability.
   the full roster so the showcase still demonstrates the org.
 - **Effort:** S.
 
-### B3 · Clarify "number of agents" in persona selection
-- **Problem:** the "· N agents" count on each demo profile isn't self-explanatory.
-- **Analysis:** it's `allowedPersonas.length` from
-  [userPolicy.describeDemoProfiles](../app/lib/userPolicy.js) — i.e. **how many
-  persona agents that role is authorised to act through** (e.g. Partner = all,
-  Analyst = 1). It's an access-breadth indicator.
-- **Approach:** relabel to something explicit (e.g. "5 agents available" with a
-  tooltip "persona agents this role can act as") in the demo switcher, or drop the
-  raw number in favour of the role label once B1/B2 land.
-- **Effort:** XS.
+### B3 · Good Place demo roster + "Name — Role" labels — ✅ done
+- **Decision:** replaced the 11-profile roster (7 of them redundant `deal-team`
+  look-alikes) with **one character per RBAC tier**, themed on *The Good Place* and
+  mapped by personality, so the demo showcases the access **separation + guardrails**
+  cleanly:
+  | Character | Role | Access |
+  |---|---|---|
+  | **Michael** | Administrator | everything; view-as any role |
+  | **Eleanor Shellstrop** | Partner / Deal Sponsor | all agents · Stage 2 · write |
+  | **Tahani Al-Jamil** | Deal Team | deal-team agents · Stage 2 · write |
+  | **Chidi Anagonye** | Analyst | 1 agent · read-only · Stage 1 (confidential hidden) |
+  | **Jason Mendoza** | Member / observer | 0 agents · view-only (guardrail floor) |
+- **Done:** [app/data/demoProfiles.js](../app/data/demoProfiles.js) reduced/rethemed;
+  `member` tightened to `personas: []` in
+  [app/lib/userPolicy.js](../app/lib/userPolicy.js) so the floor is a genuine
+  distinct tier; the demo switcher label is now **"Name — Role"** (agent count
+  dropped). This also satisfies the "too many personas that do the same thing"
+  concern for the view-as roster.
+- **Follow-up:** optionally rename the orchestrator display label to **Janet** (the
+  all-knowing assistant) to complete the theme — deferred (touches the agent label).
 
 ---
 

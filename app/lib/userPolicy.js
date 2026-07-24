@@ -61,7 +61,7 @@ const BUILTIN_ROLE = {
   partner:     { rank: 80,  personas: ALL_PERSONAS,       write: true,  stage2: true },
   'deal-team': { rank: 60,  personas: DEAL_TEAM_PERSONAS, write: true,  stage2: true },
   analyst:     { rank: 40,  personas: ['analyst'],                                               write: false, stage2: false },
-  member:      { rank: 20,  personas: ['analyst'],                                               write: false, stage2: false },
+  member:      { rank: 20,  personas: [],                                                         write: false, stage2: false },
 };
 
 const BUILTIN_LABEL = {
@@ -163,7 +163,7 @@ export function describeDemoProfiles() {
       role: a.role, roleLabel: a.roleLabel, isAdmin: a.isAdmin,
       allowedPersonas: a.allowedPersonas, agentCount: n,
       canWrite: a.canWrite, canViewStage2: a.canViewStage2,
-      label: `${p.name} · ${a.roleLabel} · ${n} agent${n === 1 ? '' : 's'}`,
+      label: `${p.name} \u2014 ${a.roleLabel}`,
     };
   });
 }
