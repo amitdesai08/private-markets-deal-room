@@ -81,23 +81,37 @@ export const TEAMS_CONFIG_HTML = `<!doctype html>
   <body>
     <h3>The Deal Room</h3>
     <p>Choose what this channel tab shows, then click <b>Save</b>.</p>
-    <label for="scope">Scope</label>
-    <select id="scope"><option value="">Whole portfolio (dashboard)</option></select>
+    <label for="view">View</label>
+    <select id="view">
+      <option value="dashboard">Dashboard (interactive console)</option>
+      <option value="report">Report (print-friendly summary)</option>
+    </select>
+    <label for="scope" style="margin-top:16px;">Scope</label>
+    <select id="scope"><option value="">Whole portfolio</option></select>
     <script>
       (function () {
         var sel = document.getElementById('scope');
+        var viewSel = document.getElementById('view');
         var deals = [];
         function labelFor(d) { return d.company || d.name || d.title || d.id; }
         function apply() {
           var origin = window.location.origin;
           var id = sel.value;
+          var isReport = viewSel.value === 'report';
           var deal = deals.filter(function (d) { return d.id === id; })[0];
-          var content = origin + '/?surface=teams' + (id ? '&deal=' + encodeURIComponent(id) : '');
+          var content = origin + '/?surface=teams'
+            + (isReport ? '&view=report' : '')
+            + (id ? '&deal=' + encodeURIComponent(id) : '');
+          var name = isReport
+            ? (deal ? labelFor(deal) + ' — Report' : 'Deal Room Report')
+            : (deal ? labelFor(deal) : 'Deal Room');
+          var entity = (isReport ? 'dealroom-report' : 'dealroom-dashboard');
+          if (id) entity = (isReport ? 'dealroom-report-' : 'dealroom-deal-') + id;
           return microsoftTeams.pages.config.setConfig({
-            entityId: id ? 'dealroom-deal-' + id : 'dealroom-dashboard',
+            entityId: entity,
             contentUrl: content,
             websiteUrl: content,
-            suggestedDisplayName: deal ? labelFor(deal) : 'Deal Room'
+            suggestedDisplayName: name
           });
         }
         function ready() {

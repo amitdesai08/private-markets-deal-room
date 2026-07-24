@@ -16,6 +16,7 @@ import Stage2 from './Stage2';
 import Stage3 from './Stage3';
 import Stage4 from './Stage4';
 import Fund from './Fund';
+import Report from './Report';
 import Settings from './Settings';
 import Offline, { OnlineLeaseBanner, type PlatformStatus } from './Offline';
 import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipeline } from './types';
@@ -79,6 +80,12 @@ export default function App() {
   // Only surface the agents this user (or the role they are viewing as) may use.
   // The orchestrator (always shown) plus any persona agent in allowedPersonas.
   const visibleAgents = agents.filter((a) => a.kind === 'orchestrator' || !allowedPersonas || (a.persona && allowedPersonas.includes(a.persona)));
+
+  // Report surface selection (from the channel-tab config): ?view=report renders the
+  // print-friendly "Deal Room Report" instead of the console; &deal=<id> narrows it.
+  const urlParams = new URLSearchParams(window.location.search);
+  const reportView = urlParams.get('view') === 'report';
+  const reportDealId = urlParams.get('deal') || '';
 
   const mainTabs: [typeof mainTab, string][] = [
     ['overview', 'Deals Overview'], ['stage1', 'Stage 1 — Origination'], ['stage2', 'Stage 2 — Diligence'],
@@ -179,6 +186,13 @@ export default function App() {
   // Platform asleep (power control on, orchestrator offline) → show the wake gate.
   if (platform && platform.control && !platform.online) {
     return <Offline status={platform} ssoToken={ssoToken} />;
+  }
+
+  // "Deal Room Report" surface: a channel tab can be pinned to a print-friendly report
+  // (configured from /config with ?view=report, optionally &deal=<id>). Rendered full
+  // screen — it reuses the same data the dashboard already fetched, no console shell.
+  if (reportView) {
+    return <Report analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId={reportDealId} />;
   }
 
   return (
