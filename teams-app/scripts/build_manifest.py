@@ -93,7 +93,7 @@ def build(host: str, sso_client_id=None, bot_id=None, copilot=False, oauth_ref_i
             {"entityId": "dealroom-home", "name": "Deal Room", "contentUrl": f"{base}/", "scopes": ["personal"]}
         ],
         "permissions": ["identity"],
-        "validDomains": [host],
+        "validDomains": [host, "app.powerbi.com"],
     }
 
     if sso_client_id:

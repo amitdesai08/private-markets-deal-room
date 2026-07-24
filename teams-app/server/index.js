@@ -184,6 +184,23 @@ app.post('/api/deals/:id/documents/:kind', async (req, res) => {
   }
 });
 
+// Power BI "Deal Room Report" embed — returns the report's embed config plus a
+// user-owns-data access token (Teams SSO -> OBO Power BI). If OBO isn't available
+// (Power BI delegated permission not yet consented, or demo mode), returns
+// available:false with the webUrl so the tab links out instead of embedding.
+const POWERBI_SCOPES = ['https://analysis.windows.net/powerbi/api/Report.Read.All'];
+app.post('/api/powerbi/embed', async (req, res) => {
+  const pbi = config.powerbi;
+  const webUrl = `https://app.powerbi.com/groups/${pbi.workspaceId}/reports/${pbi.reportId}`;
+  const embedUrl = `https://app.powerbi.com/reportEmbed?reportId=${pbi.reportId}&groupId=${pbi.workspaceId}`;
+  const base = { reportId: pbi.reportId, workspaceId: pbi.workspaceId, name: pbi.reportName, embedUrl, webUrl };
+  const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  let token = null;
+  try { token = await exchangeOnBehalfOf(ssoToken, POWERBI_SCOPES); } catch { token = null; }
+  if (!token) return res.json({ ...base, available: false, reason: 'powerbi-not-connected' });
+  res.json({ ...base, available: true, token, tokenType: 'Aad' });
+});
+
 // Admin (role builder / persona designer) — inject the resolved requesting identity
 // (SSO or demo "view as") so the orchestrator can enforce administrator-only access.
 // Registered before the generic proxy so it wins for /api/admin/*.

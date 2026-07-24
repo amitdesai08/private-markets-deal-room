@@ -90,6 +90,24 @@ function ScopeAccess([string[]]$names) {
   return , @(@{ resourceAppId = $GRAPH_APPID; resourceAccess = $acc })
 }
 
+# Power BI Service delegated permission — lets the Teams SSO app OBO-exchange the
+# signed-in user's token to Power BI so the tab can embed the "Deal Room Report"
+# (user-owns-data). Resolved by NAME (no hardcoded GUID); tolerant if the Power BI
+# service principal isn't visible in the tenant (returns empty, embed degrades to a
+# link-out). Still requires a one-time admin consent on the Teams SSO app.
+$PBI_APPID = '00000009-0000-0000-c000-000000000000'
+function PowerBiScopeAccess([string[]]$names) {
+  try {
+    $sp = az ad sp show --id $PBI_APPID 2>$null | ConvertFrom-Json
+    if (-not $sp) { return @() }
+    $byName = @{}; foreach ($s in $sp.oauth2PermissionScopes) { $byName[$s.value] = $s.id }
+    $acc = @()
+    foreach ($n in $names) { if ($byName.ContainsKey($n)) { $acc += @{ id = $byName[$n]; type = 'Scope' } } }
+    if (-not $acc.Count) { return @() }
+    return @(@{ resourceAppId = $PBI_APPID; resourceAccess = $acc })
+  } catch { return @() }
+}
+
 # Find an app by display name or create it. Returns the Graph application object.
 function Ensure-App {
   param([string]$Name, [string]$SignInAudience = 'AzureADMyOrg')
@@ -151,7 +169,7 @@ $apiObj = @{
     preAuthorizedApplications = @($teamsClients | ForEach-Object { @{ appId = $_; delegatedPermissionIds = @($scopeId) } })
   }
   identifierUris = @($identifierUri)
-  requiredResourceAccess = ScopeAccess @('User.Read','Files.ReadWrite','Sites.ReadWrite.All','offline_access')
+  requiredResourceAccess = @(ScopeAccess @('User.Read','Files.ReadWrite','Sites.ReadWrite.All','offline_access')) + (PowerBiScopeAccess @('Report.Read.All'))
 }
 if ($TeamsFqdn) { $apiObj.spa = @{ redirectUris = @("https://$TeamsFqdn/auth-end.html") } }
 Invoke-GraphRest PATCH "https://graph.microsoft.com/v1.0/applications/$ssoObj" $apiObj | Out-Null

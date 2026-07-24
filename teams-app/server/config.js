@@ -39,6 +39,15 @@ export const config = Object.freeze({
   mcp: {
     host: str(env.MCP_HOST, '').trim(),
   },
+  // Power BI "Deal Room Report" — the deal-portfolio report published to the
+  // "Deal Room" Power BI workspace (dataset Deal_Room). Embedded in the tab as the
+  // "Deal Room Report" surface, user-owns-data (the signed-in user's OBO Power BI
+  // token). IDs default to the deployed report but are env-overridable per tenant.
+  powerbi: {
+    workspaceId: str(env.POWERBI_WORKSPACE_ID, '205d8eab-9f0e-4e57-afb6-23d41909c287').trim(),
+    reportId: str(env.POWERBI_REPORT_ID, 'c6c6eba8-4e6d-4fa4-b98f-04c78092b488').trim(),
+    reportName: str(env.POWERBI_REPORT_NAME, 'Deal Room Report'),
+  },
   // Platform power control — lets the Teams app sleep/wake the orchestrator (the
   // data plane) to save cost. Uses the Teams app's managed identity (AZURE_CLIENT_ID)
   // against Azure Resource Manager. Disabled automatically when the target isn't set.

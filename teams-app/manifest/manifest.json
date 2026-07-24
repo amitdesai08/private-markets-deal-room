@@ -54,7 +54,7 @@
       }
     ]
   },
-  "validDomains": ["<TEAMS_HOST>", "<MCP_HOST>"],
+  "validDomains": ["<TEAMS_HOST>", "<MCP_HOST>", "app.powerbi.com"],
   "webApplicationInfo": {
     "id": "<TEAMS_TAB_CLIENT_ID>",
     "resource": "api://<TEAMS_HOST>/<TEAMS_TAB_CLIENT_ID>"

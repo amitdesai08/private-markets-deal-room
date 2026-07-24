@@ -84,7 +84,7 @@ export const TEAMS_CONFIG_HTML = `<!doctype html>
     <label for="view">View</label>
     <select id="view">
       <option value="dashboard">Dashboard (interactive console)</option>
-      <option value="report">Report (print-friendly summary)</option>
+      <option value="report">Deal Room Report (Power BI)</option>
     </select>
     <label for="scope" style="margin-top:16px;">Scope</label>
     <select id="scope"><option value="">Whole portfolio</option></select>

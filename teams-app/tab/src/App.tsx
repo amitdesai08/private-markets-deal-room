@@ -16,7 +16,7 @@ import Stage2 from './Stage2';
 import Stage3 from './Stage3';
 import Stage4 from './Stage4';
 import Fund from './Fund';
-import Report from './Report';
+import PowerBI from './PowerBI';
 import Settings from './Settings';
 import Offline, { OnlineLeaseBanner, type PlatformStatus } from './Offline';
 import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipeline } from './types';
@@ -188,11 +188,12 @@ export default function App() {
     return <Offline status={platform} ssoToken={ssoToken} />;
   }
 
-  // "Deal Room Report" surface: a channel tab can be pinned to a print-friendly report
+  // "Deal Room Report" surface: a channel tab can be pinned to the Power BI report
   // (configured from /config with ?view=report, optionally &deal=<id>). Rendered full
-  // screen — it reuses the same data the dashboard already fetched, no console shell.
+  // screen — PowerBI embeds the live report and falls back to a native summary built
+  // from the same data the dashboard already fetched.
   if (reportView) {
-    return <Report analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId={reportDealId} />;
+    return <PowerBI ssoToken={ssoToken} analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId={reportDealId} />;
   }
 
   return (
