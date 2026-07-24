@@ -9,7 +9,7 @@
 // a deal, and the same server-side per-deal scoping guarantees.
 
 import {
-  listDeals, listAgentDeals, getDeal,
+  listDeals, listAgentDeals, getDeal, getDealRaw,
   getPipeline, getCandidatePublic, getCandidateArtifact, getDealArtifact,
   sendToScreening, screenCandidate, triageCandidate, gateCandidate,
   launchDeal, advanceDeal, runStep, assignSwimlane, recordFinding, recordContribution,
@@ -18,6 +18,7 @@ import {
   getDealReturns, getDealValueCreation, getDealRiskRegister,
   portfolioStats
 } from './store.js';
+import { dealAccessLevel } from './userPolicy.js';
 import { fundOverview, portfolioMonitoring, executiveValue } from './fund.js';
 import { can, nextActions, PERSONA_LANE } from './personaPolicy.js';
 
@@ -148,11 +149,14 @@ export function dealAnalystView(id, sections) {
   return view;
 }
 
-export function searchDealSummaries(query) {
+export function searchDealSummaries(query, { identity, viewAsRole } = {}) {
   const q = String(query || '').toLowerCase().trim();
   if (!q) return [];
   const terms = q.split(/\s+/).filter(Boolean);
-  return listAgentDeals()
+  // Identity-aware: a caller only searches deals they may see; system callers (no
+  // identity) get the confidential-excluding agent list.
+  const base = identity ? listDeals(identity, viewAsRole) : listAgentDeals();
+  return base
     .filter((s) => {
       const hay = `${s.company} ${s.sector} ${s.subSector} ${s.thesis}`.toLowerCase();
       return terms.some((t) => hay.includes(t));
@@ -164,14 +168,19 @@ export function searchDealSummaries(query) {
 // In 'deal' scope every tool is hard-filtered to the focused deal, so a caller
 // (a model, or a Copilot Studio agent) cannot reach another deal's data no matter
 // what arguments it emits. 'portfolio' scope exposes the whole pipeline.
-export function dispatchTool(name, args, { scope = 'portfolio', focusId, focusCompany } = {}) {
+export function dispatchTool(name, args, { scope = 'portfolio', focusId, focusCompany, identity, viewAsRole } = {}) {
   const dealScope = scope === 'deal';
+  // When an identity is supplied, EVERY read is gated to what that user may see, so an
+  // agent can never become a side-channel around the RBAC / need-to-know model. System
+  // callers (no identity, e.g. the MCP) fall back to the confidential-excluding list.
+  const enforce = !!identity;
   if (name === 'list_deals') {
     if (dealScope) {
       const s = summaryFor(focusId);
       return { scoped_to: focusCompany, deals: s ? [dealSummary(s)] : [], note: `Scoped to ${focusCompany}; other deals are not accessible in this conversation.` };
     }
-    return { deals: listAgentDeals().map(dealSummary) };
+    const base = enforce ? listDeals(identity, viewAsRole) : listAgentDeals();
+    return { deals: base.map(dealSummary) };
   }
   if (name === 'get_deal') {
     if (dealScope) {
@@ -182,6 +191,17 @@ export function dispatchTool(name, args, { scope = 'portfolio', focusId, focusCo
       return note ? { ...view, note } : view;
     }
     if (!args?.deal_id) return { error: 'deal_id-required' };
+    // Identity gate: refuse deals the caller can't see; redact restricted ones to
+    // status-only (company/sector/stage) — the same tiering the UI enforces.
+    if (enforce) {
+      const raw = getDealRaw(args.deal_id);
+      const level = raw ? dealAccessLevel(identity, raw, viewAsRole) : 'none';
+      if (level === 'none') return { error: 'access-denied', reason: 'You do not have access to this deal.' };
+      if (level === 'status') {
+        const s = summaryFor(args.deal_id);
+        return { deal: s ? { ...dealSummary(s), thesis: undefined } : null, accessLevel: 'status', note: 'Status-only: you can see this deal exists (company, sector, stage, status) but not its confidential detail.' };
+      }
+    }
     return dealAnalystView(args.deal_id, args?.sections);
   }
   if (name === 'search_deals') {
@@ -189,7 +209,7 @@ export function dispatchTool(name, args, { scope = 'portfolio', focusId, focusCo
       const s = summaryFor(focusId);
       return { scoped_to: focusCompany, deals: s ? [dealSummary(s)] : [], note: `Scoped to ${focusCompany}; search is limited to this deal.` };
     }
-    return { deals: searchDealSummaries(args?.query) };
+    return { deals: searchDealSummaries(args?.query, { identity, viewAsRole }) };
   }
   return { error: 'unknown-tool', name };
 }

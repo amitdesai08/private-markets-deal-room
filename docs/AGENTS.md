@@ -33,6 +33,23 @@ deal data (see [DATA-SOVEREIGNTY.md](DATA-SOVEREIGNTY.md)).
 | `deal-room-fabric` | Fabric Data Agent | internal-data | NL Q&A over the fund's OneLake lakehouse | Cross-cutting |
 | `deal-room-news-scout` | News Scout | **external-web** | Public web sourcing signals (Bing-grounded) | Stage 1 (sourcing) |
 
+## Direction — purpose-based agents & orchestrator delegation
+
+The roster above is **persona-based** (one agent per role). We are moving to a
+**purpose-based** model: a small set of task agents named for the *job* — **Sourcing**,
+**Screening**, **Diligence**, **Modeling**, **IC-Memo**, **Portfolio-Monitoring** — with the
+**Deal Room Analyst as the orchestrator** that decides which task agent to delegate to,
+threads the request **plus the caller's identity**, and composes the answer. Personas become
+a *lens* (framing + which skills apply), not a separate agent each.
+
+Why: less duplication (seven deal-team personas did overlapping work), clearer skills
+ownership, and an orchestration seam that maps onto the Foundry Managed-Agents / Cowork
+handoff model (see [ACTION-ITEMS.md](ACTION-ITEMS.md) H). The migration keeps the same
+governed tools and the **same data-protection guarantees** below — only the agent topology
+changes. Rebuilt agents are provisioned in **Foundry**, integrate with **Cowork** for
+document authoring, and each ships a **[SKILLS.md](../SKILLS.md)** so customers can extend
+them.
+
 ## Tools
 
 **Governed deal tools** (internal-data agents, via [dealTools.js](../app/lib/dealTools.js) and the
@@ -69,11 +86,22 @@ Persona quick-actions (examples): Analyst — *draft screening one-pager*, *gene
 Fund CFO — *build the LBO case*, *run a returns sensitivity*; GC — *summarize SPA / R&W issues*,
 *run KYC/regulatory check*.
 
-## Governance
+## Governance & data protection
 
-- **Class guard** — every agent↔tool call is checked against the agent's class before dispatch;
-  boundary-crossing calls are refused and **audit-logged** (`sovereignty-denied`).
-- **Deal scope** — in a deal-scoped conversation, reads are hard-filtered to the focused deal.
-- **Need-to-know** — portfolio-wide agent context excludes `confidential` deals; Work IQ reads run
-  as the signed-in user, so an agent only sees what that user is entitled to.
+Agents can **never** be a side-channel around the access model — an answer is always bounded
+by *who is asking*:
+
+- **Identity-gated tool dispatch (enforced)** — the requesting user's identity + view-as role
+  are threaded into every agent read ([dispatchTool](../app/lib/dealTools.js),
+  [dealAgent.js](../app/lib/dealAgent.js), [personaAgent.js](../app/lib/personaAgent.js)).
+  `get_deal` **refuses** a deal the caller can't see (`access-denied`) and **redacts** restricted
+  ones to status-only; `list_deals` / `search_deals` return only the caller's visible deals. A
+  user cannot ask an agent to fetch a confidential deal they'd be blocked from in the UI.
+- **HTTP gate** — deal-scoped chat is authorised (`authorizeDealContent`) before the agent runs;
+  read-only roles are routed to the read-only analyst; write verbs require the role.
+- **Class guard** — every agent↔tool call is checked against the agent's class; boundary
+  crossings are refused and **audit-logged** (`sovereignty-denied`).
+- **Deal scope** — a deal-scoped conversation hard-filters every read to the focused deal.
+- **Need-to-know** — portfolio agent context excludes `confidential` deals; Work IQ reads run as
+  the signed-in user, so an agent only sees what that user is entitled to.
 - **Persona authority** — write verbs are set by the server per persona, never by the model.

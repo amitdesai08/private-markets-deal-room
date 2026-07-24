@@ -24,6 +24,7 @@ import {
 import { PERSONAS, PERSONA_LABEL } from './personaPolicy.js';
 import { guardInternalToolCall } from './agentSovereignty.js';
 import { dispatchWorkiq } from './mcp/workiq.js';
+import { dealAccessLevel } from './userPolicy.js';
 
 const PROJECT_ENDPOINT = (process.env.FOUNDRY_PROJECT_ENDPOINT || '').replace(/\/$/, '');
 const AGENT_MODEL = process.env.DEAL_AGENT_MODEL || 'gpt-5-mini';
@@ -164,12 +165,12 @@ function buildComposedInput({ persona, focusId, focusCompany, message }) {
 // Route a READ tool. dispatchTool handles the 3 core deal reads (deal-scoped when
 // a deal is focused); the extended funnel/artifact/next-action reads route here to
 // match the MCP server exactly. Async because two artifact reads are async.
-async function readDispatch(name, args, { persona, focusId, focusCompany }) {
+async function readDispatch(name, args, { persona, focusId, focusCompany, identity, viewAsRole }) {
   switch (name) {
     case 'list_deals':
     case 'get_deal':
     case 'search_deals':
-      return dispatchTool(name, args, focusId ? { scope: 'deal', focusId, focusCompany } : { scope: 'portfolio' });
+      return dispatchTool(name, args, focusId ? { scope: 'deal', focusId, focusCompany, identity, viewAsRole } : { scope: 'portfolio', identity, viewAsRole });
     case 'list_pipeline':
       return listPipeline();
     case 'get_candidate':
@@ -208,7 +209,7 @@ async function readDispatch(name, args, { persona, focusId, focusCompany }) {
 }
 
 // ---- the tool loop ----------------------------------------------------------
-async function runToolLoop({ persona, focusId, focusCompany, message, previousResponseId }) {
+async function runToolLoop({ persona, focusId, focusCompany, message, previousResponseId, identity, viewAsRole }) {
   const agentRef = { name: PERSONA_AGENT[persona], type: 'agent_reference' };
   const toolCalls = [];
 
@@ -230,7 +231,7 @@ async function runToolLoop({ persona, focusId, focusCompany, message, previousRe
       } else if (call.name.startsWith('workiq_')) {
         result = await dispatchWorkiq(call.name, call.args);   // M365 work data (SharePoint/Teams/mail) over MCP
       } else if (READ_TOOLS.has(call.name)) {
-        result = await readDispatch(call.name, call.args, { persona, focusId, focusCompany });
+        result = await readDispatch(call.name, call.args, { persona, focusId, focusCompany, identity, viewAsRole });
       } else {
         // Actions: persona is injected by the SERVER, not taken from the model.
         result = await dispatchAction(call.name, call.args, { persona });
@@ -245,8 +246,8 @@ async function runToolLoop({ persona, focusId, focusCompany, message, previousRe
 }
 
 // ---- public entry point -----------------------------------------------------
-// chatPersonaAgent({ persona, message, dealId?, previousResponseId? })
-export async function chatPersonaAgent({ persona, message, dealId, previousResponseId } = {}) {
+// chatPersonaAgent({ persona, message, dealId?, previousResponseId?, identity?, viewAsRole? })
+export async function chatPersonaAgent({ persona, message, dealId, previousResponseId, identity, viewAsRole } = {}) {
   const p = String(persona || '').trim().toLowerCase();
   if (!PERSONAS.includes(p)) return { error: 'invalid-persona', detail: `persona must be one of: ${PERSONAS.join(', ')}` };
   const text = String(message || '').trim();
@@ -256,7 +257,13 @@ export async function chatPersonaAgent({ persona, message, dealId, previousRespo
   let focusCompany = null;
   if (dealId) {
     const raw = getDealRaw(dealId);
-    if (raw) { focusId = raw.id; focusCompany = raw.company; }
+    if (raw) {
+      // Need-to-know: refuse a deal the caller may not see (defense in depth behind the HTTP gate).
+      if (identity && dealAccessLevel(identity, raw, viewAsRole) === 'none') {
+        return { reply: 'You do not have access to this deal.', denied: true, persona: p, dealId, citations: [] };
+      }
+      focusId = raw.id; focusCompany = raw.company;
+    }
   }
 
   if (!personaAgentsConfigured()) {
@@ -267,7 +274,7 @@ export async function chatPersonaAgent({ persona, message, dealId, previousRespo
   }
 
   try {
-    const { text: reply, responseId, toolCalls } = await runToolLoop({ persona: p, focusId, focusCompany, message: text, previousResponseId });
+    const { text: reply, responseId, toolCalls } = await runToolLoop({ persona: p, focusId, focusCompany, message: text, previousResponseId, identity, viewAsRole });
     if (!reply) throw new Error('empty agent reply');
     return { reply, persona: p, label: PERSONA_LABEL[p], source: 'live', dealId: focusId, responseId, toolCalls, citations: [] };
   } catch (err) {

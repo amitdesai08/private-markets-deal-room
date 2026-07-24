@@ -976,7 +976,7 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   // agents — answer via the read-only deal analyst instead.
   if (!access.canWrite) {
     try {
-      const out = await chatDealAgent({ message, dealId, scope: dealId ? 'deal' : 'portfolio' });
+      const out = await chatDealAgent({ message, dealId, scope: dealId ? 'deal' : 'portfolio', identity, viewAsRole: viewAs });
       return res.json({ ...out, role: access.role, readOnly: true });
     } catch (err) {
       return res.status(500).json({ error: 'chat failed', detail: String(err?.message || err) });
@@ -986,14 +986,14 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   const authz = authorizePersona(identity, req.params.persona, viewAs);
   if (!authz.ok) {
     try {
-      const out = await chatDealAgent({ message, dealId, scope: dealId ? 'deal' : 'portfolio' });
+      const out = await chatDealAgent({ message, dealId, scope: dealId ? 'deal' : 'portfolio', identity, viewAsRole: viewAs });
       return res.json({ reply: `${authz.reason}\n\n${out.reply || ''}`.trim(), downgraded: true, role: access.role });
     } catch (err) {
       return res.status(500).json({ error: 'chat failed', detail: String(err?.message || err) });
     }
   }
   try {
-    const out = await chatPersonaAgent({ persona: authz.persona, message, dealId, previousResponseId });
+    const out = await chatPersonaAgent({ persona: authz.persona, message, dealId, previousResponseId, identity, viewAsRole: viewAs });
     if (out?.error) return res.status(400).json(out);
     res.json({ ...out, role: access.role });
   } catch (err) {
@@ -1019,7 +1019,7 @@ api.post('/deal-agent/chat', async (req, res) => {
     if (!gate.ok) return res.status(403).json({ reply: gate.reason, denied: true, role: gate.access.role });
   }
   try {
-    const out = await chatDealAgent({ message, dealId, scope, previousResponseId });
+    const out = await chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs });
     if (out?.error) return res.status(400).json(out);
     res.json(out);
   } catch (err) {

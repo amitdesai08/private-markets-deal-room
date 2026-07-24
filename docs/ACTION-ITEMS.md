@@ -25,6 +25,8 @@ implemented yet — this is the plan.
 | A3 · per-user OBO for WorkIQ | ⏳ pending |
 | G · CoWork document engine + WorkIQ surface | 📋 planned (confirm CoWork product) |
 | H · Claude financial-services skills & agents | 📋 planned (brainstorm below) |
+| I1 · Agents can't bypass RBAC (identity-gated dispatch) | ✅ done |
+| I2 · Purpose-based agents + orchestrator delegation | 📋 planned (Foundry + Cowork + SKILLS.md) |
 
 ---
 
@@ -278,3 +280,33 @@ external/internal boundary.
 **Effort:** M overall (skills = markdown; connectors = config; agent handoff = larger).
 **First step:** vendor the `private-equity` + `financial-analysis` skills and merge into the
 persona prompts (item 1), then add the missing connectors (item 3).
+
+---
+
+## I · Agents, identity & the purpose-based topology
+
+### I1 · Agents can't bypass RBAC — ✅ done
+- **Ask:** users may only get answers/data through agents **for their own role** — an agent
+  must never be a side-channel to a deal or figure the caller couldn't otherwise see.
+- **Gap that was closed:** the HTTP layer gated *deal-scoped* chat, but a *portfolio* agent's
+  `get_deal(deal_id)` tool returned any deal unfiltered — a user could ask a portfolio agent to
+  fetch a confidential deal.
+- **Done:** the requesting **identity + view-as role** are now threaded through
+  [dealAgent.js](../app/lib/dealAgent.js) / [personaAgent.js](../app/lib/personaAgent.js) into
+  [dispatchTool](../app/lib/dealTools.js), which gates every read by `dealAccessLevel`:
+  `get_deal` **refuses** (`access-denied`) a deal the caller can't see and **redacts** restricted
+  ones to status-only; `list_deals` / `search_deals` return only the caller's visible deals;
+  deal-scoped chat re-checks access (defense in depth). System/MCP callers keep the
+  confidential-excluding list.
+
+### I2 · Purpose-based agents + orchestrator delegation — 📋 planned
+- **Direction:** move from **persona** agents (one per role, much overlap) to a small set of
+  **purpose** agents (Sourcing · Screening · Diligence · Modeling · IC-Memo ·
+  Portfolio-Monitoring), with the **Deal Room Analyst as orchestrator** delegating tasks and
+  threading identity. Personas become a *lens*, not an agent each. See
+  [AGENTS.md § Direction](AGENTS.md#direction--purpose-based-agents--orchestrator-delegation).
+- **Approach:** define the task agents in **Foundry** (`create_*_agent.py`), each bundling the
+  skills it needs from [SKILLS.md](../SKILLS.md); wire orchestrator→agent **handoff** (maps onto
+  the Managed-Agents / Cowork model in H); integrate **Cowork** for document authoring (G). Keep
+  the governed tools + the I1 data-protection guarantees unchanged.
+- **Effort:** L (agent rebuild + orchestration seam). **Depends on:** H (skills) + G (Cowork).

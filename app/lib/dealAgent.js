@@ -27,6 +27,7 @@ import { guardInternalToolCall } from './agentSovereignty.js';
 import { chat as directDealChat } from './agents.js';
 import { config } from './config.js';
 import { screenText } from './contentSafety.js';
+import { dealAccessLevel } from './userPolicy.js';
 
 const PROJECT_ENDPOINT = config.foundry.projectEndpoint;
 const AGENT_NAME = config.foundry.dealAgentName;
@@ -159,7 +160,7 @@ function buildComposedInput({ scope, focusId, focusCompany, message }) {
 }
 
 // ---- the tool loop ----------------------------------------------------------
-async function runToolLoop({ scope, focusId, focusCompany, message, previousResponseId }) {
+async function runToolLoop({ scope, focusId, focusCompany, message, previousResponseId, identity, viewAsRole }) {
   const agentRef = { name: AGENT_NAME, type: 'agent_reference' };
   const toolNamesUsed = [];
 
@@ -183,7 +184,7 @@ async function runToolLoop({ scope, focusId, focusCompany, message, previousResp
         ? denied
         : call.name.startsWith('workiq_')
           ? await dispatchWorkiq(call.name, call.args)          // M365 work data (SharePoint/Teams/mail) over MCP
-          : dispatchTool(call.name, call.args, { scope, focusId, focusCompany });
+          : dispatchTool(call.name, call.args, { scope, focusId, focusCompany, identity, viewAsRole });
       outputs.push({
         type: 'function_call_output',
         call_id: call.callId,
@@ -228,9 +229,10 @@ async function dealFallback(focusId, message) {
 }
 
 // ---- public entry point -----------------------------------------------------
-// chatDealAgent({ message, dealId?, scope?, previousResponseId? })
-//   scope defaults to 'deal' when a dealId is given, else 'portfolio'.
-export async function chatDealAgent({ message, dealId, scope, previousResponseId } = {}) {
+// chatDealAgent({ message, dealId?, scope?, previousResponseId?, identity?, viewAsRole? })
+//   scope defaults to 'deal' when a dealId is given, else 'portfolio'. When an identity
+//   is supplied, every deal read is gated to what that user may see (no RBAC bypass).
+export async function chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole } = {}) {
   const text = String(message || '').trim();
   if (!text) return { error: 'message-required' };
 
@@ -254,6 +256,10 @@ export async function chatDealAgent({ message, dealId, scope, previousResponseId
     if (!raw) {
       // Requested a deal-scoped chat but the deal isn't found — degrade to portfolio.
       effScope = 'portfolio';
+    } else if (identity && dealAccessLevel(identity, raw, viewAsRole) === 'none') {
+      // Need-to-know: the caller may not see this deal at all — refuse (defense in depth
+      // behind the HTTP gate, so the agent path can never leak a restricted deal).
+      return { reply: 'You do not have access to this deal.', denied: true, citations: [], scope: 'deal', dealId };
     } else {
       focusId = raw.id;
       focusCompany = raw.company;
@@ -274,7 +280,9 @@ export async function chatDealAgent({ message, dealId, scope, previousResponseId
       focusId,
       focusCompany,
       message: text,
-      previousResponseId
+      previousResponseId,
+      identity,
+      viewAsRole
     });
     if (!reply) throw new Error('empty agent reply');
     return {
