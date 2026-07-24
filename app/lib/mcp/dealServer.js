@@ -34,6 +34,18 @@ import {
   dispatchAction, nextActionsFor
 } from '../dealTools.js';
 import { resolvePersona, PERSONAS } from '../personaPolicy.js';
+import { getDealRaw } from '../store.js';
+
+// The hosted MCP is a SHARED read surface: Foundry calls it with the agent's credentials,
+// not the end user's, so it cannot resolve per-user need-to-know. It therefore NEVER returns
+// a CONFIDENTIAL deal's detail (list_deals already excludes them) — those are reachable only
+// through the app's identity-gated path. Returns a refusal payload, or null when allowed.
+function confidentialBlock(dealId) {
+  const raw = dealId ? getDealRaw(dealId) : null;
+  return raw && raw.confidential
+    ? { error: 'access-denied', reason: 'This deal is restricted to its named team; it is not available through this shared surface.' }
+    : null;
+}
 
 const SERVER_INFO = { name: 'deal-room-mcp', version: '2.5.0' };
 const READ_TOOLS = ['list_deals', 'get_deal', 'search_deals', 'list_pipeline', 'get_candidate', 'get_candidate_artifact', 'get_deal_artifact', 'get_ic_readiness', 'get_returns', 'get_value_creation', 'get_risk_register', 'get_fund_overview', 'get_portfolio', 'get_fund_value', 'get_market_intel', 'get_citation_audit', 'get_companies', 'get_company', 'get_next_actions'];
@@ -85,7 +97,7 @@ export function buildDealMcpServer(auth = { mode: 'disabled' }) {
         sections: z.array(z.string()).optional().describe('Optional subset: summary, financials, workstreams, memo, compliance, risks, activity. Unknown values are ignored.')
       }
     },
-    async ({ deal_id, sections }) => toContent(dispatchTool('get_deal', { deal_id, sections }, { scope: 'portfolio' })));
+    async ({ deal_id, sections }) => toContent(confidentialBlock(deal_id) || dispatchTool('get_deal', { deal_id, sections }, { scope: 'portfolio' })));
 
   server.registerTool('search_deals',
     { title: 'Search deals', description: TOOL_DESCRIPTIONS.search_deals, inputSchema: { query: z.string().describe('Keywords, e.g. a company name or a sector.') } },
@@ -109,23 +121,23 @@ export function buildDealMcpServer(auth = { mode: 'disabled' }) {
       title: 'Get deal artifact', description: TOOL_DESCRIPTIONS.get_deal_artifact,
       inputSchema: { deal_id: z.string().describe('The deal id.'), step: z.enum(['D1', 'D2', 'D3', 'D4', 'D5']).describe('The diligence step: D1 plan, D2 findings, D3 final memo, D4 execution, D5 close-out.') }
     },
-    async ({ deal_id, step }) => toContent(await dealArtifactView(deal_id, step)));
+    async ({ deal_id, step }) => toContent(confidentialBlock(deal_id) || await dealArtifactView(deal_id, step)));
 
   server.registerTool('get_ic_readiness',
     { title: 'Get IC readiness', description: TOOL_DESCRIPTIONS.get_ic_readiness, inputSchema: { deal_id: z.string().describe('The deal id.') } },
-    async ({ deal_id }) => toContent(icReadinessView(deal_id)));
+    async ({ deal_id }) => toContent(confidentialBlock(deal_id) || icReadinessView(deal_id)));
 
   server.registerTool('get_returns',
     { title: 'Get returns model', description: TOOL_DESCRIPTIONS.get_returns, inputSchema: { deal_id: z.string().describe('The deal id.') } },
-    async ({ deal_id }) => toContent(returnsView(deal_id)));
+    async ({ deal_id }) => toContent(confidentialBlock(deal_id) || returnsView(deal_id)));
 
   server.registerTool('get_value_creation',
     { title: 'Get value-creation plan', description: TOOL_DESCRIPTIONS.get_value_creation, inputSchema: { deal_id: z.string().describe('The deal id.') } },
-    async ({ deal_id }) => toContent(valueCreationView(deal_id)));
+    async ({ deal_id }) => toContent(confidentialBlock(deal_id) || valueCreationView(deal_id)));
 
   server.registerTool('get_risk_register',
     { title: 'Get risk register', description: TOOL_DESCRIPTIONS.get_risk_register, inputSchema: { deal_id: z.string().describe('The deal id.') } },
-    async ({ deal_id }) => toContent(riskRegisterView(deal_id)));
+    async ({ deal_id }) => toContent(confidentialBlock(deal_id) || riskRegisterView(deal_id)));
 
   // ---- READ: Work IQ (M365 work data) — SharePoint / Teams / mailbox ------
   // Governed + delegated. Inert (returns workiq-not-configured) until an endpoint is
