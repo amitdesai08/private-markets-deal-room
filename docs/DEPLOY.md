@@ -98,8 +98,8 @@ Identity-aware access is a **parameter, not a configuration step**:
 Pick the subscription at deploy time:
 
 ```powershell
-az group create -n rg-dealroom-dev-swc -l swedencentral
-az deployment group create -g rg-dealroom-dev-swc \
+az group create -n rg-deal-room-dev -l swedencentral
+az deployment group create -g rg-deal-room-dev \
     -f infra/main.bicep -p infra/main.dev.bicepparam
 # then build & push the app image to the created ACR and point the Container App at it
 ```

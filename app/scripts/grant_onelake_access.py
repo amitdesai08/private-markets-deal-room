@@ -26,7 +26,7 @@ from azure.identity import AzureCliCredential
 
 WORKSPACE_ID = os.environ.get("FABRIC_WORKSPACE_ID", "<your-fabric-workspace-id>")
 MI_PRINCIPAL_ID = os.environ.get("MI_PRINCIPAL_ID", "<your-managed-identity-object-id>")
-MI_NAME = "id-dealroom-dev-swc"
+MI_NAME = os.environ.get("MI_NAME", "id-dealhub-dev-swc")
 ROLE = "Contributor"  # Admin | Member | Contributor | Viewer  (Contributor = least privilege that writes OneLake)
 
 BASE = "https://api.fabric.microsoft.com/v1"
@@ -63,7 +63,7 @@ def main() -> int:
     print(f"FAILED ({r.status_code}): {r.text[:500]}")
     if r.status_code == 400 and "principal" in (r.text or "").lower():
         print("\nIf the principal type is rejected, the managed identity may need to be added via the")
-        print("Fabric portal instead (Manage access -> Add people or groups -> search 'id-dealroom-dev-swc').")
+        print(f"Fabric portal instead (Manage access -> Add people or groups -> search '{MI_NAME}').")
     return 1
 
 
