@@ -36,7 +36,7 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
     { label: 'Live deals', value: String(liveDeals), sub: `${inDiligence} in diligence` },
     { label: 'Avg IC readiness', value: `${avgReadiness}%`, sub: `${analytics?.cycleReductionPct ?? 0}% cycle cut` },
     { label: 'Fabric market intel', value: fabric?.mode === 'live' ? 'Live' : (fabric?.mode ? 'Materialized' : '—'), sub: `${comps.length} comps · ${precedents.length} IC precedents` },
-    { label: 'Deal-flow agents', value: String(agentCount), sub: config?.newsAgent === 'live' ? 'news scout live' : 'agents ready' },
+    { label: 'Specialist agents', value: String(agentCount), sub: config?.newsAgent === 'live' ? 'orchestrated · news scout live' : 'orchestrated by 1 assistant' },
   ];
 
   return (

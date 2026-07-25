@@ -23,27 +23,21 @@ import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipel
 
 type TeamsConfig = { demoMode: boolean; backend: string; sso: boolean; bot: boolean; backendUrl?: string; appBaseUrl?: string };
 
+// The user talks to ONE assistant. It fronts the orchestrator, which brings in the
+// right specialist agents (sourcing, screening, diligence, modeling, IC-memo,
+// value-creation) server-side, scoped to the caller's role/persona. We deliberately
+// never present the specialists as separately selectable chat targets.
 const ORCHESTRATOR: Agent = {
-  key: 'orchestrator', label: 'Deal Room Analyst', subtitle: 'Portfolio & deal orchestrator', initials: 'DR', kind: 'orchestrator',
+  key: 'orchestrator', label: 'Deal Room Assistant', subtitle: 'One assistant — it brings in the right specialist for your role', initials: 'DR', kind: 'orchestrator',
   starters: [
     'List every deal with its stage, status and IC readiness.',
     'Which deal is the highest priority right now, and why?',
     'Where is the pipeline light — what should we source next?',
   ],
 };
-const PERSONA_META: Record<string, { initials: string; subtitle: string; starters: string[] }> = {
-  partner: { initials: 'EB', subtitle: 'Partner — sponsor & IC gatekeeper', starters: ['Give me your go/no-go read on the portfolio.', 'What conditions would you require to approve at IC?'] },
-  principal: { initials: 'MF', subtitle: 'Principal — deal lead', starters: ['Draft an IOI for the top target.', 'What should the diligence plan and calendar to IC look like?'] },
-  'retail-md': { initials: 'RM', subtitle: 'Retail MD — commercial lane', starters: ['What commercial diligence should we prioritise?', 'Suggest a commercial value-creation lever.'] },
-  'ai-md': { initials: 'AI', subtitle: 'AI MD — tech / AI lane', starters: ['Score AI-readiness and flag the tech risks.', 'Propose an AI / digital value-creation lever.'] },
-  'supply-md': { initials: 'SM', subtitle: 'Supply Chain MD — operations lane', starters: ['Surface the supply-chain & concentration risks.', 'Suggest an operational cost-out lever.'] },
-  'operating-partner': { initials: 'RN', subtitle: 'Operating Partner — value creation', starters: ['Draft the value-creation plan and 100-day plan.', 'Where is the biggest EBITDA-bridge lever?'] },
-  'fund-cfo': { initials: 'DO', subtitle: 'Fund CFO — returns & financing', starters: ['Build the LBO case — IRR and MOIC.', 'Run a base / bull / bear returns sensitivity.'] },
-  'legal-gc': { initials: 'PR', subtitle: 'General Counsel — legal & execution', starters: ['Summarise the key SPA and reps & warranties issues.', 'Run the KYC / regulatory clearance check.'] },
-  'ir-lp': { initials: 'SF', subtitle: 'Investor Relations — LP & fund', starters: ['How does this deal read to our LPs?', 'Check portfolio concentration vs the mandate.'] },
-};
-const PERSONA_ORDER = ['partner', 'principal', 'retail-md', 'ai-md', 'supply-md', 'operating-partner', 'fund-cfo', 'legal-gc', 'ir-lp'];
-const shortLabel = (label: string | undefined, persona: string) => (label ? (label.split('—')[0].split('(')[0].trim() || label) : persona);
+// Size of the specialist team the assistant orchestrates (for the dashboard KPI);
+// the live count comes from the backend config when available.
+const SPECIALIST_TEAM = 9;
 
 export default function App() {
   const [teamsInfo, setTeams] = useState<TeamsInfo | null>(null);
@@ -123,15 +117,10 @@ export default function App() {
 
       fetch('/api/config').then((r) => r.json()).then((backendCfg: BackendConfig) => {
         setConfig(backendCfg);
-        const list: Agent[] = [ORCHESTRATOR];
-        if (backendCfg?.personaAgents?.configured) {
-          for (const p of PERSONA_ORDER) {
-            const found = (backendCfg.personaAgents.agents || []).find((x) => x.persona === p);
-            const meta = PERSONA_META[p];
-            if (found && meta) list.push({ key: p, label: shortLabel(found.label, p), subtitle: meta.subtitle, initials: meta.initials, kind: 'persona', persona: p, starters: meta.starters });
-          }
-        }
-        setAgents(list);
+        // Single-agent surface: the user only ever talks to the one assistant; it
+        // brings in the specialist agents server-side. We deliberately do NOT list
+        // the persona agents as separately selectable chat targets.
+        setAgents([ORCHESTRATOR]);
       }).catch(() => {});
 
       getSsoToken().then((token) =>
@@ -239,7 +228,7 @@ export default function App() {
           {settingsOpen ? (
             <Settings isAdmin={isAdmin} ssoToken={ssoToken} viewAs={viewAs} onClose={() => setSettingsOpen(false)} />
           ) : mainTab === 'overview' ? (
-            <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} agentCount={visibleAgents.length} onAsk={askAbout} onOpen={setOpenDealId} />
+            <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} agentCount={config?.personaAgents?.agents?.length || SPECIALIST_TEAM} onAsk={askAbout} onOpen={setOpenDealId} />
           ) : mainTab === 'stage1' ? (
             <Stage1 onChanged={refreshData} onOpenDeal={setOpenDealId} />
           ) : mainTab === 'stage3' ? (

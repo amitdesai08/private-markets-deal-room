@@ -65,18 +65,20 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
   return (
     <aside className="chatpanel">
       <div className="chat-head">
-        <div className="chat-title">Ask the agents</div>
+        <div className="chat-title">{agents.length > 1 ? 'Ask the agents' : agent.label}</div>
         <button className="iconbtn" onClick={onClose} aria-label="Close chat">✕</button>
       </div>
 
-      <div className="rail-v">
-        {agents.map((a) => (
-          <button key={a.key} onClick={() => setAgentKey(a.key)} className={`agent${a.key === agentKey ? ' on' : ''}`} title={a.subtitle}>
-            <span className="av">{a.initials}</span>
-            <span className="al"><span className="an">{a.label}</span><span className="as">{a.subtitle}</span></span>
-          </button>
-        ))}
-      </div>
+      {agents.length > 1 ? (
+        <div className="rail-v">
+          {agents.map((a) => (
+            <button key={a.key} onClick={() => setAgentKey(a.key)} className={`agent${a.key === agentKey ? ' on' : ''}`} title={a.subtitle}>
+              <span className="av">{a.initials}</span>
+              <span className="al"><span className="an">{a.label}</span><span className="as">{a.subtitle}</span></span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="scopebar">
         <span className="scope-l">Focus</span>
