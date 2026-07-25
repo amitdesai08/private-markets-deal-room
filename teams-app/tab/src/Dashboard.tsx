@@ -39,6 +39,21 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
     { label: 'Specialist agents', value: String(agentCount), sub: config?.newsAgent === 'live' ? 'orchestrated · news scout live' : 'orchestrated by 1 assistant' },
   ];
 
+  // Quantified business-value story (from /api/analytics). Every number is derived
+  // from the live deal record — hours are tallied as agents complete real work.
+  const hoursSaved = analytics?.totalHoursSaved ?? 0;
+  const fteWeeks = analytics?.fteWeeks ?? Math.round((hoursSaved / 40) * 10) / 10;
+  const cyclePct = analytics?.cycleReductionPct ?? 0;
+  const daysSaved = analytics?.avgDaysSaved ?? 0;
+  const baselineDays = analytics?.baselineDays ?? 45;
+  const dealsProcessed = analytics?.deals ?? liveDeals;
+  const value = [
+    { v: hoursSaved.toLocaleString(), l: 'Analyst hours saved', s: `≈ ${fteWeeks} FTE-weeks redeployed to judgment` },
+    { v: `${cyclePct}%`, l: 'Faster to IC', s: `${daysSaved}d saved vs ${baselineDays}-day baseline` },
+    { v: String(dealsProcessed), l: 'Deals processed', s: `${inDiligence} in active diligence` },
+    { v: `${avgReadiness}%`, l: 'Avg IC readiness', s: 'across the live pipeline' },
+  ];
+
   return (
     <div className="dash">
       {/* KPI row */}
@@ -51,6 +66,25 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
           </div>
         ))}
       </div>
+
+      {/* Quantified business value — the "so-what" close */}
+      <section className="panel bizval">
+        <div className="panel-h"><span>Business value</span><span className="muted">AI-accelerated deal pipeline · derived from the live record</span></div>
+        <div className="bv-grid">
+          {value.map((k) => (
+            <div key={k.l} className="bv-tile">
+              <div className="bv-v">{k.v}</div>
+              <div className="bv-l">{k.l}</div>
+              <div className="bv-s">{k.s}</div>
+            </div>
+          ))}
+        </div>
+        <div className="bv-close">
+          One assistant orchestrates {agentCount} specialists across sourcing → diligence → IC — turning{' '}
+          <strong>{hoursSaved.toLocaleString()} analyst hours</strong> of manual work into judgment time and getting deals to committee{' '}
+          <strong>{cyclePct}% faster</strong>.
+        </div>
+      </section>
 
       {/* Origination funnel */}
       {pipeline?.funnel?.length ? (

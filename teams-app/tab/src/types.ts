@@ -17,6 +17,7 @@ export type Agent = {
 export type Analytics = {
   deals?: number; inDiligence?: number; avgReadiness?: number;
   cycleReductionPct?: number; totalHoursSaved?: number; baselineDays?: number;
+  avgDaysSaved?: number; fteWeeks?: number;
 };
 
 export type FunnelStep = { key: string; step: string; label: string; count: number; active: number };

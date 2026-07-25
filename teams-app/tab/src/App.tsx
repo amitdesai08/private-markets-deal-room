@@ -301,6 +301,14 @@ html, body, #root { margin: 0; height: 100%; }
 .kpi-v { font-size: 24px; font-weight: 700; }
 .kpi-l { font-size: 13px; margin-top: 2px; }
 .kpi-s { color: var(--muted); font-size: 12px; }
+.bizval { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.bv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--border); }
+.bv-tile { background: var(--card); padding: 14px 16px; }
+.bv-v { font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1.1; }
+.bv-l { font-size: 13px; font-weight: 600; margin-top: 3px; }
+.bv-s { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+.bv-close { padding: 12px 16px; font-size: 13px; line-height: 1.5; color: var(--fg); border-top: 1px solid var(--border); background: var(--hover); }
+.bv-close strong { color: var(--accent); }
 .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
 .panel-h { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 700; }
 .panel-h .muted { font-weight: 400; }
