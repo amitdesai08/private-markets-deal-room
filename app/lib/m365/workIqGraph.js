@@ -70,10 +70,12 @@ const clip = (s, n = 400) => (typeof s === 'string' ? s.replace(/\s+/g, ' ').tri
 const cap = (n, def, max) => Math.min(Math.max(1, Number(n) || def), max);
 
 // ---- POST /search/query (app-only: driveItem / listItem / site) -------------
+// App-only search REQUIRES a region (e.g. NAM). Override with WORKIQ_SEARCH_REGION.
+const SEARCH_REGION = (process.env.WORKIQ_SEARCH_REGION || 'NAM').trim();
 async function searchQuery(entityTypes, queryString, size) {
   const data = await graphApp('/search/query', {
     method: 'POST',
-    body: { requests: [{ entityTypes, query: { queryString }, from: 0, size }] },
+    body: { requests: [{ entityTypes, query: { queryString }, region: SEARCH_REGION, from: 0, size }] },
   });
   const hits = data?.value?.[0]?.hitsContainers?.[0]?.hits || [];
   return hits.map((h) => {
