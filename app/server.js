@@ -101,6 +101,7 @@ import { companyFundamentals } from './lib/filings.js';
 import { leiLookup, leiUltimateParent } from './lib/providers/gleif.js';
 import { gdeltNews } from './lib/providers/gdelt.js';
 import { chatDealAgent, dealAgentInfo } from './lib/dealAgent.js';
+import { capabilitiesFor, capabilitiesNarrative, isCapabilityQuestion } from './lib/capabilities.js';
 import { chatPersonaAgent, personaAgentsInfo } from './lib/personaAgent.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
@@ -870,6 +871,13 @@ api.post('/me/access', (req, res) => {
   res.json(describeAccess(requestingIdentity(req), req.body?.viewAsRole || null));
 });
 
+// Role-aware capabilities — "what can you do?". Scoped to the caller's role so a new user
+// can start blind. GET or POST; view-as via header/body.
+api.all('/capabilities', (req, res) => {
+  const access = accessFor(requestingIdentity(req), req.body?.viewAsRole || requestingViewAs(req));
+  res.json({ ...capabilitiesFor(access), narrative: capabilitiesNarrative(access) });
+});
+
 // Demo showcase roster — one named identity per role (empty unless DEMO_PROFILES is
 // enabled). Powers the "view as" switcher so the access model is demoable end-to-end.
 api.get('/demo-profiles', (_req, res) => res.json(describeDemoProfiles()));
@@ -967,6 +975,10 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   const identity = requestingIdentity(req);
   const viewAs = req.body?.viewAsRole || null;
   const access = accessFor(identity, viewAs);
+  // "What can you do?" — role-scoped capability answer (deterministic), before any deal gate.
+  if (isCapabilityQuestion(message)) {
+    return res.json({ reply: capabilitiesNarrative(access), source: 'capabilities', role: access.role, capabilities: true });
+  }
   if (dealId) {
     const d = getDealRaw(dealId);
     const gate = authorizeDealContent(identity, d, viewAs);
@@ -1013,6 +1025,12 @@ api.post('/deal-agent/chat', async (req, res) => {
   // ---- RBAC: gate Stage-2 deal access by the requesting user's role ----
   const identity = requestingIdentity(req);
   const viewAs = req.body?.viewAsRole || null;
+  // "What can you do?" — answered from the role-scoped capability map (deterministic,
+  // instant, always correctly scoped) so a new user can start cold.
+  const access = accessFor(identity, viewAs);
+  if (isCapabilityQuestion(message)) {
+    return res.json({ reply: capabilitiesNarrative(access), source: 'capabilities', role: access.role, capabilities: true });
+  }
   if (dealId) {
     const d = getDealRaw(dealId);
     const gate = authorizeDealContent(identity, d, viewAs);

@@ -33,22 +33,44 @@ deal data (see [DATA-SOVEREIGNTY.md](DATA-SOVEREIGNTY.md)).
 | `deal-room-fabric` | Fabric Data Agent | internal-data | NL Q&A over the fund's OneLake lakehouse | Cross-cutting |
 | `deal-room-news-scout` | News Scout | **external-web** | Public web sourcing signals (Bing-grounded) | Stage 1 (sourcing) |
 
-## Direction — purpose-based agents & orchestrator delegation
+## Purpose-based agents & orchestrator delegation (scaffolded)
 
-The roster above is **persona-based** (one agent per role). We are moving to a
-**purpose-based** model: a small set of task agents named for the *job* — **Sourcing**,
-**Screening**, **Diligence**, **Modeling**, **IC-Memo**, **Portfolio-Monitoring** — with the
-**Deal Room Analyst as the orchestrator** that decides which task agent to delegate to,
-threads the request **plus the caller's identity**, and composes the answer. Personas become
-a *lens* (framing + which skills apply), not a separate agent each.
+The persona roster above is **role-shaped** (one agent per person). The target topology is
+**purpose-shaped**: a small set of task agents named for the *job*, with the **Deal Room
+orchestrator** deciding which one to delegate to, threading the caller's **identity**, and
+composing the answer. Personas become a *lens* (framing + which skills apply), not a separate
+agent each. The scaffold is committed and provisionable — the app orchestrator + the
+capabilities feature already work against either topology; flip when ready.
 
-Why: less duplication (seven deal-team personas did overlapping work), clearer skills
-ownership, and an orchestration seam that maps onto the Foundry Managed-Agents / Cowork
-handoff model (see [ACTION-ITEMS.md](ACTION-ITEMS.md) H). The migration keeps the same
-governed tools and the **same data-protection guarantees** below — only the agent topology
-changes. Rebuilt agents are provisioned in **Foundry**, integrate with **Cowork** for
-document authoring, and each ships a **[SKILLS.md](../SKILLS.md)** so customers can extend
-them.
+| Purpose agent (`name`) | Job | Bundled skills | Stage |
+|---|---|---|---|
+| `deal-room-orchestrator` | Routes to the right purpose agent; answers "what can you do?" per role | *(routes to all)* | All |
+| `deal-room-sourcing` | Find, map & qualify targets vs the mandate | `deal-sourcing`, `comps-analysis` | 1 |
+| `deal-room-screening` | Screen vs mandate, comps & unit economics | `deal-screening`, `comps-analysis` | 1–2 |
+| `deal-room-diligence` | Plan & drive diligence; red-flag risks | `dd-checklist` | 2 |
+| `deal-room-modeling` | LBO / DCF / comps / returns, with sensitivity | `lbo-model`, `comps-analysis` | 2–3 |
+| `deal-room-ic-memo` | IC memo + deck + citation audit | `ic-memo` | 3 |
+| `deal-room-value-creation` | 100-day plan, EBITDA bridge, portfolio monitoring | `value-creation-plan`, `portfolio-monitoring` | 4 |
+
+Each skill lives at `skills/<slug>/SKILL.md` (see [SKILLS.md](../SKILLS.md) for the format).
+The scaffold script is [create_purpose_agents.py](../app/scripts/create_purpose_agents.py) —
+it provisions the seven agents in **Foundry**, each reaching the fund's governed data through
+the **same read-only MCP** (so RBAC + need-to-know stay enforced server-side), and bundling its
+skills. Why purpose-shaped: less duplication (seven deal-team personas did overlapping work),
+clearer skills ownership, and an orchestration seam that maps onto the Foundry Managed-Agents /
+Cowork handoff model. Same governed tools, **same data-protection guarantees** below — only the
+topology changes.
+
+## "What can you do?" — role-aware capabilities
+
+Any user can ask the assistant **"what can you do?"** (or "how can you help", "help me get
+started") and get an answer **scoped to their Entra role and deal stage** — so someone can walk
+in blind and discover what's available *to them*. It's deterministic (no model call): the
+[capabilities.js](../app/lib/capabilities.js) module maps the role to the purpose agents,
+skills, write-actions and limits it's allowed, and the chat endpoints short-circuit capability
+questions before the deal gate. There's also a `GET /capabilities` endpoint returning the same,
+role-scoped, for the UI. See [PERSONAS.md](PERSONAS.md) for the persona→role→access map and
+[EXPLAINER.md](EXPLAINER.md) for the plain-English tour.
 
 ## Tools
 

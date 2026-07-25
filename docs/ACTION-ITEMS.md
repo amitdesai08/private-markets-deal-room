@@ -26,7 +26,10 @@ implemented yet — this is the plan.
 | G · CoWork document engine + WorkIQ surface | 📋 planned (confirm CoWork product) |
 | H · Claude financial-services skills & agents | 📋 planned (brainstorm below) |
 | I1 · Agents can't bypass RBAC (identity-gated dispatch) | ✅ done |
-| I2 · Purpose-based agents + orchestrator delegation | 📋 planned (Foundry + Cowork + SKILLS.md) |
+| I2 · Purpose-based agents + orchestrator delegation | ✅ scaffolded (skills + create_purpose_agents.py); ⏳ live Foundry rebuild |
+| I3 · PE personas researched + documented | ✅ done — [PERSONAS.md](PERSONAS.md) |
+| I4 · Role-aware "what can you do?" capabilities | ✅ done — [capabilities.js](../app/lib/capabilities.js) + `/capabilities` |
+| I5 · Builder/IT explainer + PE glossary | ✅ done — [EXPLAINER.md](EXPLAINER.md) |
 
 ---
 
