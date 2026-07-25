@@ -21,9 +21,9 @@ implemented yet — this is the plan.
 | E1 · responsive layout | ✅ done (breakpoints at 860/560) |
 | F1 · agent + skills docs | ✅ done — [AGENTS.md](AGENTS.md) |
 | A1 · WorkIQ tools on agents | ✅ deal analyst (function tools) + persona agents (via deal MCP) |
-| A2 · WorkIQ endpoint + admin consent | ⏳ **prepared, not executed** — existing M365 app has Teams-provisioning consent only; needs `Mail.Read`+`ChannelMessage.Read.All` + a live WorkIQ MCP URL (steps below) |
-| A3 · per-user OBO for WorkIQ | ⏳ **design ready** — needs user-token forwarding across the Teams→backend trust boundary; deferred (inert + untestable until A2 live) |
-| G · CoWork document engine + WorkIQ surface | ⏸️ deferred (needs CoWork SKU); seam scaffolded ([workiq.js](../app/lib/mcp/workiq.js), [SKILLS.md](../SKILLS.md)) |
+| A2 · WorkIQ endpoint + admin consent | ✅ **built Microsoft-native** — app *is* the Work IQ backend (Graph app-only) at `/workiq-mcp`; `Sites.Read.All`/`Files.Read.All`/`Mail.Read`/`ChannelMessage.Read.All` admin-consented; live search returns real tenant SharePoint/OneDrive data |
+| A3 · per-user OBO for WorkIQ | ⏳ **design ready** — today reads are tenant-wide app-only (read-only, scope mailboxes via Exchange App Access Policy); per-user OBO needs user-token forwarding across the Teams→backend trust boundary |
+| G · CoWork / Copilot surface via MCP | ✅ **surface shipped** — `/workiq-mcp` Streamable-HTTP MCP consumable by Copilot Studio + M365 Copilot ([README-workiq-copilot-studio.md](../app/mcp/README-workiq-copilot-studio.md), [workiq-mcp-openapi.yaml](../app/mcp/workiq-mcp-openapi.yaml)); CoWork document engine still needs the CoWork SKU |
 | H · Claude financial-services skills & agents | ⏸️ deferred (needs licensing decision); skills already ported to `skills/*` |
 | I1 · Agents can't bypass RBAC (identity-gated dispatch) | ✅ done |
 | I2 · Purpose-based agents + orchestrator delegation | ✅ **live in Foundry** — 7 agents provisioned in `proj-dealhub-dev` ([create_purpose_agents.py](../app/scripts/create_purpose_agents.py), [purpose-agents.env](../app/scripts/purpose-agents.env)); app still routes personas (flip when ready) |
@@ -53,33 +53,28 @@ inert scaffold into a live capability.
 - **Effort:** S (tool JSON schemas + re-provision agents).
 
 ### A2 · Real WorkIQ MCP endpoint + delegated sign-in + admin consent
-- **Problem:** no endpoint is configured and the read scopes aren't consented.
-- **Verified state (2026-07-25):** the M365 connector app **`Deal Room M365 Connector (dev)`**
-  (`appId 2ecae299-02ce-41d0-8b4f-31b157a74930`, SP `601bd796-…`) already has **AllPrincipals
-  admin consent** for its *Teams-provisioning* scopes (`User.Read`, `Team.ReadBasic.All`,
-  `Team.Create`, `ChannelSettings.ReadWrite.All`, `Files.ReadWrite.All`, `Sites.ReadWrite.All`,
-  `GroupMember.Read.All`, `TeamMember.ReadWrite.All`, `Channel.Create`, + app-role
-  `AppCatalog.ReadWrite.All`). It does **not** yet request the WorkIQ *read* scopes
-  **`Mail.Read`** and **`ChannelMessage.Read.All`** (files/sites reads are covered by the
-  existing ReadWrite grants). Secrets exist (`m365-client-secret` on the orchestrator).
-- **Why not executed autonomously:** broadening tenant-wide `Mail.Read` / `ChannelMessage.Read.All`
-  admin consent expands the tenant attack surface, and the capability is **inert** (no WorkIQ MCP
-  endpoint yet) — so there is no functional benefit to consent until an endpoint exists. Left for
-  an attended run.
-- **Ready-to-run (Global Admin):**
-  ```powershell
-  $app='2ecae299-02ce-41d0-8b4f-31b157a74930'
-  az ad app permission add --id $app --api 00000003-0000-0000-c000-000000000000 `
-    --api-permissions 570282fd-fa5c-430d-a7fd-fc8dc98a9dca=Scope `  # Mail.Read (delegated)
-    767156cb-16ae-4d10-8f8b-41b657c8c8c8=Scope                      # ChannelMessage.Read.All (delegated)
-  az ad app permission admin-consent --id $app                       # grant tenant-wide consent
-  ```
-  Then set the endpoint in **Settings → Data Sources → Work IQ** (or `WORKIQ_MCP_URL`) and complete
-  the delegated `workiq` sign-in. Restrict mailbox access with an Exchange Application Access Policy
-  (mirrors [app/graph/README.md](../app/graph/README.md)).
-- **Residual external dependency:** a real **WorkIQ MCP server URL**. Until one is provided the
-  seam stays inert by design (`workiq-not-configured`).
-- **Effort:** M (mostly tenant-admin + endpoint provisioning, not code).
+- **Problem (original):** no endpoint was configured and the read scopes weren't consented — the
+  seam depended on a third-party "WorkIQ MCP server URL" that didn't exist.
+- **Resolution (2026-07-25) — built Microsoft-native:** rather than point at an external endpoint,
+  **the app itself is now the Work IQ backend.** The four governed tools are backed by **Microsoft
+  Graph app-only** ([app/lib/m365/workIqGraph.js](../app/lib/m365/workIqGraph.js)) and exposed two ways:
+  1. **In-app** — `dispatchWorkiq` calls Graph directly when configured
+     ([app/lib/mcp/workiq.js](../app/lib/mcp/workiq.js)), so the agents' `workiq_*` tools return real data.
+  2. **Copilot surface** — a Streamable-HTTP MCP server at **`POST /workiq-mcp`**
+     ([app/lib/mcp/workiqServer.js](../app/lib/mcp/workiqServer.js)) consumable by Copilot Studio /
+     M365 Copilot ([README-workiq-copilot-studio.md](../app/mcp/README-workiq-copilot-studio.md)).
+- **Admin consent (granted + verified):** the M365 connector app **`Deal Room M365 Connector (dev)`**
+  (`appId 2ecae299-02ce-41d0-8b4f-31b157a74930`, SP `601bd796-…`) now holds **application** roles
+  `Sites.Read.All`, `Files.Read.All`, `Mail.Read`, `ChannelMessage.Read.All` (plus the pre-existing
+  Teams-provisioning grants). Secret `m365-client-secret` + `M365_CLIENT_ID`/`M365_TENANT_ID` are on
+  the orchestrator.
+- **Live-verified:** `POST /workiq-mcp` `tools/list` returns the four tools; `search` for `deal`
+  returns real tenant SharePoint/OneDrive items from the `PrivateEquityDeals` site via Graph.
+  (App-only `/search/query` requires a `region` — defaulted to `NAM`, override with `WORKIQ_SEARCH_REGION`.)
+- **Guardrails:** reads are **read-only** and, being app-only, **tenant-wide** — scope mailbox reach
+  with an **Exchange Application Access Policy** (mirrors [app/graph/README.md](../app/graph/README.md)).
+  Per-user need-to-know narrowing is A3.
+- **Effort:** delivered (Microsoft-native Graph build, no external dependency).
 
 ### A3 · Per-user OBO for WorkIQ reads (need-to-know)
 - **Problem:** `dispatchWorkiq` runs with the shared delegated connection today, so
