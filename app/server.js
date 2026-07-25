@@ -104,6 +104,7 @@ import { chatDealAgent, dealAgentInfo } from './lib/dealAgent.js';
 import { capabilitiesFor, capabilitiesNarrative, isCapabilityQuestion } from './lib/capabilities.js';
 import { chatPersonaAgent, personaAgentsInfo } from './lib/personaAgent.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
+import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
 import { listConnectors, testConnector, disconnectConnector } from './lib/connectors.js';
 import { setConnectorEnabled, setConnectorConfig } from './lib/connectorSettings.js';
@@ -1100,6 +1101,16 @@ app.delete('/mcp', mcpAuthMiddleware, dealMcpMethodNotAllowed);
 app.post('/mcp-ro', mcpReadonlyAuthMiddleware, dealMcpReadonlyHandler);
 app.get('/mcp-ro', mcpReadonlyAuthMiddleware, dealMcpMethodNotAllowed);
 app.delete('/mcp-ro', mcpReadonlyAuthMiddleware, dealMcpMethodNotAllowed);
+
+// ---- Work IQ MCP server (Microsoft 365 work data) ----
+// The Microsoft-native Work IQ surface: SharePoint/OneDrive files, Teams channel
+// messages and Outlook mail over Microsoft Graph (app-only). Read-only by construction
+// and authenticated exactly like /mcp-ro (static read-only key or a valid Entra token),
+// so Copilot / Copilot Studio and the fund's hosted agents consume the same governed
+// tools. Streamable HTTP over POST.
+app.post('/workiq-mcp', mcpReadonlyAuthMiddleware, workiqMcpHandler);
+app.get('/workiq-mcp', mcpReadonlyAuthMiddleware, dealMcpMethodNotAllowed);
+app.delete('/workiq-mcp', mcpReadonlyAuthMiddleware, dealMcpMethodNotAllowed);
 
 // ---- API / data / MCP service ----
 // The orchestrator is the API, data and MCP plane only — it does not bundle a web

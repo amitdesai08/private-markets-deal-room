@@ -20,8 +20,20 @@ import { McpSession } from './morningstar.js';
 import { hasLogin } from './oauth.js';
 import { getConnectorConfig } from '../connectorSettings.js';
 import { config } from '../config.js';
+import { workIqGraphConfigured, wiSearchFiles, wiSearch, wiSearchMail, wiReadChannel } from '../m365/workIqGraph.js';
 
 export const WORKIQ_PROVIDER = 'workiq';
+
+// The Microsoft-native backend: map each governed tool to its Graph function. When the
+// M365 app is configured this is used directly (app-only, no per-user login), so Work IQ
+// is LIVE for in-app agents without a separate MCP endpoint. The Streamable-HTTP MCP
+// server (lib/mcp/workiqServer.js) exposes the same functions to Copilot / Copilot Studio.
+const GRAPH_BACKEND = Object.freeze({
+  workiq_search_files: (a) => wiSearchFiles(a.query, a),
+  workiq_search:       (a) => wiSearch(a.query, a),
+  workiq_search_mail:  (a) => wiSearchMail(a),
+  workiq_read_channel: (a) => wiReadChannel(a),
+});
 
 // Governed tool names the agents call (see agentSovereignty INTERNAL_TOOLS). Each maps
 // to a WorkIQ MCP tool name — overridable per deployment because the MCP's tool schema
@@ -38,12 +50,18 @@ export function workiqUrl() {
   return (getConnectorConfig(WORKIQ_PROVIDER).mcpUrl || config.connectors.workiqMcpUrl || '').trim();
 }
 
-// Configured = an endpoint URL is set. Connected = a delegated sign-in exists too.
+// Configured = the Microsoft Graph backend is available OR an external MCP endpoint is set.
+// Connected = the Graph backend is configured (app-only, no login), or the external
+// endpoint has a delegated sign-in.
 export function workiqConfigured() {
-  return !!workiqUrl();
+  return workIqGraphConfigured() || !!workiqUrl();
 }
 export function workiqConnected() {
-  return workiqConfigured() && hasLogin(WORKIQ_PROVIDER);
+  if (workIqGraphConfigured()) return true;
+  return !!workiqUrl() && hasLogin(WORKIQ_PROVIDER);
+}
+export function workiqBackend() {
+  return workIqGraphConfigured() ? 'graph' : (workiqUrl() ? 'mcp' : 'none');
 }
 
 // Low-level: open a session and call a WorkIQ MCP tool by its server-side name.
@@ -57,13 +75,20 @@ export async function callWorkiqTool(mcpToolName, args = {}) {
 }
 
 // ---- Agent-facing dispatch (the seam the tool loop calls) -------------------
-// Maps a GOVERNED tool name (workiq_*) to its WorkIQ MCP tool. Returns a structured
-// error (never throws) so the agent conversation continues if WorkIQ is unavailable.
-// NOTE: these run with the shared delegated connection today; thread the requesting
-// user's OBO token here when per-user WorkIQ reads are wired (see analysis).
+// Maps a GOVERNED tool name (workiq_*) to its backend. Prefers the Microsoft Graph
+// backend (app-only, live) when the M365 app is configured; otherwise falls back to an
+// external WorkIQ MCP endpoint. Returns a structured error (never throws) so the agent
+// conversation continues if Work IQ is unavailable. Reads run tenant-wide app-only today;
+// thread the requesting user's OBO token here when per-user Work IQ reads are wired.
 export async function dispatchWorkiq(governedName, args = {}) {
+  const graphFn = GRAPH_BACKEND[governedName];
+  if (!graphFn) return { error: 'unknown-workiq-tool', name: governedName };
+  if (workIqGraphConfigured()) {
+    try { return await graphFn(args); }
+    catch (e) { return { error: 'workiq-call-failed', tool: governedName, detail: String(e?.message || e).slice(0, 200) }; }
+  }
+  // Fallback: external WorkIQ MCP endpoint (delegated sign-in).
   const mcpTool = WORKIQ_TOOLS[governedName];
-  if (!mcpTool) return { error: 'unknown-workiq-tool', name: governedName };
   try {
     return await callWorkiqTool(mcpTool, args);
   } catch (e) {
