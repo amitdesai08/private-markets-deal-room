@@ -33,14 +33,17 @@ deal data (see [DATA-SOVEREIGNTY.md](DATA-SOVEREIGNTY.md)).
 | `deal-room-fabric` | Fabric Data Agent | internal-data | NL Q&A over the fund's OneLake lakehouse | Cross-cutting |
 | `deal-room-news-scout` | News Scout | **external-web** | Public web sourcing signals (Bing-grounded) | Stage 1 (sourcing) |
 
-## Purpose-based agents & orchestrator delegation (scaffolded)
+## Purpose-based agents & orchestrator delegation (live in Foundry)
 
 The persona roster above is **role-shaped** (one agent per person). The target topology is
 **purpose-shaped**: a small set of task agents named for the *job*, with the **Deal Room
 orchestrator** deciding which one to delegate to, threading the caller's **identity**, and
 composing the answer. Personas become a *lens* (framing + which skills apply), not a separate
-agent each. The scaffold is committed and provisionable — the app orchestrator + the
-capabilities feature already work against either topology; flip when ready.
+agent each. **The seven purpose agents are provisioned live in the Foundry project
+`proj-dealhub-dev`** ([purpose-agents.env](../app/scripts/purpose-agents.env)) alongside the
+personas — additive and non-destructive. The app orchestrator + the capabilities feature already
+work against either topology; the Teams app still routes the persona agents until the routing is
+flipped.
 
 | Purpose agent (`name`) | Job | Bundled skills | Stage |
 |---|---|---|---|

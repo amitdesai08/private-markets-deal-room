@@ -21,12 +21,12 @@ implemented yet — this is the plan.
 | E1 · responsive layout | ✅ done (breakpoints at 860/560) |
 | F1 · agent + skills docs | ✅ done — [AGENTS.md](AGENTS.md) |
 | A1 · WorkIQ tools on agents | ✅ deal analyst (function tools) + persona agents (via deal MCP) |
-| A2 · WorkIQ endpoint + admin consent | ⏳ tenant-admin |
-| A3 · per-user OBO for WorkIQ | ⏳ pending |
-| G · CoWork document engine + WorkIQ surface | 📋 planned (confirm CoWork product) |
-| H · Claude financial-services skills & agents | 📋 planned (brainstorm below) |
+| A2 · WorkIQ endpoint + admin consent | ⏳ **prepared, not executed** — existing M365 app has Teams-provisioning consent only; needs `Mail.Read`+`ChannelMessage.Read.All` + a live WorkIQ MCP URL (steps below) |
+| A3 · per-user OBO for WorkIQ | ⏳ **design ready** — needs user-token forwarding across the Teams→backend trust boundary; deferred (inert + untestable until A2 live) |
+| G · CoWork document engine + WorkIQ surface | ⏸️ deferred (needs CoWork SKU); seam scaffolded ([workiq.js](../app/lib/mcp/workiq.js), [SKILLS.md](../SKILLS.md)) |
+| H · Claude financial-services skills & agents | ⏸️ deferred (needs licensing decision); skills already ported to `skills/*` |
 | I1 · Agents can't bypass RBAC (identity-gated dispatch) | ✅ done |
-| I2 · Purpose-based agents + orchestrator delegation | ✅ scaffolded (skills + create_purpose_agents.py); ⏳ live Foundry rebuild |
+| I2 · Purpose-based agents + orchestrator delegation | ✅ **live in Foundry** — 7 agents provisioned in `proj-dealhub-dev` ([create_purpose_agents.py](../app/scripts/create_purpose_agents.py), [purpose-agents.env](../app/scripts/purpose-agents.env)); app still routes personas (flip when ready) |
 | I3 · PE personas researched + documented | ✅ done — [PERSONAS.md](PERSONAS.md) |
 | I4 · Role-aware "what can you do?" capabilities | ✅ done — [capabilities.js](../app/lib/capabilities.js) + `/capabilities` |
 | I5 · Builder/IT explainer + PE glossary | ✅ done — [EXPLAINER.md](EXPLAINER.md) |
@@ -54,11 +54,31 @@ inert scaffold into a live capability.
 
 ### A2 · Real WorkIQ MCP endpoint + delegated sign-in + admin consent
 - **Problem:** no endpoint is configured and the read scopes aren't consented.
-- **Approach:** stand up (or point at) a WorkIQ MCP endpoint; set its URL in
-  **Settings → Data Sources → Work IQ**; complete the delegated `workiq` sign-in;
-  grant admin consent for `Mail.Read`, `Sites.Read.All`/`Files.Read.All`,
-  `ChannelMessage.Read.All`. Restrict mailbox access with an Exchange Application
-  Access Policy (mirrors [app/graph/README.md](../app/graph/README.md)).
+- **Verified state (2026-07-25):** the M365 connector app **`Deal Room M365 Connector (dev)`**
+  (`appId 2ecae299-02ce-41d0-8b4f-31b157a74930`, SP `601bd796-…`) already has **AllPrincipals
+  admin consent** for its *Teams-provisioning* scopes (`User.Read`, `Team.ReadBasic.All`,
+  `Team.Create`, `ChannelSettings.ReadWrite.All`, `Files.ReadWrite.All`, `Sites.ReadWrite.All`,
+  `GroupMember.Read.All`, `TeamMember.ReadWrite.All`, `Channel.Create`, + app-role
+  `AppCatalog.ReadWrite.All`). It does **not** yet request the WorkIQ *read* scopes
+  **`Mail.Read`** and **`ChannelMessage.Read.All`** (files/sites reads are covered by the
+  existing ReadWrite grants). Secrets exist (`m365-client-secret` on the orchestrator).
+- **Why not executed autonomously:** broadening tenant-wide `Mail.Read` / `ChannelMessage.Read.All`
+  admin consent expands the tenant attack surface, and the capability is **inert** (no WorkIQ MCP
+  endpoint yet) — so there is no functional benefit to consent until an endpoint exists. Left for
+  an attended run.
+- **Ready-to-run (Global Admin):**
+  ```powershell
+  $app='2ecae299-02ce-41d0-8b4f-31b157a74930'
+  az ad app permission add --id $app --api 00000003-0000-0000-c000-000000000000 `
+    --api-permissions 570282fd-fa5c-430d-a7fd-fc8dc98a9dca=Scope `  # Mail.Read (delegated)
+    767156cb-16ae-4d10-8f8b-41b657c8c8c8=Scope                      # ChannelMessage.Read.All (delegated)
+  az ad app permission admin-consent --id $app                       # grant tenant-wide consent
+  ```
+  Then set the endpoint in **Settings → Data Sources → Work IQ** (or `WORKIQ_MCP_URL`) and complete
+  the delegated `workiq` sign-in. Restrict mailbox access with an Exchange Application Access Policy
+  (mirrors [app/graph/README.md](../app/graph/README.md)).
+- **Residual external dependency:** a real **WorkIQ MCP server URL**. Until one is provided the
+  seam stays inert by design (`workiq-not-configured`).
 - **Effort:** M (mostly tenant-admin + endpoint provisioning, not code).
 
 ### A3 · Per-user OBO for WorkIQ reads (need-to-know)
