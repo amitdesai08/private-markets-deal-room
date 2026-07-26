@@ -116,7 +116,7 @@ import { askFabricDataAgent, fabricDataAgentInfo } from './lib/fabricDataAgent.j
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import m365LoginRouter from './lib/m365/loginRoutes.js';
 import { m365Configured, m365Connected, m365FilesScope, listDealDocuments, saveDealDocument, M365NotConnectedError } from './lib/m365/graph.js';
-import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml, buildModelCsv, buildReturnsXlsx, OFFICE_MIME } from './lib/m365/office.js';
+import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml, buildModelCsv, buildReturnsXlsx, buildIcDeckPptx, OFFICE_MIME } from './lib/m365/office.js';
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
@@ -346,7 +346,7 @@ api.get('/deals/:id/documents', async (req, res) => {
 
 api.post('/deals/:id/documents/:kind', async (req, res) => {
   const { id, kind } = req.params;
-  if (kind !== 'ic-memo' && kind !== 'model' && kind !== 'returns') return res.status(404).json({ error: 'unknown-document' });
+  if (kind !== 'ic-memo' && kind !== 'model' && kind !== 'returns' && kind !== 'ic-deck') return res.status(404).json({ error: 'unknown-document' });
   const deal = getDealRaw(id);
   if (!deal) return res.status(404).json({ error: 'not-found' });
   const identity = requestingIdentity(req);
@@ -370,6 +370,15 @@ api.post('/deals/:id/documents/:kind', async (req, res) => {
       buffer = await buildIcMemoDocx(deal);
       filename = `IC Memo — ${co}.docx`;
       contentType = OFFICE_MIME.docx;
+    } else if (kind === 'ic-deck') {
+      buffer = await buildIcDeckPptx(deal, {
+        returns: getDealReturns(id),
+        valueCreation: getDealValueCreation(id),
+        risks: getDealRiskRegister(id),
+        ic: getICReadiness(id),
+      });
+      filename = `IC Deck — ${co}.pptx`;
+      contentType = OFFICE_MIME.pptx;
     } else if (kind === 'returns') {
       buffer = await buildReturnsXlsx(getDealReturns(id));
       filename = `Returns Model — ${co}.xlsx`;

@@ -11,6 +11,7 @@ import {
 } from 'docx';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
+import { renderPptx } from './pptx.js';
 
 const CUR = { USD: '$', EUR: '\u20ac', GBP: '\u00a3' };
 const money = (deal) => {
@@ -507,4 +508,159 @@ async function injectWebQuery(xlsxBuffer, sheetName, url) {
 export const OFFICE_MIME = {
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 };
+
+// ---- PowerPoint: Investment Committee deck -----------------------------------
+// A board-ready IC deck composed from the LIVE deal record + the decision artifacts
+// (returns, value creation, risk register, IC readiness). Text-forward and self-
+// contained (built on the dependency-free pptx writer), so it opens clean anywhere.
+
+const P_INK = '1F3864', P_ACCENT = '2E74B5', P_MUTE = '6B7280', P_GREEN = '0A8A5A', P_AMBER = 'D88000', P_RED = 'B23B3B', P_WHITE = 'FFFFFF';
+const VERDICT_COLOR = { READY: P_GREEN, CONDITIONAL: P_AMBER, 'NOT-READY': P_RED };
+
+function deckHeader(title, company) {
+  return [
+    { kind: 'text', x: 0.62, y: 0.42, w: 12.1, h: 0.7, paras: [{ text: title, bold: true, size: 26, color: P_INK, align: 'l' }] },
+    { kind: 'rect', x: 0.64, y: 1.12, w: 1.5, h: 0.055, fill: P_ACCENT },
+    { kind: 'text', x: 0.62, y: 7.02, w: 12.1, h: 0.34, paras: [{ text: `The Deal Room  \u00b7  ${company}  \u00b7  CONFIDENTIAL`, italic: true, size: 9, color: P_MUTE }] },
+  ];
+}
+
+function bulletPara(text, opts = {}) {
+  return { text, bullet: true, size: opts.size || 14, color: opts.color || '2B2B2B', spaceAfter: opts.spaceAfter ?? 6, bold: opts.bold };
+}
+
+export async function buildIcDeckPptx(deal, extras = {}) {
+  const { returns = {}, valueCreation = {}, risks = {}, ic = {} } = extras;
+  const co = deal.company || deal.id || 'Deal';
+  const sectorLine = [deal.sector, deal.subSector].filter(Boolean).join(' \u00b7 ');
+  const verdict = ic.verdict || {};
+  const vColor = VERDICT_COLOR[verdict.state] || P_MUTE;
+  const slides = [];
+
+  // 1) Cover
+  slides.push([
+    { kind: 'rect', x: 0, y: 0, w: 13.333, h: 2.85, fill: P_INK },
+    { kind: 'rect', x: 0, y: 2.85, w: 13.333, h: 0.08, fill: P_ACCENT },
+    { kind: 'text', x: 0.7, y: 0.62, w: 12, h: 0.4, paras: [{ text: 'INVESTMENT COMMITTEE', size: 13, bold: true, color: 'AFC6E4' }] },
+    { kind: 'text', x: 0.68, y: 1.02, w: 12, h: 1.3, paras: [{ text: co, size: 40, bold: true, color: P_WHITE }] },
+    { kind: 'text', x: 0.7, y: 2.18, w: 12, h: 0.5, paras: [{ text: [sectorLine, money(deal) !== '\u2014' ? `${money(deal)} enterprise value` : ''].filter(Boolean).join('   \u00b7   '), size: 15, color: 'DCE6F2' }] },
+    verdict.state
+      ? { kind: 'text', x: 0.68, y: 3.25, w: 4, h: 0.5, paras: [{ runs: [{ text: `IC verdict: `, size: 14, color: P_MUTE }, { text: verdict.state, size: 14, bold: true, color: vColor }] }] }
+      : { kind: 'text', x: 0.68, y: 3.25, w: 4, h: 0.5, paras: [{ text: '', size: 14 }] },
+    { kind: 'text', x: 0.68, y: 3.75, w: 12, h: 1.6, paras: [
+      { text: verdict.headline || deal.thesis || '', size: 14, color: '2B2B2B', italic: true, spaceAfter: 8 },
+    ] },
+    { kind: 'text', x: 0.68, y: 6.5, w: 12, h: 0.5, paras: [{ text: [
+      `Prepared ${dateStr(new Date())}`,
+      deal.leadAnalyst ? `Lead: ${deal.leadAnalyst}` : '',
+      deal.sponsorPersona ? `Sponsor: ${deal.sponsorPersona}` : '',
+      typeof deal.readiness === 'number' ? `IC readiness ${pct(deal.readiness)}` : '',
+    ].filter(Boolean).join('    \u00b7    '), size: 11, color: P_MUTE }] },
+  ]);
+
+  // 2) Investment thesis + key figures
+  const kf = Array.isArray(deal.keyFigures) ? deal.keyFigures.slice(0, 6) : [];
+  slides.push([
+    ...deckHeader('Investment thesis', co),
+    { kind: 'text', x: 0.68, y: 1.4, w: 7.3, h: 4.6, valign: 't', paras: [
+      { text: deal.thesis || 'Thesis to be finalized in the IC memo.', size: 15, color: '2B2B2B', spaceAfter: 10 },
+    ] },
+    { kind: 'rect', x: 8.35, y: 1.4, w: 4.3, h: 4.9, fill: 'F4F7FB' },
+    { kind: 'text', x: 8.6, y: 1.55, w: 3.9, h: 0.4, paras: [{ text: 'KEY FIGURES', size: 11, bold: true, color: P_ACCENT }] },
+    { kind: 'text', x: 8.6, y: 2.0, w: 3.9, h: 4.2, valign: 't', paras: kf.length
+      ? kf.map((f) => ({ runs: [{ text: `${f.value}  `, size: 15, bold: true, color: P_INK }, { text: f.label || '', size: 11, color: P_MUTE }], spaceAfter: 12 }))
+      : [{ text: 'Key figures populate from the deal model.', size: 12, color: P_MUTE }] },
+  ]);
+
+  // 3) Deal snapshot
+  const snap = summaryRows(deal);
+  const half = Math.ceil(snap.length / 2);
+  const colParas = (rows) => rows.map(([k, v]) => ({ runs: [{ text: `${k}:  `, size: 12.5, bold: true, color: P_INK }, { text: String(v), size: 12.5, color: '2B2B2B' }], spaceAfter: 9 }));
+  slides.push([
+    ...deckHeader('Deal snapshot', co),
+    { kind: 'text', x: 0.68, y: 1.45, w: 5.9, h: 5.2, valign: 't', paras: colParas(snap.slice(0, half)) },
+    { kind: 'text', x: 6.9, y: 1.45, w: 5.8, h: 5.2, valign: 't', paras: colParas(snap.slice(half)) },
+  ]);
+
+  // 4) Returns
+  const scen = (name) => (returns.scenarios || []).find((s) => s.name === name) || {};
+  const rline = (label, s) => ({ runs: [
+    { text: `${label}   `, size: 15, bold: true, color: P_INK },
+    { text: `${s.moic != null ? s.moic + 'x MOIC' : '\u2014'}   \u00b7   ${s.irr != null ? s.irr + '% IRR' : '\u2014'}`, size: 15, color: '2B2B2B' },
+  ], spaceAfter: 12 });
+  const e = returns.entry || {};
+  slides.push([
+    ...deckHeader('Returns \u2014 LBO / IRR & MOIC', co),
+    { kind: 'text', x: 0.68, y: 1.45, w: 7.2, h: 4.4, valign: 't', paras: [
+      rline('Downside', scen('Downside')), rline('Base', scen('Base')), rline('Upside', scen('Upside')),
+    ] },
+    { kind: 'rect', x: 8.35, y: 1.45, w: 4.3, h: 4.4, fill: 'F4F7FB' },
+    { kind: 'text', x: 8.6, y: 1.6, w: 3.9, h: 4.1, valign: 't', paras: [
+      { runs: [{ text: 'Entry EV/EBITDA:  ', size: 12.5, bold: true, color: P_INK }, { text: e.evEbitda != null ? `${e.evEbitda}x` : '\u2014', size: 12.5 }], spaceAfter: 9 },
+      { runs: [{ text: 'Hold:  ', size: 12.5, bold: true, color: P_INK }, { text: e.holdYears != null ? `${e.holdYears} yrs` : '\u2014', size: 12.5 }], spaceAfter: 9 },
+      { runs: [{ text: 'Hurdle:  ', size: 12.5, bold: true, color: P_INK }, { text: returns.hurdle ? `${returns.hurdle.irr}% / ${returns.hurdle.moic}x` : '\u2014', size: 12.5 }], spaceAfter: 9 },
+      { runs: [{ text: 'Clears hurdle:  ', size: 12.5, bold: true, color: P_INK }, { text: returns.meetsHurdle ? 'Yes' : 'No', size: 12.5, bold: true, color: returns.meetsHurdle ? P_GREEN : P_RED }], spaceAfter: 9 },
+    ] },
+    returns.headline ? { kind: 'text', x: 0.68, y: 5.9, w: 11.9, h: 0.7, paras: [{ text: returns.headline, italic: true, size: 12, color: P_ACCENT }] } : { kind: 'text', x: 0.68, y: 5.9, w: 4, h: 0.4, paras: [{ text: '', size: 12 }] },
+  ]);
+
+  // 5) Value creation
+  const levers = (valueCreation.levers || []).slice(0, 5);
+  const bridge = (valueCreation.ebitdaComponents || valueCreation.valueBridge || []).slice(0, 4);
+  slides.push([
+    ...deckHeader('Value creation plan', co),
+    { kind: 'text', x: 0.68, y: 1.4, w: 7.3, h: 0.4, paras: [{ text: 'VALUE-CREATION LEVERS', size: 11, bold: true, color: P_ACCENT }] },
+    { kind: 'text', x: 0.68, y: 1.8, w: 7.3, h: 4.5, valign: 't', paras: levers.length
+      ? levers.map((l) => bulletPara(`${l.name}${l.timeline ? ` \u2014 ${l.timeline}` : ''}${l.owner ? ` (${l.owner})` : ''}`, { size: 13 }))
+      : [{ text: 'Levers populate from the value-creation plan.', size: 12, color: P_MUTE }] },
+    { kind: 'rect', x: 8.35, y: 1.4, w: 4.3, h: 4.9, fill: 'F4F7FB' },
+    { kind: 'text', x: 8.6, y: 1.55, w: 3.9, h: 0.4, paras: [{ text: 'EBITDA BRIDGE', size: 11, bold: true, color: P_ACCENT }] },
+    { kind: 'text', x: 8.6, y: 2.0, w: 3.9, h: 4.2, valign: 't', paras: bridge.length
+      ? bridge.map((b) => ({ runs: [{ text: `${b.lever || b.source}  `, size: 12.5, color: '2B2B2B' }, { text: b.contribution != null ? `+$${b.contribution}M` : (b.value != null ? `$${b.value}M` : ''), size: 12.5, bold: true, color: P_INK }], spaceAfter: 11 }))
+      : [{ text: 'Bridge populates from the model.', size: 12, color: P_MUTE }] },
+  ]);
+
+  // 6) Key risks
+  const riskList = (risks.risks || []).slice(0, 6);
+  slides.push([
+    ...deckHeader('Key risks & mitigants', co),
+    { kind: 'text', x: 0.68, y: 1.45, w: 11.9, h: 5, valign: 't', paras: riskList.length
+      ? riskList.map((r) => ({ runs: [
+          { text: `${r.severityLabel || r.severity || 'Risk'}  `, size: 12.5, bold: true, color: r.severity === 'stopper' ? P_RED : r.severity === 'reprice' ? P_AMBER : P_MUTE },
+          { text: `[${r.workstream}]  `, size: 12, color: P_MUTE },
+          { text: `${r.risk}`, size: 13, color: '2B2B2B' },
+        ], bullet: true, spaceAfter: 10 }))
+      : [{ text: 'No material risks flagged \u2014 diligence findings are clear or pending.', size: 13, color: P_MUTE }] },
+  ]);
+
+  // 7) IC readiness & recommendation
+  const artifacts = ic.requiredArtifacts || {};
+  const rec = (deal.memoSections || []).find((m) => m.key === 'recommendation');
+  slides.push([
+    ...deckHeader('IC readiness & recommendation', co),
+    { kind: 'text', x: 0.68, y: 1.45, w: 11.9, h: 0.6, paras: [{ runs: [
+      { text: `Verdict: `, size: 16, color: P_MUTE },
+      { text: verdict.state || 'PENDING', size: 16, bold: true, color: vColor },
+      { text: `    \u00b7    ${pct(deal.readiness)} ready`, size: 16, color: '2B2B2B' },
+      { text: typeof deal.daysToIC === 'number' && deal.daysToIC >= 0 ? `    \u00b7    IC in ${deal.daysToIC}d` : '', size: 16, color: '2B2B2B' },
+    ] }] },
+    { kind: 'text', x: 0.68, y: 2.15, w: 11.9, h: 0.6, paras: [{ text: verdict.headline || '', size: 13, italic: true, color: P_ACCENT }] },
+    { kind: 'text', x: 0.68, y: 2.9, w: 11.9, h: 0.4, paras: [{ text: 'OUTSTANDING FOR IC', size: 11, bold: true, color: P_ACCENT }] },
+    { kind: 'text', x: 0.68, y: 3.3, w: 11.9, h: 2.4, valign: 't', paras: (() => {
+      const open = (artifacts.items || []).filter((a) => !a.complete);
+      const gating = verdict.gating || [];
+      const list = open.length ? open.map((a) => a.label) : gating;
+      return list.length ? list.slice(0, 6).map((t) => bulletPara(t, { size: 13 })) : [{ text: 'All required artifacts complete \u2014 ready for committee.', size: 13, color: P_GREEN }];
+    })() },
+    { kind: 'rect', x: 0.64, y: 5.85, w: 12.05, h: 0.9, fill: 'F4F7FB' },
+    { kind: 'text', x: 0.85, y: 5.98, w: 11.6, h: 0.7, valign: 'ctr', paras: [{ runs: [
+      { text: 'Recommendation:  ', size: 13, bold: true, color: P_INK },
+      { text: (rec && rec.content) ? String(rec.content).slice(0, 300) : (returns.meetsHurdle && verdict.state === 'READY' ? 'Proceed to IC \u2014 returns clear the hurdle and required artifacts are complete.' : verdict.state === 'NOT-READY' ? 'Not yet ready \u2014 close the outstanding items above before scheduling IC.' : 'Advance to IC subject to closing the outstanding items above.'), size: 12.5, color: '2B2B2B' },
+    ] }] },
+  ]);
+
+  return renderPptx(slides, { title: `IC Deck \u2014 ${co}` });
+}
+

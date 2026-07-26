@@ -81,6 +81,7 @@ function sourceHint(src?: string): string {
 const bigMoney = (n?: number) => (n == null ? '—' : n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(0)}M` : `$${Math.round(n)}`);
 
 type Tab = 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'artifacts' | 'documents' | 'activity';
+type ResolveTarget = { tab: Tab; step?: string };
 type ActivityEntry = { actor?: string; action?: string; when?: string; via?: string | null };
 
 export default function DealDetail({ dealId, canViewStage2, agents, deals, viewAsRole, onClose }: { dealId: string; canViewStage2: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onClose: () => void }) {
@@ -153,7 +154,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
   // Generate a Word IC memo / Excel model from the live record — as the signed-in
   // user (SSO). 'download' streams a personal working copy; 'sharepoint' publishes
   // into the shared deal data room (write-gated).
-  async function genDoc(kind: 'ic-memo' | 'model' | 'returns', dest: 'download' | 'sharepoint', live = false) {
+  async function genDoc(kind: 'ic-memo' | 'model' | 'returns' | 'ic-deck', dest: 'download' | 'sharepoint', live = false) {
     setDocsBusy(`${kind}:${dest}${live ? ':live' : ''}`); setNote('');
     try {
       const sso = await getSsoToken();
@@ -165,7 +166,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
         const blob = await r.blob();
         const cd = r.headers.get('content-disposition') || '';
         const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(cd);
-        const name = m ? decodeURIComponent(m[1]) : (kind === 'ic-memo' ? 'IC Memo.docx' : 'Deal Model.xlsx');
+        const name = m ? decodeURIComponent(m[1]) : (kind === 'ic-memo' ? 'IC Memo.docx' : kind === 'ic-deck' ? 'IC Deck.pptx' : 'Deal Model.xlsx');
         const href = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = href; a.download = name; document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(href);
@@ -259,23 +260,37 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
   if (deal && !statusOnly) {
     if (nbaPostIc) {
       const isValue = /value|exit|owned|monitor/i.test(nbaCtx);
-      nba = { title: isValue ? 'Monitor value creation' : 'Drive to close', reason: isValue ? 'Post-IC — track the 100-day plan and KPIs vs the underwriting.' : 'Approved at IC — advance execution and closing.', urgency: 'Normal', primaryLabel: isValue ? 'Open workspace' : 'Open workspace', primaryTab: 'workspace' };
+      nba = { title: isValue ? 'Monitor value creation' : 'Drive to close', reason: isValue ? 'Post-IC — track the 100-day plan and KPIs vs the underwriting.' : 'Approved at IC — advance execution and closing.', urgency: 'Normal', primaryLabel: 'Work the deal', primaryTab: 'stages' };
     } else if (nbaDays != null && nbaDays >= 0 && nbaDays <= 21 && nbaReadiness < 80) {
       nba = { title: 'Close diligence gaps before IC', reason: `IC in ${nbaDays}d but only ${nbaReadiness}% ready${verdict?.state ? ` (${verdict.state})` : ''} — resolve the open items gating readiness.`, urgency: 'High', primaryLabel: 'Review IC readiness', primaryTab: 'ic' };
     } else if (nbaReadiness >= 80) {
       nba = { title: 'Prepare for Investment Committee', reason: `${nbaReadiness}% ready${verdict?.state ? ` (${verdict.state})` : ''} — finalize the memo and decision artifacts.`, urgency: (nbaDays != null && nbaDays >= 0 && nbaDays <= 14) ? 'High' : 'Normal', primaryLabel: 'Open decision artifacts', primaryTab: 'artifacts' };
     } else if (nbaReadiness < 40) {
-      nba = { title: 'Advance diligence', reason: `Early at ${nbaReadiness}% ready — run the diligence workstreams to progress.`, urgency: 'Normal', primaryLabel: 'Open workspace', primaryTab: 'workspace' };
+      nba = { title: 'Advance diligence', reason: `Early at ${nbaReadiness}% ready — run the diligence workstreams to progress.`, urgency: 'Normal', primaryLabel: 'Work the deal', primaryTab: 'stages' };
     } else {
       nba = { title: 'Keep diligence moving', reason: `${nbaReadiness}% ready — close the next workstream items toward IC.`, urgency: 'Normal', primaryLabel: 'Review IC readiness', primaryTab: 'ic' };
     }
   }
 
-  // Top IC blockers for the Overview breakdown: missing required artifacts, else gating reasons.
+  // Top IC blockers for the Overview breakdown: missing required artifacts, else gating
+  // reasons. Each carries a resolve TARGET so "Resolve" jumps to exactly where the work is
+  // done (the workflow step that produces the artifact, the diligence workbench, etc.).
+  const artifactTarget = (key: string): ResolveTarget => {
+    if (key === 'D1' || key === 'D2' || key === 'D3') return { tab: 'stages', step: key };
+    if (key === 'memo' || key === 'recommendation') return { tab: 'stages', step: 'D3' };
+    if (key === 'compliance') return { tab: 'stages' };
+    return { tab: 'ic' };
+  };
+  const gatingTarget = (label: string): ResolveTarget => {
+    if (/workstream/i.test(label)) return { tab: 'workspace' };
+    if (/risk/i.test(label)) return { tab: 'artifacts' };
+    return { tab: 'ic' };
+  };
   const icItems = ic?.requiredArtifacts?.items || [];
-  const missingArtifacts = icItems.filter((a) => !a.complete).map((a) => ({ label: a.label, detail: a.detail as string | undefined }));
-  const gatingBlockers = (verdict?.gating || []).map((g) => ({ label: g, detail: undefined as string | undefined }));
+  const missingArtifacts = icItems.filter((a) => !a.complete).map((a) => ({ label: a.label, detail: a.detail as string | undefined, target: artifactTarget(a.key) }));
+  const gatingBlockers = (verdict?.gating || []).map((g) => ({ label: g, detail: undefined as string | undefined, target: gatingTarget(g) }));
   const blockers = missingArtifacts.length ? missingArtifacts : gatingBlockers;
+  const resolveBlocker = (t?: ResolveTarget) => { if (t?.step) setSelStep(t.step); setTab(t?.tab || 'ic'); };
 
   // "What changed since last check?" delta strip — grounded in the server-tracked mark.
   const delta = ic?.readinessDelta;
@@ -384,14 +399,15 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
 
               {tab === 'documents' && (
                 <div className="dd-panel">
-                  <div style={{ fontWeight: 700, marginBottom: 4 }}>📁 Deal documents <span className="muted" style={{ fontWeight: 400 }}>— generate a Word IC memo or Excel model from the live deal, on your Microsoft 365 license</span></div>
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>📁 Deal documents <span className="muted" style={{ fontWeight: 400 }}>— generate a Word IC memo, an Excel model or a PowerPoint IC deck from the live deal, on your Microsoft 365 license</span></div>
                   {/* Download works for anyone with deal access — built on the requester's
                       license, no M365 connection required. */}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
+                    <button className="btn primary" disabled={!!docsBusy} onClick={() => genDoc('ic-deck', 'download')}>{docsBusy === 'ic-deck:download' ? 'Preparing…' : '🎤 IC deck (PowerPoint)'}</button>
                     <button className="btn primary" disabled={!!docsBusy} onClick={() => genDoc('ic-memo', 'download')}>{docsBusy === 'ic-memo:download' ? 'Preparing…' : '📝 IC memo (Word)'}</button>
                     <button className="btn primary" disabled={!!docsBusy} onClick={() => genDoc('model', 'download')}>{docsBusy === 'model:download' ? 'Preparing…' : '📊 Deal model (Excel)'}</button>
                     <button className="btn primary" disabled={!!docsBusy} onClick={() => genDoc('returns', 'download')}>{docsBusy === 'returns:download' ? 'Preparing…' : '💰 Returns model (Excel)'}</button>
-                    <button className="btn" disabled={!!docsBusy} onClick={() => genDoc('model', 'download', true)}>{docsBusy === 'model:download:live' ? 'Preparing…' : '� Deal Model - Live (Excel)'}</button>
+                    <button className="btn" disabled={!!docsBusy} onClick={() => genDoc('model', 'download', true)}>{docsBusy === 'model:download:live' ? 'Preparing…' : '🔄 Deal Model - Live (Excel)'}</button>
                     <a className="btn ghost" href={`/api/deals/${dealId}/model.csv`} target="_blank" rel="noopener">⬇ CSV (Excel)</a>
                     {docs?.folderUrl ? <a className="btn ghost" href={docs.folderUrl} target="_blank" rel="noopener">Open data room ↗</a> : null}
                   </div>
@@ -405,6 +421,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                   ) : (
                     <>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
+                        <button className="btn" disabled={!docs.canWrite || !!docsBusy} onClick={() => genDoc('ic-deck', 'sharepoint')}>{docsBusy === 'ic-deck:sharepoint' ? 'Saving…' : '📤 Save IC deck to data room'}</button>
                         <button className="btn" disabled={!docs.canWrite || !!docsBusy} onClick={() => genDoc('ic-memo', 'sharepoint')}>{docsBusy === 'ic-memo:sharepoint' ? 'Saving…' : '📤 Save IC memo to data room'}</button>
                         <button className="btn" disabled={!docs.canWrite || !!docsBusy} onClick={() => genDoc('model', 'sharepoint', true)}>{docsBusy === 'model:sharepoint:live' ? 'Saving…' : '📤 Save deal model to data room'}</button>
                       </div>
@@ -425,6 +442,38 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
 
               {tab === 'stages' && (
                 <>
+                  {/* Guided "work the deal" hero — where you are in the process and the
+                      single next action to move it forward, beginning to end. */}
+                  <section className="dd-panel" style={{ border: '1px solid var(--accent, #2E74B5)' }}>
+                    <div style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>Work the deal · {STEP_LABEL[deal.currentStep || ''] || deal.currentStep || 'Not launched'}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>Step {deal.stepNumber ?? 0} of {deal.totalSteps ?? 0}{deal.stageName ? ` · ${deal.stageName}` : ''}</div>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 999, background: 'rgba(140,140,150,.2)', overflow: 'hidden', margin: '8px 0 10px' }}>
+                        <div style={{ width: `${Math.min(100, Math.round(((deal.stepNumber || 0) / (deal.totalSteps || 1)) * 100))}%`, height: '100%', background: 'var(--accent, #2E74B5)' }} />
+                      </div>
+                      <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
+                        {!deal.workspaceReady
+                          ? 'Launch the deal to provision its workspace, then run each step in order — the assistant drafts the deliverable, you review, and Advance to the next gate. Work it end-to-end to reach IC and close.'
+                          : `Run ${STEP_LABEL[deal.currentStep || ''] || 'this step'} to generate its deliverable, review it below, then Advance to the next stage. Each step moves the deal one gate closer to IC and close.`}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {!deal.workspaceReady ? (
+                          canViewStage2 ? (
+                            <button className="btn primary" disabled={!!busy} onClick={() => act('launch', `/api/deals/${dealId}/launch`)}>{busy === 'launch' ? 'Launching…' : '▶ Launch the deal'}</button>
+                          ) : <span className="muted">🔒 Launching (Stage 2) is restricted to the deal team.</span>
+                        ) : (
+                          <>
+                            <button className="btn primary" disabled={!!busy} onClick={() => act('run', `/api/deals/${dealId}/steps/${deal.currentStep}/run`)}>{busy === 'run' ? 'Running…' : `⚙ Run ${STEP_LABEL[deal.currentStep || ''] || 'step'}`}</button>
+                            <button className="btn" disabled={!!busy} onClick={() => act('advance', `/api/deals/${dealId}/advance`)}>{busy === 'advance' ? 'Advancing…' : 'Advance to next step →'}</button>
+                            {deal.currentStep && /^d[34]/i.test(deal.currentStep) ? <button className="btn ghost" onClick={() => setTab('documents')}>📤 Generate IC deck / memo</button> : null}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+
                   <div className="orch-links">
                     <button className="wsp-link teams" disabled={!!busy} onClick={() => (ws.teamsProvisioned && ws.teamsUrl) ? window.open(ws.teamsUrl, '_blank', 'noopener') : dealChannel()}>{ws.teamsProvisioned ? 'Open Teams ↗' : '# Deal channel'}</button>
                     <button className="wsp-link spo" disabled={!!busy} onClick={openDataRoom}>{ws.sharePointProvisioned ? '📁 SharePoint data room ↗' : '📁 Data room'}</button>
@@ -515,7 +564,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
                               <span style={{ color: '#f99' }}>○</span>
                               <span style={{ flex: 1, minWidth: 0 }}>{b.label}{b.detail ? <span className="muted"> · {b.detail}</span> : null}</span>
-                              <button className="chbtn" onClick={() => setTab('ic')}>Resolve ▸</button>
+                              <button className="chbtn" onClick={() => resolveBlocker(b.target)}>Resolve ▸</button>
                             </div>
                           ))}
                         </div>
@@ -599,7 +648,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                             <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 8 }}>
                               <div style={{ width: 64, height: 5, borderRadius: 999, background: 'rgba(140,140,150,.2)', overflow: 'hidden' }}><div style={{ width: `${Math.min(100, w.progress || 0)}%`, height: '100%', background: RYG_DOT[state] }} /></div>
                               <span className="muted" style={{ fontSize: 11.5, width: 30, textAlign: 'right' }}>{w.progress || 0}%</span>
-                              {state === 'red' ? <button className="chbtn" onClick={() => setTab('ic')}>Resolve ▸</button> : null}
+                              {state === 'red' ? <button className="chbtn" onClick={() => { setSelStep('D2'); setTab('stages'); }}>Resolve ▸</button> : null}
                             </div>
                           </div>
                         ))}
