@@ -14,6 +14,11 @@ lifecycle**, the **specialist agents**, the **decision artifacts**, and the
   existing demo environment.
 - Open the **web console** at `https://<teams-fqdn>/` (or the tab inside Teams).
 - No sign-in needed in demo mode — you'll use the **"sign in as"** switcher.
+- **You land on the Deals Overview — deals first, not market trends.** The overview
+  opens on the **Business value band** (analyst-hours saved, faster-to-IC, deals
+  processed, average IC readiness) and the **live pipeline**; **market intelligence
+  sits deliberately last**. Lead the demo with the *work* (screening → diligence → IC),
+  not the news feed.
 
 > Everything is grounded in the live deal record. If asked "is this real?",
 > point out the answers cite the tools (`list_deals`, `get_deal`, `get_returns`…).
@@ -60,7 +65,13 @@ dropdown (it shows **Name — Role**, no clutter):
 
 ## 4 · A deal, end to end (4 min)
 
-1. From **Deals Overview**, open a deal (e.g. the top consumer deal).
+> Start on the **Deals Overview** you landed on: call out the **Business value band**
+> and the **live pipeline** (screening → diligence → IC) — the story is the deals in
+> flight, with **market intelligence intentionally at the bottom**. Then open a deal.
+
+1. From **Deals Overview**, open a deal (e.g. the top consumer deal). Each stage shows a
+   **"Who's on this stage"** specialist rail (👤 owner · 🤖 agent) so it's clear which
+   persona and agent own the work.
 2. **Decision artifacts** tab — show the four cards:
    - **LBO / Returns** — entry multiple, sources & uses, base/upside/downside **IRR & MOIC** vs the hurdle. Click **Returns model (Excel)** to download the real workbook (Summary · Sources & Uses · Scenarios · Sensitivity).
    - **Value creation** — the EBITDA bridge + quantified levers + 100-day plan.

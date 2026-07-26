@@ -148,8 +148,9 @@ the one deal she's named on. Switch to the partner and everything opens.
 |---|---|
 | [**How it works**](docs/HOW-IT-WORKS.md) | Architecture diagram, the one-backend/two-surfaces model, AI Foundry agents, the pluggable store, the identity trust seam, cost control, repo layout & run-locally. |
 | [**Deploy guide**](docs/DEPLOY.md) | Prerequisites, `azd up`, the guided script, identity paths, roles, and how to customize & extend. |
-| [**Access model**](docs/ACCESS-MODEL.md) | Two-tier RBAC, deal-team need-to-know, confidential deals, demo profiles & the runtime Demo Mode toggle. |
+| [**Access model**](docs/ACCESS-MODEL.md) | Two-tier RBAC, deal-team need-to-know, confidential deals, **MNPI & information barriers**, demo profiles & the runtime Demo Mode toggle. |
 | [**Inside a deal**](docs/DEAL-STAGES.md) | A tab-by-tab tour of every stage, the workspace, decision artifacts and the document repository. |
+| [**Data integration**](docs/DATA-INTEGRATION.md) | External market-data ingestion (PitchBook, Capital IQ, Bloomberg, FactSet, Morningstar, LSEG, Moody's) & system-of-record fit (DealCloud, Allvue, Salesforce FSC). |
 | [Infra runbook](infra/README.md) · [App service](app/README.md) | Deep Bicep / `what-if` details and the API / MCP service. |
 | [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Operations plan](docs/OPERATIONS-PLAN.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) | Go-live, run-book, security posture and how to contribute. |
 

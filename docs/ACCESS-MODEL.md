@@ -94,3 +94,31 @@ harness then apply.
   carries the shared bot key; see [the identity trust seam](HOW-IT-WORKS.md#the-identity-trust-seam).
 - **Policy seam** — all of the above lives behind [`app/lib/userPolicy.js`](../app/lib/userPolicy.js);
   the deploy parameters (`adminIds`, `partnerIds`, …) feed straight into it.
+
+---
+
+## MNPI & information barriers — compliance by design
+
+Private-markets deal teams routinely hold **material non-public information (MNPI)** —
+take-privates under NDA, carve-outs on a clean-team protocol, live exits — and are obliged
+to contain it behind **information barriers** (ethical walls) with an auditable
+**need-to-know** discipline. The same server-side access mechanics above *are* that control
+plane; this section maps them to the regulatory concepts a compliance officer expects.
+
+| Regulatory concept | How The Deal Room enforces it |
+|---|---|
+| **MNPI containment** | A deal flagged `confidential` leaves the status tier entirely — only its **named team** and **admins** know it exists. The workspace (financials, findings, signed terms, valuations, documents) is never exposed to a non-entitled identity. |
+| **Information barrier / ethical wall** | Access is a **per-deal wall**: `deal.team` need-to-know grants the full workspace for *that deal only*, independent of role tier. Nothing widens by default. |
+| **Wall-crossing (control & log)** | Adding a user to `deal.team` is an explicit, recorded **need-to-know grant** — the wall-crossing event — rather than an ambient role privilege. Removal revokes access immediately. |
+| **Restricted / watch list** | `confidential` deals behave like a **restricted list**: invisible to the wider firm, surfaced only to entitled staff — the pattern for a public take-private before a Rule 2.7 / tender announcement. |
+| **No side-channels (agents included)** | Access is resolved **server-side** from the requesting identity; a client can never widen its own powers, and **agents can't be a side-channel** — chat and every MCP tool (`get_deal`, `list_deals`, …) refuse or redact for an identity that couldn't otherwise see the deal (see the identity-gated dispatch in [HOW-IT-WORKS.md](HOW-IT-WORKS.md)). |
+| **External-data boundary** | The **data-sovereignty guard** ([DATA-SOVEREIGNTY.md](DATA-SOVEREIGNTY.md)) blocks any internal deal context from crossing to an **external** agent (e.g. the news scout) and **audit-logs** the refusal — MNPI never leaks out through a web-grounded tool. |
+| **Draft, don't act** | Agents **draft** work product (memos, models, findings) for **human sign-off**; they never execute, post, or approve — mirroring the "agents produce, people decide" governance stance. |
+| **Audit trail** | Identity resolution, need-to-know grants, denied persona requests and boundary refusals are all resolved and logged at the server trust seam, giving compliance a reviewable record. |
+
+> **Enterprise alignment.** This model mirrors **Microsoft Purview Information Barriers** and
+> Entra Conditional Access: The Deal Room enforces the *application-layer* need-to-know for
+> deal content, and composes with tenant-level Purview / Exchange **Application Access
+> Policies** (used to scope Work IQ mailbox reach) for the M365 substrate. Together they give
+> a defensible **MNPI + information-barrier** posture across both the app and the underlying
+> Microsoft 365 data.
