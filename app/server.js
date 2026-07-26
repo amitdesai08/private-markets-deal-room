@@ -72,6 +72,7 @@ import {
   updateCondition,
   snapshotAssumptions,
   getICReadiness,
+  proposeAssistantActions,
   getDealReturns,
   getDealValueCreation,
   getDealRiskRegister,
@@ -519,6 +520,42 @@ api.post('/deals/:id/assumption-snapshot', async (req, res) => {
   const r = await snapshotAssumptions(req.params.id, { label, by });
   if (r.error) return res.status(404).json(r);
   res.json(r.deal);
+});
+
+// Embedded-assistant inline actions — the user APPROVES an assistant-proposed action
+// (record_issue / resolve_issue). Governed by the caller's write role + deal access;
+// every apply writes a fully-attributed audit-trail entry (actor = the signed-in user,
+// via = 'assistant'), so it can later be audited: what was suggested, applied, and by whom.
+api.post('/deals/:id/assistant-actions', async (req, res) => {
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  const access = accessFor(identity, viewAs);
+  if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only; you cannot apply changes.' });
+  const deal = getDealRaw(req.params.id);
+  const gate = authorizeDealContent(identity, deal, viewAs);
+  if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
+  const { kind, args = {} } = req.body || {};
+  const by = (identity && identity.name) || access.roleLabel || 'You';
+  let r;
+  if (kind === 'record_issue') {
+    r = await recordIssue(req.params.id, { lane: args.lane, title: args.title, severity: args.severity, resolutionPath: args.resolutionPath, sources: args.sources, by, persona: access.role, via: 'assistant' });
+  } else if (kind === 'resolve_issue') {
+    r = await resolveIssue(req.params.id, args.issueId, { status: 'resolved', by, persona: access.role, via: 'assistant' });
+  } else {
+    return res.status(400).json({ error: 'unknown-action', kind });
+  }
+  if (r.error) return res.status(String(r.error).endsWith('not-found') ? 404 : 422).json(r);
+  res.json({ ok: true, applied: kind, by, activity: r.deal?.activity?.[0] || null, deal: getDeal(req.params.id) });
+});
+
+// Deal activity / audit trail — actor, action, timestamp and provenance (via='assistant').
+api.get('/deals/:id/activity', (req, res) => {
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  const deal = getDealRaw(req.params.id);
+  const gate = authorizeDealContent(identity, deal, viewAs);
+  if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
+  res.json({ activity: (deal.activity || []).slice(0, 60) });
 });
 
 // Fabric / OneLake market intelligence — comparable deals, benchmark diligence
@@ -1096,6 +1133,12 @@ api.post('/deal-agent/chat', async (req, res) => {
       ? await chatOrchestrator({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs })
       : await chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs });
     if (out?.error) return res.status(400).json(out);
+    // Assistant proposes concrete next steps (user approves) — deterministic, grounded in
+    // deal state. Only for a deal-scoped, write-capable, authorised caller.
+    const effDealId = out.dealId || dealId;
+    if (effDealId && access.canWrite && !out.denied) {
+      try { out.proposedActions = proposeAssistantActions(effDealId); } catch { /* non-fatal */ }
+    }
     res.json(out);
   } catch (err) {
     res.status(500).json({ error: 'deal-agent chat failed', detail: String(err?.message || err) });

@@ -80,7 +80,8 @@ function sourceHint(src?: string): string {
 // Raw-dollar formatter for market-intel valuations (impliedValuation is in $, not $M).
 const bigMoney = (n?: number) => (n == null ? '—' : n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(0)}M` : `$${Math.round(n)}`);
 
-type Tab = 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'artifacts' | 'documents';
+type Tab = 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'artifacts' | 'documents' | 'activity';
+type ActivityEntry = { actor?: string; action?: string; when?: string; via?: string | null };
 
 export default function DealDetail({ dealId, canViewStage2, agents, deals, viewAsRole, onClose }: { dealId: string; canViewStage2: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onClose: () => void }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
@@ -88,6 +89,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
   const [flow, setFlow] = useState<Flow | null>(null);
   const [market, setMarket] = useState<MarketIntel | null>(null);
   const [citations, setCitations] = useState<Citations | null>(null);
+  const [activity, setActivity] = useState<ActivityEntry[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('overview');
   const [askOpen, setAskOpen] = useState(false);
@@ -127,6 +129,14 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
       ]).then(([mi, comps]) => setMarket({ ...(mi || {}), comparableDeals: (comps && comps.length ? comps : mi?.comparableDeals) || [] }));
     }
     if (!citations) af(`/api/deals/${dealId}/citations`).then((r) => (r.ok ? r.json() : null)).then(setCitations).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, dealId]);
+
+  // Lazily pull the deal's activity / audit trail whenever the Activity tab opens
+  // (re-fetch each open so newly applied assistant actions show up immediately).
+  useEffect(() => {
+    if (tab !== 'activity') return;
+    af(`/api/deals/${dealId}/activity`).then((r) => (r.ok ? r.json() : null)).then((d) => setActivity(d?.activity || [])).catch(() => setActivity([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, dealId]);
 
@@ -339,9 +349,9 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
 
             {!statusOnly && (
             <div className="dd-tabs">
-              {(['overview', 'stages', 'workspace', 'research', 'artifacts', 'documents', 'ic'] as Tab[]).map((t) => (
+              {(['overview', 'stages', 'workspace', 'research', 'artifacts', 'documents', 'ic', 'activity'] as Tab[]).map((t) => (
                 <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>
-                  {t === 'stages' ? 'Stages & orchestration' : t === 'overview' ? 'Overview' : t === 'workspace' ? 'Workspace' : t === 'research' ? 'Market research' : t === 'artifacts' ? 'Decision artifacts' : t === 'documents' ? 'Documents' : 'IC readiness'}
+                  {t === 'stages' ? 'Stages & orchestration' : t === 'overview' ? 'Overview' : t === 'workspace' ? 'Workspace' : t === 'research' ? 'Market research' : t === 'artifacts' ? 'Decision artifacts' : t === 'documents' ? 'Documents' : t === 'activity' ? 'Activity' : 'IC readiness'}
                 </button>
               ))}
             </div>
@@ -767,6 +777,28 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                       ))}
                     </div>
                   ) : null}
+                </section>
+              )}
+
+              {tab === 'activity' && (
+                <section className="dd-panel">
+                  <div className="dd-panel-h">Activity &amp; audit trail<span className="muted">who did what, and when</span></div>
+                  <div style={{ padding: '4px 14px 14px' }}>
+                    {activity == null ? <div className="muted" style={{ fontSize: 12, padding: '8px 0' }}>Loading activity…</div>
+                      : !activity.length ? <div className="muted" style={{ fontSize: 12, padding: '8px 0' }}>No activity recorded yet.</div>
+                      : activity.map((a, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderTop: i ? '1px solid var(--border, #23232c)' : 'none' }}>
+                          <span style={{ flex: '0 0 auto', width: 7, height: 7, marginTop: 5, borderRadius: 999, background: a.via === 'assistant' ? 'var(--accent, #6264A7)' : 'var(--muted, #8a8a94)' }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12.5 }}>{a.action}</div>
+                            <div className="muted" style={{ fontSize: 11, marginTop: 1 }}>
+                              {a.actor || 'System'}{a.when ? ` · ${relTime(a.when) || new Date(a.when).toLocaleString()}` : ''}
+                              {a.via === 'assistant' ? <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999, color: 'var(--accent, #6264A7)', background: 'rgba(98,100,167,.16)' }}>via assistant · you approved</span> : null}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
                 </section>
               )}
               </>

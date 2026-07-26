@@ -8,7 +8,8 @@ import { renderMarkdown } from './md';
 import { af } from './authFetch';
 import type { Agent, Deal } from './types';
 
-type Msg = { role: 'user' | 'agent'; text: string; source?: string; tools?: string[]; pending?: boolean };
+type ProposedAction = { id: string; kind: string; label: string; summary: string; args: Record<string, unknown>; sources?: string[] };
+type Msg = { role: 'user' | 'agent'; text: string; source?: string; tools?: string[]; pending?: boolean; proposed?: ProposedAction[]; applied?: string[] };
 
 const DEAL_STARTERS = [
   'Give me the IC readiness verdict and what is blocking it.',
@@ -25,6 +26,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
   const [prevId, setPrevId] = useState<Record<string, string | undefined>>({});
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [applying, setApplying] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (focusDealId) setDealId(focusDealId); }, [focusDealId]);
@@ -68,15 +70,34 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
       const data = await res.json();
       const reply = data?.reply || data?.error || 'No response.';
       const tools = Array.isArray(data?.toolCalls) && data.toolCalls.length ? Array.from(new Set(data.toolCalls)) as string[] : undefined;
+      const proposed = Array.isArray(data?.proposedActions) && data.proposedActions.length ? data.proposedActions as ProposedAction[] : undefined;
       if (data?.responseId) setPrevId((p) => ({ ...p, [threadKey]: data.responseId }));
-      setThreads((t) => { const arr = (t[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: reply, source: data?.source, tools }; return { ...t, [threadKey]: arr }; });
+      setThreads((t) => { const arr = (t[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: reply, source: data?.source, tools, proposed }; return { ...t, [threadKey]: arr }; });
     } catch (e: any) {
       setThreads((t) => { const arr = (t[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: `Sorry — I couldn't reach the agent (${String(e?.message || e)}).`, source: 'error' }; return { ...t, [threadKey]: arr }; });
     } finally { setSending(false); }
   }
 
-  if (!agent) return null;
-
+  // Apply an assistant-proposed action after the user approves it. Writes a fully
+  // attributed audit-trail entry server-side (actor = signed-in user, via = assistant).
+  async function applyAction(msgIdx: number, a: ProposedAction) {
+    if (applying || !dealId) return;
+    setApplying(a.id);
+    try {
+      const res = await af(`/api/deals/${dealId}/assistant-actions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: a.kind, args: a.args, viewAsRole: viewAsRole || undefined }) });
+      const data = await res.json();
+      if (!res.ok || data?.error) throw new Error(data?.detail || data?.error || 'apply failed');
+      setThreads((t) => {
+        const arr = (t[threadKey] || []).slice();
+        const m = arr[msgIdx];
+        if (m) arr[msgIdx] = { ...m, applied: [...(m.applied || []), a.id], proposed: (m.proposed || []).filter((p) => p.id !== a.id) };
+        arr.push({ role: 'agent', text: `✓ Applied — ${a.label.toLowerCase()}: “${a.summary}”. Recorded to the deal's activity trail under your name.`, source: 'applied' });
+        return { ...t, [threadKey]: arr };
+      });
+    } catch (e: any) {
+      setThreads((t) => { const arr = (t[threadKey] || []).slice(); arr.push({ role: 'agent', text: `Couldn't apply that (${String(e?.message || e)}).`, source: 'error' }); return { ...t, [threadKey]: arr }; });
+    } finally { setApplying(''); }
+  }
   return (
     <aside className="chatpanel">
       <div className="chat-head">
@@ -119,6 +140,21 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
                 {m.pending ? (<span className="typing"><span></span><span></span><span></span></span>)
                   : m.role === 'agent' ? (<><div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />{m.tools?.length ? <div className="tools">grounded via {m.tools.join(', ')}</div> : m.source === 'live' ? <div className="tools">live</div> : null}</>)
                     : (<div>{m.text}</div>)}
+                {m.proposed?.length ? (
+                  <div className="proposed">
+                    <div className="proposed-h">Suggested actions — you approve, I apply</div>
+                    {m.proposed.map((a) => (
+                      <div key={a.id} className="proposed-row">
+                        <div className="proposed-main">
+                          <span className="proposed-label">{a.label}</span>
+                          <span className="proposed-sum">{a.summary}</span>
+                          {a.sources?.length ? <span className="proposed-src">source: {a.sources[0]}</span> : null}
+                        </div>
+                        <button className="proposed-apply" disabled={!!applying} onClick={() => applyAction(i, a)}>{applying === a.id ? 'Applying…' : 'Apply ▸'}</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
           ))

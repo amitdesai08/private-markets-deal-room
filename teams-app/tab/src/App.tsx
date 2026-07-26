@@ -375,6 +375,15 @@ html, body, #root { margin: 0; height: 100%; }
 .bubble.user { background: var(--bubble-user); border-bottom-right-radius: 4px; }
 .bubble.agent { background: var(--bubble-agent); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
 .bubble .tools { margin-top: 6px; color: var(--muted); font-size: 11px; border-top: 1px dashed var(--border); padding-top: 5px; }
+.proposed { margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 7px; display: flex; flex-direction: column; gap: 6px; }
+.proposed-h { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
+.proposed-row { display: flex; align-items: center; gap: 8px; }
+.proposed-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.proposed-label { font-size: 12.5px; font-weight: 600; }
+.proposed-sum { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proposed-src { font-size: 10.5px; color: var(--muted); opacity: .8; }
+.proposed-apply { flex: 0 0 auto; border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.proposed-apply:disabled { opacity: .5; cursor: default; }
 .md > *:first-child { margin-top: 0; } .md > *:last-child { margin-bottom: 0; }
 .md p { margin: 7px 0; } .md h3, .md h4, .md h5 { margin: 10px 0 5px; font-size: 13px; }
 .md ul, .md ol { margin: 5px 0; padding-left: 18px; } .md li { margin: 3px 0; }

@@ -2079,7 +2079,7 @@ const ISSUE_STATUSES = new Set(['open', 'mitigating', 'resolved']);
 const CONDITION_STATUSES = new Set(['proposed', 'accepted', 'satisfied']);
 let issueSeq = 1;
 
-export function recordIssue(id, { lane, title, severity = 'caution', owner, resolutionPath, sources, dueDate, by, persona } = {}) {
+export function recordIssue(id, { lane, title, severity = 'caution', owner, resolutionPath, sources, dueDate, by, persona, via } = {}) {
   return mutateDeal(id, (deal) => {
     const t = String(title || '').trim().slice(0, 200);
     if (!t) return { error: 'title-required' };
@@ -2098,16 +2098,17 @@ export function recordIssue(id, { lane, title, severity = 'caution', owner, reso
       sources: Array.isArray(sources) ? sources.slice(0, 8) : [],
       by: by || null,
       persona: persona || null,
+      via: via || null,
       at,
       resolvedAt: null
     };
     deal.issues.unshift(issue);
-    deal.activity.unshift({ actor: by || 'Diligence', action: `Logged a ${sev} issue${lane ? ` in the ${lane} lane` : ''}: ${t}`, when: at });
+    deal.activity.unshift({ actor: by || 'Diligence', action: `Logged a ${sev} issue${lane ? ` in the ${lane} lane` : ''}: ${t}`, when: at, via: via || null });
     return { issue, event: 'issue-recorded', detail: { lane: lane || null, severity: sev, owner: owner || null, persona: persona || null } };
   });
 }
 
-export function resolveIssue(id, issueId, { status = 'resolved', resolutionPath, by, persona } = {}) {
+export function resolveIssue(id, issueId, { status = 'resolved', resolutionPath, by, persona, via } = {}) {
   return mutateDeal(id, (deal) => {
     const issue = (deal.issues || []).find((i) => i.id === issueId);
     if (!issue) return { error: 'issue-not-found' };
@@ -2116,7 +2117,7 @@ export function resolveIssue(id, issueId, { status = 'resolved', resolutionPath,
     if (resolutionPath) issue.resolutionPath = String(resolutionPath).slice(0, 300);
     const at = new Date().toISOString();
     issue.resolvedAt = st === 'resolved' ? at : null;
-    deal.activity.unshift({ actor: by || 'Diligence', action: `Issue "${issue.title}" → ${st}`, when: at });
+    deal.activity.unshift({ actor: by || 'Diligence', action: `Issue "${issue.title}" → ${st}`, when: at, via: via || null });
     return { issue, event: 'issue-updated', detail: { issueId, status: st, by: by || null, persona: persona || null } };
   });
 }
@@ -2236,7 +2237,50 @@ export function getICReadiness(id) {
   return board;
 }
 
-// The compact blocker signature the delta diffs on: incomplete required artifacts,
+// Proposed inline actions for the embedded assistant — deterministic, grounded in the
+// deal's own state (open issues + blocking workstreams), so the assistant can PROPOSE a
+// concrete next step that the user APPROVES (never acts autonomously). Each proposal maps
+// to an existing governed mutation (record_issue / resolve_issue) and carries its source
+// provenance, so applying it writes a fully-attributed audit-trail entry.
+export function proposeAssistantActions(id) {
+  const deal = getDealRaw(id);
+  if (!deal) return [];
+  const board = getICReadiness(id);
+  if (!board) return [];
+  const out = [];
+  const openIssues = (deal.issues || []).filter((i) => i.status === 'open');
+  // 1) Blocking workstreams not yet captured as an open issue -> propose logging one.
+  const issueTitles = new Set(openIssues.map((i) => String(i.title || '').toLowerCase()));
+  for (const w of board.blockingWorkstreams || []) {
+    const title = `${w.label || w.lane} workstream blocking IC`;
+    if (issueTitles.has(title.toLowerCase())) continue;
+    const reason = (w.reasons && w.reasons[0]) || `${w.blockingIssues || w.openIssues || 0} blocking issue(s)`;
+    out.push({
+      id: `pa-issue-${w.lane}`,
+      kind: 'record_issue',
+      label: 'Log blocker as issue',
+      summary: `${w.label || w.lane}: ${reason}`,
+      args: { lane: w.lane, title, severity: 'risk', resolutionPath: reason, sources: [`IC readiness board · ${w.label || w.lane} workstream`] },
+      sources: [`IC readiness board · ${w.label || w.lane} workstream`],
+    });
+    if (out.length >= 3) return out;
+  }
+  // 2) Open issues -> propose marking resolved.
+  for (const i of openIssues) {
+    out.push({
+      id: `pa-resolve-${i.id}`,
+      kind: 'resolve_issue',
+      label: 'Mark issue resolved',
+      summary: i.title,
+      args: { issueId: i.id },
+      sources: [`Issue log · ${i.severity} · ${i.lane || 'deal'}`],
+    });
+    if (out.length >= 3) return out;
+  }
+  return out.slice(0, 3);
+}
+
+
 // blocking workstreams, and unresolved risk-level issues (the same facts the verdict
 // gates on). Keyed so newly-blocking vs resolved can be diffed as sets.
 function readinessBlockers(board) {
