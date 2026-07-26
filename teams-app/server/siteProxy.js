@@ -81,32 +81,23 @@ export const TEAMS_CONFIG_HTML = `<!doctype html>
   <body>
     <h3>The Deal Room</h3>
     <p>Choose what this channel tab shows, then click <b>Save</b>.</p>
-    <label for="view">View</label>
-    <select id="view">
-      <option value="dashboard">Dashboard (interactive console)</option>
-      <option value="report">Deal Room Report (Power BI)</option>
-    </select>
-    <label for="scope" style="margin-top:16px;">Scope</label>
+    <label for="scope">Scope</label>
     <select id="scope"><option value="">Whole portfolio</option></select>
     <script>
       (function () {
         var sel = document.getElementById('scope');
-        var viewSel = document.getElementById('view');
         var deals = [];
         function labelFor(d) { return d.company || d.name || d.title || d.id; }
         function apply() {
           var origin = window.location.origin;
           var id = sel.value;
-          var isReport = viewSel.value === 'report';
           var deal = deals.filter(function (d) { return d.id === id; })[0];
+          // The channel tab always shows the Deal Room console (the Power BI report
+          // is now an integrated tab inside the app, not a separate pinnable tab).
           var content = origin + '/?surface=teams'
-            + (isReport ? '&view=report' : '')
             + (id ? '&deal=' + encodeURIComponent(id) : '');
-          var name = isReport
-            ? (deal ? labelFor(deal) + ' — Report' : 'Deal Room Report')
-            : (deal ? labelFor(deal) : 'Deal Room');
-          var entity = (isReport ? 'dealroom-report' : 'dealroom-dashboard');
-          if (id) entity = (isReport ? 'dealroom-report-' : 'dealroom-deal-') + id;
+          var name = deal ? labelFor(deal) : 'Deal Room';
+          var entity = id ? ('dealroom-deal-' + id) : 'dealroom-dashboard';
           return microsoftTeams.pages.config.setConfig({
             entityId: entity,
             contentUrl: content,

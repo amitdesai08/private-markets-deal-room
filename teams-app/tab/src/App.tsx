@@ -63,7 +63,11 @@ export default function App() {
   const [viewAsRole, setViewAsRole] = useState('');
   const [roleLabel, setRoleLabel] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'stage3' | 'stage4' | 'fund'>('overview');
+  // A legacy channel tab pinned with ?view=report opens straight to the in-app
+  // Report tab (the standalone Power BI report tab is now folded into the app).
+  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'stage3' | 'stage4' | 'fund' | 'report'>(
+    new URLSearchParams(window.location.search).get('view') === 'report' ? 'report' : 'overview',
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Platform power state (sleep/wake). null until first probe; when control is on and
   // the orchestrator is asleep, the whole app is replaced by the Offline gate.
@@ -80,15 +84,10 @@ export default function App() {
     return !!(a.persona && persona?.id && a.persona === persona.id);
   });
 
-  // Report surface selection (from the channel-tab config): ?view=report renders the
-  // print-friendly "Deal Room Report" instead of the console; &deal=<id> narrows it.
-  const urlParams = new URLSearchParams(window.location.search);
-  const reportView = urlParams.get('view') === 'report';
-  const reportDealId = urlParams.get('deal') || '';
-
   const mainTabs: [typeof mainTab, string][] = [
     ['overview', 'Deals Overview'], ['stage1', 'Stage 1 — Origination'], ['stage2', 'Stage 2 — Diligence'],
     ['stage3', 'Stage 3 — Execution'], ['stage4', 'Stage 4 — Value & Exit'], ['fund', 'Fund & Portfolio'],
+    ['report', 'Report'],
   ];
 
   function applyAccess(ctx: any) {
@@ -181,14 +180,6 @@ export default function App() {
     return <Offline status={platform} ssoToken={ssoToken} />;
   }
 
-  // "Deal Room Report" surface: a channel tab can be pinned to the Power BI report
-  // (configured from /config with ?view=report, optionally &deal=<id>). Rendered full
-  // screen — PowerBI embeds the live report and falls back to a native summary built
-  // from the same data the dashboard already fetched.
-  if (reportView) {
-    return <PowerBI ssoToken={ssoToken} analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId={reportDealId} />;
-  }
-
   return (
     <div className="appwrap">
       <style>{GLOBAL_CSS}</style>
@@ -237,6 +228,8 @@ export default function App() {
             <Stage4 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           ) : mainTab === 'fund' ? (
             <Fund />
+          ) : mainTab === 'report' ? (
+            <PowerBI ssoToken={ssoToken} analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId="" />
           ) : (
             <Stage2 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           )}
