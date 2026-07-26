@@ -218,6 +218,29 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
   // only if the backend didn't tag the payload.
   const statusOnly = deal ? (deal.accessLevel ? deal.accessLevel === 'status' : (inStage2 && !canViewStage2)) : false;
 
+  // Deal-level "next best action" — deterministic, from IC readiness, IC timing and stage.
+  // Above-the-fold so opening a flagged deal immediately shows what to do next.
+  const nbaReadiness = deal?.readiness ?? 0;
+  const nbaDays = typeof deal?.daysToIC === 'number' ? deal.daysToIC : null;
+  const nbaCtx = `${deal?.stage || ''} ${deal?.stageName || ''}`;
+  const nbaPostIc = /execution|closing|signing|value|exit|owned|monitor/i.test(nbaCtx);
+  const nbaEvent = nbaDays != null && nbaDays >= 0 ? `IC in ${nbaDays}d` : null;
+  let nba: { title: string; reason: string; urgency: 'High' | 'Normal'; primaryLabel: string; primaryTab: Tab } | null = null;
+  if (deal && !statusOnly) {
+    if (nbaPostIc) {
+      const isValue = /value|exit|owned|monitor/i.test(nbaCtx);
+      nba = { title: isValue ? 'Monitor value creation' : 'Drive to close', reason: isValue ? 'Post-IC — track the 100-day plan and KPIs vs the underwriting.' : 'Approved at IC — advance execution and closing.', urgency: 'Normal', primaryLabel: isValue ? 'Open workspace' : 'Open workspace', primaryTab: 'workspace' };
+    } else if (nbaDays != null && nbaDays >= 0 && nbaDays <= 21 && nbaReadiness < 80) {
+      nba = { title: 'Close diligence gaps before IC', reason: `IC in ${nbaDays}d but only ${nbaReadiness}% ready${verdict ? ` (${verdict})` : ''} — resolve the open items gating readiness.`, urgency: 'High', primaryLabel: 'Review IC readiness', primaryTab: 'ic' };
+    } else if (nbaReadiness >= 80) {
+      nba = { title: 'Prepare for Investment Committee', reason: `${nbaReadiness}% ready${verdict ? ` (${verdict})` : ''} — finalize the memo and decision artifacts.`, urgency: (nbaDays != null && nbaDays >= 0 && nbaDays <= 14) ? 'High' : 'Normal', primaryLabel: 'Open decision artifacts', primaryTab: 'artifacts' };
+    } else if (nbaReadiness < 40) {
+      nba = { title: 'Advance diligence', reason: `Early at ${nbaReadiness}% ready — run the diligence workstreams to progress.`, urgency: 'Normal', primaryLabel: 'Open workspace', primaryTab: 'workspace' };
+    } else {
+      nba = { title: 'Keep diligence moving', reason: `${nbaReadiness}% ready — close the next workstream items toward IC.`, urgency: 'Normal', primaryLabel: 'Review IC readiness', primaryTab: 'ic' };
+    }
+  }
+
   return (
     <div className="drawer-scrim" onClick={onClose}>
       <aside className="drawer" onClick={(e) => e.stopPropagation()}>
@@ -248,6 +271,22 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                 <span className="chip">IC readiness {deal.readiness ?? 0}%</span>
               </div>
             </div>
+
+            {nba ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 10px', padding: '11px 14px', borderRadius: 10, border: `1px solid ${nba.urgency === 'High' ? '#b23b3b' : 'var(--border, #2a2a35)'}`, background: 'var(--card, #1b1b22)' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span>Next best action · {nba.title}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 999, color: nba.urgency === 'High' ? '#f99' : 'var(--muted)', background: nba.urgency === 'High' ? 'rgba(178,59,59,.16)' : 'rgba(140,140,150,.14)' }}>{nba.urgency} urgency{nbaEvent ? ` · ${nbaEvent}` : ''}</span>
+                  </div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 2 }}>{nba.reason}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flex: '0 0 auto' }}>
+                  <button className="chbtn" onClick={() => setTab(nba.primaryTab)}>{nba.primaryLabel} ▸</button>
+                  <button className="chbtn" onClick={() => setAskOpen(true)}>💬 Ask</button>
+                </div>
+              </div>
+            ) : null}
 
             {!statusOnly && (
             <div className="dd-tabs">
