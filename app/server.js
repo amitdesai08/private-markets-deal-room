@@ -108,7 +108,7 @@ import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMc
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
 import { listConnectors, testConnector, disconnectConnector } from './lib/connectors.js';
-import { setConnectorEnabled, setConnectorConfig, addCustomConnector, removeCustomConnector, isCustomConnector } from './lib/connectorSettings.js';
+import { setConnectorEnabled, setConnectorConfig, addCustomConnector, removeCustomConnector, isCustomConnector, approveCustomConnector } from './lib/connectorSettings.js';
 import { askFabricDataAgent, fabricDataAgentInfo } from './lib/fabricDataAgent.js';
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import m365LoginRouter from './lib/m365/loginRoutes.js';
@@ -577,6 +577,19 @@ api.delete('/connectors/:id', async (req, res) => {
     res.json(out);
   } catch (err) {
     res.status(500).json({ error: 'remove source failed', detail: String(err?.message || err) });
+  }
+});
+// Approve a custom data source for production use — ADMIN ONLY (advisor SC-5 governance).
+// A custom source is pending (unusable) until an admin approves it.
+api.post('/connectors/:id/approve', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  if (!isCustomConnector(req.params.id)) return res.status(400).json({ error: 'not-custom', detail: 'Only custom sources need approval.' });
+  try {
+    const identity = requestingIdentity(req);
+    const out = await approveCustomConnector(req.params.id, identity?.upn || identity?.name || 'admin');
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: 'approve failed', detail: String(err?.message || err) });
   }
 });
 api.post('/connectors/:id/test', async (req, res) => {

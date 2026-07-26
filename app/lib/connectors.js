@@ -20,8 +20,7 @@ import { testFilings, filingsConfigured } from './filings.js';
 import { gdeltNews, gdeltConfigured } from './providers/gdelt.js';
 import { leiLookup, gleifConfigured } from './providers/gleif.js';
 import { fabricDataAgentConfigured, fabricDataAgentInfo } from './fabricDataAgent.js';
-import { isConnectorEnabled, getConnectorConfig, listCustomConnectors } from './connectorSettings.js';
-import { m365Configured, m365Connected, me as m365Me } from './m365/graph.js';
+import { isConnectorEnabled, getConnectorConfig, listCustomConnectors } from './connectorSettings.js';import { m365Configured, m365Connected, me as m365Me } from './m365/graph.js';
 import { workiqConfigured, workiqConnected, workiqUrl } from './mcp/workiq.js';
 
 export const CONNECTORS = [
@@ -137,7 +136,7 @@ function isConfigured(c) {
   if (c.kind === 'fabric-agent') return fabricDataAgentConfigured();
   if (c.kind === 'm365') return m365Connected();
   if (c.kind === 'workiq') return workiqConnected();
-  if (c.kind === 'custom') return !!getConnectorConfig(c.id).endpoint;
+  if (c.kind === 'custom') return c.approved === true && !!getConnectorConfig(c.id).endpoint;
   return false;
 }
 
@@ -296,6 +295,10 @@ async function testCustom(c) {
 export async function testConnector(id, { force = false } = {}) {
   const c = connectorById(id);
   if (!c) return null;
+  // Governance: a custom source can't be used until an admin approves it (advisor SC-5).
+  if (c.kind === 'custom' && c.approved !== true) {
+    return result(c, { ok: false, status: 'pending', latencyMs: null, message: 'Awaiting admin approval \u2014 a custom source can\u2019t be tested or used until an admin approves it.' });
+  }
   if (!isConnectorEnabled(id)) {
     return result(c, { ok: false, status: 'disabled', latencyMs: null, message: 'Disabled in Data Sources settings.' });
   }
@@ -335,12 +338,13 @@ export function listConnectors() {
       enabled,
       configured,
       custom: !!c.custom,
+      approved: c.custom ? c.approved === true : true,
       // Runtime-editable config (e.g. WorkIQ MCP URL) surfaced to Settings.
       configFields: c.configFields || null,
       config: c.configFields ? getConnectorConfig(c.id) : undefined,
-      testable: free || c.kind === 'fabric-agent' || c.kind === 'custom' ? true : (c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq' ? configured : false),
+      testable: free || c.kind === 'fabric-agent' || (c.kind === 'custom' && c.approved === true) ? true : (c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq' ? configured : false),
       connectable: c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq', // can be signed-in via OAuth
-      status: !enabled ? 'disabled' : (cached ? cached.status : c.kind === 'database' ? 'disconnected' : configured ? 'unknown' : 'disconnected'),
+      status: !enabled ? 'disabled' : (c.custom && c.approved !== true ? 'pending' : (cached && cached.status !== 'pending' ? cached.status : c.kind === 'database' ? 'disconnected' : configured ? 'unknown' : 'disconnected')),
       latencyMs: cached ? cached.latencyMs : null,
       lastSync: getLastSync(c.id),
       message: !enabled ? 'Disabled in Data Sources settings.' : (cached ? cached.message : null)

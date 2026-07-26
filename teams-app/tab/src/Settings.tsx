@@ -24,7 +24,7 @@ export default function Settings({ isAdmin, ssoToken, viewAs, onClose }: {
         {isAdmin ? <button className={tab === 'admin' ? 'on' : ''} onClick={() => setTab('admin')}>Access Administration</button> : null}
       </nav>
       <div className="set-body">
-        {showAdmin ? <Admin ssoToken={ssoToken} viewAs={viewAs} /> : <DataSources />}
+        {showAdmin ? <Admin ssoToken={ssoToken} viewAs={viewAs} /> : <DataSources isAdmin={isAdmin} />}
       </div>
     </div>
   );

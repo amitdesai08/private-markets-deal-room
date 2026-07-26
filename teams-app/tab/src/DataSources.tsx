@@ -7,6 +7,7 @@
 // The free/open sources (SEC EDGAR, GDELT, GLEIF) need no subscription and are on
 // by default — this is where a demo turns individual sources on and off.
 import { useEffect, useState } from 'react';
+import { af } from './authFetch';
 
 type Connector = {
   id: string; name: string; kind: string; provider: string | null; role: string;
@@ -15,13 +16,14 @@ type Connector = {
   connectable: boolean; status: string; latencyMs: number | null;
   lastSync: string | null; message: string | null;
   custom?: boolean;
+  approved?: boolean;
   configFields?: { key: string; label: string; placeholder?: string; kind?: string }[] | null;
   config?: Record<string, string>;
 };
 
 const STATUS_LABEL: Record<string, string> = {
   connected: 'Connected', disconnected: 'Not connected', degraded: 'Degraded',
-  disabled: 'Disabled', unknown: 'Ready',
+  disabled: 'Disabled', unknown: 'Ready', pending: 'Pending approval',
 };
 
 const TIERS: { key: string; title: string; blurb: string; match: (c: Connector) => boolean }[] = [
@@ -33,7 +35,7 @@ const TIERS: { key: string; title: string; blurb: string; match: (c: Connector) 
   { key: 'custom', title: 'Custom sources', blurb: 'Providers your fund added — declared honestly, probed for reachability.', match: (c) => c.kind === 'custom' },
 ];
 
-export default function DataSources() {
+export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) {
   const [rows, setRows] = useState<Connector[] | null>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   // Local edits for connectors that expose configFields (e.g. the WorkIQ MCP URL).
@@ -125,6 +127,18 @@ export default function DataSources() {
     finally { setBusyFor(c.id, false); }
   };
 
+  // Admin-only: approve a pending custom source for production use (uses af so the
+  // caller's identity flows to the server's admin gate).
+  const approveSource = async (c: Connector) => {
+    setBusyFor(c.id, true);
+    try {
+      const r = await af(`/api/connectors/${c.id}/approve`, { method: 'POST' });
+      if (r.ok) patch(c.id, { approved: true, status: 'unknown', message: null });
+      else if (r.status === 403) patch(c.id, { message: 'Only an administrator can approve a data source.' });
+    } catch { /* ignore */ }
+    finally { setBusyFor(c.id, false); }
+  };
+
   if (!rows) return <div className="ds-wrap"><style>{CSS}</style><p className="ds-empty">Loading data sources…</p></div>;
   const activeFree = rows.filter((c) => c.free && c.enabled).length;
   const freeTotal = rows.filter((c) => c.free).length;
@@ -143,7 +157,7 @@ export default function DataSources() {
       <div className="ds-add">
         <div className="ds-add-h">
           <span className="ds-add-t">Add a data source</span>
-          <span className="ds-add-b">No built-in for your provider (PitchBook, Morningstar Direct, an internal API)? Register it here.</span>
+          <span className="ds-add-b">No built-in for your provider (PitchBook, Morningstar Direct, an internal API)? Register it here. New sources start <b>pending</b> until an admin approves them.</span>
         </div>
         <div className="ds-add-grid">
           <input className="ds-cfg-in" placeholder="Name (e.g. PitchBook)" value={form.name} maxLength={60}
@@ -224,6 +238,7 @@ export default function DataSources() {
                           ? <button className="ds-btn" disabled={!!busy[c.id]} onClick={() => disconnect(c)}>Disconnect</button>
                           : <button className="ds-btn primary" onClick={() => connect(c)}>Connect</button>
                       ) : null}
+                      {c.custom && !c.approved && isAdmin ? <button className="ds-btn primary" disabled={!!busy[c.id]} onClick={() => approveSource(c)}>Approve</button> : null}
                       {c.custom ? <button className="ds-btn danger" disabled={!!busy[c.id]} onClick={() => removeSource(c)}>Remove</button> : null}
                     </span>
                   </div>
@@ -284,6 +299,7 @@ const CSS = `
 .ds-pill.disconnected { color: #b98; background: rgba(180,140,120,.14); }
 .ds-pill.degraded { color: #d80; background: rgba(221,136,0,.16); }
 .ds-pill.disabled { color: var(--muted); background: rgba(140,140,150,.14); }
+.ds-pill.pending { color: #d80; background: rgba(221,136,0,.16); }
 .ds-pill.unknown { color: #6ea8fe; background: rgba(110,168,254,.14); }
 .ds-switch { position: relative; display: inline-block; width: 38px; height: 20px; flex: none; }
 .ds-switch input { opacity: 0; width: 0; height: 0; }

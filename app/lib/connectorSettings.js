@@ -134,6 +134,9 @@ export async function addCustomConnector(input = {}, taken = { ids: [], names: [
     primaryJob,
     sweetSpot,
     custom: true,
+    // Governance: a custom source is PENDING until an admin approves it; it cannot be
+    // used (tested/enabled) in production until then (advisor SC-5).
+    approved: false,
     configFields: [{ key: 'endpoint', label: 'Endpoint / API URL (optional)', placeholder: 'https://\u2026/api or /mcp', kind: 'url' }],
   };
   _custom[id] = def;
@@ -141,6 +144,19 @@ export async function addCustomConnector(input = {}, taken = { ids: [], names: [
   if (endpoint) _config[id] = { endpoint };
   await persist();
   return { ...def };
+}
+
+// Admin approval gate for a custom connector (advisor SC-5). Only an approved source
+// may be enabled/tested for production use.
+export async function approveCustomConnector(id, approver = null) {
+  if (!_custom[id]) return { error: 'not-custom' };
+  _custom[id] = { ..._custom[id], approved: true, approvedBy: approver || null, approvedAt: new Date().toISOString() };
+  await persist();
+  return { ...(_custom[id]) };
+}
+
+export function isCustomApproved(id) {
+  return _custom[id] ? _custom[id].approved === true : false;
 }
 
 export async function removeCustomConnector(id) {
