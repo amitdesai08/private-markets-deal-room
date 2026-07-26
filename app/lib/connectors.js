@@ -20,7 +20,7 @@ import { testFilings, filingsConfigured } from './filings.js';
 import { gdeltNews, gdeltConfigured } from './providers/gdelt.js';
 import { leiLookup, gleifConfigured } from './providers/gleif.js';
 import { fabricDataAgentConfigured, fabricDataAgentInfo } from './fabricDataAgent.js';
-import { isConnectorEnabled, getConnectorConfig } from './connectorSettings.js';
+import { isConnectorEnabled, getConnectorConfig, listCustomConnectors } from './connectorSettings.js';
 import { m365Configured, m365Connected, me as m365Me } from './m365/graph.js';
 import { workiqConfigured, workiqConnected, workiqUrl } from './mcp/workiq.js';
 
@@ -100,6 +100,14 @@ export const CONNECTORS = [
 
 const byId = Object.fromEntries(CONNECTORS.map((c) => [c.id, c]));
 
+// Built-in connectors + any custom sources the fund has registered (persisted).
+function allConnectors() {
+  return [...CONNECTORS, ...listCustomConnectors()];
+}
+function connectorById(id) {
+  return byId[id] || listCustomConnectors().find((c) => c.id === id) || null;
+}
+
 // Provider → MCP config for the in-app OAuth login routes.
 export function mcpProviderConfig(provider) {
   const c = CONNECTORS.find((x) => (x.kind === 'mcp' || x.kind === 'workiq') && x.provider === provider);
@@ -129,6 +137,7 @@ function isConfigured(c) {
   if (c.kind === 'fabric-agent') return fabricDataAgentConfigured();
   if (c.kind === 'm365') return m365Connected();
   if (c.kind === 'workiq') return workiqConnected();
+  if (c.kind === 'custom') return !!getConnectorConfig(c.id).endpoint;
   return false;
 }
 
@@ -263,10 +272,29 @@ async function testM365(c) {
   }
 }
 
+// A user-registered custom source. Honest connectivity: if an endpoint URL was
+// given, probe it for reachability (any HTTP response = reachable; auth is the
+// integration's job); otherwise report it as declared-but-not-wired.
+async function testCustom(c) {
+  const endpoint = getConnectorConfig(c.id).endpoint;
+  if (!endpoint) {
+    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Custom source registered — add an endpoint URL, then wire an integration to go live.' });
+  }
+  const t0 = Date.now();
+  try {
+    await fetch(endpoint, { method: 'GET', signal: AbortSignal.timeout(8000) });
+    const latencyMs = Date.now() - t0;
+    markSync(c.id);
+    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Reachable · endpoint responded in ${latencyMs}ms (custom source — auth handled by your integration)` });
+  } catch (e) {
+    return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Endpoint unreachable · ${e.name || 'error'}` });
+  }
+}
+
 // Run a real connectivity test for one connector. Databases (unwired) always
 // report disconnected. Soft-cached for CACHE_MS unless force=true.
 export async function testConnector(id, { force = false } = {}) {
-  const c = byId[id];
+  const c = connectorById(id);
   if (!c) return null;
   if (!isConnectorEnabled(id)) {
     return result(c, { ok: false, status: 'disabled', latencyMs: null, message: 'Disabled in Data Sources settings.' });
@@ -282,13 +310,14 @@ export async function testConnector(id, { force = false } = {}) {
   if (c.kind === 'fabric-agent') return testFabricAgent(c);
   if (c.kind === 'm365') return testM365(c);
   if (c.kind === 'workiq') return testWorkiq(c);
+  if (c.kind === 'custom') return testCustom(c);
   return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Integration not wired — no live connection.' });
 }
 
 // The connector table for the Home connectivity panel: metadata + whether it can
 // be tested/connected + the last known result (if any this session).
 export function listConnectors() {
-  return CONNECTORS.map((c) => {
+  return allConnectors().map((c) => {
     const enabled = isConnectorEnabled(c.id);
     const configured = isConfigured(c);
     const cached = lastResult[c.id];
@@ -305,10 +334,11 @@ export function listConnectors() {
       free,
       enabled,
       configured,
+      custom: !!c.custom,
       // Runtime-editable config (e.g. WorkIQ MCP URL) surfaced to Settings.
       configFields: c.configFields || null,
       config: c.configFields ? getConnectorConfig(c.id) : undefined,
-      testable: free || c.kind === 'fabric-agent' ? true : (c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq' ? configured : false),
+      testable: free || c.kind === 'fabric-agent' || c.kind === 'custom' ? true : (c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq' ? configured : false),
       connectable: c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq', // can be signed-in via OAuth
       status: !enabled ? 'disabled' : (cached ? cached.status : c.kind === 'database' ? 'disconnected' : configured ? 'unknown' : 'disconnected'),
       latencyMs: cached ? cached.latencyMs : null,

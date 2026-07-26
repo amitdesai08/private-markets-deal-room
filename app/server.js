@@ -108,7 +108,7 @@ import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMc
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
 import { listConnectors, testConnector, disconnectConnector } from './lib/connectors.js';
-import { setConnectorEnabled, setConnectorConfig } from './lib/connectorSettings.js';
+import { setConnectorEnabled, setConnectorConfig, addCustomConnector, removeCustomConnector, isCustomConnector } from './lib/connectorSettings.js';
 import { askFabricDataAgent, fabricDataAgentInfo } from './lib/fabricDataAgent.js';
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import m365LoginRouter from './lib/m365/loginRoutes.js';
@@ -552,6 +552,33 @@ api.get('/companies/:id', (req, res) => {
 // Data-source connectivity (Home connectivity panel). Real tests for Web + MCP
 // connectors; unwired vendor DBs report disconnected honestly.
 api.get('/connectors', (_req, res) => res.json(listConnectors()));
+// Register a CUSTOM data source (e.g. PitchBook / Morningstar Direct / an internal
+// API) when there is no built-in for it. Honest connectivity — declared + optional
+// endpoint, tested by a reachability probe. Rejected if a source already exists.
+api.post('/connectors', async (req, res) => {
+  const existing = listConnectors();
+  const taken = { ids: existing.map((c) => c.id), names: existing.map((c) => c.name) };
+  try {
+    const out = await addCustomConnector(req.body || {}, taken);
+    if (out?.error) {
+      const code = out.error === 'already-exists' ? 409 : 400;
+      return res.status(code).json(out);
+    }
+    res.status(201).json(out);
+  } catch (err) {
+    res.status(500).json({ error: 'add source failed', detail: String(err?.message || err) });
+  }
+});
+// Remove a custom data source (built-in sources cannot be removed).
+api.delete('/connectors/:id', async (req, res) => {
+  if (!isCustomConnector(req.params.id)) return res.status(400).json({ error: 'not-custom', detail: 'Only custom sources can be removed.' });
+  try {
+    const out = await removeCustomConnector(req.params.id);
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: 'remove source failed', detail: String(err?.message || err) });
+  }
+});
 api.post('/connectors/:id/test', async (req, res) => {
   try {
     const out = await testConnector(req.params.id, { force: true });

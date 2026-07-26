@@ -14,6 +14,7 @@ type Connector = {
   free: boolean; enabled: boolean; configured: boolean; testable: boolean;
   connectable: boolean; status: string; latencyMs: number | null;
   lastSync: string | null; message: string | null;
+  custom?: boolean;
   configFields?: { key: string; label: string; placeholder?: string; kind?: string }[] | null;
   config?: Record<string, string>;
 };
@@ -29,6 +30,7 @@ const TIERS: { key: string; title: string; blurb: string; match: (c: Connector) 
   { key: 'fabric-agent', title: 'Fabric Data Agent', blurb: 'Natural-language Q&A over the fund\u2019s lakehouse (live or grounded).', match: (c) => c.kind === 'fabric-agent' },
   { key: 'mcp', title: 'Subscription providers', blurb: 'Vendor data over MCP — sign in to connect.', match: (c) => c.kind === 'mcp' },
   { key: 'm365', title: 'Microsoft 365', blurb: 'Delegated Teams / SharePoint / mailbox.', match: (c) => c.kind === 'm365' },  { key: 'workiq', title: 'Work IQ (M365 work data for agents)', blurb: 'SharePoint files \u00b7 Teams threads \u00b7 mailbox over MCP \u2014 set the endpoint, then connect.', match: (c) => c.kind === 'workiq' },  { key: 'database', title: 'Not wired', blurb: 'Vendor DBs shown for context — no live connection.', match: (c) => c.kind === 'database' },
+  { key: 'custom', title: 'Custom sources', blurb: 'Providers your fund added — declared honestly, probed for reachability.', match: (c) => c.kind === 'custom' },
 ];
 
 export default function DataSources() {
@@ -36,6 +38,10 @@ export default function DataSources() {
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   // Local edits for connectors that expose configFields (e.g. the WorkIQ MCP URL).
   const [cfgEdit, setCfgEdit] = useState<Record<string, Record<string, string>>>({});
+  // "Add a data source" form (custom providers the fund registers itself).
+  const [form, setForm] = useState({ name: '', primaryJob: '', role: 'confirm', endpoint: '' });
+  const [addErr, setAddErr] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const load = () => fetch('/api/connectors').then((r) => (r.ok ? r.json() : [])).then(setRows).catch(() => setRows([]));
   useEffect(() => { load(); }, []);
@@ -93,8 +99,33 @@ export default function DataSources() {
     finally { setBusyFor(c.id, false); }
   };
 
-  if (!rows) return <div className="ds-wrap"><style>{CSS}</style><p className="ds-empty">Loading data sources…</p></div>;
+  // Register a custom data source; the backend rejects a name that already exists.
+  const addSource = async () => {
+    const name = form.name.trim();
+    if (!name) { setAddErr('Give the source a name.'); return; }
+    setAdding(true); setAddErr(null);
+    try {
+      const r = await fetch('/api/connectors', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(form),
+      });
+      if (r.status === 409) { setAddErr(`A source called “${name}” already exists — look for it above.`); return; }
+      if (!r.ok) { setAddErr('Could not add that source.'); return; }
+      setForm({ name: '', primaryJob: '', role: 'confirm', endpoint: '' });
+      await load();
+    } catch { setAddErr('Could not add that source.'); }
+    finally { setAdding(false); }
+  };
 
+  const removeSource = async (c: Connector) => {
+    setBusyFor(c.id, true);
+    try {
+      await fetch(`/api/connectors/${c.id}`, { method: 'DELETE' });
+      setRows((prev) => (prev ? prev.filter((x) => x.id !== c.id) : prev));
+    } catch { /* ignore */ }
+    finally { setBusyFor(c.id, false); }
+  };
+
+  if (!rows) return <div className="ds-wrap"><style>{CSS}</style><p className="ds-empty">Loading data sources…</p></div>;
   const activeFree = rows.filter((c) => c.free && c.enabled).length;
   const freeTotal = rows.filter((c) => c.free).length;
 
@@ -107,6 +138,29 @@ export default function DataSources() {
           Configure the connectors that ground the Deal Room. {activeFree}/{freeTotal} free &amp; open sources active —
           no subscription needed. Toggle a source off to exclude it from the demo; sign in to enable a vendor provider.
         </p>
+      </div>
+
+      <div className="ds-add">
+        <div className="ds-add-h">
+          <span className="ds-add-t">Add a data source</span>
+          <span className="ds-add-b">No built-in for your provider (PitchBook, Morningstar Direct, an internal API)? Register it here.</span>
+        </div>
+        <div className="ds-add-grid">
+          <input className="ds-cfg-in" placeholder="Name (e.g. PitchBook)" value={form.name} maxLength={60}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+          <input className="ds-cfg-in" placeholder="What it provides (optional)" value={form.primaryJob} maxLength={200}
+            onChange={(e) => setForm((f) => ({ ...f, primaryJob: e.target.value }))} />
+          <select className="ds-cfg-in" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} title="Where this source fits in sourcing">
+            <option value="discover">Discover</option>
+            <option value="confirm">Confirm</option>
+            <option value="quality">Quality</option>
+            <option value="context">Context</option>
+          </select>
+          <input className="ds-cfg-in" type="url" placeholder="Endpoint / API URL (optional)" value={form.endpoint} spellCheck={false}
+            onChange={(e) => setForm((f) => ({ ...f, endpoint: e.target.value }))} />
+          <button className="ds-btn primary" disabled={adding || !form.name.trim()} onClick={addSource}>{adding ? 'Adding…' : 'Add source'}</button>
+        </div>
+        {addErr ? <p className="ds-add-err">{addErr}</p> : null}
       </div>
 
       {TIERS.map((tier) => {
@@ -170,6 +224,7 @@ export default function DataSources() {
                           ? <button className="ds-btn" disabled={!!busy[c.id]} onClick={() => disconnect(c)}>Disconnect</button>
                           : <button className="ds-btn primary" onClick={() => connect(c)}>Connect</button>
                       ) : null}
+                      {c.custom ? <button className="ds-btn danger" disabled={!!busy[c.id]} onClick={() => removeSource(c)}>Remove</button> : null}
                     </span>
                   </div>
                   {c.message ? <p className="ds-msg">{c.message}</p> : null}
@@ -188,6 +243,13 @@ const CSS = `
 .ds-empty { color: var(--muted); }
 .ds-head h2 { margin: 0 0 4px; font-size: 20px; }
 .ds-head p { margin: 0 0 18px; color: var(--muted); font-size: 13px; max-width: 760px; line-height: 1.5; }
+.ds-add { border: 1px dashed var(--border, #33333f); border-radius: 10px; padding: 12px 14px; margin-bottom: 22px; background: var(--card, #1b1b22); }
+.ds-add-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.ds-add-t { font-weight: 600; font-size: 14px; color: var(--fg); }
+.ds-add-b { font-size: 12px; color: var(--muted); }
+.ds-add-grid { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.4fr) auto minmax(180px, 1.4fr) auto; gap: 8px; align-items: center; }
+@media (max-width: 720px) { .ds-add-grid { grid-template-columns: 1fr 1fr; } }
+.ds-add-err { margin: 8px 0 0; font-size: 12px; color: #d80; }
 .ds-tier { margin-bottom: 22px; }
 .ds-tier-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border, #2a2a35); padding-bottom: 6px; }
 .ds-tier-t { font-weight: 600; font-size: 14px; color: var(--fg); }
@@ -214,6 +276,8 @@ const CSS = `
 .ds-btn:hover:not(:disabled) { border-color: var(--accent, #6ea8fe); color: var(--accent, #6ea8fe); }
 .ds-btn:disabled { opacity: .5; cursor: default; }
 .ds-btn.primary { border-color: var(--accent, #6ea8fe); color: var(--accent, #6ea8fe); }
+.ds-btn.danger { border-color: #b23b3b; color: #d88; }
+.ds-btn.danger:hover:not(:disabled) { border-color: #d55; color: #f99; }
 .ds-msg { margin: 8px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.4; }
 .ds-pill { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 9px; }
 .ds-pill.connected { color: #0a6; background: rgba(0,170,102,.14); }

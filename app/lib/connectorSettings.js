@@ -17,6 +17,9 @@ const DOC_ID = 'connector-settings';
 let _overrides = {};
 // id -> config object (e.g. { mcpUrl }).
 let _config = {};
+// id -> user-added custom connector definition (e.g. a PitchBook / Morningstar
+// source the fund adds itself when there is no built-in for it).
+let _custom = {};
 let _loaded = false;
 
 export async function initConnectorSettings() {
@@ -31,9 +34,11 @@ export async function initConnectorSettings() {
       _overrides = { ...rec };
       _config = {};
     }
+    _custom = rec.custom && typeof rec.custom === 'object' ? { ...rec.custom } : {};
   } catch {
     _overrides = {};
     _config = {};
+    _custom = {};
   }
   _loaded = true;
   return { ..._overrides };
@@ -59,7 +64,7 @@ export function getConnectorConfig(id) {
 
 async function persist() {
   try {
-    await connectors.upsert({ id: DOC_ID, record: { enabled: { ..._overrides }, config: { ..._config } }, updatedAt: new Date().toISOString() });
+    await connectors.upsert({ id: DOC_ID, record: { enabled: { ..._overrides }, config: { ..._config }, custom: { ..._custom } }, updatedAt: new Date().toISOString() });
   } catch {
     /* best-effort; in-memory holds for this process */
   }
@@ -84,4 +89,65 @@ export async function setConnectorConfig(id, patch = {}) {
   _config[id] = next;
   await persist();
   return getConnectorConfig(id);
+}
+
+// ---- user-added custom connectors -------------------------------------------
+// The fund can register a data source we do not ship a built-in for (e.g.
+// PitchBook, Morningstar Direct, an internal API). A custom connector is honest
+// about connectivity: it is a declaration + optional endpoint, tested by a plain
+// reachability probe — never faked as "connected".
+const CUSTOM_ROLES = ['discover', 'confirm', 'quality', 'context'];
+
+function slugify(s) {
+  return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+}
+
+export function listCustomConnectors() {
+  return Object.values(_custom).map((d) => ({ ...d }));
+}
+
+export function isCustomConnector(id) {
+  return !!_custom[id];
+}
+
+// Add a custom connector. Returns the created definition, or { error } on bad input.
+// `taken` is the set of existing (built-in + custom) ids/names to de-dupe against.
+export async function addCustomConnector(input = {}, taken = { ids: [], names: [] }) {
+  const name = String(input.name || '').trim();
+  if (!name) return { error: 'name-required' };
+  if (name.length > 60) return { error: 'name-too-long' };
+  const lc = name.toLowerCase();
+  if ((taken.names || []).some((n) => String(n).toLowerCase() === lc)) return { error: 'already-exists' };
+  const role = CUSTOM_ROLES.includes(input.role) ? input.role : 'confirm';
+  const primaryJob = String(input.primaryJob || '').trim().slice(0, 200) || 'Custom data source (added by the fund).';
+  const sweetSpot = String(input.sweetSpot || '').trim().slice(0, 200) || 'Registered as a custom provider.';
+  const takenIds = new Set([...(taken.ids || []), ...Object.keys(_custom)]);
+  const base = 'custom-' + (slugify(name) || 'source');
+  let id = base;
+  let n = 2;
+  while (takenIds.has(id)) id = `${base}-${n++}`;
+  const def = {
+    id,
+    name,
+    kind: 'custom',
+    role,
+    primaryJob,
+    sweetSpot,
+    custom: true,
+    configFields: [{ key: 'endpoint', label: 'Endpoint / API URL (optional)', placeholder: 'https://\u2026/api or /mcp', kind: 'url' }],
+  };
+  _custom[id] = def;
+  const endpoint = String(input.endpoint || '').trim();
+  if (endpoint) _config[id] = { endpoint };
+  await persist();
+  return { ...def };
+}
+
+export async function removeCustomConnector(id) {
+  if (!_custom[id]) return { error: 'not-custom' };
+  delete _custom[id];
+  delete _overrides[id];
+  delete _config[id];
+  await persist();
+  return { ok: true, id };
 }
