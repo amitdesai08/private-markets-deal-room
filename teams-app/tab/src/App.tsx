@@ -28,7 +28,7 @@ type TeamsConfig = { demoMode: boolean; backend: string; sso: boolean; bot: bool
 // value-creation) server-side, scoped to the caller's role/persona. We deliberately
 // never present the specialists as separately selectable chat targets.
 const ORCHESTRATOR: Agent = {
-  key: 'orchestrator', label: 'Deal Room Assistant', subtitle: 'One assistant — it brings in the right specialist for your role', initials: 'DR', kind: 'orchestrator',
+  key: 'orchestrator', label: 'Deal Room Assistant', subtitle: 'Ask about any deal, the pipeline or the portfolio', initials: 'DR', kind: 'orchestrator',
   starters: [
     'List every deal with its stage, status and IC readiness.',
     'Which deal is the highest priority right now, and why?',

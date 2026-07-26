@@ -38,7 +38,9 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
   const avgCheck = deals.length ? pipelineValue / deals.length : 0;
   const sectors = new Set(deals.map((d) => d.sector).filter(Boolean)).size;
   const icReady = deals.filter((d) => (d.readiness ?? 0) >= 80).length;
-  const withIC = deals.filter((d) => typeof d.daysToIC === 'number');
+  // "Next to committee" = the soonest UPCOMING IC among pre-IC deals (never a past-IC,
+  // owned/exiting deal — which would show negative days).
+  const withIC = deals.filter((d) => typeof d.daysToIC === 'number' && (d.daysToIC as number) >= 0 && /diligence|approval|screen|origin|sourc/i.test(`${d.stage || ''} ${d.stageName || ''}`));
   const nearestIC = withIC.length ? withIC.reduce((a, b) => ((a.daysToIC as number) <= (b.daysToIC as number) ? a : b)) : null;
 
   const kpis = [
