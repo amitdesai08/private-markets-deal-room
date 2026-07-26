@@ -26,7 +26,7 @@ implemented yet — this is the plan.
 | G · CoWork / Copilot surface via MCP | ✅ **surface shipped** — `/workiq-mcp` Streamable-HTTP MCP consumable by Copilot Studio + M365 Copilot ([README-workiq-copilot-studio.md](../app/mcp/README-workiq-copilot-studio.md), [workiq-mcp-openapi.yaml](../app/mcp/workiq-mcp-openapi.yaml)); CoWork document engine still needs the CoWork SKU |
 | H · Claude financial-services skills & agents | ⏸️ deferred (needs licensing decision); skills already ported to `skills/*` |
 | I1 · Agents can't bypass RBAC (identity-gated dispatch) | ✅ done |
-| I2 · Purpose-based agents + orchestrator delegation | ✅ **live in Foundry** — 7 agents provisioned in `proj-dealhub-dev` ([create_purpose_agents.py](../app/scripts/create_purpose_agents.py), [purpose-agents.env](../app/scripts/purpose-agents.env)); app still routes personas (flip when ready) |
+| I2 · Purpose-based agents + orchestrator delegation | ✅ **live & wired** — 7 agents in `proj-dealhub-dev`; the app orchestrator now delegates route→consult→compose via [purposeAgent.js](../app/lib/purposeAgent.js) (`ORCHESTRATION=purpose`, auto-fallback to the analyst chat) |
 | I3 · PE personas researched + documented | ✅ done — [PERSONAS.md](PERSONAS.md) |
 | I4 · Role-aware "what can you do?" capabilities | ✅ done — [capabilities.js](../app/lib/capabilities.js) + `/capabilities` |
 | I5 · Builder/IT explainer + PE glossary | ✅ done — [EXPLAINER.md](EXPLAINER.md) |
@@ -329,14 +329,16 @@ persona prompts (item 1), then add the missing connectors (item 3).
   end-user identity into the MCP call** so it can gate per-user — folded into **I2** (the
   purpose-based rebuild threads identity through the orchestrator→agent→tool path).
 
-### I2 · Purpose-based agents + orchestrator delegation — 📋 planned
-- **Direction:** move from **persona** agents (one per role, much overlap) to a small set of
-  **purpose** agents (Sourcing · Screening · Diligence · Modeling · IC-Memo ·
-  Portfolio-Monitoring), with the **Deal Room Analyst as orchestrator** delegating tasks and
-  threading identity. Personas become a *lens*, not an agent each. See
-  [AGENTS.md § Direction](AGENTS.md#direction--purpose-based-agents--orchestrator-delegation).
-- **Approach:** define the task agents in **Foundry** (`create_*_agent.py`), each bundling the
-  skills it needs from [SKILLS.md](../SKILLS.md); wire orchestrator→agent **handoff** (maps onto
-  the Managed-Agents / Cowork model in H); integrate **Cowork** for document authoring (G). Keep
-  the governed tools + the I1 data-protection guarantees unchanged.
-- **Effort:** L (agent rebuild + orchestration seam). **Depends on:** H (skills) + G (Cowork).
+### I2 · Purpose-based agents + orchestrator delegation — ✅ done (live)
+- **Shipped:** the app orchestrator now delegates. [purposeAgent.js](../app/lib/purposeAgent.js)
+  drives `deal-room-orchestrator` to **route** (answer directly, or delegate to ≤2 stage
+  specialists), **consult** the chosen `deal-room-*` agents in parallel, and **compose** one
+  grounded answer — gated by `ORCHESTRATION=purpose` with automatic fallback to the single-agent
+  analyst chat. The single-assistant UX is unchanged; the delegation happens server-side.
+- **Direction (delivered):** moved from **persona** agents (one per role, much overlap) to the
+  **purpose** agents (Sourcing · Screening · Diligence · Modeling · IC-Memo · Value-Creation)
+  with the orchestrator delegating; personas remain a *lens*. See
+  [AGENTS.md § Purpose-based agents](AGENTS.md).
+- **Follow-on (optional):** thread the end-user identity through the orchestrator→specialist→MCP
+  hop so the shared MCP can gate per-user need-to-know (see the I1 trade-off above); today the
+  specialists ground via the read-only MCP under the app identity.

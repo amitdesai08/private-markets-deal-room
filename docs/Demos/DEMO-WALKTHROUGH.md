@@ -144,9 +144,10 @@ Pull the threads together:
 - **One backend, two surfaces** — the *same* console in Teams and on the web.
 - **Identity-aware** — access resolved server-side from who is asking; agents
   routed by role; view-as only goes down.
-- **Grounded & cited** — 10 Foundry specialist agents reading the live record
-  through governed MCP tools (now including `get_fund_overview` · `get_portfolio`
-  · `get_fund_value`).
+- **Grounded & cited** — one assistant that **delegates to purpose-built specialists**
+  (sourcing, screening, diligence, modeling, IC-memo, value-creation) and composes the
+  answer, all reading the live record through governed MCP tools (`get_fund_overview` ·
+  `get_portfolio` · `get_fund_value` …).
 - **Free, keyless data** — real SEC/XBRL, GLEIF and GDELT with no paid provider.
 - **Lean & Microsoft-native** — `azd up` deploys it all; the blob store means a
   demo costs almost nothing; **Cosmos is optional**; bring your own roles, personas

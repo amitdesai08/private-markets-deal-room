@@ -118,13 +118,24 @@ Ask:
 > The agents are Foundry agents that read the pipeline through the governed MCP
 > tools — grounded, cited, and persona-framed.
 
-## 7 · The Deal Room Report — Power BI in the channel (1 min)
+> **One assistant, many specialists.** The user talks to a single **Deal Room
+> Assistant**; behind it the **orchestrator** decides whether to answer directly or
+> pull in the right **stage specialists** — sourcing, screening, diligence, modeling,
+> IC-memo, value-creation — consults them in parallel, and **composes one answer**
+> (the reply reports which agents it used). Ask a modeling + IC question and watch it
+> bring in the **modeling** and **ic-memo** specialists together. It's on by default
+> (`ORCHESTRATION=purpose`) and falls back to the single analyst agent if a specialist
+> is unavailable.
 
-In a Teams channel, add the **Deal Room** tab and choose **View → Deal Room Report (Power BI)**.
-The app serves the fund's **real Power BI report** — Portfolio Overview · Sector & Industry ·
-Pipeline by Stage · Deal Value & Valuation · Time-based metrics — **embedded** for signed-in
-users (user-owns-data), with an **Open in Power BI** deep link and a live native summary as a
-fallback. The report tab is a first-class, app-served surface, not a bolt-on.
+## 7 · The Deal Room Report — Power BI, integrated in the app (1 min)
+
+Open the **Report** tab inside the app (top nav). Reporting is now a **first-class
+function of the console itself** — not a separate pinned tab. The app serves the fund's
+**real Power BI report** — Portfolio Overview · Sector & Industry · Pipeline by Stage ·
+Deal Value & Valuation · Time-based metrics — **embedded** for signed-in users
+(user-owns-data), with an **Open in Power BI** deep link and a live native summary as a
+fallback. (A channel tab pinned to the old `?view=report` link still opens straight to
+this in-app Report tab.)
 
 ## 8 · Work IQ — agents over SharePoint / Teams / mail (1 min)
 
@@ -134,6 +145,12 @@ connected, the internal-data agents gain **governed, delegated** M365 tools —
 `workiq_search_mail` (Outlook) — so a diligence question can be grounded in the deal's real
 documents, channel discussion and correspondence. The **external** news scout can **never**
 call them: the data-sovereignty guard refuses any boundary crossing and audit-logs it.
+
+> **Add your own provider.** In **Data Sources**, the **Add a data source** form registers any
+> provider the platform doesn't ship a built-in for (PitchBook, Morningstar Direct, an internal
+> API) — name it, pick its sourcing role, drop in an endpoint, and it appears as a governed
+> connector with an honest **reachability** test (never a faked "connected"). A name that
+> duplicates a built-in is rejected; remove a custom source anytime.
 
 ## 9 · Documents on your own license (1 min)
 
@@ -168,7 +185,9 @@ call them: the data-sovereignty guard refuses any boundary crossing and audit-lo
 | Returns Excel | deal → **Documents** → *Returns model (Excel)* |
 | Fund & portfolio (post-IC) | **Fund & Portfolio** tab · `/api/fund/{overview,portfolio,value}` |
 | Specialist agents | **agents** panel + in-deal **💬 Ask agents** · `GET /api/persona-agents` |
-| Deal Room Report (Power BI) | channel tab → **View: Deal Room Report** |
+| Orchestrated delegation | one assistant → orchestrator delegates to stage specialists → composes (`ORCHESTRATION=purpose`) |
+| Deal Room Report (Power BI) | in-app **Report** tab (top nav) |
+| Add a custom data source | **Settings ⚙ → Data Sources → Add a data source** · `POST /api/connectors` |
 | Work IQ (M365 for agents) | **Settings ⚙ → Data Sources → Work IQ** |
 | Keyless data | `/api/company/:name/fundamentals`, `/api/entity/:name/lei`, `/api/news/gdelt` |
 

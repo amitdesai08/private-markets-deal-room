@@ -42,10 +42,13 @@ spins up and the deal crosses into Stage 2.
   Fund Mandate (GATE) → Investment Theme (GUIDE) → Screen (RANK). Targets that
   breach the mandate are excluded, never scored; survivors are gate-passed then
   screen-ranked (`lib/scoring.js`, `data/mandates.js`).
-- **Ten specialist agents** — a Deal Orchestrator plus Analyst, Partner,
-  Principal, three sector MDs, Operating Partner, Fund CFO, General Counsel and
-  Investor Relations. Each is a Foundry agent that reads the live pipeline
-  through the read-only MCP tools, **governed by the requester's role**
+- **Specialist agents + orchestrated delegation** — ten persona agents (Analyst,
+  Partner, Principal, three sector MDs, Operating Partner, Fund CFO, General Counsel
+  and Investor Relations) plus seven **purpose** agents behind a **Deal Room
+  orchestrator** that routes a request, consults the right stage specialists and
+  composes one grounded answer (`lib/purposeAgent.js`, `ORCHESTRATION=purpose`, with
+  automatic fallback to the analyst chat). Each is a Foundry agent that reads the live
+  pipeline through the read-only MCP tools, **governed by the requester's role**
   (`lib/userPolicy.js` + `lib/personaPolicy.js` + `lib/personaAgent.js`).
 - **Decision artifacts** — LBO/returns (IRR/MOIC + sensitivity), value-creation /
   100-day plan, risk register, IOI/LOI drafts, and the **IC readiness** board

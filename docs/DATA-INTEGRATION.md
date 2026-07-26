@@ -36,6 +36,7 @@ faked status; unwired vendors are honestly reported as **disconnected** until en
 | `fabric-agent` | NL Q&A over the fund's OneLake lakehouse | managed identity | Fabric Data Agent |
 | `workiq` | Governed M365 tools over MCP | Graph app-only / OBO | Work IQ |
 | `database` | **Vendor DB / API** (entitlement-gated) | vendor key / SSO | PitchBook, FactSet, Capital IQ |
+| `custom` | **User-registered source** (added in Settings, no code) | your integration | *(any the fund adds)* |
 
 ---
 
@@ -59,6 +60,18 @@ faked status; unwired vendors are honestly reported as **disconnected** until en
 > The three **`database`** vendors (PitchBook, FactSet, Capital IQ) are **subscription-gated**
 > placeholders today — the registry entry, role and UI exist, but they stay **disconnected**
 > until a real credential is supplied and a live probe succeeds. This keeps the demo honest.
+
+### Register a custom provider (no code)
+
+When the platform ships no built-in for a provider you use, register it yourself in
+**Settings → Data Sources → Add a data source** (or `POST /api/connectors`): give it a **name**,
+a sourcing **role** (`discover`/`confirm`/`quality`/`context`) and an optional **endpoint URL**.
+It appears immediately as a governed **`custom`** connector with an honest **reachability** probe
+of the endpoint (any HTTP response = reachable; authentication is your integration's job — status
+is never faked as `connected` without a real round-trip). The registry **rejects a name that
+duplicates a built-in** ("if we don't already have one, add it"), and a custom source can be
+toggled, tested and **removed** like any other. This is the runtime counterpart to the developer
+**checklist** below — declare a source now, then wire a full provider module when you're ready.
 
 ### Ingestion patterns (how to wire a paid provider)
 

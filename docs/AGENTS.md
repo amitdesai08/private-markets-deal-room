@@ -41,9 +41,15 @@ orchestrator** deciding which one to delegate to, threading the caller's **ident
 composing the answer. Personas become a *lens* (framing + which skills apply), not a separate
 agent each. **The seven purpose agents are provisioned live in the Foundry project
 `proj-dealhub-dev`** ([purpose-agents.env](../app/scripts/purpose-agents.env)) alongside the
-personas — additive and non-destructive. The app orchestrator + the capabilities feature already
-work against either topology; the Teams app still routes the persona agents until the routing is
-flipped.
+personas — additive and non-destructive.
+
+**This delegation is now wired and live.** The single assistant is driven by
+[`purposeAgent.js`](../app/lib/purposeAgent.js): the orchestrator **routes** a request (answer
+directly, or delegate to ≤2 stage specialists), the app **consults** the chosen `deal-room-*`
+specialists in parallel, and the orchestrator **composes** one grounded answer (the response
+reports which agents it used). It's gated by `ORCHESTRATION=purpose` (set on the `dev` backend)
+with automatic fallback to the single-agent analyst chat, so it can never hard-fail — unset the
+flag to revert instantly. The capabilities feature works against either topology.
 
 | Purpose agent (`name`) | Job | Bundled skills | Stage |
 |---|---|---|---|

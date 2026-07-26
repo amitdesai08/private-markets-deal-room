@@ -36,7 +36,7 @@ minutes, plus an explicit **feature → private-equity need** map you can speak 
 | 3 | **Diligence** (1:30) | Open a deal → **Stage 2 — Diligence**. Hit **💬 Ask agents** *inside the deal* and ask a **Sector MD** a lane question; show it grounds on **benchmark findings + comparable deals** from the fund's own history. | In-deal agent chat; market-intelligence grounding |
 | 4 | **Decide** (1:30) | Ask the **Fund CFO** for the **LBO case (IRR / MOIC)**; open the **IC memo** and **IC voting precedents**. | Auto-drafted decision artifacts; IC governance |
 | 5 | **Own it** (0:30) | Open **Fund & Portfolio** — the post-IC lens: portfolio monitoring, value-creation, LP-ready fund view. | Full lifecycle beyond the deal |
-| 6 | **Report & connect** (0:45) | In the channel, open the **Deal Room Report (Power BI)** tab. Then **Settings → Data Sources**: free tier on by default, **Work IQ** endpoint for M365 (SharePoint/Teams/mail) agent access, toggle a source off live. | Power BI in Teams; governed connectors incl. Work IQ |
+| 6 | **Report & connect** (0:45) | Open the in-app **Report** tab (Power BI). Then **Settings → Data Sources**: free tier on by default, **Work IQ** endpoint for M365 (SharePoint/Teams/mail) agent access, **Add a data source** to register a custom provider, toggle a source off live. | Power BI in the app; governed connectors + custom providers |
 
 **Ultra-short (3 min):** run beats **0 → 1 → 3 → 4** — the differentiator (access),
 a grounded specialist answer, and the IC artifact. That alone tells the story.
@@ -49,7 +49,7 @@ a grounded specialist answer, and the IC artifact. That alone tells the story.
 |---|---|---|
 | **Identity-aware access + view-as** (server-enforced) | Information barriers, deal-team confidentiality, LP/regulatory segregation of duties | Access is resolved on the server from *who is asking* — not a UI toggle; view-as never escalates privilege |
 | **10 specialist persona agents** (partner, principal, sector MDs, operating partner, fund CFO, GC, IR, analyst) | Thin deal teams and scarce senior time; consistent, complete diligence coverage | Every lane — commercial, tech/AI, supply chain, legal, returns — has an expert on tap, 24/7 |
-| **Deal orchestrator + grounded answers** | Trust and auditability — "can I believe the AI?" | Every answer cites the tool/source and is grounded in the live deal record — no hallucinated numbers |
+| **Deal orchestrator + grounded answers** | Trust and auditability — "can I believe the AI?" | One assistant delegates to stage specialists and composes; every answer cites the tool/source and is grounded in the live deal record — no hallucinated numbers |
 | **Full lifecycle: 15 stages, 6 decision gates** | Repeatable IC governance and process discipline across deals | Codifies the institutional process so nothing skips a gate or an owner |
 | **Auto-drafted decision artifacts** (IOI, diligence plan, LBO/returns, IC memo) | Time-to-IC; analyst grunt-work; partner-ready outputs | Drafts the exact artifacts partners vote on, from the live record |
 | **Market intelligence** (comparable deals, benchmark diligence findings, IC precedents, company financials) | Pattern-matching to prior deals; not repeating past mistakes | Grounds a new deal in the fund's *own* history and precedent |
