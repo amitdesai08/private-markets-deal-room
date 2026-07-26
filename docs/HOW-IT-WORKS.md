@@ -72,6 +72,26 @@ behaviour.
 
 ---
 
+## Assistant write-back & the audit trail
+
+The embedded assistant can move work forward — but only when a human approves, and always on
+the record:
+
+- **Propose, don't act.** A deal-scoped chat response carries deterministic **`proposedActions`**
+  computed from the deal's own state ([`proposeAssistantActions`](../app/lib/store.js)) — open
+  issues → *resolve*, blocking workstreams → *log an issue*. The assistant never mutates on its
+  own; the user clicks **Apply**.
+- **Governed apply.** `POST /api/deals/:id/assistant-actions` resolves the caller's identity and
+  role server-side, gates on **write capability** + **deal access** (`authorizeDealContent`), and
+  only then calls the existing governed mutation (`record_issue` / `resolve_issue`).
+- **Fully-attributed trail.** Every mutation appends to the deal's `activity[]` with
+  `{ actor, action, when, via }` — `actor` is the **signed-in user** (falling back to the role
+  label for an untrusted caller), and `via: 'assistant'` marks an assistant-applied,
+  human-approved change. `GET /api/deals/:id/activity` serves the trail; the deal's **Activity**
+  tab renders it. No history table — the trail is the record.
+
+---
+
 ## Persistence — Cosmos is optional
 
 The app persists through a single seam ([`app/lib/repo`](../app/lib/repo)) with a pluggable

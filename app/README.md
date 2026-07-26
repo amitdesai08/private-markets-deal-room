@@ -28,9 +28,9 @@ Stage 2 · Diligence & Approval      (the Deal Collaboration Hub on M365)
 ## How it works
 
 Running a step's agent produces a **cited** artifact on the live record, updates
-the deal (diligence lanes, IC memo, compliance), tallies **hours saved**, lifts
-the **IC readiness** score and pulls the **IC date** forward — making the
-time-to-IC value explicit at every step. Advancing past **O4** triggers the
+the deal (diligence lanes, IC memo, compliance), lifts the **IC readiness** score
+and pulls the **IC date** forward — making the deal's decision-readiness explicit
+at every step. Advancing past **O4** triggers the
 **PURSUE** gate: the collaboration space (Teams channel + SharePoint data room)
 spins up and the deal crosses into Stage 2.
 

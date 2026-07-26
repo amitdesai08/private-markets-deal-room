@@ -71,7 +71,6 @@ Cowork handoff model. Same governed tools, **same data-protection guarantees** b
 topology changes.
 
 ## "What can you do?" — role-aware capabilities
-
 Any user can ask the assistant **"what can you do?"** (or "how can you help", "help me get
 started") and get an answer **scoped to their Entra role and deal stage** — so someone can walk
 in blind and discover what's available *to them*. It's deterministic (no model call): the
@@ -80,6 +79,19 @@ skills, write-actions and limits it's allowed, and the chat endpoints short-circ
 questions before the deal gate. There's also a `GET /capabilities` endpoint returning the same,
 role-scoped, for the UI. See [PERSONAS.md](PERSONAS.md) for the persona→role→access map and
 [EXPLAINER.md](EXPLAINER.md) for the plain-English tour.
+
+## Proposed inline actions & the audit trail
+
+Inside a deal the assistant can **propose concrete next steps** grounded in the deal's own
+state — open issues → *resolve*, blocking workstreams → *log an issue* — returned on the chat
+response as `proposedActions` ([`proposeAssistantActions`](../app/lib/store.js)). It **never
+acts autonomously**: the user clicks **Apply**, which calls
+`POST /api/deals/:id/assistant-actions`. That route resolves the caller's identity + role
+server-side, gates on write capability and deal access, then invokes the same governed
+mutation the specialists use (`record_issue` / `resolve_issue`). Every apply writes a
+fully-attributed **audit entry** to the deal's `activity[]` — `actor` = the signed-in user,
+`via: 'assistant'` = human-approved AI change — served by `GET /api/deals/:id/activity` and
+rendered in the deal's **Activity** tab.
 
 ## Tools
 

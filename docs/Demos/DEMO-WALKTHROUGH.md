@@ -51,9 +51,11 @@ Then set the frame: *"Let's follow one deal the whole way through."*
 
 ## Act 1 · Origination & screening — *sign in as Chidi Anagonye (Analyst)*  ⏱ 3 min
 
-1. **Deals Overview** → note the pipeline and the value strip (deals processed,
-   analyst-hours saved, time-to-IC compression). *"This is the ROI story — the
-   platform is already saving the team weeks."*
+1. **Deals Overview** → note the **decision KPIs** (live deals, pipeline value,
+   average IC readiness, next to committee) and the **Needs attention** list — the
+   deals slipping toward IC, each with a plain-language *why* and one-click Open / Ask.
+   *"This is the deal team's cockpit — decision data first; there's deliberately no
+   ROI / hours-saved framing, because the audience is the people doing the deals."*
 2. Open **Stage 1 — Origination**. Walk the funnel: a **signal** (a CxO interview,
    a filing) becomes a **candidate**, gets **auto-screened**, then **triaged**.
 3. Call out the **sourcing framework** — three tiers doing three different jobs:
@@ -72,13 +74,19 @@ Then set the frame: *"Let's follow one deal the whole way through."*
 
 1. Open **Stage 2 — Diligence** and pick the lead deal (the top consumer deal).
 2. Show the **workstream lanes** — Commercial / Tech-AI / Operations — each owned
-   by a sector MD, with findings tagged by severity.
+   by a sector MD, with findings tagged by severity. On the deal's **Workspace** tab,
+   call out the **diligence workbench**: every lane as a **RYG** row with owner,
+   progress and the blocking reason, and a persistent **“N at risk”** count.
 3. As the **AI MD**, use the **agents** panel: *"Score AI-readiness and flag the
-   tech risks on this deal."* The answer is grounded and cited.
+   tech risks on this deal."* The answer is grounded and cited — and the assistant
+   **proposes** a next step (e.g. *“log this blocking lane as an issue”*) that you
+   **Apply ▸**. It writes the change *and* an attributed entry to the deal's
+   **Activity** trail — never acting on its own.
 4. Note that an MD **can only touch their own lane** — try the access model live.
 
 > "Diligence is parallelised across specialists, but governed — the AI MD can't
-> quietly edit the commercial lane. Every contribution is attributable."
+> quietly edit the commercial lane, and when the assistant changes anything a human
+> approved it and it's on the audit trail. Every contribution is attributable."
 
 ---
 
@@ -96,7 +104,10 @@ Then set the frame: *"Let's follow one deal the whole way through."*
    and does it clear the hurdle?"*
 3. Open the **IC readiness** tab — the decision-grade board answering the seven
    questions an IC actually asks, with a **READY / CONDITIONAL / NOT-READY** verdict
-   grounded in real Fabric comparables and IC precedents.
+   grounded in real Fabric comparables and IC precedents. Then flip to the deal's
+   **Overview** — the same verdict leads the **decision cockpit** with the **top 3
+   blockers** (one-click **Resolve ▸**) and a **“what changed since last check”**
+   delta so a partner sees momentum, not just status.
 4. Switch to **Eleanor (Partner)** and show **view-as-down**: she can see the room
    as any junior role, but **never up** — and it's enforced server-side. Only the
    Partner can approve at the **IC gate**.
@@ -126,6 +137,12 @@ tab.
 3. **Concentration vs LPA limits** — sector and single-position exposure against
    the mandate's hard caps (max % per sector / per deal). *"Compliance-by-design —
    the same LPA gate that screens deals also watches the portfolio."*
+   Call out the **Watchlist** at the top of the lens — the watch/underperform names
+   ranked, each with its **primary driver** (worst KPI vs plan) and a **Review ▸**.
+4. Open the **Report** tab — the LP-ready pack now carries a **“Source & methodology”
+   lineage appendix** (every headline metric → source system → as-of → method) and an
+   **output-mode badge** (LP-ready when external sources are live/within SLA, else
+   Draft-not-certified). *"You can hand this to an LP and trace every number home."*
 4. As **IR (Sofia)**, ask the agent: *"How does the fund read to our LPs right
    now?"* — the **ILPA-aligned LP summary** answers in one paragraph.
 5. As **Operating Partner (Rachel)**: *"Where's the biggest EBITDA-bridge lever
@@ -178,6 +195,7 @@ Pull the threads together:
 | Decision artifacts | `GET /api/deals/:id/{returns,value-creation,risk-register,ioi,loi}` |
 | Fund / LP performance | `GET /api/fund/overview` |
 | Portfolio monitoring | `GET /api/fund/portfolio` |
+| Assistant approve-to-apply + audit trail | `POST /api/deals/:id/assistant-actions` · `GET /api/deals/:id/activity` |
 | Agent answers | Foundry agents → MCP read tools (`/mcp-ro`) |
 | Keyless data | `GET /api/company/:name/fundamentals`, `/api/entity/:name/lei`, `/api/news/gdelt` |
 

@@ -43,11 +43,13 @@ tenant.
 ## What you can do
 
 - **Ask your deals questions** in plain language and get grounded, cited answers.
+- **Let the assistant propose the next step** — log a blocker, resolve an issue — and **apply it with one click**; every applied change lands on the deal's **audit trail** under your name.
 - **Source & screen** targets with an AI funnel and live SEC / analyst workups.
-- **Run diligence** across specialist lanes into an IC-ready pack.
-- **Decide** on returns (IRR/MOIC), value-creation, risk and IOI/LOI — exportable to Excel.
-- **Own & exit** — monitor MOIC/IRR, run the 100-day plan, and prep the exit.
-- **Generate board-ready documents** (Word IC memos, Excel models) into each deal's data room.
+- **Run diligence** across specialist lanes into an IC-ready pack, tracked on a **RYG workbench**.
+- **Decide** on returns (IRR/MOIC), value-creation, risk and IOI/LOI — exportable to Excel — with an **IC-readiness cockpit** (verdict + top blockers + *what changed since last check*).
+- **Compare deals side-by-side** on the same decision fields and copy the grid out.
+- **Own & exit** — monitor MOIC/IRR, run the 100-day plan, work the **watchlist**, and prep the exit.
+- **Generate board-ready documents** (Word IC memos, Excel models) into each deal's data room, and export **LP reports with a full source-and-methodology lineage**.
 - **Keep it confidential** — hide sensitive deals and grant access person-by-person.
 
 ---
@@ -99,6 +101,25 @@ Every deal carries the artifacts a PE IC decides on — **LBO / returns** (IRR/M
 grid), a **value-creation / 100-day plan** (EBITDA bridge), a **risk register**, and **IOI/LOI**
 — each derived from the live record and exportable to Excel, with an **IC-readiness** board that
 calls a **READY / CONDITIONAL / NOT-READY** verdict.
+
+### 🧭 A decision cockpit built for the deal team
+
+Each deal leads with the decision, not a status bar: the **IC-readiness verdict** with the
+**top blockers** (one-click **Resolve**), a **“what changed since last check”** delta (readiness
+and verdict moves, newly-blocking vs resolved items), a deterministic **next best action**, a
+**RYG diligence workbench** across the workstreams, and **side-by-side comparison** of 2–4 deals.
+The whole surface is **decision-data-first** — market intelligence is supporting context, not the
+lead — and there's **one invisible assistant**, no exposed “bots.”
+
+### ✅ Propose → approve → apply, with a full audit trail
+
+The assistant doesn't just answer — inside a deal it **proposes concrete next steps** grounded in
+the deal's own state (*log this blocking workstream as an issue*, *mark this issue resolved*). It
+**never acts on its own**: you **Apply** a suggestion, and the change is written to the live
+record **and** to a **fully-attributed audit entry** — who approved it, when, and that it came
+*via the assistant*. The deal's **Activity** tab is the running audit trail. Every write is
+governed by the caller's role server-side, so the AI can help move work forward without becoming
+a way around the access model.
 
 ### 🔐 Need-to-know access & confidential deals
 

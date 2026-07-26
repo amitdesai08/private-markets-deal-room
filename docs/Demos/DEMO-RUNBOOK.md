@@ -15,10 +15,13 @@ lifecycle**, the **specialist agents**, the **decision artifacts**, and the
 - Open the **web console** at `https://<teams-fqdn>/` (or the tab inside Teams).
 - No sign-in needed in demo mode — you'll use the **"sign in as"** switcher.
 - **You land on the Deals Overview — deals first, not market trends.** The overview
-  opens on the **Business value band** (analyst-hours saved, faster-to-IC, deals
-  processed, average IC readiness) and the **live pipeline**; **market intelligence
-  sits deliberately last**. Lead the demo with the *work* (screening → diligence → IC),
-  not the news feed.
+  opens on the **decision KPIs** (live deals, pipeline value, average IC readiness,
+  next to committee), a **Needs attention** list (the deals slipping toward IC, with a
+  plain-language *why* and one-click Open / Ask), and the **deals-by-stage** capital
+  view; **market intelligence sits deliberately last**. Lead the demo with the *work*
+  (screening → diligence → IC), not the news feed — and note there is **no ROI /
+  hours-saved framing**: the audience is the deal team, so every surface is
+  decision-data-first.
 
 > Everything is grounded in the live deal record. If asked "is this real?",
 > point out the answers cite the tools (`list_deals`, `get_deal`, `get_returns`…).
@@ -65,22 +68,36 @@ dropdown (it shows **Name — Role**, no clutter):
 
 ## 4 · A deal, end to end (4 min)
 
-> Start on the **Deals Overview** you landed on: call out the **Business value band**
-> and the **live pipeline** (screening → diligence → IC) — the story is the deals in
-> flight, with **market intelligence intentionally at the bottom**. Then open a deal.
+> Start on the **Deals Overview** you landed on: call out the **decision KPIs** and the
+> **Needs attention** list (deals slipping toward IC), then the **deals-by-stage** capital
+> view — the story is the deals in flight, with **market intelligence intentionally at
+> the bottom**. Then open a deal.
 
-1. From **Deals Overview**, open a deal (e.g. the top consumer deal). Each stage shows a
-   **"Who's on this stage"** specialist rail (👤 owner · 🤖 agent) so it's clear which
-   persona and agent own the work.
-2. **Decision artifacts** tab — show the four cards:
+1. From **Deals Overview**, open a deal (e.g. the top consumer deal). Each stage names its
+   **👤 owner persona** — the specialist bots stay behind the single assistant, so the
+   surface reads like a deal team's own workspace, not an agent console.
+2. On the deal's **Overview**, call out the **decision cockpit**:
+   - **IC readiness breakdown** — the **READY / CONDITIONAL / NOT-READY** verdict, the
+     readiness %, days-to-IC, and the **top 3 blockers**, each with a one-click **Resolve ▸**.
+   - **“What changed since last check?”** — a delta strip showing readiness/verdict moves
+     and newly-blocking vs resolved items since the last review (no history table — a lean
+     single mark that only rewrites on real change).
+   - **Next best action** — a deterministic strip that jumps to the exact tab to act.
+3. **Workspace** tab — the **diligence workbench**: every workstream as a **RYG** row
+   (red/amber/green) with owner, progress and the blocking reason, plus a persistent
+   **“N at risk”** count.
+4. **Decision artifacts** tab — show the four cards:
    - **LBO / Returns** — entry multiple, sources & uses, base/upside/downside **IRR & MOIC** vs the hurdle. Click **Returns model (Excel)** to download the real workbook (Summary · Sources & Uses · Scenarios · Sensitivity).
    - **Value creation** — the EBITDA bridge + quantified levers + 100-day plan.
    - **Risk register** — open risks by severity × likelihood, red/amber/green.
    - **IOI / LOI** — the non-binding indication and letter of intent.
-3. **IC readiness** tab — the decision-grade board + verdict.
+5. **IC readiness** tab — the full decision-grade board + verdict.
+6. **Compare** — back on Deals Overview, tick **2–4 deals** and open the side-by-side
+   grid (stage, IC readiness, days-to-IC, size, priority, recommended action); hit
+   **⧉ Copy table** to paste it straight into a note.
 
 > "Every number is derived from the live record — change the deal and the returns,
-> risks and memo change with it."
+> risks, verdict and delta change with it."
 
 ## 5 · Fund & portfolio — monitor what you own (2 min)
 
@@ -92,6 +109,8 @@ Open the **Fund & Portfolio** tab — the *post-IC* lens most tools stop short o
    multiple, **current MOIC & IRR**, value-creation progress and an
    **on-track / watch / underperform** status. Expand one to see the levers, the
    100-day plan and **KPIs vs the underwriting plan** (and an honest underperformer).
+   Call out the **Watchlist** at the top — the deteriorating names ranked, each with
+   its **primary driver** (the worst KPI vs plan) and a **Review ▸** into the detail.
 3. **Concentration vs LPA limits** — sector & single-position exposure against the
    mandate's hard caps — compliance-by-design.
 4. As **IR** or **Operating Partner**, ask the agent: *"How does the fund read to
@@ -126,6 +145,15 @@ Ask:
 > bring in the **modeling** and **ic-memo** specialists together. It's on by default
 > (`ORCHESTRATION=purpose`) and falls back to the single analyst agent if a specialist
 > is unavailable.
+
+> **Approve-to-apply + the audit trail (🆕).** Inside a deal, the assistant doesn't just
+> answer — it **proposes concrete next steps** grounded in the deal's state (e.g. *“Log
+> this blocking workstream as an issue”*, *“Mark this issue resolved”*). It **never acts
+> on its own**: each proposal is a chip you **Apply ▸**. Applying writes the change to the
+> live record and a **fully-attributed audit entry** — open the deal's **Activity** tab to
+> show *who did what, when*, with a **“via assistant · you approved”** badge on every
+> assistant-applied change. That's the governance answer to “can the AI change things?” —
+> yes, but only when a human approves, and always on the record.
 
 ## 7 · The Deal Room Report — Power BI, integrated in the app (1 min)
 
@@ -180,6 +208,10 @@ call them: the data-sovereignty guard refuses any boundary crossing and audit-lo
 | Feature | Where |
 |---|---|
 | RBAC / demo roster (5 Good Place tiers) | top-bar **"sign in as"** (single dropdown, Name — Role) |
+| Decision cockpit (verdict + top blockers + “what changed” delta + next best action) | deal → **Overview** |
+| Diligence workbench (RYG workstreams) | deal → **Workspace** tab |
+| Side-by-side compare (2–4 deals + Copy table) | **Deals Overview** → tick **+ Compare** |
+| Assistant approve-to-apply + audit trail | in-deal **💬 Ask** → **Apply ▸** · deal **Activity** tab · `POST /api/deals/:id/assistant-actions` · `GET /api/deals/:id/activity` |
 | Lifecycle (15 stages, 6 gates) | **Lifecycle** tab · `GET /api/lifecycle` |
 | Decision artifacts | deal → **Decision artifacts** tab · `/api/deals/:id/{returns,value-creation,risk-register,ioi,loi}` |
 | Returns Excel | deal → **Documents** → *Returns model (Excel)* |
