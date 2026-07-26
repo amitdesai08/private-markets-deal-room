@@ -303,9 +303,11 @@ html, body, #root { margin: 0; height: 100%; }
 .attn-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); cursor: pointer; }
 .attn-row:last-child { border-bottom: none; }
 .attn-row:hover { background: var(--hover); }
-.attn-co { font-weight: 700; min-width: 130px; }
-.attn-meta { color: var(--muted); font-size: 12px; flex: 1; min-width: 0; }
-.attn-row .askbtn { margin-left: auto; }
+.attn-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.attn-co { font-weight: 700; }
+.attn-sub { color: var(--muted); font-weight: 400; font-size: 12px; }
+.attn-why { color: var(--muted); font-size: 12px; margin-top: 1px; }
+.attn-acts { display: flex; gap: 6px; margin-left: auto; flex: 0 0 auto; }
 .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
 .panel-h { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 700; }
 .panel-h .muted { font-weight: 400; }

@@ -54,10 +54,10 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
   const priority = (d: Deal) => {
     const r = d.readiness ?? 0;
     const days = typeof d.daysToIC === 'number' ? d.daysToIC : 999;
-    if (days <= 21 && r < 80) return { rank: 0, tag: 'Approaching IC · gaps to close', cls: 'bad' };
-    if (r < 40) return { rank: 1, tag: 'Early · needs diligence', cls: 'warn' };
-    if (r >= 80) return { rank: 3, tag: 'IC-ready', cls: 'ok' };
-    return { rank: 2, tag: 'On track', cls: 'ok' };
+    if (days <= 21 && r < 80) return { rank: 0, tag: 'Approaching IC', cls: 'bad', why: `IC in ${days}d but only ${r}% ready — close diligence gaps before committee` };
+    if (r < 40) return { rank: 1, tag: 'Early', cls: 'warn', why: `${r}% IC-ready — needs diligence to progress` };
+    if (r >= 80) return { rank: 3, tag: 'IC-ready', cls: 'ok', why: 'Cleared the readiness bar' };
+    return { rank: 2, tag: 'On track', cls: 'ok', why: 'Progressing on plan' };
   };
   const attention = deals
     .map((d) => ({ d, p: priority(d) }))
@@ -96,10 +96,15 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
           <div className="attn">
             {attention.map(({ d, p }) => (
               <div key={d.id} className="attn-row" role="button" tabIndex={0} onClick={() => onOpen(d.id)}>
-                <span className="attn-co">{d.company}</span>
-                <span className="attn-meta">{d.stageName || d.stage || '—'} · {d.readiness ?? 0}% ready{typeof d.daysToIC === 'number' ? ` · IC in ${d.daysToIC}d` : ''}</span>
+                <div className="attn-main">
+                  <span className="attn-co">{d.company} <span className="attn-sub">· {d.stageName || d.stage || '—'}</span></span>
+                  <span className="attn-why">{p.why}</span>
+                </div>
                 <span className={`pill ${p.cls}`}>{p.tag}</span>
-                <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
+                <span className="attn-acts">
+                  <button className="askbtn" onClick={(e) => { e.stopPropagation(); onOpen(d.id); }}>Open ▸</button>
+                  <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
+                </span>
               </div>
             ))}
           </div>
