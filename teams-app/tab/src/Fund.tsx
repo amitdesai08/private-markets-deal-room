@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 // Fund / portfolio lens (post-IC). Three views from the orchestrator:
-//   /api/fund/value     — executive value / ROI dashboard
+//   /api/fund/value     — portfolio & pipeline health (companies, MOIC/IRR, add-ons)
 //   /api/fund/overview  — fund / LP performance + concentration vs LPA limits
 //   /api/fund/portfolio — owned-company monitoring (VCP, KPIs, MOIC, status)
 
@@ -197,17 +197,17 @@ export default function Fund() {
         </div>
       </section>
 
-      {/* Executive value / ROI */}
+      {/* Portfolio & pipeline health */}
       {val ? (
         <section className="fnd-panel">
-          <div className="fnd-panel-h"><span>Executive value — platform impact</span><span className="fnd-mut">Time-to-IC acceleration &amp; fund performance</span></div>
+          <div className="fnd-panel-h"><span>Portfolio &amp; pipeline health</span><span className="fnd-mut">owned companies &amp; deals in motion</span></div>
           <div className="fnd-kpis inpanel">
-            <Kpi v={String(val.pipeline.dealsProcessed)} l="Deals processed" s={`${val.pipeline.inDiligence} in diligence`} />
-            <Kpi v={String(val.pipeline.analystHoursSaved)} l="Analyst-hours saved" s={`${val.pipeline.fteWeeksSaved} FTE-weeks`} />
-            <Kpi v={`${val.pipeline.cycleReductionPct}%`} l="Cycle-time compression" s={`${val.pipeline.avgDaysSaved}d faster to IC`} />
-            <Kpi v={`${val.pipeline.avgIcReadiness}`} l="Avg IC readiness" s="across active deals" />
+            <Kpi v={String(val.portfolio.companies)} l="Companies owned" s={`${val.portfolio.deployedPct}% deployed`} />
+            <Kpi v={String(val.portfolio.onTrack)} l="On track" s={`${val.portfolio.watch} watch · ${val.portfolio.underperform} underperform`} />
             <Kpi v={`${val.portfolio.grossMoic.toFixed(2)}x`} l="Portfolio gross MOIC" s={`${val.portfolio.grossIrrPct}% IRR`} />
-            <Kpi v={usd(val.portfolio.capitalDeployed)} l="Capital deployed" s={`${val.portfolio.companies} companies`} />
+            <Kpi v={String(val.portfolio.addOnsClosed)} l="Add-ons closed" s="buy-and-build" />
+            <Kpi v={String(val.pipeline.dealsProcessed)} l="Active deals" s={`${val.pipeline.inDiligence} in diligence`} />
+            <Kpi v={`${val.pipeline.avgIcReadiness}%`} l="Avg IC readiness" s="across active deals" />
           </div>
         </section>
       ) : null}

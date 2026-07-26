@@ -1,7 +1,8 @@
-// The "Deals Overview" tab: the KPI/value strip (from /api/analytics), the Stage-1
-// pipeline funnel (/api/pipeline), the deal cards (/api/deals) and the market-intel
-// panel (/api/market-intel). Read-only; onAsk opens the agents panel and onOpen
-// drills into a deal's DealDetail overlay.
+// The "Deals Overview" tab: deal KPIs (live deals, pipeline value, IC readiness, next
+// to committee), a "Needs attention" priority list, the deals-by-stage capital view, the
+// Stage-1 origination funnel (/api/pipeline), the deal cards (/api/deals) and the
+// market-intel panel (/api/market-intel). Read-only; onAsk opens the agents panel and
+// onOpen drills into a deal's DealDetail overlay.
 import type { Analytics, Pipeline, Deal, MarketIntel, BackendConfig } from './types';
 
 function money(n?: number): string {

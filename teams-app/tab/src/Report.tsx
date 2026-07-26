@@ -59,7 +59,7 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
               <div className="rpt-kpi"><div className="v">{analytics?.deals ?? deals.length}</div><div className="l">Live deals</div></div>
               <div className="rpt-kpi"><div className="v">{analytics?.inDiligence ?? 0}</div><div className="l">In diligence</div></div>
               <div className="rpt-kpi"><div className="v">{analytics?.avgReadiness ?? 0}%</div><div className="l">Avg IC readiness</div></div>
-              <div className="rpt-kpi"><div className="v">{analytics?.cycleReductionPct ?? 0}%</div><div className="l">Cycle reduction</div></div>
+              <div className="rpt-kpi"><div className="v">{money(deals.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6)}</div><div className="l">Pipeline value</div></div>
               <div className="rpt-kpi"><div className="v">{comps.length}·{precedents.length}</div><div className="l">Comps · IC precedents</div></div>
             </div>
           </section>

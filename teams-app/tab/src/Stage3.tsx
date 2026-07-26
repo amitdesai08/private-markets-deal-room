@@ -55,7 +55,7 @@ export default function Stage3({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen
                   {figs.length ? <div className="dc-figs">{figs.map((f) => <span key={f.label} className="dc-fig"><b>{f.value}</b> {f.label}</span>)}</div> : null}
                   {d.thesis ? <p className="dc-thesis">{d.thesis.length > 180 ? `${d.thesis.slice(0, 180)}…` : d.thesis}</p> : null}
                   <div className="dc-foot">
-                    <span className="muted">{done}/{lanes.length} diligence lanes complete{d.hoursSaved ? ` · ${d.hoursSaved}h saved` : ''}</span>
+                    <span className="muted">{done}/{lanes.length} diligence lanes complete</span>
                     <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
                   </div>
                 </div>
