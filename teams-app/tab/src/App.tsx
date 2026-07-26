@@ -35,9 +35,6 @@ const ORCHESTRATOR: Agent = {
     'Where is the pipeline light — what should we source next?',
   ],
 };
-// Size of the specialist team the assistant orchestrates (for the dashboard KPI);
-// the live count comes from the backend config when available.
-const SPECIALIST_TEAM = 9;
 
 export default function App() {
   const [teamsInfo, setTeams] = useState<TeamsInfo | null>(null);
@@ -219,7 +216,7 @@ export default function App() {
           {settingsOpen ? (
             <Settings isAdmin={isAdmin} ssoToken={ssoToken} viewAs={viewAs} onClose={() => setSettingsOpen(false)} />
           ) : mainTab === 'overview' ? (
-            <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} agentCount={config?.personaAgents?.agents?.length || SPECIALIST_TEAM} onAsk={askAbout} onOpen={setOpenDealId} />
+            <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onOpen={setOpenDealId} />
           ) : mainTab === 'stage1' ? (
             <Stage1 onChanged={refreshData} onOpenDeal={setOpenDealId} />
           ) : mainTab === 'stage3' ? (
@@ -302,6 +299,13 @@ html, body, #root { margin: 0; height: 100%; }
 .bv-s { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
 .bv-close { padding: 12px 16px; font-size: 13px; line-height: 1.5; color: var(--fg); border-top: 1px solid var(--border); background: var(--hover); }
 .bv-close strong { color: var(--accent); }
+.attn { display: flex; flex-direction: column; }
+.attn-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.attn-row:last-child { border-bottom: none; }
+.attn-row:hover { background: var(--hover); }
+.attn-co { font-weight: 700; min-width: 130px; }
+.attn-meta { color: var(--muted); font-size: 12px; flex: 1; min-width: 0; }
+.attn-row .askbtn { margin-left: auto; }
 .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
 .panel-h { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 700; }
 .panel-h .muted { font-weight: 400; }

@@ -11,9 +11,9 @@ function money(n?: number): string {
   return `$${Math.round(n)}`;
 }
 
-export default function Dashboard({ analytics, pipeline, deals, market, config, agentCount, onAsk, onOpen }: {
+export default function Dashboard({ analytics, pipeline, deals, market, config, onAsk, onOpen }: {
   analytics: Analytics | null; pipeline: Pipeline | null; deals: Deal[]; market: MarketIntel | null;
-  config: BackendConfig | null; agentCount: number; onAsk: (dealId: string) => void; onOpen: (dealId: string) => void;
+  config: BackendConfig | null; onAsk: (dealId: string) => void; onOpen: (dealId: string) => void;
 }) {
   const fabric = config?.fabric || market?.info;
   const comps = market?.comparableDeals || [];
@@ -32,27 +32,46 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
     ? Math.round(deals.reduce((s, d) => s + (d.readiness || 0), 0) / deals.length)
     : (analytics?.avgReadiness ?? 0);
 
+  // Day-to-day PE headline data, derived from the deals THIS caller can see.
+  const pipelineValue = deals.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6; // total EV in flight
+  const avgCheck = deals.length ? pipelineValue / deals.length : 0;
+  const sectors = new Set(deals.map((d) => d.sector).filter(Boolean)).size;
+  const icReady = deals.filter((d) => (d.readiness ?? 0) >= 80).length;
+  const withIC = deals.filter((d) => typeof d.daysToIC === 'number');
+  const nearestIC = withIC.length ? withIC.reduce((a, b) => ((a.daysToIC as number) <= (b.daysToIC as number) ? a : b)) : null;
+
   const kpis = [
     { label: 'Live deals', value: String(liveDeals), sub: `${inDiligence} in diligence` },
-    { label: 'Avg IC readiness', value: `${avgReadiness}%`, sub: `${analytics?.cycleReductionPct ?? 0}% cycle cut` },
-    { label: 'Fabric market intel', value: fabric?.mode === 'live' ? 'Live' : (fabric?.mode ? 'Materialized' : '—'), sub: `${comps.length} comps · ${precedents.length} IC precedents` },
-    { label: 'Specialist agents', value: String(agentCount), sub: config?.newsAgent === 'live' ? 'orchestrated · news scout live' : 'orchestrated by 1 assistant' },
+    { label: 'Pipeline value', value: money(pipelineValue), sub: liveDeals ? `avg ${money(avgCheck)} · ${sectors} sector${sectors === 1 ? '' : 's'}` : '—' },
+    { label: 'Avg IC readiness', value: `${avgReadiness}%`, sub: `${icReady} ready for IC` },
+    { label: 'Next to committee', value: nearestIC ? `${nearestIC.daysToIC}d` : '—', sub: nearestIC ? nearestIC.company : 'none scheduled' },
   ];
 
-  // Quantified business-value story (from /api/analytics). Every number is derived
-  // from the live deal record — hours are tallied as agents complete real work.
-  const hoursSaved = analytics?.totalHoursSaved ?? 0;
-  const fteWeeks = analytics?.fteWeeks ?? Math.round((hoursSaved / 40) * 10) / 10;
-  const cyclePct = analytics?.cycleReductionPct ?? 0;
-  const daysSaved = analytics?.avgDaysSaved ?? 0;
-  const baselineDays = analytics?.baselineDays ?? 45;
-  const dealsProcessed = analytics?.deals ?? liveDeals;
-  const value = [
-    { v: hoursSaved.toLocaleString(), l: 'Analyst hours saved', s: `≈ ${fteWeeks} FTE-weeks redeployed to judgment` },
-    { v: `${cyclePct}%`, l: 'Faster to IC', s: `${daysSaved}d saved vs ${baselineDays}-day baseline` },
-    { v: String(dealsProcessed), l: 'Deals processed', s: `${inDiligence} in active diligence` },
-    { v: `${avgReadiness}%`, l: 'Avg IC readiness', s: 'across the live pipeline' },
+  // What needs action before it slips: approaching IC but not ready, or early / stalled.
+  const priority = (d: Deal) => {
+    const r = d.readiness ?? 0;
+    const days = typeof d.daysToIC === 'number' ? d.daysToIC : 999;
+    if (days <= 21 && r < 80) return { rank: 0, tag: 'Approaching IC · gaps to close', cls: 'bad' };
+    if (r < 40) return { rank: 1, tag: 'Early · needs diligence', cls: 'warn' };
+    if (r >= 80) return { rank: 3, tag: 'IC-ready', cls: 'ok' };
+    return { rank: 2, tag: 'On track', cls: 'ok' };
+  };
+  const attention = deals
+    .map((d) => ({ d, p: priority(d) }))
+    .filter((x) => x.p.rank <= 1)
+    .sort((a, b) => a.p.rank - b.p.rank || ((a.d.daysToIC ?? 999) - (b.d.daysToIC ?? 999)))
+    .slice(0, 6);
+
+  // Where the live capital sits in the deal process.
+  const PHASES = [
+    { key: 'diligence', label: 'Diligence & Approval', re: /diligence|approval/i },
+    { key: 'execution', label: 'Execution & Closing', re: /execution|closing|signing/i },
+    { key: 'value', label: 'Value & Exit', re: /value|exit|owned|monitor/i },
   ];
+  const byPhase = PHASES.map((ph) => {
+    const ds = deals.filter((d) => ph.re.test(`${d.stage || ''} ${d.stageName || ''}`));
+    return { key: ph.key, label: ph.label, count: ds.length, capital: ds.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6 };
+  });
 
   return (
     <div className="dash">
@@ -67,22 +86,36 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
         ))}
       </div>
 
-      {/* Quantified business value — the "so-what" close */}
-      <section className="panel bizval">
-        <div className="panel-h"><span>Business value</span><span className="muted">AI-accelerated deal pipeline · derived from the live record</span></div>
-        <div className="bv-grid">
-          {value.map((k) => (
-            <div key={k.l} className="bv-tile">
-              <div className="bv-v">{k.v}</div>
-              <div className="bv-l">{k.l}</div>
-              <div className="bv-s">{k.s}</div>
+      {/* What needs action before it slips */}
+      <section className="panel">
+        <div className="panel-h"><span>Needs attention</span><span className="muted">move these before they slip</span></div>
+        {attention.length ? (
+          <div className="attn">
+            {attention.map(({ d, p }) => (
+              <div key={d.id} className="attn-row" role="button" tabIndex={0} onClick={() => onOpen(d.id)}>
+                <span className="attn-co">{d.company}</span>
+                <span className="attn-meta">{d.stageName || d.stage || '—'} · {d.readiness ?? 0}% ready{typeof d.daysToIC === 'number' ? ` · IC in ${d.daysToIC}d` : ''}</span>
+                <span className={`pill ${p.cls}`}>{p.tag}</span>
+                <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-panel">Nothing needs action right now — every live deal is on track or IC-ready.</div>
+        )}
+      </section>
+
+      {/* Where the live capital sits in the process */}
+      <section className="panel">
+        <div className="panel-h"><span>Deals by stage</span><span className="muted">{money(pipelineValue)} across {liveDeals} live deal{liveDeals === 1 ? '' : 's'}</span></div>
+        <div className="funnel">
+          {byPhase.map((ph) => (
+            <div key={ph.key} className="fstep">
+              <div className="fcount">{money(ph.capital)}</div>
+              <div className="flabel">{ph.label}</div>
+              <div className="fkey">{ph.count} deal{ph.count === 1 ? '' : 's'}</div>
             </div>
           ))}
-        </div>
-        <div className="bv-close">
-          One assistant orchestrates {agentCount} specialists across sourcing → diligence → IC — turning{' '}
-          <strong>{hoursSaved.toLocaleString()} analyst hours</strong> of manual work into judgment time and getting deals to committee{' '}
-          <strong>{cyclePct}% faster</strong>.
         </div>
       </section>
 
