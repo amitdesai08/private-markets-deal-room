@@ -17,6 +17,7 @@ type Connector = {
   lastSync: string | null; message: string | null;
   custom?: boolean;
   approved?: boolean;
+  freshness?: { status: string; ageMs: number | null; slaMs: number; lastSync: string | null } | null;
   configFields?: { key: string; label: string; placeholder?: string; kind?: string }[] | null;
   config?: Record<string, string>;
 };
@@ -228,6 +229,7 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
                   ) : null}
                   <div className="ds-foot">
                     <span className={`ds-pill ${c.status}`}>{STATUS_LABEL[c.status] || c.status}</span>
+                    {c.freshness?.status === 'stale' ? <span className="ds-pill degraded" title="Older than its freshness SLA — labelled stale and excluded from IC / LP-facing outputs">Stale</span> : null}
                     {c.latencyMs != null ? <span className="ds-lat">{c.latencyMs}ms</span> : null}
                     <span className="ds-actions">
                       {c.testable && c.enabled ? (

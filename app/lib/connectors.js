@@ -122,6 +122,31 @@ const lastSync = {};
 export function markSync(id) { lastSync[id] = new Date().toISOString(); }
 export function getLastSync(id) { return lastSync[id] || null; }
 
+// Freshness SLA per source kind (advisor SC-7): how old a source's last successful
+// sync may be before its data is considered STALE and must be labelled / excluded
+// from IC- or LP-facing outputs rather than silently used.
+const FRESHNESS_SLA_MS = {
+  web: 60 * 60 * 1000, gdelt: 60 * 60 * 1000, // fast-moving news/web
+  mcp: 15 * 60 * 1000,                        // market-data providers
+  m365: 60 * 60 * 1000, workiq: 60 * 60 * 1000,
+  edgar: 24 * 60 * 60 * 1000, 'fabric-agent': 24 * 60 * 60 * 1000,
+  database: 24 * 60 * 60 * 1000, custom: 24 * 60 * 60 * 1000,
+  gleif: 7 * 24 * 60 * 60 * 1000,             // slow-moving entity registry
+};
+const DEFAULT_SLA_MS = 24 * 60 * 60 * 1000;
+
+// Freshness of a connector's data vs its SLA: never (no successful sync yet),
+// fresh (within SLA), or stale (older than SLA -> not usable for IC/reporting).
+export function connectorFreshness(id) {
+  const c = connectorById(id);
+  if (!c) return null;
+  const slaMs = FRESHNESS_SLA_MS[c.kind] ?? DEFAULT_SLA_MS;
+  const last = getLastSync(id);
+  if (!last) return { status: 'never', ageMs: null, slaMs, lastSync: null };
+  const ageMs = Date.now() - new Date(last).getTime();
+  return { status: ageMs <= slaMs ? 'fresh' : 'stale', ageMs, slaMs, lastSync: last };
+}
+
 // Short-lived cache of the last test result so repeated Home loads don't hammer
 // the providers; the explicit "Test connectivity" button forces a fresh probe.
 const CACHE_MS = 20_000;
@@ -339,6 +364,9 @@ export function listConnectors() {
       configured,
       custom: !!c.custom,
       approved: c.custom ? c.approved === true : true,
+      // Freshness vs SLA (advisor SC-7): never / fresh / stale — stale data is
+      // labelled and must not silently feed an IC- or LP-facing output.
+      freshness: connectorFreshness(c.id),
       // Runtime-editable config (e.g. WorkIQ MCP URL) surfaced to Settings.
       configFields: c.configFields || null,
       config: c.configFields ? getConnectorConfig(c.id) : undefined,

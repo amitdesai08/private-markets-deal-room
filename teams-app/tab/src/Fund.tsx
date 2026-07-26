@@ -38,16 +38,24 @@ const OWNER_LABEL: Record<string, string> = {
   'supply-md': 'Supply MD', 'operating-partner': 'Operating Partner', 'fund-cfo': 'Fund CFO', 'legal-gc': 'General Counsel', 'ir-lp': 'Investor Relations',
 };
 
+type Methodology = {
+  asOf: string; sourceOfRecord: string; refreshCadence: string; note: string;
+  metrics: { id: string; label: string; unit: string; formula: string; definition: string }[];
+};
+
 export default function Fund() {
   const [ov, setOv] = useState<Overview | null>(null);
   const [pf, setPf] = useState<Portfolio | null>(null);
   const [val, setVal] = useState<Value | null>(null);
   const [openId, setOpenId] = useState('');
+  const [method, setMethod] = useState<Methodology | null>(null);
+  const [showMethod, setShowMethod] = useState(false);
 
   useEffect(() => {
     fetch('/api/fund/overview').then((r) => (r.ok ? r.json() : null)).then(setOv).catch(() => {});
     fetch('/api/fund/portfolio').then((r) => (r.ok ? r.json() : null)).then(setPf).catch(() => {});
     fetch('/api/fund/value').then((r) => (r.ok ? r.json() : null)).then(setVal).catch(() => {});
+    fetch('/api/fund/methodology').then((r) => (r.ok ? r.json() : null)).then(setMethod).catch(() => {});
   }, []);
 
   if (!ov || !pf) return <div className="fnd-wrap"><style>{CSS}</style><p className="fnd-empty">Loading the fund &amp; portfolio lens…</p></div>;
@@ -61,6 +69,23 @@ export default function Fund() {
         <h2>{ov.fund.name}</h2>
         <p>{ov.fund.strategy} · vintage {ov.fund.vintageYear} · {ov.fund.investmentPeriod} · {ov.capital.portfolioCompanies} portfolio companies</p>
       </div>
+
+      {method ? (
+        <div className="fnd-method">
+          <span className="fnd-method-asof">As of {new Date(method.asOf).toLocaleString()} · {method.sourceOfRecord}</span>
+          <button className="fnd-method-btn" onClick={() => setShowMethod((v) => !v)}>{showMethod ? 'Hide methodology' : 'Methodology ▾'}</button>
+          {showMethod ? (
+            <div className="fnd-method-body">
+              <p className="fnd-method-note">{method.note} <b>Refresh:</b> {method.refreshCadence}</p>
+              <table className="fnd-method-tbl"><tbody>
+                {method.metrics.map((m) => (
+                  <tr key={m.id}><td className="fnd-method-lbl">{m.label}{m.unit ? ` (${m.unit})` : ''}</td><td className="fnd-method-frm">{m.formula}</td><td className="fnd-method-def">{m.definition}</td></tr>
+                ))}
+              </tbody></table>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Fund / LP headline */}
       <div className="fnd-kpis">
@@ -210,6 +235,16 @@ const CSS = `
 .fnd-empty { color: var(--muted); }
 .fnd-head h2 { margin: 0 0 4px; font-size: 20px; }
 .fnd-head p { margin: 0; color: var(--muted); font-size: 13px; }
+.fnd-method { margin: 8px 0 14px; font-size: 12px; }
+.fnd-method-asof { color: var(--muted); }
+.fnd-method-btn { margin-left: 10px; border: 1px solid var(--border, #33333f); background: none; color: var(--accent, #6ea8fe); border-radius: 6px; padding: 2px 9px; font: inherit; font-size: 11.5px; cursor: pointer; }
+.fnd-method-body { margin-top: 8px; border: 1px solid var(--border, #2a2a35); border-radius: 8px; padding: 10px 12px; background: var(--card, #1b1b22); }
+.fnd-method-note { margin: 0 0 8px; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
+.fnd-method-tbl { border-collapse: collapse; width: 100%; }
+.fnd-method-tbl td { border-top: 1px solid var(--border, #2a2a35); padding: 5px 8px; vertical-align: top; font-size: 11.5px; }
+.fnd-method-lbl { font-weight: 600; white-space: nowrap; }
+.fnd-method-frm { font-family: ui-monospace, monospace; color: var(--fg); }
+.fnd-method-def { color: var(--muted); }
 .fnd-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
 .fnd-kpis.inpanel { padding: 14px 16px; }
 .fnd-kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; box-shadow: var(--shadow); }

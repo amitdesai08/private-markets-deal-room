@@ -109,6 +109,7 @@ import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
 import { listConnectors, testConnector, disconnectConnector } from './lib/connectors.js';
 import { setConnectorEnabled, setConnectorConfig, addCustomConnector, removeCustomConnector, isCustomConnector, approveCustomConnector } from './lib/connectorSettings.js';
+import { withFundMeta, fundMethodology } from './lib/metrics.js';
 import { askFabricDataAgent, fabricDataAgentInfo } from './lib/fabricDataAgent.js';
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import m365LoginRouter from './lib/m365/loginRoutes.js';
@@ -189,9 +190,12 @@ api.get('/analytics', (_req, res) => res.json(portfolioStats()));
 // Fund / portfolio lens (post-IC). Owned-portfolio monitoring, fund/LP
 // performance and the executive value/ROI dashboard — all derived from the
 // owned-portfolio record + the LPA mandate (see lib/fund.js).
-api.get('/fund/overview', (_req, res) => res.json(fundOverview()));
-api.get('/fund/portfolio', (_req, res) => res.json(portfolioMonitoring()));
-api.get('/fund/value', (_req, res) => res.json(executiveValue(portfolioStats())));
+api.get('/fund/overview', (_req, res) => res.json(withFundMeta(fundOverview())));
+api.get('/fund/portfolio', (_req, res) => res.json(withFundMeta(portfolioMonitoring())));
+api.get('/fund/value', (_req, res) => res.json(withFundMeta(executiveValue(portfolioStats()))));
+// Canonical metric dictionary + lineage (advisor SC-4): formula, definition, source
+// and as-of for every fund/portfolio KPI, used identically by UI, exports and Power BI.
+api.get('/fund/methodology', (_req, res) => res.json(fundMethodology()));
 
 api.get('/pipeline', (_req, res) => res.json(getPipelineFunnel())); // alias (funnel)
 
