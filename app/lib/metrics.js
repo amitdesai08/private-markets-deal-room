@@ -72,3 +72,12 @@ export function fundMethodology() {
     metrics: FUND_METRICS,
   };
 }
+
+// The dictionary is the ENFORCED single source of truth (advisor SC-4 durability):
+// fund views/exports/Power BI must resolve a KPI's definition through metricDef(), and
+// a governance test fails CI if a rendered KPI has no entry here or an id is duplicated.
+export const FUND_METRIC_IDS = FUND_METRICS.map((m) => m.id);
+const _byId = Object.fromEntries(FUND_METRICS.map((m) => [m.id, m]));
+export function metricDef(id) {
+  return _byId[id] || null;
+}

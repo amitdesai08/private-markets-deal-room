@@ -50,12 +50,14 @@ export default function Fund() {
   const [openId, setOpenId] = useState('');
   const [method, setMethod] = useState<Methodology | null>(null);
   const [showMethod, setShowMethod] = useState(false);
+  const [reporting, setReporting] = useState<{ status: string; staleSources: string[]; notice: string | null } | null>(null);
 
   useEffect(() => {
     fetch('/api/fund/overview').then((r) => (r.ok ? r.json() : null)).then(setOv).catch(() => {});
     fetch('/api/fund/portfolio').then((r) => (r.ok ? r.json() : null)).then(setPf).catch(() => {});
     fetch('/api/fund/value').then((r) => (r.ok ? r.json() : null)).then(setVal).catch(() => {});
     fetch('/api/fund/methodology').then((r) => (r.ok ? r.json() : null)).then(setMethod).catch(() => {});
+    fetch('/api/fund/reporting-readiness').then((r) => (r.ok ? r.json() : null)).then(setReporting).catch(() => {});
   }, []);
 
   if (!ov || !pf) return <div className="fnd-wrap"><style>{CSS}</style><p className="fnd-empty">Loading the fund &amp; portfolio lens…</p></div>;
@@ -77,6 +79,7 @@ export default function Fund() {
           {showMethod ? (
             <div className="fnd-method-body">
               <p className="fnd-method-note">{method.note} <b>Refresh:</b> {method.refreshCadence}</p>
+              {reporting ? <p className="fnd-method-note"><b>Reporting data freshness:</b> {reporting.status === 'fresh' ? 'all external sources within SLA \u2713' : (reporting.notice || 'some sources stale \u2014 not certified for IC / LP use')}</p> : null}
               <table className="fnd-method-tbl"><tbody>
                 {method.metrics.map((m) => (
                   <tr key={m.id}><td className="fnd-method-lbl">{m.label}{m.unit ? ` (${m.unit})` : ''}</td><td className="fnd-method-frm">{m.formula}</td><td className="fnd-method-def">{m.definition}</td></tr>

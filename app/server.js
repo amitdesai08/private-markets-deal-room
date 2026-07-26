@@ -110,6 +110,7 @@ import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyK
 import { listConnectors, testConnector, disconnectConnector } from './lib/connectors.js';
 import { setConnectorEnabled, setConnectorConfig, addCustomConnector, removeCustomConnector, isCustomConnector, approveCustomConnector } from './lib/connectorSettings.js';
 import { withFundMeta, fundMethodology } from './lib/metrics.js';
+import { guardReporting, REPORTING_SOURCE_IDS } from './lib/reportingGuard.js';
 import { askFabricDataAgent, fabricDataAgentInfo } from './lib/fabricDataAgent.js';
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import m365LoginRouter from './lib/m365/loginRoutes.js';
@@ -190,12 +191,19 @@ api.get('/analytics', (_req, res) => res.json(portfolioStats()));
 // Fund / portfolio lens (post-IC). Owned-portfolio monitoring, fund/LP
 // performance and the executive value/ROI dashboard — all derived from the
 // owned-portfolio record + the LPA mandate (see lib/fund.js).
-api.get('/fund/overview', (_req, res) => res.json(withFundMeta(fundOverview())));
-api.get('/fund/portfolio', (_req, res) => res.json(withFundMeta(portfolioMonitoring())));
-api.get('/fund/value', (_req, res) => res.json(withFundMeta(executiveValue(portfolioStats()))));
+// Fund/portfolio payloads carry the lineage stamp (SC-4) + a reporting-freshness
+// posture (SC-7): stale external sources are surfaced so no IC/LP figure is silently
+// emitted from stale data.
+const fundPayload = (obj) => ({ ...withFundMeta(obj), _reporting: guardReporting(REPORTING_SOURCE_IDS) });
+api.get('/fund/overview', (_req, res) => res.json(fundPayload(fundOverview())));
+api.get('/fund/portfolio', (_req, res) => res.json(fundPayload(portfolioMonitoring())));
+api.get('/fund/value', (_req, res) => res.json(fundPayload(executiveValue(portfolioStats()))));
 // Canonical metric dictionary + lineage (advisor SC-4): formula, definition, source
 // and as-of for every fund/portfolio KPI, used identically by UI, exports and Power BI.
 api.get('/fund/methodology', (_req, res) => res.json(fundMethodology()));
+// Reporting freshness gate (advisor SC-7): whether the external sources behind fund/LP
+// outputs are within SLA. Any export / API consumer checks this before emitting.
+api.get('/fund/reporting-readiness', (_req, res) => res.json(guardReporting(REPORTING_SOURCE_IDS)));
 
 api.get('/pipeline', (_req, res) => res.json(getPipelineFunnel())); // alias (funnel)
 
