@@ -90,6 +90,33 @@ the record:
   human-approved change. `GET /api/deals/:id/activity` serves the trail; the deal's **Activity**
   tab renders it. No history table — the trail is the record.
 
+**End-to-end, one action:**
+
+```jsonc
+// 1) Deal-scoped chat reply carries deterministic proposals (grounded in deal state):
+"proposedActions": [
+  { "id": "pa-issue-commercial", "kind": "record_issue",
+    "label": "Log blocker as issue",
+    "summary": "Commercial DD: 0% complete (not_started)",
+    "args": { "lane": "commercial", "title": "Commercial DD workstream blocking IC",
+              "severity": "risk", "sources": ["IC readiness board · Commercial DD workstream"] } }
+]
+
+// 2) User clicks Apply -> POST /api/deals/:id/assistant-actions { kind, args }
+//    (role + deal access checked server-side; then the governed record_issue mutation runs)
+
+// 3) The audit entry written to the deal's activity[] (served by GET .../activity):
+{ "actor": "Amit Desai", "via": "assistant",
+  "action": "Logged a risk issue in the commercial lane: Commercial DD workstream blocking IC",
+  "when": "2026-07-26T22:20:45.656Z" }
+```
+
+> **Who can Apply.** Only a **write-capable role** (deal-team / partner / admin) with **access to
+> that deal** can apply; a read-only analyst or a member gets `403 forbidden` and the chip is a
+> no-op. Identity is resolved **server-side** (never asserted by the client), so the assistant
+> can never become a path around the access model — the same authorization that governs the
+> specialists governs an assistant-applied change.
+
 ---
 
 ## Persistence — Cosmos is optional

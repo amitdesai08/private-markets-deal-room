@@ -93,6 +93,20 @@ fully-attributed **audit entry** to the deal's `activity[]` — `actor` = the si
 `via: 'assistant'` = human-approved AI change — served by `GET /api/deals/:id/activity` and
 rendered in the deal's **Activity** tab.
 
+**Authorization at the Apply boundary (enforced server-side):**
+
+| Condition | Result |
+|---|---|
+| Write-capable role (deal-team / partner / admin) **with** access to the deal | Apply runs; audit entry written under the user, `via: 'assistant'` |
+| Read-only role (analyst / member) | `403 forbidden` — *"your role is read-only; you cannot apply changes"* |
+| No / need-to-know access to the deal | `403 forbidden` (`authorizeDealContent`) |
+| Untrusted caller (identity not proven via the bot key) | Identity ignored; `actor` falls back to the **role label**, never a spoofed name |
+| Unknown / unsupported action kind | `400 unknown-action` |
+
+The assistant only ever **proposes** `record_issue` / `resolve_issue` (the two lowest-risk,
+fully-reversible verbs); higher-authority moves (advance stage, approve IC) remain persona-
+gated and are **not** proposable inline.
+
 ## Tools
 
 **Governed deal tools** (internal-data agents, via [dealTools.js](../app/lib/dealTools.js) and the
