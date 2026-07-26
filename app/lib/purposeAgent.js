@@ -185,6 +185,13 @@ function parseRoute(text) {
   return { specialists: specialists.slice(0, MAX_SPECIALISTS), answer: '' };
 }
 
+// The orchestrator sometimes echoes the `ROUTE: ...` convention on the compose turn
+// (it inherits the routing turn's context) — strip a stray leading control line so it
+// never leaks into the user-facing answer.
+function stripControlLine(text) {
+  return String(text || '').replace(/^\s*ROUTE:[^\n]*(?:\r?\n)+/i, '').trim();
+}
+
 // ---- consult a specialist ----------------------------------------------------
 async function consultSpecialist(slug, ctx, message) {
   const input = [
@@ -269,7 +276,7 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
 
     // Direct answer — no delegation needed.
     if (!specialists.length) {
-      const reply = (answer || routed.text || '').trim();
+      const reply = stripControlLine(answer || routed.text);
       if (!reply) throw new Error('empty orchestrator reply');
       return {
         reply,
@@ -288,7 +295,7 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
 
     // 3) Compose the final answer.
     const composed = await composeAnswer(ctx, text, findings, routed.responseId);
-    const reply = (composed.text || '').trim();
+    const reply = stripControlLine(composed.text);
     if (!reply) throw new Error('empty composed reply');
     return {
       reply,
