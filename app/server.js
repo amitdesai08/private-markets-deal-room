@@ -101,6 +101,7 @@ import { companyFundamentals } from './lib/filings.js';
 import { leiLookup, leiUltimateParent } from './lib/providers/gleif.js';
 import { gdeltNews } from './lib/providers/gdelt.js';
 import { chatDealAgent, dealAgentInfo } from './lib/dealAgent.js';
+import { chatOrchestrator, orchestrationEnabled, orchestratorInfo } from './lib/purposeAgent.js';
 import { capabilitiesFor, capabilitiesNarrative, isCapabilityQuestion } from './lib/capabilities.js';
 import { chatPersonaAgent, personaAgentsInfo } from './lib/personaAgent.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
@@ -164,6 +165,7 @@ api.get('/config', (_req, res) => {
     newsAgent: newsAgentConfigured() ? 'live' : 'demo',
     dealAgent: dealAgentInfo().configured ? 'live' : 'demo',
     personaAgents: personaAgentsInfo(),
+    orchestration: orchestratorInfo(),
     dealMcp: { ...dealMcpInfo(), auth: mcpAuthInfo(), readonly: { ...dealMcpReadonlyInfo(), keyConfigured: mcpReadonlyKeyConfigured() } },
     m365: { configured: m365Configured(), connected: m365Connected(), files: m365FilesScope() },
     morningstar: morningstarReady() ? 'live' : 'demo',
@@ -1038,7 +1040,9 @@ api.post('/deal-agent/chat', async (req, res) => {
     if (!gate.ok) return res.status(403).json({ reply: gate.reason, denied: true, role: gate.access.role });
   }
   try {
-    const out = await chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs });
+    const out = orchestrationEnabled()
+      ? await chatOrchestrator({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs })
+      : await chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs });
     if (out?.error) return res.status(400).json(out);
     res.json(out);
   } catch (err) {
