@@ -100,6 +100,41 @@ export default function Fund() {
         <Kpi v={usd(p.totalValue)} l="Total value" s={`${usd(p.unrealized)} unrealized · ${usd(p.realized)} realized`} />
       </div>
 
+      {/* Watchlist — deteriorating names that need action */}
+      {(() => {
+        const worstKpi = (c: Company) => {
+          const shortfalls = c.kpis.map((k) => ({ k, gap: k.plan - k.actual })).filter((x) => x.gap > 0).sort((a, b) => b.gap - a.gap);
+          return shortfalls[0]?.k || null;
+        };
+        const watch = pf.companies
+          .filter((c) => c.status === 'watch' || c.status === 'underperform')
+          .sort((a, b) => (a.status === 'underperform' ? 0 : 1) - (b.status === 'underperform' ? 0 : 1) || b.kpiVariancePct - a.kpiVariancePct);
+        if (!watch.length) return null;
+        return (
+          <section className="fnd-panel">
+            <div className="fnd-panel-h"><span>Watchlist</span><span className="fnd-mut">{watch.length} name{watch.length === 1 ? '' : 's'} deteriorating or off-plan — review before next quarterly</span></div>
+            <div style={{ padding: '4px 14px 12px' }}>
+              {watch.map((c, i) => {
+                const wk = worstKpi(c);
+                return (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: i ? '1px solid var(--border, #23232c)' : 'none' }}>
+                    <span className={`pill ${statusClass(c.status)}`} style={{ flex: '0 0 auto' }}>{statusLabel(c.status)}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{c.company}<span className="fnd-mut" style={{ fontWeight: 400 }}> · {c.sector}</span></div>
+                      <div className="fnd-mut" style={{ fontSize: 11.5, marginTop: 1 }}>
+                        {wk ? `Primary driver: ${wk.label} at ${wk.actual}${wk.unit === '%' ? '%' : ''} vs ${wk.plan}${wk.unit === '%' ? '%' : ''} plan` : `KPI variance ${c.kpiVariancePct}% · VCP ${c.vcpProgress}%`}
+                        {` · MOIC ${c.grossMoic.toFixed(2)}x · IRR ${c.grossIrr}%`}
+                      </div>
+                    </div>
+                    <button className="askbtn" style={{ flex: '0 0 auto' }} onClick={() => setOpenId(openId === c.id ? '' : c.id)}>{openId === c.id ? 'Hide ▾' : 'Review ▸'}</button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
+
       {/* Portfolio monitoring */}
       <section className="fnd-panel">
         <div className="fnd-panel-h">

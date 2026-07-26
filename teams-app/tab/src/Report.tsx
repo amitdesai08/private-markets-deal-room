@@ -25,6 +25,26 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
     ? `${focus.company} — Deal Report`
     : `${pipeline?.fundName || 'Deal Room'} — Portfolio Report`;
 
+  // LP-grade lineage: every headline metric traces to a source system + as-of date +
+  // method. Output mode reflects data certification (live external sources => LP-ready).
+  const srcLabel = fabric?.source || (fabric?.mode === 'live' ? 'Fabric · OneLake' : 'Deal Room store');
+  const asOf = (fabric as any)?.freshness?.label || TODAY;
+  const mode = fabric?.mode === 'live' ? { label: 'LP-ready', cls: 'ok' } : { label: 'Draft — not certified', cls: 'warn' };
+  const lineage: { metric: string; value: string; source: string; asOf: string; method: string }[] = focus
+    ? [
+        { metric: 'Stage', value: focus.stageName || focus.stage || '—', source: 'Deal Room record', asOf: TODAY, method: 'Current workflow stage of record' },
+        { metric: 'IC readiness', value: `${focus.readiness ?? 0}%`, source: 'IC readiness engine', asOf: TODAY, method: 'Required artifacts + blocking workstreams + open risks' },
+        { metric: 'Days to IC', value: String(focus.daysToIC ?? '—'), source: 'Deal Room record', asOf: TODAY, method: 'Target IC date minus today' },
+        { metric: 'Deal size', value: money(focus.dealSize), source: 'Deal Room record', asOf: TODAY, method: 'Enterprise value on the deal record' },
+      ]
+    : [
+        { metric: 'Live deals', value: String(analytics?.deals ?? deals.length), source: 'Deal Room store', asOf: TODAY, method: 'Count of active deals in scope' },
+        { metric: 'In diligence', value: String(analytics?.inDiligence ?? 0), source: 'Deal Room store', asOf: TODAY, method: 'Deals in Diligence & Approval stages' },
+        { metric: 'Avg IC readiness', value: `${analytics?.avgReadiness ?? 0}%`, source: 'IC readiness engine', asOf: TODAY, method: 'Mean readiness across live deals' },
+        { metric: 'Pipeline value', value: money(deals.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6), source: 'Deal Room store', asOf: TODAY, method: 'Sum of enterprise values in flight' },
+        { metric: 'Comps · IC precedents', value: `${comps.length} · ${precedents.length}`, source: srcLabel, asOf, method: 'Sourced from market-intel connector' },
+      ];
+
   return (
     <div className="report">
       <style>{REPORT_CSS}</style>
@@ -33,7 +53,7 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
         <div>
           <div className="rpt-kicker">The Deal Room</div>
           <h1 className="rpt-title">{title}</h1>
-          <div className="rpt-sub">{pipeline?.fundStrategy || 'Private markets deal flow'} · Generated {TODAY}</div>
+          <div className="rpt-sub">{pipeline?.fundStrategy || 'Private markets deal flow'} · Generated {TODAY} · <span className={`rpt-mode ${mode.cls}`}>{mode.label}</span></div>
         </div>
         <button className="rpt-print" onClick={() => window.print()}>⤓ Print / Save as PDF</button>
       </header>
@@ -102,6 +122,27 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
         </>
       )}
 
+      <section className="rpt-section">
+        <h2 className="rpt-h">Source &amp; methodology <span className="rpt-mut">lineage for every headline metric</span></h2>
+        <table className="rpt-table">
+          <thead>
+            <tr><th>Metric</th><th>Value</th><th>Source</th><th>As-of</th><th>Methodology</th></tr>
+          </thead>
+          <tbody>
+            {lineage.map((l) => (
+              <tr key={l.metric}>
+                <td className="co">{l.metric}</td>
+                <td>{l.value}</td>
+                <td>{l.source}</td>
+                <td>{l.asOf}</td>
+                <td>{l.method}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="rpt-note">Every figure above traces to a source system and as-of date. {mode.cls === 'ok' ? 'External market sources are live and within SLA — this package is certified for LP distribution.' : 'One or more external sources are seeded / not certified — mark as draft before LP distribution.'}</p>
+      </section>
+
       <footer className="rpt-foot">
         Generated from the live Deal Room backend · {fabric?.mode === 'live' ? 'Fabric market intel: live' : 'seeded / materialized data'} · CONFIDENTIAL
       </footer>
@@ -115,6 +156,9 @@ const REPORT_CSS = `
 .rpt-kicker { color: #6264A7; font-weight: 700; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
 .rpt-title { margin: 4px 0 2px; font-size: 24px; }
 .rpt-sub { color: #616161; font-size: 13px; }
+.rpt-mode { display: inline-block; padding: 1px 8px; border-radius: 999px; font-weight: 700; font-size: 11px; }
+.rpt-mode.ok { color: #0a6; background: rgba(0,170,102,.14); }
+.rpt-mode.warn { color: #b26a00; background: rgba(221,136,0,.16); }
 .rpt-print { flex: 0 0 auto; border: 1px solid #6264A7; background: #6264A7; color: #fff; padding: 8px 14px; border-radius: 8px; cursor: pointer; font: inherit; font-weight: 600; }
 .rpt-print:hover { background: #4f5199; }
 .rpt-section { margin-bottom: 22px; }

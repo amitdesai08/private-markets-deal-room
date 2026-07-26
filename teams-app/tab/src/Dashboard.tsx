@@ -3,6 +3,7 @@
 // Stage-1 origination funnel (/api/pipeline), the deal cards (/api/deals) and the
 // market-intel panel (/api/market-intel). Read-only; onAsk opens the agents panel and
 // onOpen drills into a deal's DealDetail overlay.
+import { useState } from 'react';
 import type { Analytics, Pipeline, Deal, MarketIntel, BackendConfig } from './types';
 
 function money(n?: number): string {
@@ -76,6 +77,26 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
     return { key: ph.key, label: ph.label, count: ds.length, capital: ds.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6 };
   });
 
+  // Side-by-side comparison: pick 2–4 deals and scan the same decision fields at once.
+  const [compare, setCompare] = useState<string[]>([]);
+  const toggleCompare = (id: string) => setCompare((c) => c.includes(id) ? c.filter((x) => x !== id) : c.length >= 4 ? c : [...c, id]);
+  const compareDeals = compare.map((id) => deals.find((d) => d.id === id)).filter(Boolean) as Deal[];
+  const CMP_ROWS: { label: string; get: (d: Deal) => string }[] = [
+    { label: 'Stage', get: (d) => d.stageName || d.stage || '—' },
+    { label: 'IC readiness', get: (d) => `${d.readiness ?? 0}%` },
+    { label: 'Days to IC', get: (d) => typeof d.daysToIC === 'number' ? (d.daysToIC >= 0 ? `${d.daysToIC}d` : 'past') : '—' },
+    { label: 'Deal size', get: (d) => money(d.dealSize ? d.dealSize * 1e6 : undefined) },
+    { label: 'Sector', get: (d) => d.sector || '—' },
+    { label: 'Status', get: (d) => d.status || '—' },
+    { label: 'Priority', get: (d) => priority(d).tag },
+    { label: 'Recommended action', get: (d) => priority(d).why },
+  ];
+  const copyCompare = () => {
+    const header = ['Field', ...compareDeals.map((d) => d.company)].join('\t');
+    const rows = CMP_ROWS.map((r) => [r.label, ...compareDeals.map((d) => r.get(d))].join('\t'));
+    navigator.clipboard?.writeText([header, ...rows].join('\n')).catch(() => {});
+  };
+
   return (
     <div className="dash">
       {/* KPI row */}
@@ -143,9 +164,44 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
         </section>
       ) : null}
 
+      {/* Side-by-side comparison */}
+      {compareDeals.length >= 2 ? (
+        <section className="panel">
+          <div className="panel-h">
+            <span>Compare deals</span>
+            <span className="muted" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button className="askbtn" onClick={copyCompare}>⧉ Copy table</button>
+              <button className="askbtn" onClick={() => setCompare([])}>Clear</button>
+            </span>
+          </div>
+          <div style={{ overflowX: 'auto', padding: '4px 14px 14px' }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12.5 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, borderBottom: '1px solid var(--border, #23232c)' }}>Field</th>
+                  {compareDeals.map((d) => (
+                    <th key={d.id} style={{ textAlign: 'left', padding: '6px 10px', fontWeight: 700, borderBottom: '1px solid var(--border, #23232c)', cursor: 'pointer' }} onClick={() => onOpen(d.id)}>{d.company} ↗</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {CMP_ROWS.map((r) => (
+                  <tr key={r.label}>
+                    <td style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '1px solid var(--border, #1c1c24)' }}>{r.label}</td>
+                    {compareDeals.map((d) => (
+                      <td key={d.id} style={{ padding: '6px 10px', borderBottom: '1px solid var(--border, #1c1c24)' }}>{r.get(d)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
       {/* Deals */}
       <section className="panel">
-        <div className="panel-h"><span>Pipeline deals</span><span className="muted">{deals.length} active</span></div>
+        <div className="panel-h"><span>Pipeline deals</span><span className="muted">{deals.length} active{compare.length ? ` · ${compare.length} selected to compare` : ' · tick 2–4 to compare'}</span></div>
         {deals.length === 0 ? (
           <div className="empty-panel">
             No deals are live yet. Sourced candidates that clear the screening gate appear here.
@@ -163,7 +219,10 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
                 <div className="dc-bar"><span style={{ width: `${Math.max(0, Math.min(100, d.readiness ?? 0))}%` }} /></div>
                 <div className="dc-foot">
                   <span className="muted">IC readiness {d.readiness ?? 0}%{typeof d.daysToIC === 'number' ? ` · IC in ${d.daysToIC}d` : ''}</span>
-                  <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
+                  <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button className={`askbtn${compare.includes(d.id) ? ' on' : ''}`} title="Add to comparison" onClick={(e) => { e.stopPropagation(); toggleCompare(d.id); }}>{compare.includes(d.id) ? '✓ Compare' : '+ Compare'}</button>
+                    <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
+                  </span>
                 </div>
               </div>
             ))}

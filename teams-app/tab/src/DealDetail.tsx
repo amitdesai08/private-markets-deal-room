@@ -28,7 +28,8 @@ type ReadinessDelta = {
   pct?: number | null; pctChange?: number; state?: string | null; prevState?: string | null;
   verdictChanged?: boolean; newlyBlocking?: { label: string }[]; resolved?: { label: string }[];
 };
-type ICReadiness = { verdict?: Verdict; requiredArtifacts?: { items?: Artifact[] }; readinessDelta?: ReadinessDelta };
+type BlockingWorkstream = { lane: string; label?: string; owner?: string | null; progress?: number; status?: string; openIssues?: number; blockingIssues?: number; reasons?: string[] };
+type ICReadiness = { verdict?: Verdict; requiredArtifacts?: { items?: Artifact[] }; readinessDelta?: ReadinessDelta; blockingWorkstreams?: BlockingWorkstream[] };
 type Step = { key: string; stage: string };
 type Flow = { stages?: { id: string; name: string }[]; steps?: Step[] };
 
@@ -270,6 +271,24 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
   const delta = ic?.readinessDelta;
   const sinceLabel = delta?.since ? relTime(delta.since) : null;
   const hasDeltaContent = !!delta && !delta.firstCheck && (delta.changed || sinceLabel != null);
+
+  // Diligence workbench (Workspace tab) — RYG per workstream, grounded in the deal's
+  // workstream progress/status joined with the IC board's blocking reasons. No new data.
+  const blockMap = new Map((ic?.blockingWorkstreams || []).map((b) => [b.lane, b]));
+  const ryg = (w: Workstream): { state: 'red' | 'amber' | 'green'; reason?: string } => {
+    const b = blockMap.get(w.lane);
+    if (b) return { state: 'red', reason: (b.reasons && b.reasons[0]) || `${b.blockingIssues || b.openIssues || 0} blocking issue(s)` };
+    if (w.status === 'blocked') return { state: 'red', reason: 'Workstream blocked' };
+    if (w.status === 'complete' || (w.progress || 0) >= 80) return { state: 'green' };
+    if (w.status === 'not_started' || (w.progress || 0) === 0) return { state: 'amber', reason: 'Not started' };
+    return { state: 'amber', reason: `${w.progress || 0}% complete` };
+  };
+  const RYG_RANK: Record<string, number> = { red: 0, amber: 1, green: 2 };
+  const workbench = (deal?.workstreams || [])
+    .map((w) => ({ w, ...ryg(w) }))
+    .sort((a, b) => RYG_RANK[a.state] - RYG_RANK[b.state] || (a.w.progress || 0) - (b.w.progress || 0));
+  const atRisk = workbench.filter((r) => r.state !== 'green').length;
+  const RYG_DOT: Record<string, string> = { red: '#e5484d', amber: '#d88000', green: '#0a6' };
 
   return (
     <div className="drawer-scrim" onClick={onClose}>
@@ -553,6 +572,31 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
 
               {tab === 'workspace' && (
                 <>
+                  {workbench.length ? (
+                    <section className="dd-panel">
+                      <div className="dd-panel-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>Diligence workbench</span>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: atRisk ? '#f99' : 'var(--muted)', background: atRisk ? 'rgba(178,59,59,.16)' : 'rgba(140,140,150,.14)' }}>{atRisk ? `${atRisk} at risk` : 'All on track'}</span>
+                      </div>
+                      <div style={{ padding: '4px 14px 14px' }}>
+                        {workbench.map(({ w, state, reason }, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderTop: i ? '1px solid var(--border, #23232c)' : 'none' }}>
+                            <span style={{ flex: '0 0 auto', width: 9, height: 9, borderRadius: 999, background: RYG_DOT[state] }} title={state.toUpperCase()} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600 }}>{LANE_LABEL[w.lane] || w.lane}<span className="muted" style={{ fontWeight: 400 }}> · {STATUS_LABEL[w.status || 'not_started'] || w.status}{w.owner ? ` · ${w.owner}` : ''}</span></div>
+                              {reason ? <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>{state === 'red' ? '⚠ ' : ''}{reason}</div> : null}
+                            </div>
+                            <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{ width: 64, height: 5, borderRadius: 999, background: 'rgba(140,140,150,.2)', overflow: 'hidden' }}><div style={{ width: `${Math.min(100, w.progress || 0)}%`, height: '100%', background: RYG_DOT[state] }} /></div>
+                              <span className="muted" style={{ fontSize: 11.5, width: 30, textAlign: 'right' }}>{w.progress || 0}%</span>
+                              {state === 'red' ? <button className="chbtn" onClick={() => setTab('ic')}>Resolve ▸</button> : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+
                   <section className="dd-panel">
                     <div className="dd-panel-h">Deal workspace<span className="muted">provisioned by {ws.provisionedBy || '—'}</span></div>
                     <div className="wsp-links">
@@ -619,6 +663,19 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
 
               {tab === 'research' && (
                 <>
+                  <section className="dd-panel">
+                    <div className="dd-panel-h">Why this matters for {deal.company}<span className="muted">deal-scoped context</span></div>
+                    <div style={{ padding: '10px 16px', fontSize: 12.5, color: 'var(--muted)' }}>
+                      {`Market signals below are scoped to ${deal.sector || 'this deal'}${deal.subSector && deal.subSector !== deal.sector ? ` · ${deal.subSector}` : ''} and read as support for the investment decision — comparable transactions to anchor entry valuation, IC precedents to calibrate the ask, and benchmark findings to pressure-test the thesis${blockers.length ? ` and the open blockers (${blockers.slice(0, 2).map((b) => b.label).join(', ')})` : ''}.`}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '0 16px 12px' }}>
+                      <span className="chip">{(market?.comparableDeals || []).length} comparables</span>
+                      <span className="chip">{(market?.icPrecedents || []).length} IC precedents</span>
+                      <span className="chip">{(market?.benchmarkFindings || []).length} benchmark themes</span>
+                      {market?.info?.freshness?.label ? <span className="chip">as-of {market.info.freshness.label}</span> : null}
+                    </div>
+                  </section>
+
                   <section className="dd-panel">
                     <div className="dd-panel-h">Comparable &amp; historical deals<span className="muted">{market?.info?.source ? `${market.info.source}${market.info.freshness?.label ? ` · ${market.info.freshness.label}` : ''}` : 'Fabric · OneLake'}</span></div>
                     {!market ? <div className="dd-empty-p">Loading market intelligence…</div> : !(market.comparableDeals || []).length ? <div className="dd-empty-p">No comparables for this sector.</div> : (

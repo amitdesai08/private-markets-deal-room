@@ -33,7 +33,22 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
   const threadKey = `${agent?.key}:${dealId || 'portfolio'}`;
   const messages = threads[threadKey] || [];
   const activeDeal = deals.find((x) => x.id === dealId) || null;
-  const starters = useMemo(() => (dealId ? DEAL_STARTERS.concat(agent?.starters.slice(0, 1) || []) : agent?.starters.slice() || []), [agent, dealId]);
+  // Deal-state-aware suggested actions: the assistant proposes the next concrete step
+  // for THIS deal's state (never acts on its own — the user approves by clicking).
+  const contextActions = useMemo(() => {
+    const d = activeDeal;
+    if (!d) return [] as string[];
+    const r = d.readiness ?? 0;
+    const days = typeof d.daysToIC === 'number' ? d.daysToIC : null;
+    const co = d.company;
+    const out: string[] = [];
+    if (days != null && days >= 0 && days <= 21 && r < 80) out.push(`What must clear before ${co}'s IC in ${days} days?`);
+    if (r < 40) out.push(`Which diligence workstreams should we prioritise for ${co}?`);
+    if (r >= 80) out.push(`Draft the IC recommendation summary for ${co}.`);
+    out.push(`Summarise what changed on ${co} since the last review.`);
+    return out.slice(0, 3);
+  }, [activeDeal]);
+  const starters = useMemo(() => (dealId ? contextActions.concat(DEAL_STARTERS) : agent?.starters.slice() || []), [agent, dealId, contextActions]);
 
   useEffect(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; }, [messages.length, sending]);
 
