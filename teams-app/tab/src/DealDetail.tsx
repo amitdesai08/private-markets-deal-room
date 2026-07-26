@@ -231,15 +231,21 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
       const isValue = /value|exit|owned|monitor/i.test(nbaCtx);
       nba = { title: isValue ? 'Monitor value creation' : 'Drive to close', reason: isValue ? 'Post-IC — track the 100-day plan and KPIs vs the underwriting.' : 'Approved at IC — advance execution and closing.', urgency: 'Normal', primaryLabel: isValue ? 'Open workspace' : 'Open workspace', primaryTab: 'workspace' };
     } else if (nbaDays != null && nbaDays >= 0 && nbaDays <= 21 && nbaReadiness < 80) {
-      nba = { title: 'Close diligence gaps before IC', reason: `IC in ${nbaDays}d but only ${nbaReadiness}% ready${verdict ? ` (${verdict})` : ''} — resolve the open items gating readiness.`, urgency: 'High', primaryLabel: 'Review IC readiness', primaryTab: 'ic' };
+      nba = { title: 'Close diligence gaps before IC', reason: `IC in ${nbaDays}d but only ${nbaReadiness}% ready${verdict?.state ? ` (${verdict.state})` : ''} — resolve the open items gating readiness.`, urgency: 'High', primaryLabel: 'Review IC readiness', primaryTab: 'ic' };
     } else if (nbaReadiness >= 80) {
-      nba = { title: 'Prepare for Investment Committee', reason: `${nbaReadiness}% ready${verdict ? ` (${verdict})` : ''} — finalize the memo and decision artifacts.`, urgency: (nbaDays != null && nbaDays >= 0 && nbaDays <= 14) ? 'High' : 'Normal', primaryLabel: 'Open decision artifacts', primaryTab: 'artifacts' };
+      nba = { title: 'Prepare for Investment Committee', reason: `${nbaReadiness}% ready${verdict?.state ? ` (${verdict.state})` : ''} — finalize the memo and decision artifacts.`, urgency: (nbaDays != null && nbaDays >= 0 && nbaDays <= 14) ? 'High' : 'Normal', primaryLabel: 'Open decision artifacts', primaryTab: 'artifacts' };
     } else if (nbaReadiness < 40) {
       nba = { title: 'Advance diligence', reason: `Early at ${nbaReadiness}% ready — run the diligence workstreams to progress.`, urgency: 'Normal', primaryLabel: 'Open workspace', primaryTab: 'workspace' };
     } else {
       nba = { title: 'Keep diligence moving', reason: `${nbaReadiness}% ready — close the next workstream items toward IC.`, urgency: 'Normal', primaryLabel: 'Review IC readiness', primaryTab: 'ic' };
     }
   }
+
+  // Top IC blockers for the Overview breakdown: missing required artifacts, else gating reasons.
+  const icItems = ic?.requiredArtifacts?.items || [];
+  const missingArtifacts = icItems.filter((a) => !a.complete).map((a) => ({ label: a.label, detail: a.detail as string | undefined }));
+  const gatingBlockers = (verdict?.gating || []).map((g) => ({ label: g, detail: undefined as string | undefined }));
+  const blockers = missingArtifacts.length ? missingArtifacts : gatingBlockers;
 
   return (
     <div className="drawer-scrim" onClick={onClose}>
@@ -437,6 +443,34 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
 
               {tab === 'overview' && (
                 <>
+                  <section className="dd-panel">
+                    <div className="dd-panel-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>IC readiness</span>
+                      <button className="chbtn" onClick={() => setTab('ic')}>Full board ▸</button>
+                    </div>
+                    <div style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        {verdict?.state ? <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: verdict.state === 'READY' ? '#0a6' : verdict.state === 'NOT-READY' ? '#f99' : '#d80', background: verdict.state === 'READY' ? 'rgba(0,170,102,.14)' : verdict.state === 'NOT-READY' ? 'rgba(178,59,59,.16)' : 'rgba(221,136,0,.16)' }}>{verdict.state}</span> : null}
+                        <span style={{ fontWeight: 700 }}>{deal.readiness ?? 0}% ready</span>
+                        {typeof deal.daysToIC === 'number' && deal.daysToIC >= 0 ? <span className="muted">· IC in {deal.daysToIC}d</span> : null}
+                        {verdict?.headline ? <span className="muted" style={{ fontSize: 12 }}>· {verdict.headline}</span> : null}
+                      </div>
+                      {blockers.length ? (
+                        <div style={{ marginTop: 10 }}>
+                          <div className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700, marginBottom: 4 }}>Top blockers</div>
+                          {blockers.slice(0, 3).map((b, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
+                              <span style={{ color: '#f99' }}>○</span>
+                              <span style={{ flex: 1, minWidth: 0 }}>{b.label}{b.detail ? <span className="muted"> · {b.detail}</span> : null}</span>
+                              <button className="chbtn" onClick={() => setTab('ic')}>Resolve ▸</button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>{verdict?.state === 'READY' ? 'All required artifacts complete — ready for committee.' : 'IC readiness board populates once diligence is underway.'}</div>
+                      )}
+                    </div>
+                  </section>
                   {deal.thesis ? <p className="dd-thesis">{deal.thesis}</p> : null}
                   {deal.keyFigures?.length ? (
                     <section className="dd-panel">
