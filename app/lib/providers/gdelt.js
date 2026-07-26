@@ -12,7 +12,7 @@ export function gdeltConfigured() {
   return true; // free + keyless
 }
 
-export async function gdeltNews(query, { max = 12, timespan = '1m' } = {}) {
+export async function gdeltNews(query, { max = 12, timespan = '1m', timeoutMs = 12000 } = {}) {
   if (!isConnectorEnabled('gdelt')) return { found: false, source: 'gdelt', disabled: true, articles: [] };
   const q = String(query || '').trim();
   if (!q) return { found: false, source: 'gdelt', articles: [] };
@@ -20,7 +20,7 @@ export async function gdeltNews(query, { max = 12, timespan = '1m' } = {}) {
   if (timespan) params.set('timespan', timespan); // e.g. 1d, 1w, 1m, 3m
   const url = `${DOC_API}?${params.toString()}`;
   try {
-    const r = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(12000) });
+    const r = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(timeoutMs) });
     if (!r.ok) return { found: false, source: 'gdelt', articles: [] };
     const data = await r.json().catch(() => ({}));
     const articles = (data.articles || []).map((a) => ({

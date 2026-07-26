@@ -186,10 +186,17 @@ async function testEdgar(c) {
 async function testGdelt(c) {
   const t0 = Date.now();
   try {
-    await gdeltNews('Apple', { max: 1 });
+    // Snappy probe: GDELT's public API can be slow, so cap the connectivity check
+    // at 6s (real news fetches keep the full 12s) — the panel fails fast and
+    // reports "slow" instead of freezing the Test button while GDELT crawls.
+    const res = await gdeltNews('Apple', { max: 1, timeoutMs: 6000 });
     const latencyMs = Date.now() - t0;
+    if (res.error) {
+      return result(c, { ok: false, status: 'degraded', latencyMs, message: `Slow / unreachable · GDELT did not respond within 6s (free public API)` });
+    }
     markSync(c.id);
-    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Healthy · GDELT reachable in ${latencyMs}ms (free, no key)` });
+    const slow = latencyMs > 3000 ? ' · slow public API' : '';
+    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Healthy · GDELT reachable in ${latencyMs}ms (free, no key)${slow}` });
   } catch (e) {
     return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Unreachable · ${String(e.message || e).slice(0, 80)}` });
   }

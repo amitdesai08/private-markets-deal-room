@@ -279,10 +279,17 @@ export function buildTriageScore(c, fund, fitScore) {
 
 const HOLD_YEARS = 5;
 
+// Real LBOs fund at most ~55-65% of enterprise value with debt; the sponsor
+// always writes a meaningful equity check. Cap leverage at this share of EV so
+// that when the leverage multiple approaches the entry multiple (e.g. a 5x floor
+// entry with 5x leverage) the equity check can't collapse to ~$0 and blow the
+// MOIC/IRR up to absurd numbers.
+const MAX_DEBT_TO_EV = 0.6;
+
 function paperLbo(c, { entryMult, leverageMult, ebitdaCagr, exitMult }) {
   const entryEbitda = Math.max(1, c.ebitda || 1);
   const entryEV = entryEbitda * entryMult;
-  const debt = entryEbitda * leverageMult;
+  const debt = Math.min(entryEbitda * leverageMult, entryEV * MAX_DEBT_TO_EV);
   const equityIn = Math.max(1, entryEV - debt);
   const exitEbitda = entryEbitda * Math.pow(1 + ebitdaCagr, HOLD_YEARS);
   const exitEV = exitEbitda * exitMult;
@@ -312,11 +319,13 @@ export function buildReturns(c) {
     upside: paperLbo(c, { entryMult: baseMult, leverageMult: 5.5, ebitdaCagr: g + 0.04, exitMult: baseMult + 1 })
   };
   const meetsHurdle = !entryAboveCeiling && scenarios.base.irr >= 20 && scenarios.base.moic >= 2.0;
+  const entryEbitda = Math.max(1, c.ebitda || 1);
+  const effLeverage = +(scenarios.base.debt / entryEbitda).toFixed(1);
   return {
     entryMultiple: +baseMult.toFixed(1),
     impliedMultiple: impliedMult == null ? null : +impliedMult.toFixed(1),
     entryAboveCeiling,
-    leverage: '5.0x',
+    leverage: `${effLeverage}x`,
     holdYears: HOLD_YEARS,
     scenarios,
     hurdle: { irr: 20, moic: 2.0 },
