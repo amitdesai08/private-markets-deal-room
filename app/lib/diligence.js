@@ -400,9 +400,12 @@ export function buildReturnsModel(deal) {
   const base = r.scenarios.base;
   const mgmtRollover = round(base.equityIn * 0.08);
   const fees = round(base.entryEV * 0.025);
+  // The sponsor equity check funds the fee load too, so sources balance uses
+  // (EV + fees). Rollover is a portion of the sponsor's own equity.
+  const sponsorEquity = Math.max(0, base.equityIn + fees - mgmtRollover);
   const sources = [
     { label: 'Senior debt (TLB + RCF)', amount: base.debt },
-    { label: 'Sponsor equity', amount: Math.max(0, base.equityIn - mgmtRollover) },
+    { label: 'Sponsor equity', amount: sponsorEquity },
     { label: 'Management rollover', amount: mgmtRollover },
   ];
   const uses = [
