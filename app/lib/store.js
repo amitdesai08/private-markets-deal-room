@@ -2228,7 +2228,68 @@ export function getICReadiness(id) {
     totalClaims: cit.totalClaims, sourcedClaims: cit.sourcedClaims,
     unsourcedClaims: cit.unsourcedClaims.length, unsourcedFigures: cit.unsourcedFigures.length
   };
+  // "What changed since last check?" — a lean, self-maintaining delta. We keep a
+  // single mark (last observed pct/verdict/blocker-set) on the deal and only
+  // rewrite it when the state actually changes, so `since` reflects the last real
+  // movement rather than the last page load. No history table, no extra endpoint.
+  board.readinessDelta = applyReadinessDelta(deal, board);
   return board;
+}
+
+// The compact blocker signature the delta diffs on: incomplete required artifacts,
+// blocking workstreams, and unresolved risk-level issues (the same facts the verdict
+// gates on). Keyed so newly-blocking vs resolved can be diffed as sets.
+function readinessBlockers(board) {
+  const out = [];
+  for (const a of board.requiredArtifacts?.items || []) if (!a.complete) out.push({ key: `art:${a.key}`, label: a.label });
+  for (const w of board.blockingWorkstreams || []) out.push({ key: `ws:${w.lane}`, label: `${w.label} blocking` });
+  for (const r of board.unresolvedRisks || []) if (r.severity === 'risk') out.push({ key: `risk:${r.id}`, label: r.title });
+  return out;
+}
+
+function applyReadinessDelta(deal, board) {
+  const pct = board.progressReadiness ?? null;
+  const state = board.verdict?.state ?? null;
+  const blockers = readinessBlockers(board);
+  const keys = blockers.map((b) => b.key);
+  const prev = deal.icReadinessMark || null;
+  const now = new Date().toISOString();
+
+  if (!prev) {
+    deal.icReadinessMark = { at: now, pct, state, blockerKeys: keys };
+    persistDeal(deal);
+    return { firstCheck: true, changed: false, since: null, pct, pctChange: 0, state, prevState: null, verdictChanged: false, newlyBlocking: [], resolved: [] };
+  }
+
+  const prevKeys = new Set(prev.blockerKeys || []);
+  const curKeys = new Set(keys);
+  const newlyBlocking = blockers.filter((b) => !prevKeys.has(b.key)).map((b) => ({ label: b.label }));
+  const resolvedKeys = [...prevKeys].filter((k) => !curKeys.has(k));
+  const changed = pct !== prev.pct || state !== prev.state || newlyBlocking.length > 0 || resolvedKeys.length > 0;
+  // Resolved labels come from the prior mark's snapshot of labels when available.
+  const prevLabelFor = (k) => (prev.blockerLabels && prev.blockerLabels[k]) || k.replace(/^[a-z]+:/, '');
+  const resolved = resolvedKeys.map((k) => ({ label: prevLabelFor(k) }));
+
+  const delta = {
+    firstCheck: false,
+    changed,
+    since: prev.at,
+    pct,
+    pctChange: pct != null && prev.pct != null ? pct - prev.pct : 0,
+    state,
+    prevState: changed && state !== prev.state ? prev.state : null,
+    verdictChanged: state !== prev.state,
+    newlyBlocking,
+    resolved
+  };
+
+  if (changed) {
+    const blockerLabels = {};
+    for (const b of blockers) blockerLabels[b.key] = b.label;
+    deal.icReadinessMark = { at: now, pct, state, blockerKeys: keys, blockerLabels };
+    persistDeal(deal);
+  }
+  return delta;
 }
 
 // Full source-citation audit for a deal (point 5): every key figure, every numeric

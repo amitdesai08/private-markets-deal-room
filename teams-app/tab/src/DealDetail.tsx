@@ -23,7 +23,12 @@ type DealFull = {
 };
 type Verdict = { state?: string; headline?: string; gating?: string[] };
 type Artifact = { key: string; label: string; complete: boolean; detail?: string };
-type ICReadiness = { verdict?: Verdict; requiredArtifacts?: { items?: Artifact[] } };
+type ReadinessDelta = {
+  firstCheck?: boolean; changed?: boolean; since?: string | null;
+  pct?: number | null; pctChange?: number; state?: string | null; prevState?: string | null;
+  verdictChanged?: boolean; newlyBlocking?: { label: string }[]; resolved?: { label: string }[];
+};
+type ICReadiness = { verdict?: Verdict; requiredArtifacts?: { items?: Artifact[] }; readinessDelta?: ReadinessDelta };
 type Step = { key: string; stage: string };
 type Flow = { stages?: { id: string; name: string }[]; steps?: Step[] };
 
@@ -46,6 +51,20 @@ const LANE_LABEL: Record<string, string> = {
 };
 const STATUS_LABEL: Record<string, string> = { not_started: 'Not started', in_progress: 'In progress', complete: 'Complete', blocked: 'Blocked' };
 const VERDICT_CLASS: Record<string, string> = { READY: 'ok', CONDITIONAL: 'warn', 'NOT-READY': 'bad' };
+
+function relTime(iso?: string | null): string | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return null;
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (s < 60) return 'just now';
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  return d === 1 ? 'yesterday' : `${d}d ago`;
+}
 
 function sourceHint(src?: string): string {
   if (!src) return '';
@@ -246,6 +265,11 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
   const missingArtifacts = icItems.filter((a) => !a.complete).map((a) => ({ label: a.label, detail: a.detail as string | undefined }));
   const gatingBlockers = (verdict?.gating || []).map((g) => ({ label: g, detail: undefined as string | undefined }));
   const blockers = missingArtifacts.length ? missingArtifacts : gatingBlockers;
+
+  // "What changed since last check?" delta strip — grounded in the server-tracked mark.
+  const delta = ic?.readinessDelta;
+  const sinceLabel = delta?.since ? relTime(delta.since) : null;
+  const hasDeltaContent = !!delta && !delta.firstCheck && (delta.changed || sinceLabel != null);
 
   return (
     <div className="drawer-scrim" onClick={onClose}>
@@ -469,6 +493,29 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                       ) : (
                         <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>{verdict?.state === 'READY' ? 'All required artifacts complete — ready for committee.' : 'IC readiness board populates once diligence is underway.'}</div>
                       )}
+                      {hasDeltaContent && delta ? (
+                        <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border, #2a2a35)' }}>
+                          <div className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700, marginBottom: 6 }}>Since last check{sinceLabel ? ` · ${sinceLabel}` : ''}</div>
+                          {!delta.changed ? (
+                            <div className="muted" style={{ fontSize: 12 }}>No change since the last review.</div>
+                          ) : (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {typeof delta.pctChange === 'number' && delta.pctChange !== 0 ? (
+                                <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: delta.pctChange > 0 ? '#0a6' : '#f99', background: delta.pctChange > 0 ? 'rgba(0,170,102,.14)' : 'rgba(178,59,59,.16)' }}>{delta.pctChange > 0 ? '▲' : '▼'} {Math.abs(delta.pctChange)}% readiness</span>
+                              ) : null}
+                              {delta.verdictChanged && delta.prevState && delta.state ? (
+                                <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: delta.state === 'READY' ? '#0a6' : delta.state === 'NOT-READY' ? '#f99' : '#d80', background: 'rgba(140,140,150,.14)' }}>Verdict {delta.prevState} → {delta.state}</span>
+                              ) : null}
+                              {(delta.resolved || []).map((r, i) => (
+                                <span key={`r${i}`} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: '#0a6', background: 'rgba(0,170,102,.14)' }}>✓ Resolved: {r.label}</span>
+                              ))}
+                              {(delta.newlyBlocking || []).map((b, i) => (
+                                <span key={`b${i}`} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: '#f99', background: 'rgba(178,59,59,.16)' }}>○ Newly blocking: {b.label}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   </section>
                   {deal.thesis ? <p className="dd-thesis">{deal.thesis}</p> : null}
