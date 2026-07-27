@@ -21,7 +21,8 @@ const listEnv = (name, dflt = '') =>
 // grants a role by demo name. When on, each role's id list is augmented with
 // its demo identity ids so the "view as" roster resolves out of the box.
 import { demoProfiles, demoRoleIds } from '../data/demoProfiles.js';
-import { getRoleOverrides, getRoleAssignments, getDemoModeOverride } from './accessConfig.js';
+import { getRoleOverrides, getRoleAssignments, getDemoModeOverride, getDealGroups, getRegionGroups } from './accessConfig.js';
+import { regionForDeal } from '../data/regions.js';
 export const demoProfilesEnabled = /^(1|true|yes|on)$/i.test(String(process.env.DEMO_PROFILES ?? ''));
 
 // Whether demo mode is ACTIVE right now. DEMO_PROFILES (the deploy-time / AZD toggle)
@@ -103,6 +104,45 @@ const GROUP_IDS = {
   analyst:     listEnv('ANALYST_GROUP_IDS'),
 };
 
+// ---- Territory (region) + deal-group access from Entra group membership ------
+// A user's VISIBLE regions and the deals they can open are derived from the security
+// groups in their token 'groups' claim. Region groups grant one-or-more base regions;
+// deal groups (per-deal need-to-know teams AND admin-authored tags) grant full access
+// to specific deals. Seeded from env, overridable via the admin-editable accessConfig.
+function parseJsonEnv(name) { try { const v = process.env[name]; return v ? JSON.parse(v) : {}; } catch { return {}; } }
+const REGION_GROUP_ENV = parseJsonEnv('REGION_GROUP_IDS');
+function regionGroupMap() {
+  const out = {};
+  for (const [gid, regs] of Object.entries(REGION_GROUP_ENV)) out[norm(gid)] = (Array.isArray(regs) ? regs : []).map(norm);
+  for (const [gid, regs] of Object.entries(getRegionGroups() || {})) out[norm(gid)] = (Array.isArray(regs) ? regs : []).map(norm);
+  return out;
+}
+// Base regions a VERIFIED identity is scoped to, from its region-group memberships.
+// Empty = unrestricted (MDs / partners / admins who are in no region group see all).
+export function regionsForIdentity(identity = {}) {
+  const groups = (identity && Array.isArray(identity.groups) ? identity.groups : []).map(norm);
+  if (!groups.length) return [];
+  const map = regionGroupMap();
+  const set = new Set();
+  for (const g of groups) for (const r of (map[g] || [])) set.add(r);
+  return [...set];
+}
+// The Entra group object ids that grant FULL access to a deal: its explicit access
+// groups (deal.groupIds, e.g. the per-deal team channel group) plus the groups behind
+// any tags the deal carries.
+function effectiveDealGroupIds(deal) {
+  const out = [...((deal && deal.groupIds) || [])];
+  const dg = getDealGroups() || {};
+  for (const t of ((deal && deal.tags) || [])) { const g = dg[String(t)] && dg[String(t)].groupId; if (g) out.push(g); }
+  return out.map(norm).filter(Boolean);
+}
+function groupGrantsDeal(identity, deal) {
+  const gids = (Array.isArray(identity && identity.groups) ? identity.groups : []).map(norm);
+  if (!gids.length) return false;
+  const dealGids = new Set(effectiveDealGroupIds(deal));
+  return gids.some((g) => dealGids.has(g));
+}
+
 // Resolve a VERIFIED identity to a role. `identity` = { oid, upn, name, roles?, groups? }.
 export function roleForUser(identity = {}) {
   const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn), norm(identity.name)].filter(Boolean);
@@ -152,8 +192,9 @@ export function accessFor(identity, viewAsRole = null) {
     allowedPersonas: spec.personas || [],
     canWrite: !!spec.write,
     canViewStage2: !!spec.stage2,
-    // Data sovereignty: allowed deal regions / jurisdictions (empty = all).
-    regions: spec.regions || [],
+    // Data sovereignty: allowed deal regions / jurisdictions (empty = all). Sourced
+    // from the role spec AND the caller's Entra region-group memberships (need-to-know).
+    regions: [...new Set([...(spec.regions || []).map((x) => norm(x)), ...regionsForIdentity(identity)])],
     // Workflow management: may advance the pipeline, and the stages this role may act
     // in (empty = all). advanceWorkflow defaults to the role's write capability.
     advanceWorkflow: spec.advanceWorkflow === undefined ? !!spec.write : !!spec.advanceWorkflow,
@@ -249,10 +290,12 @@ export function dealAccessLevel(identity, deal, viewAsRole = null) {
   const access = accessFor(identity, viewAsRole);
   const s = String((deal && (deal.stage || deal.stageName)) || '');
   const restricted = RESTRICTED_STAGE_RE.test(s) || RESTRICTED_NAME_RE.test(s);
-  const team = onDealTeam(identity, deal && deal.team);
+  const team = onDealTeam(identity, deal && deal.team) || groupGrantsDeal(identity, deal);
   const confidential = !!(deal && deal.confidential);
-  // Data sovereignty: a region-restricted role can't see out-of-region deals at all.
-  const region = deal && (deal.region || deal.jurisdiction);
+  // Data sovereignty: a region-restricted user can't see out-of-region deals at all
+  // (region inferred from the deal's hq when not explicitly tagged). Admins and named
+  // team / deal-group members bypass the territory wall.
+  const region = regionForDeal(deal);
   if (region && access.regions.length && !access.isAdmin && !team && !access.regions.map((x) => String(x).toLowerCase()).includes(String(region).toLowerCase())) return 'none';
   // Base level (ignoring confidential): admins + deal-team members (need-to-know) + open
   // (origination) stages get the full workspace; deal-team-tier roles get full on

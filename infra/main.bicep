@@ -189,6 +189,8 @@ param adminGroupIds string = ''
 param partnerGroupIds string = ''
 param dealTeamGroupIds string = ''
 param analystGroupIds string = ''
+@description('JSON map of Entra security-group object id -> base regions it grants (territory scoping). Empty = disabled.')
+param regionGroupIds string = ''
 @allowed([ 'partner', 'deal-team', 'analyst', 'member' ])
 @description('Role applied to callers not listed in any role array.')
 param defaultAgentRole string = 'deal-team'
@@ -455,6 +457,7 @@ module app 'modules/app.bicep' = {
     partnerGroupIds: partnerGroupIds
     dealTeamGroupIds: dealTeamGroupIds
     analystGroupIds: analystGroupIds
+    regionGroupIds: regionGroupIds
     defaultAgentRole: defaultAgentRole
     deployDemoProfiles: deployDemoProfiles
     botBackendKey: botBackendKey

@@ -115,6 +115,8 @@ param partnerGroupIds string = ''
 param dealTeamGroupIds string = ''
 @description('Entra security GROUP object id(s), comma-separated, mapping to the ANALYST role (token \'groups\' claim).')
 param analystGroupIds string = ''
+@description('JSON map of Entra security-group object id -> base regions it grants, e.g. {"<gid>":["northeast"]}. Drives territory (region) scoping from group membership. Empty = disabled.')
+param regionGroupIds string = ''
 @description('When true, expose the demo showcase profiles (one identity per role).')
 param deployDemoProfiles bool = false
 @allowed([ 'partner', 'deal-team', 'analyst', 'member' ])
@@ -278,6 +280,7 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'PARTNER_GROUP_IDS', value: partnerGroupIds }
             { name: 'DEAL_TEAM_GROUP_IDS', value: dealTeamGroupIds }
             { name: 'ANALYST_GROUP_IDS', value: analystGroupIds }
+            { name: 'REGION_GROUP_IDS', value: regionGroupIds }
             { name: 'DEFAULT_AGENT_ROLE', value: defaultAgentRole }
             { name: 'DEMO_PROFILES', value: string(deployDemoProfiles) }
           ]

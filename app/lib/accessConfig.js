@@ -22,7 +22,7 @@ let _cfg = emptyCfg();
 let _loaded = false;
 
 function emptyCfg() {
-  return { roles: {}, assignments: {}, personas: {}, personaActions: {}, personaStages: {}, settings: {} };
+  return { roles: {}, assignments: {}, personas: {}, personaActions: {}, personaStages: {}, settings: {}, dealGroups: {}, regionGroups: {} };
 }
 function normalize(rec) {
   const e = emptyCfg();
@@ -49,6 +49,14 @@ export function getRoleAssignments() { return _cfg.assignments; }
 export function getPersonaOverrides() { return _cfg.personas; }
 export function getPersonaActionOverrides() { return _cfg.personaActions; }
 export function getPersonaStageOverrides() { return _cfg.personaStages; }
+
+// Deal GROUPS (customizable tags): { [tagId]: { label, groupId, createdBy, createdAt } }.
+// Each tag is backed by an Entra security group; membership in that group grants FULL
+// access to every deal carrying the tag (resolved in userPolicy). Admin-authored.
+export function getDealGroups() { return _cfg.dealGroups || {}; }
+// Region GROUPS: { [entraGroupObjectId]: ['northeast', ...] } — which base regions an
+// Entra security-group membership grants (a grouped region maps to several).
+export function getRegionGroups() { return _cfg.regionGroups || {}; }
 
 // Runtime platform settings (admin-editable, persisted). getDemoModeOverride returns
 // the admin's demo-mode choice (true/false) or undefined when never set — in which case
@@ -108,6 +116,28 @@ export async function setPersonaStages(id, stages) {
   _cfg.personaStages[id] = Array.isArray(stages) ? stages : [];
   await persist();
   return _cfg.personaStages[id];
+}
+
+// Deal-group (tag) CRUD. `patch` = { label, groupId }. Tag id is a slug the UI/MD uses.
+export async function upsertDealGroup(id, patch) {
+  if (!id) return null;
+  _cfg.dealGroups = _cfg.dealGroups || {};
+  _cfg.dealGroups[id] = { ...(_cfg.dealGroups[id] || {}), ...(patch || {}) };
+  await persist();
+  return _cfg.dealGroups[id];
+}
+export async function deleteDealGroup(id) {
+  if (_cfg.dealGroups) delete _cfg.dealGroups[id];
+  await persist();
+  return true;
+}
+// Map an Entra security group object id to the base regions it grants.
+export async function setRegionGroup(groupId, regions) {
+  if (!groupId) return null;
+  _cfg.regionGroups = _cfg.regionGroups || {};
+  _cfg.regionGroups[String(groupId).toLowerCase()] = Array.isArray(regions) ? regions.map((r) => String(r).toLowerCase()).filter(Boolean) : [];
+  await persist();
+  return _cfg.regionGroups[String(groupId).toLowerCase()];
 }
 
 // Bulk role assignment (e.g. from a CSV import). `rows` = [{ user, role }]. `mode`

@@ -79,6 +79,8 @@ param adminGroupIds = 'fd59b346-caf3-4fb3-a007-04bb5620c473'     // DealRoom-Adm
 param partnerGroupIds = '8dd70eea-63fc-4bad-b3c9-5a739c56f308'   // DealRoom-Partners
 param dealTeamGroupIds = 'bfaefdc0-571d-415c-85a4-04d7989c843a'  // DealRoom-DealTeam
 param analystGroupIds = 'bc7a96a4-abc9-4014-b71a-11127ca9dacd'   // DealRoom-Analysts
+// Territory (region) groups → base regions. Grouped territory West Coast = NW + SW.
+param regionGroupIds = '{"d35bd3a2-7823-4fd0-a1f7-398f4a5a111c":["northeast"],"4f5fb7c1-b545-4e9a-8a66-f1d52356aa16":["southeast"],"135d84b7-5e88-4105-88ff-ecade1efb0a9":["midwest"],"e3d789c7-cc02-431f-a364-3028dc186396":["southcentral"],"cbd8f4e9-48c6-4771-a3de-501ca4f948a5":["northwest"],"9392a429-d0cb-4ce6-986c-4c9639828432":["southwest"],"89c5e3de-e97c-4e33-a5eb-06948fbc9aea":["northwest","southwest"]}'
 
 // ─────────────────────────── CUTOVER SWITCHES ───────────────────────────
 // STATE (2026-07-26): dev is ALREADY on the private topology, but it was cut over
