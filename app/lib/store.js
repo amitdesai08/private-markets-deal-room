@@ -539,6 +539,53 @@ export function setDealTags(id, tags) {
   return derive(d);
 }
 
+// Set a deal's territory (region). Governs the region-group access wall.
+export function setDealRegion(id, region) {
+  const d = getDealRaw(id);
+  if (!d) return null;
+  d.region = String(region || '').toLowerCase().trim();
+  persistDeal(d);
+  return derive(d);
+}
+
+// Create a deal from the guided intake wizard — capturing territory (region), deal
+// groups (tags) and confidentiality up front, so access maps to Entra groups from
+// day one. Enters at Origination (O1) unless a stage is given.
+let intakeSeq = 1;
+export function createDealFromIntake(spec = {}) {
+  const company = String(spec.company || '').trim();
+  if (!company) return { error: 'company-required' };
+  const id = `intake-${Date.now().toString(36)}-${intakeSeq++}`;
+  const deal = {
+    id, company,
+    sector: spec.sector || 'Other', subSector: spec.subSector || spec.sector || 'Other',
+    hq: String(spec.hq || '').trim(),
+    region: String(spec.region || '').toLowerCase().trim(),
+    tags: Array.isArray(spec.tags) ? [...new Set(spec.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean))] : [],
+    dealSize: Number(spec.dealSize) || 0, currency: spec.currency || 'USD',
+    stage: spec.stage || 'O1', status: 'screened',
+    confidential: !!spec.confidential,
+    team: Array.isArray(spec.team) ? spec.team : [],
+    sponsorPersona: spec.sponsorPersona || 'partner', leadAnalyst: 'analyst',
+    targetICDate: new Date(Date.now() + 42 * 86400000).toISOString(), baselineDays: 45,
+    thesis: String(spec.thesis || '').trim() || `${company} — ${spec.sector || 'new opportunity'}. Entered via guided deal intake.`,
+    keyFigures: [],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'not_started', progress: 0, findings: [] },
+      { lane: 'financial', owner: 'finance-md', status: 'not_started', progress: 0, findings: [] },
+    ],
+    documents: [],
+    memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: String(spec.thesis || `${company}. (Intake.)`), citations: [] }],
+    compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
+    activity: [{ actor: spec.createdBy || 'Deal intake', action: 'Deal created via guided intake', when: new Date().toISOString() }],
+    issues: [], conditions: [], assumptionSnapshots: [], hoursSaved: 0,
+  };
+  deals.push(deal);
+  attachWorkspaces([deal]);
+  persistDeal(deal);
+  return { deal: derive(deal) };
+}
+
 export function listSourcing() {
   return sourcing;
 }

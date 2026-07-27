@@ -18,6 +18,8 @@ import Stage4 from './Stage4';
 import Fund from './Fund';
 import PowerBI from './PowerBI';
 import Settings from './Settings';
+import IntakeWizard from './IntakeWizard';
+import AdminGroups from './AdminGroups';
 import Offline, { OnlineLeaseBanner, type PlatformStatus } from './Offline';
 import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipeline } from './types';
 
@@ -68,6 +70,8 @@ export default function App() {
     new URLSearchParams(window.location.search).get('view') === 'report' ? 'report' : 'overview',
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [intakeOpen, setIntakeOpen] = useState(false);
+  const [adminGroupsOpen, setAdminGroupsOpen] = useState(false);
   // Platform power state (sleep/wake). null until first probe; when control is on and
   // the orchestrator is asleep, the whole app is replaced by the Offline gate.
   const [platform, setPlatform] = useState<PlatformStatus | null>(null);
@@ -212,6 +216,8 @@ export default function App() {
             </select>
           ) : null}
           {teamsInfo?.inTeams ? <a className="dashlink" href={cfg?.appBaseUrl || window.location.origin} target="_blank" rel="noopener noreferrer">Open web console ↗</a> : null}
+          {canViewStage2 ? <button className="asktoggle" onClick={() => setIntakeOpen(true)} title="Create a new deal via guided intake">+ New deal</button> : null}
+          {isAdmin ? <button className="gearbtn" onClick={() => setAdminGroupsOpen(true)} title="Admin — deal groups &amp; territories" aria-label="Deal groups and territories">🗂</button> : null}
           <button className={`asktoggle${chatOpen ? ' on' : ''}`} onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide agents' : '💬 Ask agents'}</button>
           <button className="gearbtn" onClick={() => setTheme(toggleTheme())} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label="Toggle light or dark theme">{theme === 'dark' ? '☀' : '🌙'}</button>
           <button className={`gearbtn${settingsOpen ? ' on' : ''}`} onClick={() => setSettingsOpen((v) => !v)} title="Settings — data sources & administration" aria-label="Settings">⚙</button>
@@ -255,6 +261,8 @@ export default function App() {
       </div>
 
       {openDealId ? <DealDetail dealId={openDealId} canViewStage2={canViewStage2} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} /> : null}
+      {intakeOpen ? <IntakeWizard isAdmin={isAdmin} onClose={() => setIntakeOpen(false)} onCreated={(id) => { setIntakeOpen(false); refreshData(); setOpenDealId(id); }} /> : null}
+      {adminGroupsOpen ? <AdminGroups deals={deals} onClose={() => setAdminGroupsOpen(false)} /> : null}
     </div>
   );
 }

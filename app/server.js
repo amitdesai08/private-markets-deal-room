@@ -9,6 +9,8 @@ import {
   getDeal,
   getDealRaw,
   setDealTags,
+  setDealRegion,
+  createDealFromIntake,
   listSourcing,
   promoteSourcing,
   getPersonas,
@@ -1016,6 +1018,25 @@ api.post('/deals/:id/tags', (req, res) => {
   const updated = setDealTags(req.params.id, req.body?.tags);
   if (!updated) return res.status(404).json({ error: 'deal not found' });
   res.json({ id: updated.id, tags: updated.tags });
+});
+// Create a deal via the guided intake wizard (deal-team+). Territory + deal groups
+// are captured up front so access maps to Entra groups from creation.
+api.post('/deals/create', (req, res) => {
+  const identity = requestingIdentity(req);
+  if (!accessFor(identity, requestingViewAs(req)).canWrite) return res.status(403).json({ error: 'you cannot create deals' });
+  const out = createDealFromIntake({ ...(req.body || {}), createdBy: identity?.upn || identity?.name || null });
+  if (out.error) return res.status(400).json(out);
+  res.status(201).json(out.deal);
+});
+// Set a deal's territory (deal-team+ with full access).
+api.post('/deals/:id/region', (req, res) => {
+  const identity = requestingIdentity(req);
+  const raw = getDealRaw(req.params.id);
+  if (!raw) return res.status(404).json({ error: 'deal not found' });
+  if (dealAccessLevel(identity, raw, requestingViewAs(req)) !== 'full' || !accessFor(identity, requestingViewAs(req)).canWrite) return res.status(403).json({ error: 'not allowed' });
+  const updated = setDealRegion(req.params.id, req.body?.region);
+  if (!updated) return res.status(404).json({ error: 'deal not found' });
+  res.json({ id: updated.id, region: updated.region });
 });
 
 api.get('/sourcing', (_req, res) => res.json(listSourcing()));
