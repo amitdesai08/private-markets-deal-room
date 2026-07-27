@@ -73,8 +73,22 @@ param teamsAppCatalogId = ''   // org app-catalog id (per tenant; from the Teams
 param m365PublishGroup = 'Private Equity Deals'
 
 // ─────────────────────────── CUTOVER SWITCHES ───────────────────────────
-// The VNet / private-endpoint posture is STAGED and inert while these stay off.
-// To CUT OVER to the private (VNet-integrated) topology on command:
+// STATE (2026-07-26): dev is ALREADY on the private topology, but it was cut over
+// SIDE-BY-SIDE (blue/green) rather than via this param's in-place recreate path:
+//   • A NEW VNet-integrated env `cae-dealhub-green-swc` (snet-cae) + app
+//     `ca-dealhub-orch-green` were stood up imperatively; the Teams app's
+//     SHARED_BACKEND_URL was repointed to green (Teams FQDN unchanged).
+//   • Cosmos private endpoint `pe-cosmos-dealhub-dev` + private DNS zone
+//     `privatelink.documents.azure.com` were created; Cosmos publicNetworkAccess = Disabled.
+//   • The old blue orch app was deleted; blue env `cae-dealhub-dev-swc` is KEPT (it hosts
+//     the Teams app). These green/PE/DNS resources are managed OUT-OF-BAND (not in this
+//     template yet) — reconciling them into IaC requires either renaming green to the
+//     canonical `ca-dealhub-orch-*` or adopting them, and is a separate change.
+// Therefore enablePrivateEndpoints STAYS false here: flipping it and redeploying would try
+// to VNet-join the EXISTING (immutable) blue env — forcing a recreate that destroys the live
+// Teams app. Do NOT flip it against the current dev without a maintenance window + the runbook.
+//
+// The in-place cutover path (if ever rebuilding dev from scratch):
 //   1. enablePrivateEndpoints = true   // VNet-integrates the CA env (snet-cae) + creates
 //                                       // private endpoints + sets publicNetworkAccess =
 //                                       // Disabled on Cosmos / Storage / Key Vault / Foundry.

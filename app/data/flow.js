@@ -316,6 +316,22 @@ export function stageById(id) {
   return STAGES.find((s) => s.id === id) || null;
 }
 
+// First step key of a given stage id, in flow order (null if the stage has no steps).
+export function firstStepKeyOfStage(stageId) {
+  const s = STEPS.find((x) => x.stage === stageId);
+  return s ? s.key : null;
+}
+
+// The stage id immediately before the one that owns `stepKey`, or null if `stepKey`
+// is already in the first stage. Drives "knock a deal back a stage".
+export function prevStageId(stepKey) {
+  const step = stepByKey(stepKey);
+  if (!step) return null;
+  const order = STAGES.map((s) => s.id);
+  const i = order.indexOf(step.stage);
+  return i > 0 ? order[i - 1] : null;
+}
+
 // Backwards-compatible lifecycle list used by any legacy consumers.
 export const STAGE_ORDER = STEPS.map((s) => ({ key: s.key, label: s.title, phase: s.stage }));
 

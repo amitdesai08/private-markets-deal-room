@@ -6,7 +6,7 @@
 
 import { seedSourcing, demoStageDeals } from '../data/deals.js';
 import { personas } from '../data/personas.js';
-import { STAGES, STEPS, STEP_KEYS, FLOW, GATE, stepByKey, stepIndex } from '../data/flow.js';
+import { STAGES, STEPS, STEP_KEYS, FLOW, GATE, stepByKey, stepIndex, stageById, firstStepKeyOfStage, prevStageId } from '../data/flow.js';
 import { runStep as runStepAgent } from './agents.js';
 import { messagesToSignals } from './ingest/signals.js';
 import { SOURCES, catalysts, catalystById } from '../data/news.js';
@@ -2418,6 +2418,33 @@ export async function regressDeal(id) {
     const idx = stepIndex(deal.stage);
     if (idx > 0) deal.stage = STEP_KEYS[idx - 1];
     return { event: 'deal-regressed' };
+  });
+  return r.error ? null : r.deal;
+}
+
+// Knock a deal back a whole stage — reopens it at the FIRST step of the previous
+// stage (e.g. a deal in Execution goes back to the start of Diligence). Purely
+// positional: derive() recomputes completedSteps/readiness from deal.stage, so the
+// later steps are un-completed automatically. No-op if already in the first stage.
+export async function regressDealStage(id, { persona, reason } = {}) {
+  const r = await mutateDeal(id, (deal) => {
+    const prevId = prevStageId(deal.stage);
+    if (!prevId) return {}; // already in the first stage — no-op
+    const targetKey = firstStepKeyOfStage(prevId);
+    if (!targetKey || targetKey === deal.stage) return {};
+    const from = deal.stage;
+    const fromStep = stepByKey(from);
+    deal.stage = targetKey;
+    const target = stepByKey(targetKey);
+    const stage = stageById(prevId);
+    const at = new Date().toISOString();
+    const why = String(reason || '').trim();
+    deal.activity.unshift({
+      actor: 'Deal Orchestrator',
+      action: `Knocked back to ${stage?.name || prevId} — reopened at ${target.code} · ${target.title} (from ${fromStep ? `${fromStep.code} · ${fromStep.title}` : from})${why ? ` — ${why}` : ''}`,
+      when: at
+    });
+    return { event: 'deal-stage-regressed', detail: { from, to: targetKey, stage: prevId, by: persona || null, reason: why || null } };
   });
   return r.error ? null : r.deal;
 }

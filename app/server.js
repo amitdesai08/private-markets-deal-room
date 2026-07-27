@@ -88,6 +88,7 @@ import {
   companyFinancials,
   advanceDeal,
   regressDeal,
+  regressDealStage,
   runStep,
   portfolioStats,
   hydrate
@@ -1187,6 +1188,15 @@ api.post('/deals/:id/artifact/:step', async (req, res) => {
 
 api.post('/deals/:id/back', async (req, res) => {
   const deal = await regressDeal(req.params.id);
+  if (!deal) return res.status(404).json({ error: 'deal not found' });
+  res.json(deal);
+});
+
+// Knock a deal back a whole stage (e.g. Execution → start of Diligence). No-op if
+// already in the first stage; the response reflects the (possibly unchanged) deal.
+api.post('/deals/:id/back-stage', async (req, res) => {
+  const { persona, reason } = req.body || {};
+  const deal = await regressDealStage(req.params.id, { persona, reason });
   if (!deal) return res.status(404).json({ error: 'deal not found' });
   res.json(deal);
 });

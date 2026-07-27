@@ -3,6 +3,7 @@ import { getSsoToken } from './teams';
 import { af } from './authFetch';
 import DealArtifacts from './DealArtifacts';
 import ChatPanel from './ChatPanel';
+import { renderMarkdown } from './md';
 import type { Agent, Deal } from './types';
 
 // Native Deal Workspace (single-deal scope) — brings the webapp's Stages,
@@ -19,6 +20,7 @@ type DealFull = {
   readiness?: number; daysToIC?: number; thesis?: string; keyFigures?: KeyFigure[]; workstreams?: Workstream[];
   currentStep?: string; stepNumber?: number; totalSteps?: number; completedSteps?: string[];
   workspaceReady?: boolean; memoSections?: MemoSection[]; artifacts?: Record<string, any>; workspace?: any;
+  stepRuns?: Record<string, { heading?: string; markdown?: string; artifacts?: string[]; when?: string }>;
   accessLevel?: 'full' | 'status'; locked?: boolean;
 };
 type Verdict = { state?: string; headline?: string; gating?: string[] };
@@ -237,8 +239,17 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
   const steps = flow?.steps || [];
   const curIdx = steps.findIndex((s) => s.key === deal?.currentStep);
   const completed = new Set(deal?.completedSteps || []);
+  // "Knock back a stage" target — the stage immediately before the current step's
+  // stage. Null when the deal is already in the first stage (nothing to knock back to).
+  const curStepStage = steps.find((s) => s.key === deal?.currentStep)?.stage;
+  const stageList = flow?.stages || [];
+  const curStageIdx = stageList.findIndex((s) => s.id === curStepStage);
+  const prevStage = curStageIdx > 0 ? stageList[curStageIdx - 1] : null;
   const viewStep = selStep || deal?.currentStep || '';
   const artifact = deal?.artifacts?.[viewStep];
+  // A run's rich, agent-authored deliverable (from "Run <step>"), if any — this is the
+  // full narrative document; the structured `artifact` is the at-a-glance summary.
+  const stepRun = deal?.stepRuns?.[viewStep];
   const verdict = ic?.verdict;
   const ws = deal?.workspace || {};
   // Post-screening stages (Diligence D*, Execution E*, Ownership V*) are deal-team only
@@ -517,13 +528,23 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                           {busy === 'advance' ? 'Advancing…' : 'Advance →'}
                         </button>
                         <button className="btn ghost" disabled={!!busy} onClick={() => act('back', `/api/deals/${dealId}/back`)}>← Back</button>
+                        {prevStage ? (
+                          <button className="btn ghost" disabled={!!busy} title={`Reopen this deal at the start of ${prevStage.name}`} onClick={() => { if (window.confirm(`Knock this deal back to “${prevStage.name}”?\n\nIt will reopen at the start of that stage and any later steps will be marked incomplete.`)) act('back-stage', `/api/deals/${dealId}/back-stage`); }}>
+                            {busy === 'back-stage' ? 'Knocking back…' : `⏮ Knock back to ${prevStage.name}`}
+                          </button>
+                        ) : null}
                       </>
                     )}
                   </div>
 
                   <section className="dd-panel">
                     <div className="dd-panel-h">{STEP_LABEL[viewStep] || viewStep} — deliverable</div>
-                    {artifact ? (
+                    {stepRun?.markdown ? (
+                      <div style={{ padding: '12px 16px' }}>
+                        {stepRun.when ? <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>Generated {new Date(stepRun.when).toLocaleString()}{stepRun.artifacts?.length ? ` · ${stepRun.artifacts.join(', ')}` : ''}</div> : null}
+                        <div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(stepRun.markdown) }} />
+                      </div>
+                    ) : artifact ? (
                       <div className="artifact-view">
                         <div className="av-kind">{artifact.kind || 'artifact'}</div>
                         {Array.isArray(artifact.workstreams) ? (
