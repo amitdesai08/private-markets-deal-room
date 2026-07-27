@@ -161,6 +161,18 @@ const api = express.Router();
 // the whole API surface so browsers/proxies always revalidate against the datastore.
 api.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
 
+// Performance guardrail (observability): log any API response slower than SLOW_MS so
+// latency regressions surface in the container logs. Additive and non-blocking.
+const SLOW_MS = Number(process.env.SLOW_MS || 1500);
+api.use((req, res, next) => {
+  const t0 = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - t0;
+    if (ms >= SLOW_MS) console.warn(`[slow-api] ${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms`);
+  });
+  next();
+});
+
 api.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 
 // Microsoft Graph mailbox change-notifications (O1 Deal-Sourcing signals)

@@ -45,6 +45,7 @@ export default function App() {
   const [pipeline, setPipeline] = useState<Pipeline | null>(null);
   const [market, setMarket] = useState<MarketIntel | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [dealsError, setDealsError] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([ORCHESTRATOR]);
   // Agents panel starts collapsed — it opens on an explicit "Ask" action so the
   // dashboard isn't crowded on first load.
@@ -109,7 +110,7 @@ export default function App() {
       fetch('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
       fetch('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
       fetch('/api/market-intel').then((r) => r.json()).then(setMarket).catch(() => {});
-      af('/api/deals').then((r) => (r.ok ? r.json() : [])).then((d) => { if (Array.isArray(d)) setDeals(d); }).catch(() => {});
+      loadDeals();
 
       fetch('/api/config').then((r) => r.json()).then((backendCfg: BackendConfig) => {
         setConfig(backendCfg);
@@ -146,12 +147,21 @@ export default function App() {
       applyAccess(ctx);
       // Re-pull the pipeline as the newly selected identity so status-only / hidden
       // deals are reflected in the list.
-      af('/api/deals').then((r) => (r.ok ? r.json() : [])).then((d) => { if (Array.isArray(d)) setDeals(d); }).catch(() => {});
+      loadDeals();
     })();
   }, [viewAs, viewAsRole]);
 
+  // Critical data load with an explicit failure/retry state, so a transient API error
+  // degrades to "last known data + Retry" instead of a silent blank.
+  function loadDeals() {
+    return af('/api/deals')
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then((d) => { if (Array.isArray(d)) setDeals(d); setDealsError(false); })
+      .catch(() => setDealsError(true));
+  }
+
   async function refreshData() {
-    af('/api/deals').then((r) => (r.ok ? r.json() : [])).then((d) => { if (Array.isArray(d)) setDeals(d); }).catch(() => {});
+    loadDeals();
     fetch('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
     fetch('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
   }
@@ -210,6 +220,13 @@ export default function App() {
           <button key={k} className={`maintab${!settingsOpen && mainTab === k ? ' on' : ''}`} onClick={() => { setSettingsOpen(false); setMainTab(k); }}>{label}</button>
         ))}
       </nav>
+
+      {dealsError ? (
+        <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 12px', padding: '8px 12px', borderRadius: 8, border: '1px solid #b23b3b', background: 'rgba(178,59,59,.10)', fontSize: 13 }}>
+          <span>⚠ Couldn’t refresh deals — showing the last known data.</span>
+          <button className="maintab" style={{ marginLeft: 'auto' }} onClick={() => loadDeals()}>Retry</button>
+        </div>
+      ) : null}
 
       <div className="layout">
         <main className="main">
