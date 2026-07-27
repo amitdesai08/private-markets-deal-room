@@ -77,3 +77,7 @@ infra/main.sample.json
 
 # Local point-in-time data backups (not for the public repo)
 backups/
+
+# Local Cosmos backup + infra scratch (contains real deal data — never commit)
+_backup/
+app/_export-cosmos.mjs

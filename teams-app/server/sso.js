@@ -41,6 +41,11 @@ export function identityFromSsoToken(ssoToken) {
       name: payload.name ?? null,
       upn: payload.preferred_username ?? payload.upn ?? null,
       tid: payload.tid ?? null,
+      // Entra APP ROLES ('roles') + SECURITY GROUP object ids ('groups') the user is
+      // assigned in THIS app registration — the governed, tenant-managed way to grant
+      // application roles (e.g. admin) with no Azure/Entra directory privilege.
+      roles: Array.isArray(payload.roles) ? payload.roles : [],
+      groups: Array.isArray(payload.groups) ? payload.groups : [],
     };
   } catch {
     return null;

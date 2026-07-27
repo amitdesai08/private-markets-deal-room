@@ -84,15 +84,39 @@ const rankOf = (role) => (roleSpec(role)?.rank ?? 0);
 // Env-based id lists for the four built-in assignable roles.
 const ENV_IDS = { admin: [...ADMIN_IDS, ...BOOTSTRAP_ADMIN], partner: PARTNER_IDS, 'deal-team': DEAL_TEAM_IDS, analyst: ANALYST_IDS };
 
-// Resolve a VERIFIED identity to a role. `identity` = { oid, upn, name }.
+// ENTRA APP ROLES (token 'roles' claim) and SECURITY GROUP object ids (token 'groups'
+// claim) that map to each application role. This is the Entra-native way to grant
+// application admin WITHOUT any Azure or Entra directory privilege: define an app role
+// on the app registration (or a security group) and assign users/groups to it. Admin
+// defaults to the app-role value 'DealRoom.Admin' so it works once assigned; override or
+// extend via env (e.g. ADMIN_APP_ROLES=Administrator or ADMIN_GROUP_IDS=<group-oid>).
+const APP_ROLE_CLAIMS = {
+  admin:       (listEnv('ADMIN_APP_ROLES').length ? listEnv('ADMIN_APP_ROLES') : ['DealRoom.Admin']),
+  partner:     listEnv('PARTNER_APP_ROLES'),
+  'deal-team': listEnv('DEAL_TEAM_APP_ROLES'),
+  analyst:     listEnv('ANALYST_APP_ROLES'),
+};
+const GROUP_IDS = {
+  admin:       listEnv('ADMIN_GROUP_IDS'),
+  partner:     listEnv('PARTNER_GROUP_IDS'),
+  'deal-team': listEnv('DEAL_TEAM_GROUP_IDS'),
+  analyst:     listEnv('ANALYST_GROUP_IDS'),
+};
+
+// Resolve a VERIFIED identity to a role. `identity` = { oid, upn, name, roles?, groups? }.
 export function roleForUser(identity = {}) {
   const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn), norm(identity.name)].filter(Boolean);
+  const appRoles = (Array.isArray(identity.roles) ? identity.roles : []).map((r) => norm(r));
+  const groups = (Array.isArray(identity.groups) ? identity.groups : []).map((g) => norm(g));
   const assign = getRoleAssignments() || {};
   const idsFor = (id) => [...(ENV_IDS[id] || []), ...((assign[id] || []).map((s) => norm(s)))];
-  const hit = (list) => keys.some((k) => list.includes(k));
-  // Highest-rank matching role wins (covers custom roles + config assignments).
+  const hitId = (list) => keys.some((k) => list.includes(k));
+  const hitRole = (id) => (APP_ROLE_CLAIMS[id] || []).some((r) => appRoles.includes(norm(r)));
+  const hitGroup = (id) => (GROUP_IDS[id] || []).some((g) => groups.includes(norm(g)));
+  // Highest-rank matching role wins. Entra app-role / group assignment (tenant-managed)
+  // and the explicit id lists (env + admin-authored assignments) are all honoured.
   const ranked = Object.keys(effRoles()).filter((r) => r !== 'member').sort((a, b) => rankOf(b) - rankOf(a));
-  for (const id of ranked) if (hit(idsFor(id))) return id;
+  for (const id of ranked) if (hitRole(id) || hitGroup(id) || hitId(idsFor(id))) return id;
   return 'member';
 }
 

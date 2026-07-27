@@ -105,6 +105,10 @@ param bootstrapAdmin string = ''
 param partnerIds array = []
 param dealTeamIds array = []
 param analystIds array = []
+@description('Entra APP ROLE value(s), comma-separated, that map to application ADMIN (token \'roles\' claim). Default DealRoom.Admin — define it on the app registration and assign users/groups in the Enterprise App; grants NO Azure or Entra directory privilege.')
+param adminAppRoles string = 'DealRoom.Admin'
+@description('Entra security GROUP object id(s), comma-separated, that map to application ADMIN (token \'groups\' claim). Empty = disabled; requires groupMembershipClaims on the app registration.')
+param adminGroupIds string = ''
 @description('When true, expose the demo showcase profiles (one identity per role).')
 param deployDemoProfiles bool = false
 @allowed([ 'partner', 'deal-team', 'analyst', 'member' ])
@@ -263,6 +267,8 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'PARTNER_IDS', value: join(partnerIds, ',') }
             { name: 'DEAL_TEAM_IDS', value: join(dealTeamIds, ',') }
             { name: 'ANALYST_IDS', value: join(analystIds, ',') }
+            { name: 'ADMIN_APP_ROLES', value: adminAppRoles }
+            { name: 'ADMIN_GROUP_IDS', value: adminGroupIds }
             { name: 'DEFAULT_AGENT_ROLE', value: defaultAgentRole }
             { name: 'DEMO_PROFILES', value: string(deployDemoProfiles) }
           ]

@@ -139,11 +139,11 @@ function requestingIdentity(req) {
   // Only honour a supplied identity when the caller proves it is the Teams bot.
   if (BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY) return null;
   const ru = req.body?.requestingUser;
-  if (ru) return { oid: ru.oid, upn: ru.upn, name: ru.name };
+  if (ru) return { oid: ru.oid, upn: ru.upn, name: ru.name, roles: ru.roles, groups: ru.groups };
   // GET requests (deal list / detail) carry the identity in a trusted header.
   const hdr = req.headers['x-dr-user'];
   if (hdr) {
-    try { const u = JSON.parse(hdr); return { oid: u.oid, upn: u.upn, name: u.name }; } catch { /* ignore */ }
+    try { const u = JSON.parse(hdr); return { oid: u.oid, upn: u.upn, name: u.name, roles: u.roles, groups: u.groups }; } catch { /* ignore */ }
   }
   return null;
 }

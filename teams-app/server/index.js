@@ -100,7 +100,7 @@ app.post('/api/teams/context', async (req, res) => {
   // the demo override (by name) or the SSO identity, trusted via the shared bot key.
   const requestingUser = asOverride
     ? { name: asOverride }
-    : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : null);
+    : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
   let acc = null;
   if (isBackendLive()) {
     try {
@@ -242,7 +242,7 @@ app.use('/api/admin', async (req, res) => {
   const asOverride = String(req.body?.as || '').trim();
   const requestingUser = asOverride
     ? { name: asOverride }
-    : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : null);
+    : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
   const body = { ...(req.body || {}) };
   delete body.ssoToken; delete body.as;
   body.requestingUser = requestingUser;
@@ -271,7 +271,7 @@ app.use('/api/deals', async (req, res) => {
   const viewAsRole = String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || req.query.viewAsRole || '').trim();
   const requestingUser = asOverride
     ? { name: asOverride }
-    : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : null);
+    : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
   const headers = { 'content-type': 'application/json' };
   if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
   if (requestingUser) headers['x-dr-user'] = JSON.stringify(requestingUser);
