@@ -6,7 +6,7 @@
 // orchestrator via POST /api/teams/context; all data calls proxy to /api on the
 // shared backend. Add a new main tab by extending the mainTab union + the nav map.
 import { useEffect, useState } from 'react';
-import { initTeams, getSsoToken, type TeamsInfo } from './teams';
+import { initTeams, getSsoToken, toggleTheme, type TeamsInfo } from './teams';
 import { af, setAuthContext } from './authFetch';
 import Dashboard from './Dashboard';
 import ChatPanel from './ChatPanel';
@@ -38,6 +38,7 @@ const ORCHESTRATOR: Agent = {
 
 export default function App() {
   const [teamsInfo, setTeams] = useState<TeamsInfo | null>(null);
+  const [theme, setTheme] = useState<string>('default');
   const [cfg, setCfg] = useState<TeamsConfig | null>(null);
   const [persona, setPersona] = useState<Persona>(null);
   const [config, setConfig] = useState<BackendConfig | null>(null);
@@ -100,6 +101,7 @@ export default function App() {
   useEffect(() => {
     (async () => {
       setTeams(await initTeams());
+      setTheme(document.documentElement.dataset.theme || 'default');
       // SSO token identifies the caller so /platform/status can report isAdmin (the
       // "keep online indefinitely" path is admin-only). Absent outside Teams — fine.
       const tok = await getSsoToken().catch(() => null);
@@ -211,6 +213,7 @@ export default function App() {
           ) : null}
           {teamsInfo?.inTeams ? <a className="dashlink" href={cfg?.appBaseUrl || window.location.origin} target="_blank" rel="noopener noreferrer">Open web console ↗</a> : null}
           <button className={`asktoggle${chatOpen ? ' on' : ''}`} onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide agents' : '💬 Ask agents'}</button>
+          <button className="gearbtn" onClick={() => setTheme(toggleTheme())} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label="Toggle light or dark theme">{theme === 'dark' ? '☀' : '🌙'}</button>
           <button className={`gearbtn${settingsOpen ? ' on' : ''}`} onClick={() => setSettingsOpen((v) => !v)} title="Settings — data sources & administration" aria-label="Settings">⚙</button>
         </div>
       </header>
@@ -431,6 +434,12 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
     animation-duration: .001ms !important; animation-iteration-count: 1 !important;
     transition-duration: .001ms !important; scroll-behavior: auto !important;
   }
+}
+
+/* Consistent reading width on very wide monitors — centre the content instead of
+   letting it sprawl edge-to-edge, so large and standard screens feel the same. */
+@media (min-width: 1500px) {
+  .main { padding-inline: max(0px, calc((100% - 1440px) / 2)); }
 }
 
 @media (max-width: 860px) {

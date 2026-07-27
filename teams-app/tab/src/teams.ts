@@ -4,7 +4,7 @@ export type TeamsInfo = { inTeams: boolean; theme: string; context?: unknown };
 
 // Map the Teams theme onto a full set of CSS variables so the native tab restyles
 // automatically for default / dark / high-contrast, matching Teams' own palette.
-function applyTheme(theme: string) {
+export function applyTheme(theme: string) {
   const root = document.documentElement;
   root.dataset.theme = theme;
   const dark = theme === 'dark';
@@ -14,9 +14,11 @@ function applyTheme(theme: string) {
   root.style.setProperty('--bg', t('#f5f5f5', '#1f1f1f', '#000000'));
   root.style.setProperty('--surface', t('#ffffff', '#2b2b2b', '#000000'));
   root.style.setProperty('--card', t('#ffffff', '#292929', '#000000'));
-  root.style.setProperty('--fg', t('#242424', '#f3f3f3', '#ffffff'));
-  root.style.setProperty('--muted', t('#616161', '#adadad', '#c8c8c8'));
-  root.style.setProperty('--border', t('#e0e0e0', '#3d3d3d', '#ffffff'));
+  root.style.setProperty('--fg', t('#1f1f1f', '#f3f3f3', '#ffffff'));
+  // Muted/secondary text — darkened (light) / brightened (dark) for a comfortable
+  // WCAG-AA contrast margin against the surface.
+  root.style.setProperty('--muted', t('#57606a', '#b7bfca', '#c8c8c8'));
+  root.style.setProperty('--border', t('#d7dbe0', '#3d3d3d', '#ffffff'));
   root.style.setProperty('--accent', t('#5b5fc7', '#7f85f5', '#ffff01'));
   root.style.setProperty('--accent-fg', t('#ffffff', '#ffffff', '#000000'));
   root.style.setProperty('--hover', t('#f0f0f0', '#333333', '#1a1a1a'));
@@ -27,19 +29,48 @@ function applyTheme(theme: string) {
   root.style.setProperty('--shadow', dark || contrast ? 'none' : '0 1px 2px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.06)');
 }
 
+// User theme choice (light/dark) persists across sessions and, when set, overrides
+// both the Teams host theme and the OS color-scheme preference.
+const THEME_KEY = 'dealroom-theme';
+function storedTheme(): string | null { try { return localStorage.getItem(THEME_KEY); } catch { return null; } }
+function prefersDark(): boolean { try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch { return false; } }
+
+export function currentTheme(): string { return document.documentElement.dataset.theme || 'default'; }
+
+export function setUserTheme(mode: string): void {
+  try { localStorage.setItem(THEME_KEY, mode); } catch { /* ignore */ }
+  applyTheme(mode);
+}
+
+// Flip light <-> dark (leaves Teams high-contrast untouched), persist, return new mode.
+export function toggleTheme(): string {
+  const next = currentTheme() === 'dark' ? 'default' : 'dark';
+  setUserTheme(next);
+  return next;
+}
+
 export async function initTeams(): Promise<TeamsInfo> {
+  const override = storedTheme();
   try {
     await app.initialize();
     const context = await app.getContext();
-    const theme = context.app.theme || 'default';
+    const theme = override || context.app.theme || 'default';
     applyTheme(theme);
-    app.registerOnThemeChangeHandler(applyTheme);
+    // Teams host theme changes apply only when the user hasn't set an explicit override.
+    app.registerOnThemeChangeHandler((tHeme) => { if (!storedTheme()) applyTheme(tHeme); });
     app.notifySuccess();
     return { inTeams: true, theme, context };
   } catch {
-    // Running outside Teams (local browser) — render with the default theme.
-    applyTheme('default');
-    return { inTeams: false, theme: 'default' };
+    // Outside Teams (web console): honour the saved choice, else the OS color scheme,
+    // and keep following the OS until the user picks a theme explicitly.
+    const initial = override || (prefersDark() ? 'dark' : 'default');
+    applyTheme(initial);
+    try {
+      if (!override && window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => { if (!storedTheme()) applyTheme(e.matches ? 'dark' : 'default'); });
+      }
+    } catch { /* ignore */ }
+    return { inTeams: false, theme: initial };
   }
 }
 
