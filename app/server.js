@@ -155,6 +155,11 @@ function requestingViewAs(req) {
 // ---- API ----
 const api = express.Router();
 
+// Deal/pipeline data is live and must never be served stale — a mutation (advance,
+// back, run, launch) must be reflected on the very next read. Disable caching across
+// the whole API surface so browsers/proxies always revalidate against the datastore.
+api.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
+
 api.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 
 // Microsoft Graph mailbox change-notifications (O1 Deal-Sourcing signals)

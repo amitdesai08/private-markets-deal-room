@@ -86,7 +86,7 @@ type Tab = 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'artifacts'
 type ResolveTarget = { tab: Tab; step?: string };
 type ActivityEntry = { actor?: string; action?: string; when?: string; via?: string | null };
 
-export default function DealDetail({ dealId, canViewStage2, agents, deals, viewAsRole, onClose }: { dealId: string; canViewStage2: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onClose: () => void }) {
+export default function DealDetail({ dealId, canViewStage2, agents, deals, viewAsRole, onChanged, onClose }: { dealId: string; canViewStage2: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
   const [ic, setIc] = useState<ICReadiness | null>(null);
   const [flow, setFlow] = useState<Flow | null>(null);
@@ -194,7 +194,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
         else setNote(`Action failed (${r.status}).`);
       }
       const d = await load(true);
-      if (r.ok && d) setSelStep(d.currentStep || selStep);
+      if (r.ok && d) { setSelStep(d.currentStep || selStep); onChanged?.(); }
     } catch (e: any) {
       setNote(`Action failed (${String(e?.message || e)}).`);
     } finally { setBusy(''); }
@@ -489,6 +489,31 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                     </div>
                   </section>
 
+                  <section className="dd-panel">
+                    <div className="dd-panel-h">{STEP_LABEL[viewStep] || viewStep} — deliverable</div>
+                    {stepRun?.markdown ? (
+                      <div style={{ padding: '12px 16px' }}>
+                        {stepRun.when ? <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>Generated {new Date(stepRun.when).toLocaleString()}{stepRun.artifacts?.length ? ` · ${stepRun.artifacts.join(', ')}` : ''}</div> : null}
+                        <div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(stepRun.markdown) }} />
+                      </div>
+                    ) : artifact ? (
+                      <div className="artifact-view">
+                        <div className="av-kind">{artifact.kind || 'artifact'}</div>
+                        {Array.isArray(artifact.workstreams) ? (
+                          <ul className="av-list">{artifact.workstreams.map((w: any, i: number) => (<li key={i}><b>{w.label || w.key}</b>{w.adviser ? ` · ${w.adviser}` : ''}</li>))}</ul>
+                        ) : Array.isArray(artifact.sections) ? (
+                          <ul className="av-list">{artifact.sections.map((s: any, i: number) => (<li key={i}><b>{s.title || s.key}</b> — {s.status}</li>))}</ul>
+                        ) : Array.isArray(artifact.findings) ? (
+                          <ul className="av-list">{artifact.findings.slice(0, 8).map((f: any, i: number) => (<li key={i}>{f.text || f.title || JSON.stringify(f).slice(0, 100)}</li>))}</ul>
+                        ) : (
+                          <div className="muted">Deliverable generated. Open the full record for the complete document.</div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="dd-empty-p">No deliverable yet for this step. {viewStep === deal.currentStep && deal.workspaceReady ? 'Run the step to generate it.' : ''}</div>
+                    )}
+                  </section>
+
                   <div className="orch-links">
                     <button className="wsp-link teams" disabled={!!busy} onClick={() => (ws.teamsProvisioned && ws.teamsUrl) ? window.open(ws.teamsUrl, '_blank', 'noopener') : dealChannel()}>{ws.teamsProvisioned ? 'Open Teams ↗' : '# Deal channel'}</button>
                     <button className="wsp-link spo" disabled={!!busy} onClick={openDataRoom}>{ws.sharePointProvisioned ? '📁 SharePoint data room ↗' : '📁 Data room'}</button>
@@ -535,31 +560,6 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                       </>
                     )}
                   </div>
-
-                  <section className="dd-panel">
-                    <div className="dd-panel-h">{STEP_LABEL[viewStep] || viewStep} — deliverable</div>
-                    {stepRun?.markdown ? (
-                      <div style={{ padding: '12px 16px' }}>
-                        {stepRun.when ? <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>Generated {new Date(stepRun.when).toLocaleString()}{stepRun.artifacts?.length ? ` · ${stepRun.artifacts.join(', ')}` : ''}</div> : null}
-                        <div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(stepRun.markdown) }} />
-                      </div>
-                    ) : artifact ? (
-                      <div className="artifact-view">
-                        <div className="av-kind">{artifact.kind || 'artifact'}</div>
-                        {Array.isArray(artifact.workstreams) ? (
-                          <ul className="av-list">{artifact.workstreams.map((w: any, i: number) => (<li key={i}><b>{w.label || w.key}</b>{w.adviser ? ` · ${w.adviser}` : ''}</li>))}</ul>
-                        ) : Array.isArray(artifact.sections) ? (
-                          <ul className="av-list">{artifact.sections.map((s: any, i: number) => (<li key={i}><b>{s.title || s.key}</b> — {s.status}</li>))}</ul>
-                        ) : Array.isArray(artifact.findings) ? (
-                          <ul className="av-list">{artifact.findings.slice(0, 8).map((f: any, i: number) => (<li key={i}>{f.text || f.title || JSON.stringify(f).slice(0, 100)}</li>))}</ul>
-                        ) : (
-                          <div className="muted">Deliverable generated. Open the full record for the complete document.</div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="dd-empty-p">No deliverable yet for this step. {viewStep === deal.currentStep && deal.workspaceReady ? 'Run the step to generate it.' : ''}</div>
-                    )}
-                  </section>
                 </>
               )}
 

@@ -47,6 +47,10 @@ export async function proxyToBackend(req, res) {
         res.setHeader(key, value);
       }
     });
+    // Proxied API/MCP responses are always live data — never let the browser or any
+    // intermediary cache them, so a mutation (advance/back/run) is reflected on the
+    // very next read. (Express would otherwise regenerate an ETag and allow caching.)
+    res.setHeader('Cache-Control', 'no-store');
     const buf = Buffer.from(await upstream.arrayBuffer());
     res.send(buf);
   } catch (e) {

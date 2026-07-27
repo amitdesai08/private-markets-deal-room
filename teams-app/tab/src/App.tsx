@@ -234,7 +234,7 @@ export default function App() {
         {chatOpen ? <ChatPanel agents={visibleAgents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} viewAsRole={viewAsRole} /> : null}
       </div>
 
-      {openDealId ? <DealDetail dealId={openDealId} canViewStage2={canViewStage2} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onClose={() => setOpenDealId('')} /> : null}
+      {openDealId ? <DealDetail dealId={openDealId} canViewStage2={canViewStage2} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} /> : null}
     </div>
   );
 }
