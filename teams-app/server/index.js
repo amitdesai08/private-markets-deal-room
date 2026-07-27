@@ -313,8 +313,18 @@ app.get('/config', (_req, res) => {
 // link in the tab opens this origin outside Teams).
 const tabDist = join(__dirname, '..', 'tab', 'dist');
 if (existsSync(tabDist)) {
-  app.use(express.static(tabDist));
-  app.get('*', (_req, res) => res.sendFile(join(tabDist, 'index.html')));
+  app.use(express.static(tabDist, {
+    setHeaders: (res, filePath) => {
+      // Content-hashed assets are immutable; everything else (incl. index.html) must revalidate.
+      if (/[\\/]assets[\\/]/.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      else res.setHeader('Cache-Control', 'no-cache');
+    }
+  }));
+  app.get('*', (_req, res) => {
+    // Never cache the SPA shell, so a new deploy's hashed bundle is picked up immediately.
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.sendFile(join(tabDist, 'index.html'));
+  });
 } else {
   app.get('*', (_req, res) =>
     res

@@ -479,6 +479,10 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                             <button className="btn primary" disabled={!!busy} onClick={() => act('run', `/api/deals/${dealId}/steps/${deal.currentStep}/run`)}>{busy === 'run' ? 'Running…' : `⚙ Run ${STEP_LABEL[deal.currentStep || ''] || 'step'}`}</button>
                             <button className="btn" disabled={!!busy} onClick={() => act('advance', `/api/deals/${dealId}/advance`)}>{busy === 'advance' ? 'Advancing…' : 'Advance to next step →'}</button>
                             {deal.currentStep && /^d[34]/i.test(deal.currentStep) ? <button className="btn ghost" onClick={() => setTab('documents')}>📤 Generate IC deck / memo</button> : null}
+                            <button className="btn ghost" disabled={!!busy} onClick={() => act('back', `/api/deals/${dealId}/back`)}>← Back a step</button>
+                            {prevStage ? (
+                              <button className="btn ghost" disabled={!!busy} title={`Reopen this deal at the start of ${prevStage.name}`} onClick={() => { if (window.confirm(`Knock this deal back to “${prevStage.name}”?\n\nIt will reopen at the start of that stage and any later steps will be marked incomplete.`)) act('back-stage', `/api/deals/${dealId}/back-stage`); }}>{busy === 'back-stage' ? 'Knocking back…' : `⏮ Knock back to ${prevStage.name}`}</button>
+                            ) : null}
                           </>
                         )}
                       </div>
@@ -528,11 +532,6 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                           {busy === 'advance' ? 'Advancing…' : 'Advance →'}
                         </button>
                         <button className="btn ghost" disabled={!!busy} onClick={() => act('back', `/api/deals/${dealId}/back`)}>← Back</button>
-                        {prevStage ? (
-                          <button className="btn ghost" disabled={!!busy} title={`Reopen this deal at the start of ${prevStage.name}`} onClick={() => { if (window.confirm(`Knock this deal back to “${prevStage.name}”?\n\nIt will reopen at the start of that stage and any later steps will be marked incomplete.`)) act('back-stage', `/api/deals/${dealId}/back-stage`); }}>
-                            {busy === 'back-stage' ? 'Knocking back…' : `⏮ Knock back to ${prevStage.name}`}
-                          </button>
-                        ) : null}
                       </>
                     )}
                   </div>
