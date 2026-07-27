@@ -24,7 +24,7 @@ import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scorin
 import { buildScorecard, buildTriageScore, buildMemoBase } from './screening.js';
 import { buildDiligencePlan, buildFindingsReport, buildFinalMemoBase, buildExecutionPack, buildCloseoutPlan, buildReturnsModel, buildValueCreationPlan, buildRiskRegister, buildIoi, buildLoi } from './diligence.js';
 import { buildWorkspace, checklistStats, MD_OPTIONS, WORKSTREAM_DEFAULTS, ensureWorkspaceSwimlanes, LANE_ORDER } from '../data/workspace.js';
-import { ensureDealChannel, provisionDealFolders, m365Connected, publishTeamToGroup, installTeamsAppInTeam } from './m365/graph.js';
+import { ensureDealChannel, provisionDealFolders, m365Connected, publishTeamToGroup, installTeamsAppInTeam, ensureDealAccessGroup } from './m365/graph.js';
 import { generateAnalystReport } from './analystReport.js';
 import {
   PASS_REASONS,
@@ -1932,6 +1932,21 @@ async function provisionDealChannel(deal) {
     }
   }
 
+  // Per-deal ACCESS GROUP: the deal's own Entra security group is the SINGLE control
+  // for its Teams channel, its SharePoint data-room site AND the in-app workspace.
+  // Setting deal.groupIds makes app access follow group membership (need-to-know) —
+  // an admin adds people to this group (wall-crossing) to grant the whole deal at once.
+  if (channel.teamId) {
+    try {
+      const grp = await ensureDealAccessGroup(deal);
+      if (deal.workspace) deal.workspace.dealAccessGroupId = grp.groupId;
+      deal.groupIds = Array.from(new Set([...(deal.groupIds || []), grp.groupId]));
+      logEvent(deal.id, 'deal-access-group', grp);
+    } catch (err) {
+      logEvent(deal.id, 'deal-access-group-error', { error: String(err?.message || err).slice(0, 160) });
+    }
+  }
+
   // Provision the SharePoint VDR folders (best-effort — never block launch/Teams).
   if (channel.teamId && deal.workspace) {
     try {
@@ -1966,8 +1981,10 @@ async function provisionDealChannel(deal) {
         fw.teamsUrl = w.teamsUrl; fw.teamsProvisioned = w.teamsProvisioned; fw.teamsChannelName = w.teamsChannelName;
         fw.channels = w.channels; fw.channelsProvisioned = w.channelsProvisioned;
         fw.sharePointUrl = w.sharePointUrl; fw.sharePointUrlResolved = w.sharePointUrlResolved; fw.sharePointProvisioned = w.sharePointProvisioned;
+        fw.dealAccessGroupId = w.dealAccessGroupId;
         fw.folders = w.folders; fw.swimlanes = w.swimlanes;
       }
+      fresh.groupIds = deal.groupIds;
       return { event: 'teams-channel-persisted', detail: { channelId: channel.channelId, teamId: channel.teamId } };
     });
   } catch (err) {

@@ -131,6 +131,12 @@ or **anyone named on that deal**. Flag a deal **confidential** and it vanishes f
 else's view — built for take-privates under NDA, carve-outs on a clean-team protocol, or a live
 exit.
 
+Access is also scoped by **territory** and **deal group**, both driven by **Entra security-group
+membership**: a **region group** (or a grouped territory like *West Coast*) limits a user to their
+deals; **customizable deal-group tags** each **auto-create an Entra security group** so a fund,
+sector pod or clean-team can be granted in one place; and each deal's **own access group** is the
+single control for its **Teams channel, SharePoint data room and workspace**.
+
 ![Role-gated access in the Teams tab](teams-app/docs/teams-rbac.png)
 
 > 🔎 **[The full access model — roles, need-to-know & demo mode →](docs/ACCESS-MODEL.md)**

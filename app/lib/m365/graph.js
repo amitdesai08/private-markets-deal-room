@@ -223,6 +223,18 @@ export async function groupMemberIds(groupId) {
   return (r?.value || []).map((m) => m.id).filter(Boolean);
 }
 
+// Ensure a per-deal ACCESS security group (DealRoom-Deal-<company>) exists and holds
+// the deal's people. Membership in THIS group is the single control that grants the
+// deal's Teams channel, its SharePoint data-room site AND the in-app workspace
+// (deal.groupIds → userPolicy). Idempotent; needs Group.ReadWrite.All +
+// GroupMember.ReadWrite.All (admin-consented).
+export async function ensureDealAccessGroup(deal, memberUserIds = []) {
+  const label = deal?.company || deal?.id || 'deal';
+  const g = await ensureSecurityGroup(`DealRoom-Deal-${label}`, `Deal Room access group for '${label}'. Members get the deal channel, data room and workspace (need-to-know).`);
+  for (const uid of memberUserIds) { if (uid) { try { await addUserToGroup(g.id, uid); } catch { /* already a member */ } } }
+  return { groupId: g.id, groupName: g.displayName, created: g.created };
+}
+
 // Idempotently ensure THIS deal has its own team; returns its live coordinates
 // (webUrl opens the team / its General channel). Reuses the team recorded on the
 // deal, or an existing joined team with the same name, before creating a new one.

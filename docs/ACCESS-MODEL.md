@@ -71,6 +71,36 @@ feed [`app/lib/userPolicy.js`](../app/lib/userPolicy.js), so a client can never 
 
 ---
 
+## Territories & deal groups — access by group membership
+
+Beyond role, two axes narrow *which deals* a person sees — both driven by **Entra
+security-group membership**, resolved server-side:
+
+- **Territory (region).** Each deal has a region (Northeast, Southeast, Midwest, South
+  Central, Northwest, Southwest, International — inferred from HQ or set explicitly).
+  Membership in a **region group** (`DealRoom-Region-<region>`) scopes a user to that
+  territory; a **grouped territory** (`DealRoom-Region-WestCoast` = Northwest + Southwest)
+  gives a regional manager a whole coast. In **no** region group = unrestricted — MDs,
+  partners and admins see every territory (admins bypass the wall entirely).
+- **Deal groups (customizable tags).** An admin defines named **deal groups**; each is
+  backed by an **auto-created Entra security group** (`DealRoom-Deal-<tag>`). An MD tags a
+  deal from the cockpit, and **membership in a tag's group grants the full workspace** for
+  every deal carrying it — a fund, a sector pod, a co-invest club, a clean-team.
+- **Per-deal need-to-know.** When a deal is provisioned it gets its **own** access group
+  (`DealRoom-Deal-<company>`); that single group is the control for the deal's **Teams
+  channel, its SharePoint data-room site, and the in-app workspace** — add someone to the
+  group (a recorded wall-crossing) and they get the whole deal at once; remove them and
+  access is revoked everywhere.
+
+Region→group and tag→group mappings live in the admin-editable access config (and env
+`REGION_GROUP_IDS`), so territories and deal groups are managed without a code change.
+
+> 🕵️ **Live in the demo.** Sign in as **Riley West — Regional MD (West Coast)** and only
+> Northwest + Southwest deals appear; as **Chidi (Analyst — Northeast desk)** only Northeast
+> deals; as an **MD or Admin**, every territory.
+
+---
+
 ## Demo profiles — the whole access model, in one click
 
 Flip on `deployDemoProfiles` (`azd env set DEPLOY_DEMO_PROFILES true`) and the tab's **"sign in
