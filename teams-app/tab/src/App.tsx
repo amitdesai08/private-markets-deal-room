@@ -218,7 +218,7 @@ export default function App() {
           ) : mainTab === 'overview' ? (
             <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onOpen={setOpenDealId} />
           ) : mainTab === 'stage1' ? (
-            <Stage1 onChanged={refreshData} onOpenDeal={setOpenDealId} />
+            <Stage1 deals={deals} onChanged={refreshData} onOpenDeal={setOpenDealId} />
           ) : mainTab === 'stage3' ? (
             <Stage3 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           ) : mainTab === 'stage4' ? (

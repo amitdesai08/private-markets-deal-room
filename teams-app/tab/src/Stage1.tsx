@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { Deal } from './types';
 import StageGuide from './StageGuide';
 
 // Native Stage 1 — Origination & Screening. Three sub-surfaces over the shared
@@ -64,7 +65,7 @@ const STAGE_ACTIONS: Record<string, { endpoint: string; actions: { k: string; la
 const money = (n?: number) => (n == null ? '—' : n >= 1000 ? `$${(n / 1000).toFixed(1)}B` : `$${n}M`);
 type SubTab = 'pipeline' | 'framework' | 'research' | 'signals';
 
-export default function Stage1({ onChanged, onOpenDeal }: { onChanged: () => void; onOpenDeal: (id: string) => void }) {
+export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[]; onChanged: () => void; onOpenDeal: (id: string) => void }) {
   const [sub, setSub] = useState<SubTab>('pipeline');
   const [funnel, setFunnel] = useState<Funnel | null>(null);
   const [pipe, setPipe] = useState<Pipeline | null>(null);
@@ -77,6 +78,14 @@ export default function Stage1({ onChanged, onOpenDeal }: { onChanged: () => voi
   const [stageFilter, setStageFilter] = useState<string>('active');
   const [busy, setBusy] = useState<string>('');
   const [note, setNote] = useState<string>('');
+
+  // Actual DEALS (not candidates) that sit at an origination step — e.g. a deal knocked
+  // back into sourcing/screening. They belong here in Stage 1, not the diligence roster.
+  const origDeals = (deals || []).filter((d) => {
+    const sid = String((d as any).stageId || '');
+    const st = String((d as any).stage || '').toUpperCase();
+    return sid === 'origination' || sid === 'screened' || /^O/.test(st);
+  });
 
   async function loadPipeline() {
     const [f, p] = await Promise.all([
@@ -158,6 +167,26 @@ export default function Stage1({ onChanged, onOpenDeal }: { onChanged: () => voi
 
       {sub === 'pipeline' && (
         <>
+          {origDeals.length ? (
+            <section className="panel">
+              <div className="panel-h">Deals in origination<span className="muted">{origDeals.length} deal{origDeals.length === 1 ? '' : 's'} at the sourcing / screening steps</span></div>
+              <div className="deals">
+                {origDeals.map((d) => (
+                  <div className="dealcard" key={(d as any).id} onClick={() => onOpenDeal((d as any).id)} style={{ cursor: 'pointer' }}>
+                    <div className="dc-top">
+                      <span className="dc-co">{(d as any).company}</span>
+                      <span className="dc-size">{(d as any).stage}</span>
+                    </div>
+                    <div className="dc-meta">{[(d as any).sector, (d as any).stageName || 'Origination & Screening'].filter(Boolean).join(' · ')} · Step {(d as any).stepNumber ?? 1}/{(d as any).totalSteps ?? 16}</div>
+                    <div className="dc-foot">
+                      <span className="muted">IC readiness {(d as any).readiness ?? 0}%</span>
+                      <button className="askbtn" onClick={(e) => { e.stopPropagation(); onOpenDeal((d as any).id); }}>Open deal →</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
           <section className="panel">
             <div className="panel-h">Origination & Screening<span className="muted">{funnel?.fundName || 'Fund'} · {funnel?.fundStrategy || ''}</span></div>
             <div className="funnel">
