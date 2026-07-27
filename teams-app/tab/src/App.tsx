@@ -263,6 +263,10 @@ const GLOBAL_CSS = `
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; height: 100%; }
 .appwrap { display: flex; flex-direction: column; height: 100vh; background: var(--bg); color: var(--fg); font: 14px/1.5 "Segoe UI", system-ui, sans-serif; }
+/* Buttons don't inherit text colour by default, so a content button with no explicit
+   colour renders UA-default black — unreadable in dark mode (e.g. the Stage-1 funnel).
+   Default every button to the theme foreground; coloured buttons still override this. */
+button { color: inherit; }
 .topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); flex: 0 0 auto; }
 .brand { display: flex; align-items: center; gap: 12px; }
 .logo { width: 34px; height: 34px; border-radius: 8px; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-size: 18px; }
@@ -333,7 +337,7 @@ html, body, #root { margin: 0; height: 100%; }
 .panel-h .muted { font-weight: 400; }
 .muted { color: var(--muted); font-size: 12px; }
 .funnel { display: flex; gap: 8px; padding: 14px 16px; overflow-x: auto; }
-.fstep { flex: 1 0 90px; text-align: center; background: var(--hover); border-radius: 10px; padding: 10px 8px; }
+.fstep { flex: 1 0 90px; text-align: center; background: var(--hover); border-radius: 10px; padding: 10px 8px; color: var(--fg); }
 .fcount { font-size: 20px; font-weight: 700; }
 .flabel { font-size: 12px; }
 .fkey { color: var(--muted); font-size: 11px; }
