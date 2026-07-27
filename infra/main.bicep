@@ -184,6 +184,11 @@ param partnerIds array = []
 param dealTeamIds array = []
 @description('Entra object IDs (users or groups) granted the ANALYST role (stage-1, read-only).')
 param analystIds array = []
+@description('Entra security GROUP object id(s), comma-separated, mapping to each role via the token groups claim (requires groupMembershipClaims on the app registration). Empty = disabled.')
+param adminGroupIds string = ''
+param partnerGroupIds string = ''
+param dealTeamGroupIds string = ''
+param analystGroupIds string = ''
 @allowed([ 'partner', 'deal-team', 'analyst', 'member' ])
 @description('Role applied to callers not listed in any role array.')
 param defaultAgentRole string = 'deal-team'
@@ -446,6 +451,10 @@ module app 'modules/app.bicep' = {
     partnerIds: partnerIds
     dealTeamIds: dealTeamIds
     analystIds: analystIds
+    adminGroupIds: adminGroupIds
+    partnerGroupIds: partnerGroupIds
+    dealTeamGroupIds: dealTeamGroupIds
+    analystGroupIds: analystGroupIds
     defaultAgentRole: defaultAgentRole
     deployDemoProfiles: deployDemoProfiles
     botBackendKey: botBackendKey

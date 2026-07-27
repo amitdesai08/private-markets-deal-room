@@ -109,6 +109,12 @@ param analystIds array = []
 param adminAppRoles string = 'DealRoom.Admin'
 @description('Entra security GROUP object id(s), comma-separated, that map to application ADMIN (token \'groups\' claim). Empty = disabled; requires groupMembershipClaims on the app registration.')
 param adminGroupIds string = ''
+@description('Entra security GROUP object id(s), comma-separated, mapping to the PARTNER role (token \'groups\' claim).')
+param partnerGroupIds string = ''
+@description('Entra security GROUP object id(s), comma-separated, mapping to the DEAL-TEAM role (token \'groups\' claim).')
+param dealTeamGroupIds string = ''
+@description('Entra security GROUP object id(s), comma-separated, mapping to the ANALYST role (token \'groups\' claim).')
+param analystGroupIds string = ''
 @description('When true, expose the demo showcase profiles (one identity per role).')
 param deployDemoProfiles bool = false
 @allowed([ 'partner', 'deal-team', 'analyst', 'member' ])
@@ -269,6 +275,9 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'ANALYST_IDS', value: join(analystIds, ',') }
             { name: 'ADMIN_APP_ROLES', value: adminAppRoles }
             { name: 'ADMIN_GROUP_IDS', value: adminGroupIds }
+            { name: 'PARTNER_GROUP_IDS', value: partnerGroupIds }
+            { name: 'DEAL_TEAM_GROUP_IDS', value: dealTeamGroupIds }
+            { name: 'ANALYST_GROUP_IDS', value: analystGroupIds }
             { name: 'DEFAULT_AGENT_ROLE', value: defaultAgentRole }
             { name: 'DEMO_PROFILES', value: string(deployDemoProfiles) }
           ]
