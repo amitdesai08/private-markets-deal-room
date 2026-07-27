@@ -27,7 +27,7 @@ tenant.
 |:--:|:--:|:--:|:--:|:--:|
 | architecture & internals | stages, workspace & data room | RBAC, need-to-know & demo | one command to your tenant | interactive Azure diagram |
 
-<sub>More: [🎬 Demo walkthrough](docs/Demos/DEMO-WALKTHROUGH.md) · [📋 Demo runbook](docs/Demos/DEMO-RUNBOOK.md) · [🛡️ Security](SECURITY.md) · [🤝 Contributing](CONTRIBUTING.md)</sub>
+<sub>More: [🎬 Demo walkthrough](docs/Demos/DEMO-WALKTHROUGH.md) · [📋 Demo runbook](docs/Demos/DEMO-RUNBOOK.md) · [🛡️ Security](SECURITY.md) · [🔒 Security & compliance (buyer appendix)](docs/buyer-security-compliance.md) · [🤝 Contributing](CONTRIBUTING.md)</sub>
 
 ---
 

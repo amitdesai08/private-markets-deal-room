@@ -400,6 +400,22 @@ html, body, #root { margin: 0; height: 100%; }
 .send { width: 42px; border: none; border-radius: 10px; background: var(--accent); color: var(--accent-fg); cursor: pointer; font-size: 15px; }
 .send:disabled { opacity: .5; cursor: default; }
 
+/* ---- Accessibility baseline (WCAG 2.2 AA) ---- */
+/* Visible keyboard focus on every interactive element (keyboard, not just mouse). */
+a:focus-visible, button:focus-visible, [role="button"]:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px;
+}
+/* Screen-reader-only text utility for icon-only controls. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+/* Honour the OS "reduce motion" preference — disable non-essential animation/transition. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important; scroll-behavior: auto !important;
+  }
+}
+
 @media (max-width: 860px) {
   .mi { grid-template-columns: 1fr; }
   .chatpanel { position: fixed; top: 0; right: 0; bottom: 0; width: 92vw; max-width: 420px; z-index: 30; box-shadow: -8px 0 24px rgba(0,0,0,.25); }

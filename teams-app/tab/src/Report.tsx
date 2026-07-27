@@ -2,6 +2,8 @@
 // itself, so a Teams channel tab can be pinned to it (configured from /config with
 // ?view=report). Reuses the SAME backend data as the dashboard (no new endpoints):
 // portfolio mode summarizes the whole pipeline; ?deal=<id> narrows to one deal.
+import { useEffect, useState } from 'react';
+import { af } from './authFetch';
 import type { Analytics, Pipeline, Deal, MarketIntel, BackendConfig } from './types';
 
 function money(n?: number): string {
@@ -19,6 +21,31 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
 }) {
   const focus = dealId ? deals.find((d) => d.id === dealId) : null;
   const fabric = config?.fabric || market?.info;
+
+  // Report certification lifecycle (portfolio/LP report only). Certifying freezes an
+  // immutable snapshot; a live certified snapshot flips the badge from Draft to LP-ready.
+  const [certs, setCerts] = useState<any[]>([]);
+  const [certBusy, setCertBusy] = useState('');
+  const [certNote, setCertNote] = useState('');
+  const loadCerts = () => { if (dealId) return; af('/api/fund/report/certifications').then((r) => (r.ok ? r.json() : [])).then((x) => setCerts(Array.isArray(x) ? x : [])).catch(() => {}); };
+  useEffect(() => { loadCerts(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [dealId]);
+  const currentCert = certs.find((c) => c.state === 'certified') || null;
+  async function doCertify() {
+    setCertBusy('certify'); setCertNote('');
+    try {
+      const r = await af('/api/fund/report/certify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 403) setCertNote('Certifying LP reports is restricted to a Partner or Administrator.');
+      else if (r.status === 409) setCertNote(`Cannot certify — ${d.detail || 'the report is not ready.'}`);
+      else if (!r.ok) setCertNote('Could not certify the report.');
+      else { setCertNote('Report certified — an immutable snapshot was frozen for LP distribution.'); loadCerts(); }
+    } catch (e: any) { setCertNote(`Could not certify (${String(e?.message || e)}).`); }
+    finally { setCertBusy(''); }
+  }
+  async function doArchive(id: string) {
+    setCertBusy('archive:' + id); setCertNote('');
+    try { const r = await af(`/api/fund/report/certifications/${id}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); if (r.status === 403) setCertNote('Archiving is restricted to a Partner or Administrator.'); else if (r.ok) loadCerts(); } catch { /* ignore */ } finally { setCertBusy(''); }
+  }
   const comps = market?.comparableDeals || [];
   const precedents = market?.icPrecedents || [];
   const title = focus
@@ -29,7 +56,9 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
   // method. Output mode reflects data certification (live external sources => LP-ready).
   const srcLabel = fabric?.source || (fabric?.mode === 'live' ? 'Fabric · OneLake' : 'Deal Room store');
   const asOf = (fabric as any)?.freshness?.label || TODAY;
-  const mode = fabric?.mode === 'live' ? { label: 'LP-ready', cls: 'ok' } : { label: 'Draft — not certified', cls: 'warn' };
+  const mode = currentCert
+    ? { label: 'LP-ready · certified', cls: 'ok' }
+    : fabric?.mode === 'live' ? { label: 'LP-ready', cls: 'ok' } : { label: 'Draft — not certified', cls: 'warn' };
   const lineage: { metric: string; value: string; source: string; asOf: string; method: string }[] = focus
     ? [
         { metric: 'Stage', value: focus.stageName || focus.stage || '—', source: 'Deal Room record', asOf: TODAY, method: 'Current workflow stage of record' },
@@ -57,6 +86,33 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
         </div>
         <button className="rpt-print" onClick={() => window.print()}>⤓ Print / Save as PDF</button>
       </header>
+
+      {!focus ? (
+        <section className="rpt-section">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Report certification</div>
+              <div className="rpt-sub">{currentCert ? `Certified ${new Date(currentCert.at).toLocaleString()} · ${currentCert.by}` : 'Draft — not yet certified for LP distribution.'}</div>
+            </div>
+            <button className="rpt-print" disabled={!!certBusy} onClick={doCertify}>{certBusy === 'certify' ? 'Certifying…' : '✓ Certify for LP use'}</button>
+          </div>
+          {certNote ? <div className="rpt-sub" style={{ marginTop: 6 }}>{certNote}</div> : null}
+          {certs.length ? (
+            <table className="rpt-lineage" style={{ marginTop: 10 }}>
+              <thead><tr><th>Snapshot</th><th>State</th><th>Approver</th><th>Certified</th><th></th></tr></thead>
+              <tbody>{certs.slice(0, 8).map((c: any) => (
+                <tr key={c.snapshotId}>
+                  <td>{c.snapshotId}</td>
+                  <td><span className={`rpt-mode ${c.state === 'certified' ? 'ok' : 'warn'}`}>{c.state}</span></td>
+                  <td>{c.by}</td>
+                  <td>{new Date(c.at).toLocaleDateString()}</td>
+                  <td>{c.state === 'certified' ? <button className="rpt-print" style={{ padding: '2px 8px', fontSize: 11 }} disabled={!!certBusy} onClick={() => doArchive(c.snapshotId)}>Archive</button> : (c.archivedAt ? `archived ${new Date(c.archivedAt).toLocaleDateString()}` : '')}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          ) : <div className="rpt-sub" style={{ marginTop: 8 }}>No certifications yet — certifying freezes an immutable snapshot of this report.</div>}
+        </section>
+      ) : null}
 
       {focus ? (
         <section className="rpt-section">

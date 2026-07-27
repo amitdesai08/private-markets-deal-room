@@ -113,6 +113,7 @@ import { listConnectors, testConnector, disconnectConnector } from './lib/connec
 import { setConnectorEnabled, setConnectorConfig, addCustomConnector, removeCustomConnector, isCustomConnector, approveCustomConnector } from './lib/connectorSettings.js';
 import { withFundMeta, fundMethodology } from './lib/metrics.js';
 import { guardReporting, REPORTING_SOURCE_IDS } from './lib/reportingGuard.js';
+import { certifyReport, listCertifications, getCertification, archiveCertification } from './lib/reportCert.js';
 import { askFabricDataAgent, fabricDataAgentInfo } from './lib/fabricDataAgent.js';
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import m365LoginRouter from './lib/m365/loginRoutes.js';
@@ -211,6 +212,46 @@ api.get('/fund/methodology', (_req, res) => res.json(fundMethodology()));
 // Reporting freshness gate (advisor SC-7): whether the external sources behind fund/LP
 // outputs are within SLA. Any export / API consumer checks this before emitting.
 api.get('/fund/reporting-readiness', (_req, res) => res.json(guardReporting(REPORTING_SOURCE_IDS)));
+
+// ---- Report certification lifecycle (draft -> certified -> archived) ----
+// Certifying freezes an IMMUTABLE snapshot of the LP report bundle with a named
+// approver; refused when sources are stale or required inputs are incomplete. Only a
+// Partner or Administrator may certify/archive (their REAL role, not a view-as).
+function canCertify(req) {
+  const a = accessFor(requestingIdentity(req), requestingViewAs(req));
+  return !!(a.isAdmin || a.actualRole === 'partner');
+}
+function approverLabel(req) {
+  const id = requestingIdentity(req) || {};
+  const a = accessFor(id);
+  return `${id.name || id.upn || 'approver'} · ${a.actualRoleLabel || a.roleLabel}`;
+}
+api.get('/fund/report/certifications', async (_req, res) => res.json(await listCertifications()));
+api.get('/fund/report/certifications/:id', async (req, res) => {
+  const c = await getCertification(req.params.id);
+  if (!c) return res.status(404).json({ error: 'certification not found' });
+  res.json(c);
+});
+api.post('/fund/report/certify', async (req, res) => {
+  if (!canCertify(req)) return res.status(403).json({ error: 'forbidden', detail: 'Only a Partner or Administrator may certify LP reports.' });
+  const snapshot = {
+    overview: fundOverview(),
+    portfolio: portfolioMonitoring(),
+    value: executiveValue(portfolioStats()),
+    methodology: fundMethodology(),
+    reporting: guardReporting(REPORTING_SOURCE_IDS),
+    at: new Date().toISOString(),
+  };
+  const r = await certifyReport({ snapshot, by: approverLabel(req), reason: req.body?.reason });
+  if (r.error) return res.status(409).json(r);
+  res.json(r);
+});
+api.post('/fund/report/certifications/:id/archive', async (req, res) => {
+  if (!canCertify(req)) return res.status(403).json({ error: 'forbidden', detail: 'Only a Partner or Administrator may archive LP reports.' });
+  const r = await archiveCertification(req.params.id, approverLabel(req));
+  if (r.error === 'not-found') return res.status(404).json({ error: 'certification not found' });
+  res.json(r);
+});
 
 api.get('/pipeline', (_req, res) => res.json(getPipelineFunnel())); // alias (funnel)
 
