@@ -346,6 +346,120 @@ function hoursAgo(h) {
 // Creation & Exit). Seeded idempotently at boot by lib/store.js so the new stages have
 // live deals to open. Distinct 'demo-' ids so they never collide with the pipeline seed.
 export const demoStageDeals = [
+  // ── Region-spread demo deals ──────────────────────────────────────────────
+  // Each carries an explicit `region` so the territory (Entra region-group) access
+  // model has a clear spread to demonstrate: an analyst scoped to Northeast sees
+  // Beacon Hill; the West Coast MD sees Cascadia (NW) + Mojave (SW); MDs/admins see all.
+  {
+    id: 'demo-cascadia', company: 'Cascadia Timber Partners', region: 'northwest', tags: [],
+    sector: 'Industrials', subSector: 'Forestry / Building Products', hq: 'Portland, Oregon, United States',
+    dealSize: 380, currency: 'USD', stage: 'D2', stageName: 'Diligence & Approval', status: 'in_diligence',
+    sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(24), baselineDays: 45,
+    thesis: 'Buy-and-build of a Pacific Northwest sustainable-forestry and engineered-wood platform; margin upside from mill automation and FSC-certified premium mix.',
+    keyFigures: [
+      { label: 'Revenue (LTM)', value: '$412M', source: 'CIM', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$61M', source: 'QoE draft', confidence: 'medium' },
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 55, findings: [{ text: 'Housing-start exposure hedged by repair-&-remodel mix (48%).', severity: 'positive', source: 'Commercial DD' }] },
+      { lane: 'operations', owner: 'supply-md', status: 'in_progress', progress: 40, findings: [] },
+      { lane: 'esg', owner: 'esg-md', status: 'not_started', progress: 0, findings: [] },
+    ],
+    memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'PNW forestry consolidation with automation-led margin gains.', citations: ['CIM'] }],
+    compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'passed' }],
+    activity: [{ actor: 'Deal Room Assistant', action: 'Assembled the commercial DD summary', when: hoursAgo(18) }], hoursSaved: 12,
+  },
+  {
+    id: 'demo-beaconhill', company: 'Beacon Hill Biotech', region: 'northeast', tags: [],
+    sector: 'Healthcare', subSector: 'Biotech Tools / CRO', hq: 'Boston, Massachusetts, United States',
+    dealSize: 300, currency: 'USD', stage: 'D1', stageName: 'Diligence & Approval', status: 'in_diligence',
+    sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(30), baselineDays: 45,
+    thesis: 'Carve-out of a Boston-cluster contract-research platform serving early-stage biotech; recurring revenue and a scientific-talent moat.',
+    keyFigures: [
+      { label: 'Revenue (LTM)', value: '$286M', source: 'CIM', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$44M', source: 'Screen', confidence: 'medium' },
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 35, findings: [] },
+      { lane: 'techai', owner: 'ai-md', status: 'not_started', progress: 0, findings: [] },
+    ],
+    memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Boston CRO carve-out with recurring biotech demand.', citations: ['CIM'] }],
+    compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
+    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at the Screening Gate', when: hoursAgo(60) }], hoursSaved: 6,
+  },
+  {
+    id: 'demo-lonestar', company: 'Lone Star Energy Services', region: 'southcentral', tags: [],
+    sector: 'Energy', subSector: 'Energy Services / Electrification', hq: 'Houston, Texas, United States',
+    dealSize: 520, currency: 'USD', stage: 'D3', stageName: 'Diligence & Approval', status: 'in_diligence',
+    sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(21), baselineDays: 45,
+    thesis: 'Grid-electrification and industrial-services platform in the Texas/Gulf corridor; tailwind from utility capex and reshoring.',
+    keyFigures: [
+      { label: 'Revenue (LTM)', value: '$640M', source: 'CIM', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$96M', source: 'QoE draft', confidence: 'medium' },
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 70, findings: [{ text: 'Backlog covers 1.8x forward-year revenue; utility framework agreements sticky.', severity: 'positive', source: 'Commercial DD' }] },
+      { lane: 'financial', owner: 'finance-md', status: 'in_progress', progress: 60, findings: [] },
+      { lane: 'legal', owner: 'legal-md', status: 'in_progress', progress: 40, findings: [] },
+    ],
+    memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'in_progress', content: 'Gulf-corridor electrification services with a sticky utility backlog.', citations: ['CIM', 'QoE draft'] }],
+    compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'passed' }],
+    activity: [{ actor: 'Deal Room Assistant', action: 'Drafted the red-flag report', when: hoursAgo(8) }], hoursSaved: 19,
+  },
+  {
+    id: 'demo-peachtree', company: 'Peachtree Health Partners', region: 'southeast', tags: [],
+    sector: 'Healthcare', subSector: 'Multi-site Care / Services', hq: 'Atlanta, Georgia, United States',
+    dealSize: 460, currency: 'USD', stage: 'V2', stageName: 'Value Creation', status: 'owned',
+    sponsorPersona: 'operating-partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(-120), baselineDays: 45,
+    thesis: 'Portfolio company: Southeast multi-site specialty-care platform. Value creation via de-novo clinics, payer-contract optimisation and an AI scheduling capability.',
+    keyFigures: [
+      { label: 'Revenue (LTM)', value: '$540M', source: 'Board pack', confidence: 'high' },
+      { label: 'EBITDA vs entry', value: '+11.2%', source: 'VC tracker', confidence: 'high' },
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [{ text: 'De-novo clinic ramp ahead of plan (7 of 10 open).', severity: 'positive', source: 'VC lever 1' }] },
+      { lane: 'techai', owner: 'ai-md', status: 'in_progress', progress: 60, findings: [] },
+    ],
+    memoSections: [{ key: 'value-creation', title: 'Value creation plan', status: 'in_progress', content: 'Three of four levers in flight; EBITDA +11.2% vs entry.', citations: ['VC plan', 'Board pack'] }],
+    compliance: [{ check: 'Quarterly LP reporting (ILPA)', framework: 'ILPA', status: 'passed' }],
+    activity: [{ actor: 'Value-Creation Agent', action: 'Updated the EBITDA-bridge tracker', when: hoursAgo(40) }], hoursSaved: 33,
+  },
+  {
+    id: 'demo-greatlakes', company: 'Great Lakes Precision', region: 'midwest', tags: [],
+    sector: 'Industrials', subSector: 'Precision Manufacturing', hq: 'Chicago, Illinois, United States',
+    dealSize: 410, currency: 'USD', stage: 'E1', stageName: 'Execution & Closing', status: 'signing',
+    sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(-7), baselineDays: 45,
+    thesis: 'Approved at IC: Midwest precision-components manufacturer with reshoring tailwinds. In execution — debt secured, SPA in signing.',
+    keyFigures: [
+      { label: 'Revenue (LTM)', value: '$395M', source: 'QoE final', confidence: 'high' },
+      { label: 'Entry multiple', value: '8.1x EV/EBITDA', source: 'Signed structure', confidence: 'high' },
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [] },
+      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [] },
+    ],
+    memoSections: [{ key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'IC approved; reshoring backlog underwrites the base case.', citations: ['IC minutes'] }],
+    compliance: [{ check: 'Financing conditions precedent', framework: 'Legal', status: 'in_progress' }, { check: 'Sanctions / UBO screening', framework: 'KYC', status: 'passed' }],
+    activity: [{ actor: 'Financing-Structuring Agent', action: 'Locked the debt package; funds-flow drafted', when: hoursAgo(26) }], hoursSaved: 28,
+  },
+  {
+    id: 'demo-mojave', company: 'Mojave Renewables', region: 'southwest', tags: [],
+    sector: 'Energy', subSector: 'Renewables / Storage', hq: 'Phoenix, Arizona, United States',
+    dealSize: 350, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
+    sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(48), baselineDays: 45,
+    thesis: 'Southwest utility-scale solar-plus-storage developer; contracted PPA backlog and IRA-driven economics.',
+    keyFigures: [
+      { label: 'Revenue (LTM)', value: '$210M', source: 'Screen', confidence: 'medium' },
+      { label: 'Contracted backlog', value: '2.4 GW', source: 'Screen', confidence: 'medium' },
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'not_started', progress: 0, findings: [] },
+    ],
+    memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Contracted solar-plus-storage backlog with IRA economics.', citations: ['Screen'] }],
+    compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
+    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at the Screening Gate', when: hoursAgo(72) }], hoursSaved: 4,
+  },
+
   {
     id: 'demo-helvetia',
     company: 'Helvetia Diagnostics',

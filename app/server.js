@@ -8,6 +8,7 @@ import {
   listDeals,
   getDeal,
   getDealRaw,
+  setDealTags,
   listSourcing,
   promoteSourcing,
   getPersonas,
@@ -93,6 +94,8 @@ import {
   portfolioStats,
   hydrate
 } from './lib/store.js';
+import { listDealGroups, createDealGroup, removeDealGroup, reconcileDealGroups } from './lib/dealGroups.js';
+import { REGIONS, REGION_GROUPS } from './data/regions.js';
 import { personaById } from './data/personas.js';
 import { fundOverview, portfolioMonitoring, executiveValue } from './lib/fund.js';
 import { LIFECYCLE, LIFECYCLE_GATES, lifecycleByPhase } from './data/flow.js';
@@ -978,6 +981,41 @@ api.get('/deals/:id', (req, res) => {
   const deal = getDeal(req.params.id);
   if (!deal) return res.status(404).json({ error: 'deal not found' });
   res.json({ ...deal, accessLevel: 'full' });
+});
+
+// ---- Territories + deal groups (customizable tags) -------------------------
+api.get('/regions', (_req, res) => res.json({ regions: REGIONS, regionGroups: REGION_GROUPS }));
+api.get('/deal-groups', (_req, res) => res.json({ dealGroups: listDealGroups() }));
+api.post('/deal-groups', async (req, res) => {
+  const access = accessFor(requestingIdentity(req));
+  if (!access.isAdmin) return res.status(403).json({ error: 'admin only' });
+  try {
+    const id = requestingIdentity(req);
+    const dg = await createDealGroup({ label: String(req.body?.label || '').trim(), createdBy: (id?.upn || id?.name || null) });
+    res.status(201).json(dg);
+  } catch (err) { res.status(400).json({ error: String(err?.message || err) }); }
+});
+api.delete('/deal-groups/:id', async (req, res) => {
+  if (!accessFor(requestingIdentity(req)).isAdmin) return res.status(403).json({ error: 'admin only' });
+  await removeDealGroup(req.params.id);
+  res.json({ ok: true });
+});
+api.post('/deal-groups/reconcile', async (req, res) => {
+  if (!accessFor(requestingIdentity(req)).isAdmin) return res.status(403).json({ error: 'admin only' });
+  res.json({ reconciled: await reconcileDealGroups() });
+});
+// Tag a deal (deal-team+ with full access). Membership in the tag's Entra group
+// then grants access to this deal (territory model, resolved server-side).
+api.post('/deals/:id/tags', (req, res) => {
+  const identity = requestingIdentity(req);
+  const raw = getDealRaw(req.params.id);
+  if (!raw) return res.status(404).json({ error: 'deal not found' });
+  const level = dealAccessLevel(identity, raw, requestingViewAs(req));
+  const access = accessFor(identity, requestingViewAs(req));
+  if (level !== 'full' || !access.canWrite) return res.status(403).json({ error: 'you cannot tag this deal' });
+  const updated = setDealTags(req.params.id, req.body?.tags);
+  if (!updated) return res.status(404).json({ error: 'deal not found' });
+  res.json({ id: updated.id, tags: updated.tags });
 });
 
 api.get('/sourcing', (_req, res) => res.json(listSourcing()));

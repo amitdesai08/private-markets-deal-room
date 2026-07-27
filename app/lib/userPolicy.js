@@ -20,7 +20,7 @@ const listEnv = (name, dflt = '') =>
 // deployer opts in via DEMO_PROFILES; a production deploy with it off never
 // grants a role by demo name. When on, each role's id list is augmented with
 // its demo identity ids so the "view as" roster resolves out of the box.
-import { demoProfiles, demoRoleIds } from '../data/demoProfiles.js';
+import { demoProfiles, demoRoleIds, demoProfileById } from '../data/demoProfiles.js';
 import { getRoleOverrides, getRoleAssignments, getDemoModeOverride, getDealGroups, getRegionGroups } from './accessConfig.js';
 import { regionForDeal } from '../data/regions.js';
 export const demoProfilesEnabled = /^(1|true|yes|on)$/i.test(String(process.env.DEMO_PROFILES ?? ''));
@@ -120,12 +120,20 @@ function regionGroupMap() {
 // Base regions a VERIFIED identity is scoped to, from its region-group memberships.
 // Empty = unrestricted (MDs / partners / admins who are in no region group see all).
 export function regionsForIdentity(identity = {}) {
-  const groups = (identity && Array.isArray(identity.groups) ? identity.groups : []).map(norm);
-  if (!groups.length) return [];
-  const map = regionGroupMap();
   const set = new Set();
-  for (const g of groups) for (const r of (map[g] || [])) set.add(r);
+  const groups = (identity && Array.isArray(identity.groups) ? identity.groups : []).map(norm);
+  if (groups.length) { const map = regionGroupMap(); for (const g of groups) for (const r of (map[g] || [])) set.add(r); }
+  // Demo profiles carry a synthetic region scope so the territory model is demoable
+  // via the "sign in as" switcher without provisioning real regional users.
+  for (const r of demoRegionScopeFor(identity)) set.add(norm(r));
   return [...set];
+}
+// The region scope of a demo profile (region keys), when demo mode is active.
+function demoRegionScopeFor(identity) {
+  if (!demoProfilesEnabled || !identity) return [];
+  const keys = [norm(identity.oid), norm(identity.upn), localPart(identity.upn), norm(identity.name)].filter(Boolean);
+  for (const k of keys) { const p = demoProfileById[k]; if (p && Array.isArray(p.regionScope) && p.regionScope.length) return p.regionScope; }
+  return [];
 }
 // The Entra group object ids that grant FULL access to a deal: its explicit access
 // groups (deal.groupIds, e.g. the per-deal team channel group) plus the groups behind

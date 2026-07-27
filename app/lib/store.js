@@ -5,6 +5,7 @@
 // back to an in-memory Map when COSMOS_ENDPOINT is unset so local dev still runs.
 
 import { seedSourcing, demoStageDeals } from '../data/deals.js';
+import { regionForDeal } from '../data/regions.js';
 import { personas } from '../data/personas.js';
 import { STAGES, STEPS, STEP_KEYS, FLOW, GATE, stepByKey, stepIndex, stageById, firstStepKeyOfStage, prevStageId } from '../data/flow.js';
 import { runStep as runStepAgent } from './agents.js';
@@ -484,6 +485,8 @@ function summarize(deal) {
     complianceCleared: d.complianceCleared,
     complianceTotal: d.complianceTotal,
     workspaceReady: d.workspaceReady,
+    region: regionForDeal(deal),
+    tags: Array.isArray(deal.tags) ? deal.tags : [],
     workstreams: d.workstreams.map((w) => ({ lane: w.lane, status: w.status, progress: w.progress }))
   };
 }
@@ -521,6 +524,18 @@ export function getDealRaw(id) {
 export function getDeal(id) {
   const d = getDealRaw(id);
   return d ? derive(d) : null;
+}
+
+// Set a deal's customizable tags (deal groups). Membership in a tag's Entra group
+// then grants access to this deal (resolved in userPolicy). Persisted + durable.
+export function setDealTags(id, tags) {
+  const d = getDealRaw(id);
+  if (!d) return null;
+  d.tags = Array.isArray(tags)
+    ? [...new Set(tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean))]
+    : [];
+  persistDeal(d);
+  return derive(d);
 }
 
 export function listSourcing() {

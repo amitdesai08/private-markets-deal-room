@@ -27,9 +27,11 @@ const SPEC = [
   { id: 'partner', role: 'partner', personaId: 'partner', name: 'Eleanor Shellstrop', title: 'Partner — Deal Sponsor & IC Chair', initials: 'ES', color: '#be123c',
     blurb: 'The reluctant leader who makes the call. Sponsors the deal and chairs the IC — full access to every agent and every stage.' },
   { id: 'deal-team', role: 'deal-team', personaId: 'operating-partner', name: 'Tahani Al-Jamil', title: 'Deal Team — Value Creation', initials: 'TA', color: '#0d9488',
-    blurb: 'The consummate connector and value builder. Deal-team access — Stage 2 diligence, the workstreams and the value-creation plan.' },
-  { id: 'analyst', role: 'analyst', personaId: 'analyst', name: 'Chidi Anagonye', title: 'Analyst — Deal Associate', initials: 'CA', color: '#2563eb',
-    blurb: 'The rigorous over-thinker who reads every source. Read-only analyst access — sources, screens and models in Stage 1; confidential deals stay hidden.' },
+    blurb: 'The consummate connector and value builder. Deal-team access — Stage 2 diligence, the workstreams and the value-creation plan. No territory limit — sees every region.' },
+  { id: 'regional-md', role: 'partner', personaId: null, name: 'Riley West', title: 'Regional MD — West Coast territory', initials: 'RW', color: '#0369a1', regionScope: ['northwest', 'southwest'],
+    blurb: 'Managing director over the West Coast TERRITORY (Northwest + Southwest). Full deal-team powers, but scoped by Entra group to West Coast deals only — other regions stay out of view. Shows the grouped-region manager pattern.' },
+  { id: 'analyst', role: 'analyst', personaId: 'analyst', name: 'Chidi Anagonye', title: 'Analyst — Northeast desk', initials: 'CA', color: '#2563eb', regionScope: ['northeast'],
+    blurb: 'The rigorous over-thinker who reads every source. Read-only analyst scoped to a SINGLE region (Northeast) via Entra group — sources, screens and models Northeast deals in Stage 1; other territories and confidential deals stay hidden.' },
   { id: 'member', role: 'member', personaId: null, name: 'Jason Mendoza', title: 'Member — Observer', initials: 'JM', color: '#64748b',
     blurb: 'Along for the ride, out of his depth. View-only — sees the portfolio dashboard but has no persona agents and cannot act. The guardrail floor.' },
 ];
@@ -46,6 +48,9 @@ export const demoProfiles = SPEC.map((p) => {
     initials: p.initials,
     color: p.color || persona?.color || '#475569',
     blurb: p.blurb,
+    // Territory (region) scope for the demo — base region keys this profile is
+    // limited to (empty = sees all regions). Resolved in userPolicy.regionsForIdentity.
+    regionScope: p.regionScope || [],
   };
 });
 

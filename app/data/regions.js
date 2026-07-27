@@ -51,14 +51,27 @@ const HQ_RULES = [
   [/\b(california|ca|san francisco|los angeles|west|arizona|nevada|colorado|denver|utah|southwest|mountain)\b/i, 'southwest'],
 ];
 
-// Resolve a deal's region: explicit deal.region wins, else infer from hq/jurisdiction,
-// else 'international' for a clearly non-US HQ, else '' (unassigned = visible to all).
+// Resolve a deal's region: explicit deal.region wins, else a known-company hint,
+// else infer from hq/jurisdiction, else 'international' for a clearly non-US HQ,
+// else '' (unassigned = visible to all — no territory restriction).
 export function regionForDeal(deal) {
   if (!deal) return '';
   const explicit = String(deal.region || '').toLowerCase();
   if (explicit && REGION_IDS.includes(explicit)) return explicit;
+  const company = String(deal.company || '');
+  for (const [re, id] of COMPANY_RULES) if (re.test(company)) return id;
   const hq = `${deal.hq || ''} ${deal.jurisdiction || ''}`;
   for (const [re, id] of HQ_RULES) if (re.test(hq)) return id;
-  if (/\b(sweden|stockholm|london|uk|united kingdom|swiss|switzerland|germany|france|europe|singapore|canada|japan|australia)\b/i.test(hq)) return 'international';
+  if (/\b(sweden|stockholm|london|uk|united kingdom|swiss|switzerland|germany|france|europe|singapore|canada|japan|australia|ireland|dublin|netherlands|spain|italy|norway|denmark|finland)\b/i.test(hq)) return 'international';
   return '';
 }
+
+// Demo-data region hints for the seeded/served deals whose hq is generic ('United
+// States'), so the territory model shows a clean spread. Additive only.
+const COMPANY_RULES = [
+  [/sound united|allbirds|national cinemedia/i, 'southwest'],
+  [/xbp global/i, 'southcentral'],
+  [/voyager therapeutics|intercept pharmaceuticals/i, 'northeast'],
+  [/project onyx|specialty-chemicals/i, 'midwest'],
+  [/helvetia|meridian|aurora software|project sterling|nordic grocery/i, 'international'],
+];

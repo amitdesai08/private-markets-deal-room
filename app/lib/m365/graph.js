@@ -165,6 +165,64 @@ export async function publishTeamToGroup(teamId, groupName = PUBLISH_GROUP) {
   }
 }
 
+// ---- Entra security-group provisioning (deal groups / tags / territories) -----
+// Create a security group idempotently by displayName (reuses an existing one).
+// Needs Group.ReadWrite.All (admin-consented). Returns { id, displayName, created }.
+export async function ensureSecurityGroup(displayName, description = '') {
+  const name = String(displayName).trim();
+  const found = await graph(`/groups?$filter=displayName eq '${name.replace(/'/g, "''")}'&$select=id,displayName`).catch(() => null);
+  if (found?.value?.[0]?.id) return { id: found.value[0].id, displayName: found.value[0].displayName, created: false };
+  const nick = (name.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 56) || `dr-${Date.now()}`);
+  const g = await graph('/groups', { method: 'POST', body: {
+    displayName: name, description: (description || name).slice(0, 1024),
+    mailEnabled: false, mailNickname: nick, securityEnabled: true, groupTypes: []
+  } });
+  return { id: g.id, displayName: g.displayName, created: true };
+}
+
+// Add a user (object id) to a group. Idempotent (already-a-member 400 is ignored).
+// Needs GroupMember.ReadWrite.All (admin-consented).
+export async function addUserToGroup(groupId, userId) {
+  try {
+    await graph(`/groups/${groupId}/members/$ref`, { method: 'POST', body: { '@odata.id': `https://graph.microsoft.com/v1.0/directoryObjects/${userId}` } });
+    return { added: true };
+  } catch (err) {
+    if (/→ 400|already exist|added object references already/i.test(String(err?.message || err))) return { added: true, already: true };
+    throw err;
+  }
+}
+
+// Ensure a PRIVATE channel exists on a team with a given membership (owner + members
+// resolved from a security group). Needs Channel.Create + ChannelMember.ReadWrite.All.
+// Idempotent by displayName. Returns { id, displayName, webUrl, created }.
+export async function ensurePrivateChannel(teamId, displayName, { ownerUserId = null, memberUserIds = [] } = {}) {
+  const name = String(displayName).replace(/[~#%&*{}/\\:<>?+|"'\[\]]/g, '').replace(/\s+/g, ' ').trim().slice(0, 48);
+  const existing = await graph(`/teams/${teamId}/channels?$filter=displayName eq '${name.replace(/'/g, "''")}'&$select=id,displayName,webUrl,membershipType`).catch(() => null);
+  const hit = existing?.value?.[0];
+  if (hit?.id) {
+    for (const uid of memberUserIds) { try { await addPrivateChannelMember(teamId, hit.id, uid); } catch { /* ignore */ } }
+    return { id: hit.id, displayName: hit.displayName, webUrl: hit.webUrl, created: false };
+  }
+  const members = [];
+  if (ownerUserId) members.push({ '@odata.type': '#microsoft.graph.aadUserConversationMember', roles: ['owner'], 'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${ownerUserId}')` });
+  const ch = await graph(`/teams/${teamId}/channels`, { method: 'POST', body: { displayName: name, membershipType: 'private', members } });
+  for (const uid of memberUserIds) { if (uid !== ownerUserId) { try { await addPrivateChannelMember(teamId, ch.id, uid); } catch { /* ignore */ } } }
+  return { id: ch.id, displayName: ch.displayName, webUrl: ch.webUrl, created: true };
+}
+
+async function addPrivateChannelMember(teamId, channelId, userId) {
+  await graph(`/teams/${teamId}/channels/${channelId}/members`, { method: 'POST', body: {
+    '@odata.type': '#microsoft.graph.aadUserConversationMember', roles: [],
+    'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${userId}')`
+  } });
+}
+
+// Members (object ids) of a security group — used to seed channel / SharePoint access.
+export async function groupMemberIds(groupId) {
+  const r = await graph(`/groups/${groupId}/members?$select=id&$top=999`).catch(() => null);
+  return (r?.value || []).map((m) => m.id).filter(Boolean);
+}
+
 // Idempotently ensure THIS deal has its own team; returns its live coordinates
 // (webUrl opens the team / its General channel). Reuses the team recorded on the
 // deal, or an existing joined team with the same name, before creating a new one.
