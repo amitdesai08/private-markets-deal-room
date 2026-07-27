@@ -49,7 +49,7 @@ tenant.
 - **Decide** on returns (IRR/MOIC), value-creation, risk and IOI/LOI — exportable to Excel — with an **IC-readiness cockpit** (verdict + top blockers + *what changed since last check*).
 - **Compare deals side-by-side** on the same decision fields and copy the grid out.
 - **Own & exit** — monitor MOIC/IRR, run the 100-day plan, work the **watchlist**, and prep the exit.
-- **Generate board-ready documents** (Word IC memos, Excel models) into each deal's data room, and export **LP reports with a full source-and-methodology lineage**.
+- **Generate board-ready documents** (Word IC memos, Excel models, PowerPoint IC decks) into each deal's data room, and export **LP reports with a full source-and-methodology lineage** — then **certify** a report LP-ready as an immutable, dated snapshot.
 - **Keep it confidential** — hide sensitive deals and grant access person-by-person.
 
 ---
@@ -91,9 +91,9 @@ actually decides on.
 
 The moment a deal is pursued it gets a **Teams channel** and a **SharePoint virtual data room**,
 provisioned via Microsoft Graph. From the deal's **Documents** tab you generate board-ready
-**Word IC memos** and **Excel deal / returns models** straight from the live record —
-**download** a personal copy on your own M365 licence, or **publish** into the shared data room
-(write-gated to the deal team, authored *as you*).
+**Word IC memos**, **Excel deal / returns models** and **PowerPoint IC decks** straight from the
+live record — **download** a personal copy on your own M365 licence, or **publish** into the shared
+data room (write-gated to the deal team, authored *as you*).
 
 ### 📑 Decision-grade artifacts & IC readiness
 

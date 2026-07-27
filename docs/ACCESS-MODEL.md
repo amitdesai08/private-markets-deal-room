@@ -43,6 +43,34 @@
 
 ---
 
+## Mapping people to roles — Entra-native, no directory privilege
+
+A role resolves from the caller's **verified Entra identity**, three ways — evaluated
+server-side, highest-ranked match wins:
+
+- **App Role (recommended)** — define an application role on the tab's app registration
+  (admin defaults to the value **`DealRoom.Admin`**) and assign users or a security group to it in
+  the app's **Enterprise Application**. The token's `roles` claim is matched. This is managed
+  entirely in Entra and grants **no Azure RBAC and no Entra directory privilege** — it means
+  “administrator *inside this app only*.”
+- **Security group** — point `ADMIN_GROUP_IDS` (or `PARTNER_GROUP_IDS`, …) at Entra group object
+  IDs and enable `groupMembershipClaims`; the token's `groups` claim is matched — ideal for
+  mapping a group you already manage.
+- **Object-ID lists** — the deploy parameters (`adminIds`, `partnerIds`, `dealTeamIds`,
+  `analystIds`, plus a day-0 `bootstrapAdmin`) list Entra user/group object IDs directly.
+
+| Approach | Configured in | Token claim | Best for |
+|---|---|---|---|
+| **App Role** (`DealRoom.Admin`) | app registration + Enterprise App | `roles` | ongoing, Entra-governed grants |
+| **Security group** | `ADMIN_GROUP_IDS` env + group claim | `groups` | reusing an existing group |
+| **Object-ID list** | `adminIds` / `bootstrapAdmin` env | id match | day-0 bootstrap, small fixed sets |
+
+App-role values are configurable per tier (`ADMIN_APP_ROLES`, `PARTNER_APP_ROLES`,
+`DEAL_TEAM_APP_ROLES`, `ANALYST_APP_ROLES`); group IDs via the matching `*_GROUP_IDS`. All three
+feed [`app/lib/userPolicy.js`](../app/lib/userPolicy.js), so a client can never assert its own role.
+
+---
+
 ## Demo profiles — the whole access model, in one click
 
 Flip on `deployDemoProfiles` (`azd env set DEPLOY_DEMO_PROFILES true`) and the tab's **"sign in
@@ -93,7 +121,9 @@ harness then apply.
 - **Server-side trust seam** — the orchestrator only honours a supplied identity when it
   carries the shared bot key; see [the identity trust seam](HOW-IT-WORKS.md#the-identity-trust-seam).
 - **Policy seam** — all of the above lives behind [`app/lib/userPolicy.js`](../app/lib/userPolicy.js);
-  the deploy parameters (`adminIds`, `partnerIds`, …) feed straight into it.
+  the deploy parameters (`adminIds`, `partnerIds`, …), **Entra app-role claims** and
+  **security-group claims** all feed straight into it — see
+  [Mapping people to roles](#mapping-people-to-roles--entra-native-no-directory-privilege).
 
 ---
 
