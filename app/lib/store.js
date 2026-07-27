@@ -100,6 +100,7 @@ function attachWorkspaces(list) {
     }
     const migrated = ensureFirstClassLanes(d);
     normalizeTeamsLinks(d);
+    normalizePlaybookTemplates(d);
     if (migrated) persistDeal(d);
   }
   return list;
@@ -128,6 +129,30 @@ function normalizeTeamsLinks(d) {
   if ((w.channels || []).length !== 1 || w.channels[0].url !== real) { w.channels = collapsed; changed = true; }
   w.swimlanes = (w.swimlanes || []).map((s) => (s.channelUrl === real ? s : (changed = true, { ...s, channelUrl: real })));
   if (!w.channelsProvisioned) { w.channelsProvisioned = true; changed = true; }
+  if (changed) persistDeal(d);
+}
+
+// Repair fabricated playbook-template links (the SharePoint analogue of
+// normalizeTeamsLinks). Templates are the firm's blank kickoff SKELETONS, never
+// per-deal files — so the per-file SharePoint path buildWorkspace() used to
+// construct 404s (provisioning creates the VDR *folders*, not these files). Point
+// every template at the REAL Administration folder once the data room is live
+// (where such templates live), otherwise carry no deep link at all. Self-heals at
+// boot without an M365 reconnect. Idempotent.
+function normalizePlaybookTemplates(d) {
+  const w = d.workspace;
+  if (!w || !Array.isArray(w.templates) || !w.templates.length) return;
+  const adminFolder = (w.sharePointProvisioned && w.sharePointUrlResolved)
+    ? (w.folders || []).find((f) => /Administration/i.test(f.name || ''))
+    : null;
+  const target = adminFolder?.url || null;
+  let changed = false;
+  w.templates = w.templates.map((t) => {
+    if ((t.url || null) === target) return t;
+    changed = true;
+    const { url, ...rest } = t;
+    return target ? { ...rest, url: target } : rest;
+  });
   if (changed) persistDeal(d);
 }
 

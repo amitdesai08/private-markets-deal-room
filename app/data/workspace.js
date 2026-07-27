@@ -261,10 +261,13 @@ export function buildWorkspace(deal, opts = {}) {
     sharePointUrl,
     channels: CHANNELS.map((c) => ({ ...c, url: `${teamsUrl}&channel=${encodeURIComponent(c.name)}` })),
     folders: FOLDERS.map((f) => ({ name: f, url: `${sharePointUrl}/Shared%20Documents/${encodeURIComponent(f)}` })),
-    templates: TEMPLATES.map((t) => ({
-      ...t,
-      url: `${sharePointUrl}/Shared%20Documents/00_Administration/${encodeURIComponent(`${t.name} — ${deal.company}.${t.ext}`)}`
-    })),
+    // Playbook templates are the firm's blank kickoff SKELETONS (DD request list,
+    // IC memo, LBO model, …), not per-deal files — so they carry NO deep link here.
+    // A fabricated per-file SharePoint path 404s, because provisioning creates the
+    // VDR *folders*, not these files. Once the data room is live,
+    // normalizePlaybookTemplates() in store.js points them at the real
+    // Administration folder (where such templates live).
+    templates: TEMPLATES.map((t) => ({ ...t })),
     checklist: seedChecklist(maturity),
     swimlanes
   };
