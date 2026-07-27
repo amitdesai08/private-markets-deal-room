@@ -7,7 +7,11 @@ export type Persona = { id: string; name?: string; title?: string } | null;
 export type Deal = {
   id: string; company: string; sector?: string; stage?: string; stageName?: string;
   status?: string; readiness?: number; daysToIC?: number; dealSize?: number; currency?: string;
+  region?: string; tags?: string[];
 };
+
+export type DealGroup = { id: string; label: string; groupId?: string | null; groupPending?: boolean };
+export type Region = { id: string; label: string };
 
 export type Agent = {
   key: string; label: string; subtitle: string; initials: string;

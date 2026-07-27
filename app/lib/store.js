@@ -422,6 +422,7 @@ function derive(deal) {
 
   return {
     ...deal,
+    region: regionForDeal(deal),
     status: deal.status || 'launched',
     readiness,
     daysToIC,

@@ -82,6 +82,8 @@ function sourceHint(src?: string): string {
 // Raw-dollar formatter for market-intel valuations (impliedValuation is in $, not $M).
 const bigMoney = (n?: number) => (n == null ? '—' : n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(0)}M` : `$${Math.round(n)}`);
 
+const REGION_LABEL: Record<string, string> = { northeast: 'Northeast', southeast: 'Southeast', midwest: 'Midwest', southcentral: 'South Central', northwest: 'Northwest', southwest: 'Southwest', international: 'International' };
+
 type Tab = 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'artifacts' | 'documents' | 'activity';
 type ResolveTarget = { tab: Tab; step?: string };
 type ActivityEntry = { actor?: string; action?: string; when?: string; via?: string | null };
@@ -102,6 +104,9 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
   const [cfg, setCfg] = useState<any>(null);
   const [docs, setDocs] = useState<{ folderUrl?: string; documents?: any[]; canWrite?: boolean; error?: string; notConnected?: boolean } | null>(null);
   const [docsBusy, setDocsBusy] = useState<string>('');
+  const [dealGroups, setDealGroups] = useState<any[]>([]);
+  const [newTag, setNewTag] = useState('');
+  const [tagBusy, setTagBusy] = useState(false);
 
   async function load(setSel = false) {
     const [d, i] = await Promise.all([
@@ -113,10 +118,36 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
     return d;
   }
 
+  // Save the deal's tags (deal groups). Server-gated to deal-team+; membership in a
+  // tag's Entra group grants access to this deal (territory model).
+  async function saveTags(tags: string[]) {
+    setTagBusy(true);
+    try {
+      const r = await af(`/api/deals/${dealId}/tags`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tags }) });
+      if (r.ok) { const d = await r.json(); setDeal((prev) => (prev ? { ...(prev as any), tags: d.tags } : prev)); onChanged?.(); }
+      else setNote('You don’t have rights to tag this deal.');
+    } finally { setTagBusy(false); }
+  }
+  // Add a tag: reuse an existing deal group, or (admin) create a new one — which
+  // auto-provisions its Entra security group. Non-admins fall back to a plain tag.
+  async function addTag() {
+    const label = newTag.trim(); if (!label) return;
+    const cur = ((deal as any)?.tags || []) as string[];
+    let id = dealGroups.find((g) => g.label.toLowerCase() === label.toLowerCase() || g.id === label.toLowerCase())?.id;
+    if (!id) {
+      const cr = await af('/api/deal-groups', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ label }) }).catch(() => null);
+      if (cr && cr.ok) { const dg = await cr.json(); id = dg.id; setDealGroups((prev) => [...prev.filter((x) => x.id !== dg.id), dg]); }
+      else id = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    }
+    if (id && !cur.includes(id)) await saveTags([...cur, id]);
+    setNewTag('');
+  }
+
   useEffect(() => {
     setLoading(true); setNote(''); setDeal(null); setIc(null);
     fetch('/api/flow').then((r) => r.json()).then(setFlow).catch(() => {});
     fetch('/api/config').then((r) => r.json()).then(setCfg).catch(() => {});
+    fetch('/api/deal-groups').then((r) => r.json()).then((d) => setDealGroups(d?.dealGroups || [])).catch(() => {});
     load(true).finally(() => setLoading(false));
   }, [dealId]);
 
@@ -365,6 +396,25 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                 <span className="chip">Step {deal.stepNumber}/{deal.totalSteps} · {STEP_LABEL[deal.currentStep || ''] || deal.currentStep}</span>
                 <span className="chip">{money(deal.dealSize)}</span>
                 <span className="chip">IC readiness {deal.readiness ?? 0}%</span>
+                {(deal as any).region ? <span className="chip" title="Territory — access follows the Entra region group">◧ {REGION_LABEL[(deal as any).region] || (deal as any).region}</span> : null}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, alignItems: 'center' }}>
+                {(((deal as any).tags) || []).map((t: string) => {
+                  const g = dealGroups.find((x) => x.id === t);
+                  return (
+                    <span key={t} title={g?.groupPending ? 'Entra group provisioning pending' : 'Deal group (Entra security group grants access)'} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'rgba(3,105,161,.16)', color: '#6cb6ea', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      #{g?.label || t}{g?.groupPending ? ' · ⏳' : ''}
+                      {canViewStage2 ? <button onClick={() => saveTags((((deal as any).tags) || []).filter((x: string) => x !== t))} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, fontSize: 13, lineHeight: 1 }}>×</button> : null}
+                    </span>
+                  );
+                })}
+                {canViewStage2 ? (
+                  <>
+                    <input list="dr-dealgroups" value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }} placeholder="+ tag / deal group" style={{ fontSize: 12, padding: '3px 9px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--card)', color: 'inherit', width: 150 }} />
+                    <datalist id="dr-dealgroups">{dealGroups.map((g) => <option key={g.id} value={g.label} />)}</datalist>
+                    <button className="chbtn" disabled={tagBusy || !newTag.trim()} onClick={addTag}>add</button>
+                  </>
+                ) : null}
               </div>
             </div>
 
