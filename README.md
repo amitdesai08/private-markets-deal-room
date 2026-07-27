@@ -111,6 +111,8 @@ and verdict moves, newly-blocking vs resolved items), a deterministic **next bes
 The whole surface is **decision-data-first** — market intelligence is supporting context, not the
 lead — and there's **one invisible assistant**, no exposed “bots.”
 
+![The deal cockpit — IC-readiness verdict, top blockers, provenance-tagged figures and the RYG diligence workbench](teams-app/docs/teams-deal-cockpit.png)
+
 ### ✅ Propose → approve → apply, with a full audit trail
 
 The assistant doesn't just answer — inside a deal it **proposes concrete next steps** grounded in
