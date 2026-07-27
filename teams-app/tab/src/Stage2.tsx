@@ -12,7 +12,9 @@ export default function Stage2({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen
   const inDiligence = (deals || []).filter((d) => {
     const st = String((d as any).stage || '').toUpperCase();
     const name = String((d as any).stageName || '');
-    return st.startsWith('D') || /diligence|approval/i.test(name) || (d as any).status === 'launched';
+    // Group by the STEP-derived stage only. `status` (e.g. 'launched') can drift from
+    // the step — a deal knocked back to O1 keeps status 'launched' but is Stage 1 now.
+    return st.startsWith('D') || (d as any).stageId === 'diligence' || /diligence|approval/i.test(name);
   });
 
   return (

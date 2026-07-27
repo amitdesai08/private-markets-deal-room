@@ -221,17 +221,21 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
   // it on demand (idempotent) via the same ensure endpoint, then open it.
   async function openDataRoom() {
     const ws0 = deal?.workspace || {};
-    const url = ws0.sharePointUrlResolved ? ws0.sharePointUrl : ws0.sharePointUrl;
+    const url = ws0.sharePointUrl;
+    // Live SharePoint VDR (M365 connected & provisioned) — open it in a new tab.
     if (ws0.sharePointProvisioned && url) { window.open(url, '_blank', 'noopener'); return; }
-    if (cfg?.m365 && cfg.m365.connected === false) { setNote('Connect M365 (from the Deal Dashboard) to provision the SharePoint data room.'); return; }
+    // Otherwise open the IN-APP data room (Documents tab): the deal's document set with
+    // generate/download for the IC memo, deal model, returns and IC deck — no M365
+    // required. This is the hosted-in-instance data room for demo & testing.
+    if (cfg?.m365 && cfg.m365.connected === false) { setTab('documents'); return; }
     setBusy('dataroom'); setNote('');
     try {
       const r = await fetch(`/api/deals/${dealId}/teams/ensure`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
       const data = await r.json().catch(() => ({}));
-      if (r.status === 409) setNote('Launch the deal first (Stages → Launch), then open its data room.');
-      else if (!r.ok || data.error) setNote(`Could not open the SharePoint data room${data.error ? `: ${data.error}` : ''}.`);
-      else { const d = await load(true); const u = d?.workspace?.sharePointUrl; if (d?.workspace?.sharePointProvisioned && u) window.open(u, '_blank', 'noopener'); else setNote('SharePoint data room could not be provisioned automatically.'); }
-    } catch (e: any) { setNote(`Could not open the data room (${String(e?.message || e)}).`); }
+      if (r.status === 409) { setNote('Launch the deal first to stand up its SharePoint VDR — opening the in-app data room.'); setTab('documents'); }
+      else if (!r.ok || data.error) { setTab('documents'); }
+      else { const d = await load(true); const u = d?.workspace?.sharePointUrl; if (d?.workspace?.sharePointProvisioned && u) window.open(u, '_blank', 'noopener'); else setTab('documents'); }
+    } catch { setTab('documents'); }
     finally { setBusy(''); }
   }
 
@@ -453,6 +457,13 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
 
               {tab === 'stages' && (
                 <>
+                  {/* Quick links to the deal's collaboration surfaces — kept at the TOP so
+                      they're reachable without scrolling past the stage grid. */}
+                  <div className="orch-links">
+                    <button className="wsp-link teams" disabled={!!busy} onClick={() => (ws.teamsProvisioned && ws.teamsUrl) ? window.open(ws.teamsUrl, '_blank', 'noopener') : dealChannel()}>{ws.teamsProvisioned ? 'Open Teams ↗' : '# Deal channel'}</button>
+                    <button className="wsp-link spo" disabled={!!busy} onClick={openDataRoom}>{ws.sharePointProvisioned ? '📁 SharePoint data room ↗' : '📁 Data room'}</button>
+                    <button className="wsp-link mr" onClick={() => setTab('research')}>📊 Market comparisons →</button>
+                  </div>
                   {/* Guided "work the deal" hero — where you are in the process and the
                       single next action to move it forward, beginning to end. */}
                   <section className="dd-panel" style={{ border: '1px solid var(--accent, #2E74B5)' }}>
@@ -514,11 +525,6 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                     )}
                   </section>
 
-                  <div className="orch-links">
-                    <button className="wsp-link teams" disabled={!!busy} onClick={() => (ws.teamsProvisioned && ws.teamsUrl) ? window.open(ws.teamsUrl, '_blank', 'noopener') : dealChannel()}>{ws.teamsProvisioned ? 'Open Teams ↗' : '# Deal channel'}</button>
-                    <button className="wsp-link spo" disabled={!!busy} onClick={openDataRoom}>{ws.sharePointProvisioned ? '📁 SharePoint data room ↗' : '📁 Data room'}</button>
-                    <button className="wsp-link mr" onClick={() => setTab('research')}>📊 Market comparisons →</button>
-                  </div>
                   {(flow?.stages || []).map((st) => (
                     <div className="stage-group" key={st.id}>
                       <div className="stage-name">{st.name}</div>

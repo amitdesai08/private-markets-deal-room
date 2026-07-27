@@ -23,8 +23,8 @@ export default function Stage4({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen
   const owned = ((deals || []) as AnyDeal[]).filter((d) => {
     const st = String(d.stage || '').toUpperCase();
     const name = String(d.stageName || '');
-    const status = String(d.status || '').toLowerCase();
-    return st.startsWith('V') || /value creation|monitoring|ownership|exit/i.test(name) || ['owned', 'monitoring', 'exiting', 'exited'].includes(status);
+    // Group by the STEP-derived stage only — `status` can drift from the actual step.
+    return st.startsWith('V') || (d as any).stageId === 'ownership' || /value creation|monitoring|ownership|exit/i.test(name);
   });
 
   return (

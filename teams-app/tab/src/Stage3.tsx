@@ -24,8 +24,8 @@ export default function Stage3({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen
   const inExecution = ((deals || []) as AnyDeal[]).filter((d) => {
     const st = String(d.stage || '').toUpperCase();
     const name = String(d.stageName || '');
-    const status = String(d.status || '').toLowerCase();
-    return st.startsWith('E') || /execution|closing|signing|financing/i.test(name) || ['approved', 'signed', 'closing', 'closed'].includes(status);
+    // Group by the STEP-derived stage only — `status` can drift from the actual step.
+    return st.startsWith('E') || (d as any).stageId === 'execution' || /execution|closing|signing|financing/i.test(name);
   });
 
   return (
