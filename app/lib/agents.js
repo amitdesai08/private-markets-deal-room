@@ -190,13 +190,13 @@ function applyResult(deal, persona, action, result) {
 
   // Document parse completion
   if (meta.doc) {
-    const parsing = deal.documents.find((x) => x.status !== 'parsed');
+    const parsing = (deal.documents || []).find((x) => x.status !== 'parsed');
     if (parsing) parsing.status = 'parsed';
   }
 
   // Compliance advancement
   if (meta.compliance) {
-    for (const c of deal.compliance) {
+    for (const c of (deal.compliance || [])) {
       if (c.status === 'pending') c.status = 'in_progress';
       else if (c.status === 'in_progress') c.status = 'passed';
     }
@@ -250,7 +250,7 @@ function stepMock(deal, step) {
 
 function applyStepEffects(deal, step) {
   if (step.panel === 'lanes') {
-    for (const w of deal.workstreams) {
+    for (const w of (deal.workstreams || [])) {
       w.status = 'in_progress';
       w.progress = Math.min(90, (w.progress || 0) + 35);
     }
@@ -263,7 +263,7 @@ function applyStepEffects(deal, step) {
       risks: '1) Data/IT readiness gating AI upside. 2) Integration execution. 3) Tariff exposure — mitigated via dual-sourcing & hedging.',
       recommendation: 'Proceed at an attractive entry, subject to QoE and the data-foundation capex plan. Base case ~2.4x / 23% IRR.'
     };
-    for (const s of deal.memoSections) {
+    for (const s of (deal.memoSections || [])) {
       if (drafts[s.key]) {
         s.content = drafts[s.key];
         s.status = 'draft';
@@ -271,10 +271,10 @@ function applyStepEffects(deal, step) {
     }
   }
   if (step.panel === 'compliance') {
-    for (const c of deal.compliance) c.status = 'passed';
+    for (const c of (deal.compliance || [])) c.status = 'passed';
   }
   if (step.key === 'D1') {
-    for (const d of deal.documents) if (d.status !== 'parsed') d.status = 'parsed';
+    for (const d of (deal.documents || [])) if (d.status !== 'parsed') d.status = 'parsed';
   }
 }
 

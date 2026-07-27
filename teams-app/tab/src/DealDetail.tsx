@@ -32,7 +32,7 @@ type ReadinessDelta = {
 };
 type BlockingWorkstream = { lane: string; label?: string; owner?: string | null; progress?: number; status?: string; openIssues?: number; blockingIssues?: number; reasons?: string[] };
 type ICReadiness = { verdict?: Verdict; requiredArtifacts?: { items?: Artifact[] }; readinessDelta?: ReadinessDelta; blockingWorkstreams?: BlockingWorkstream[] };
-type Step = { key: string; stage: string };
+type Step = { key: string; stage: string; title?: string; what?: string; produces?: string[] };
 type Flow = { stages?: { id: string; name: string }[]; steps?: Step[] };
 
 // Deep-dive market research shapes.
@@ -249,11 +249,18 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
   const stageList = flow?.stages || [];
   const curStageIdx = stageList.findIndex((s) => s.id === curStepStage);
   const prevStage = curStageIdx > 0 ? stageList[curStageIdx - 1] : null;
+  // What each step generates (from the flow definition) — surfaced on the Run button &
+  // hero so every action describes its expected deliverable.
+  const producesFor = (key?: string): string[] => { const s = steps.find((x) => x.key === key); return Array.isArray(s?.produces) ? s!.produces! : []; };
+  const whatFor = (key?: string): string => { const s = steps.find((x) => x.key === key); return typeof s?.what === 'string' ? s!.what! : ''; };
+  const curProduces = producesFor(deal?.currentStep);
+  const curWhat = whatFor(deal?.currentStep);
   const viewStep = selStep || deal?.currentStep || '';
   const artifact = deal?.artifacts?.[viewStep];
   // A run's rich, agent-authored deliverable (from "Run <step>"), if any — this is the
   // full narrative document; the structured `artifact` is the at-a-glance summary.
   const stepRun = deal?.stepRuns?.[viewStep];
+  const viewProduces = producesFor(viewStep);
   const verdict = ic?.verdict;
   const ws = deal?.workspace || {};
   // Post-screening stages (Diligence D*, Execution E*, Ownership V*) are deal-team only
@@ -478,7 +485,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                       <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
                         {!deal.workspaceReady
                           ? 'Launch the deal to provision its workspace, then run each step in order — the assistant drafts the deliverable, you review, and Advance to the next gate. Work it end-to-end to reach IC and close.'
-                          : `Run ${STEP_LABEL[deal.currentStep || ''] || 'this step'} to generate its deliverable, review it below, then Advance to the next stage. Each step moves the deal one gate closer to IC and close.`}
+                          : (<>Run <b>{STEP_LABEL[deal.currentStep || ''] || deal.currentStep}</b> {curProduces.length ? <>generates <b>{curProduces.join(' · ')}</b></> : 'generates this step’s deliverable'}, shown below — then Advance to the next step.{curWhat ? <span style={{ display: 'block', marginTop: 4, opacity: .85 }}>{curWhat}</span> : null}</>)}
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {!deal.workspaceReady ? (
@@ -487,7 +494,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                           ) : <span className="muted">🔒 Launching (Stage 2) is restricted to the deal team.</span>
                         ) : (
                           <>
-                            <button className="btn primary" disabled={!!busy} onClick={() => act('run', `/api/deals/${dealId}/steps/${deal.currentStep}/run`)}>{busy === 'run' ? 'Running…' : `⚙ Run ${STEP_LABEL[deal.currentStep || ''] || 'step'}`}</button>
+                            <button className="btn primary" disabled={!!busy} title={curProduces.length ? `Generates: ${curProduces.join(', ')}` : undefined} onClick={() => act('run', `/api/deals/${dealId}/steps/${deal.currentStep}/run`)}>{busy === 'run' ? 'Running…' : `⚙ Run ${STEP_LABEL[deal.currentStep || ''] || 'step'}`}</button>
                             <button className="btn" disabled={!!busy} onClick={() => act('advance', `/api/deals/${dealId}/advance`)}>{busy === 'advance' ? 'Advancing…' : 'Advance to next step →'}</button>
                             {deal.currentStep && /^d[34]/i.test(deal.currentStep) ? <button className="btn ghost" onClick={() => setTab('documents')}>📤 Generate IC deck / memo</button> : null}
                             <button className="btn ghost" disabled={!!busy} onClick={() => act('back', `/api/deals/${dealId}/back`)}>← Back a step</button>
@@ -501,7 +508,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                   </section>
 
                   <section className="dd-panel">
-                    <div className="dd-panel-h">{STEP_LABEL[viewStep] || viewStep} — deliverable</div>
+                    <div className="dd-panel-h">{STEP_LABEL[viewStep] || viewStep} — deliverable{viewProduces.length ? <span className="muted" style={{ fontWeight: 400 }}> · {viewProduces.join(' · ')}</span> : null}</div>
                     {stepRun?.markdown ? (
                       <div style={{ padding: '12px 16px' }}>
                         {stepRun.when ? <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>Generated {new Date(stepRun.when).toLocaleString()}{stepRun.artifacts?.length ? ` · ${stepRun.artifacts.join(', ')}` : ''}</div> : null}
@@ -521,7 +528,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                         )}
                       </div>
                     ) : (
-                      <div className="dd-empty-p">No deliverable yet for this step. {viewStep === deal.currentStep && deal.workspaceReady ? 'Run the step to generate it.' : ''}</div>
+                      <div className="dd-empty-p">No deliverable yet{viewProduces.length ? ` — running this step generates ${viewProduces.join(', ')}` : ''}. {viewStep === deal.currentStep && deal.workspaceReady ? 'Use “Run” above to generate it.' : ''}</div>
                     )}
                   </section>
 
