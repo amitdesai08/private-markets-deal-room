@@ -45,6 +45,10 @@ per-deal **Teams channels** + **SharePoint** data rooms · an **MCP** endpoint t
 
 ## The identity trust seam
 
+**Why it matters:** this is what guarantees a user can never see more than their role allows — the
+access decision is made on the server and never trusted from the client, which is what keeps MNPI
+and need-to-know defensible.
+
 Access is resolved **server-side** so a client can never widen its own powers:
 
 - The Teams tier authenticates the user (Entra SSO, or a demo profile) and forwards the
@@ -120,6 +124,9 @@ the record:
 ---
 
 ## Persistence — Cosmos is optional
+
+**Why it matters:** run a full demo with no database to provision and no standing cost, then move to
+a managed database only when production concurrency demands it.
 
 The app persists through a single seam ([`app/lib/repo`](../app/lib/repo)) with a pluggable
 `DEALROOM_STORE` driver:

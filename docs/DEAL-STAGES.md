@@ -104,7 +104,7 @@ a **full** workspace if you're on the deal team (or a deal-team-tier role / admi
 | **Overview** | Read the thesis, key figures and headline financials for the deal. | `GET /api/deals/:id` |
 | **Stages & orchestration** | Drive the deal: launch diligence, run the current step, advance/back through gates; open the Teams channel + data room. | `…/launch` · `…/steps/:key/run` · `…/advance` |
 | **Workspace** | Work the diligence swimlanes, cycle checklist items, and record contributions. | `…/checklist/:item/cycle` · `…/contributions` |
-| **Market research** | Fabric / OneLake **comparable deals**, **IC precedents** and **benchmark findings**, plus a **source-citation audit** of the memo's claims. | `…/citations` · `/api/market-intel` |
+| **Market research** | **Comparable deals**, prior **IC precedents** and **benchmark findings** to pressure-test the case, plus a **source-citation audit** that traces every claim in the memo. | `…/citations` · `/api/market-intel` |
 | **Decision artifacts** | The artifacts a PE IC decides on — returns, value-creation, risk register, IOI/LOI — each exportable to Excel. | see below |
 | **Documents** | Generate Word/Excel docs from the live record and publish them into the deal's SharePoint data room. | see [The document repository](#the-document-repository) |
 | **IC readiness** | The **READY / CONDITIONAL / NOT-READY** verdict and the required-artifact checklist. | `…/ic-readiness` |
@@ -124,9 +124,10 @@ Derived from the live record, callable by the agents (`get_returns` / `get_value
 
 ## The document repository
 
-Every pursued deal gets its **own collaboration space**, provisioned on the PURSUE gate via
-delegated Microsoft Graph, with a durable channel↔deal mapping that keeps the agent's
-context correct as deals scale:
+The instant a deal goes live it gets a **dedicated place for the team to collaborate** — its own
+channel and a secure data room — that stays reliably tied to the right deal no matter how many are
+in flight (provisioned on the PURSUE gate via delegated Microsoft Graph, with a durable
+channel↔deal mapping):
 
 - **A Teams channel** — the deal's conversation and activity feed (proactive Adaptive Cards
   post here, deep-linking back to the tab).
@@ -152,7 +153,7 @@ Each document can go to one of two places (`?dest=`):
 | Destination | Who | How it's built |
 |---|---|---|
 | **Download** *(default)* | Anyone with deal access | A **personal working copy**, generated on the requester's **own Microsoft 365 licence** — needs no M365 connection. |
-| **Publish to data room** | Deal-team / partner *(write-gated)* | Authored **as the requester** via an on-behalf-of Graph token and saved into the deal's **shared SharePoint VDR**. |
+| **Publish to data room** | Deal-team / partner *(write-gated)* | Published into the deal's **shared data room under your own name**, so authorship and permissions are exactly as if you'd created it yourself (on-behalf-of Graph token). |
 
 - **List the data room** — `GET /api/deals/:id/documents` returns the folder URL and its files.
 - **Least-privilege** — read follows deal access; **publishing** to the shared VDR needs

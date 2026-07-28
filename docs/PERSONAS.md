@@ -35,6 +35,9 @@ journey — and every person below sees a different slice of it.
 
 ## Persona → Entra role → access (how it's enforced)
 
+**Why it matters:** because each role sees a different, need-to-know slice of the fund, here's how a
+real person maps to exactly what they can see and do.
+
 The Deal Room resolves a user's role from their **Entra identity** (object id, UPN, or an
 Entra **group**) in [userPolicy.js](../app/lib/userPolicy.js) (`roleForUser`). The role decides
 three things, all enforced server-side (a client can never widen them):

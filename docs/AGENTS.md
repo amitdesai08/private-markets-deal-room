@@ -1,5 +1,9 @@
 # Agents & skills
 
+The Deal Room gives the team a **specialist for every job on a deal** — each drawing on the live
+record, each bounded by who's asking — so people get decision-grade answers without a generic
+chatbot guessing. This is the full reference:
+
 Every AI agent in The Deal Room, its **objective**, its data-sovereignty **class**, the
 **tools/skills** it uses, and where it fits the deal lifecycle. The class is enforced
 server-side by [agentSovereignty.js](../app/lib/agentSovereignty.js) — an *internal-data*
@@ -34,6 +38,9 @@ deal data (see [DATA-SOVEREIGNTY.md](DATA-SOVEREIGNTY.md)).
 | `deal-room-news-scout` | News Scout | **external-web** | Public web sourcing signals (Bing-grounded) | Stage 1 (sourcing) |
 
 ## Purpose-based agents & orchestrator delegation (live in Foundry)
+
+**Why it matters:** one agent per *job* with a router that picks the right specialist means less
+duplication and clearer ownership — with the same governance and access controls.
 
 The persona roster above is **role-shaped** (one agent per person). The target topology is
 **purpose-shaped**: a small set of task agents named for the *job*, with the **Deal Room

@@ -41,7 +41,7 @@ Returns are judged in **IRR** (annualised %) and **MOIC** (multiple of money in�
 ## 3. What the app shows (screen by screen)
 
 The product is a **Teams tab** (the main app) plus an **in-Teams chat** copilot. The surfaces
-(React components in `teams-app/tab/src`):
+(each screen below is a job in the deal lifecycle; built in `teams-app/tab/src`):
 
 - **Dashboard** — the fund's pipeline at a glance: deals by stage, what needs attention, next
   actions. Your landing page.
@@ -62,10 +62,12 @@ The product is a **Teams tab** (the main app) plus an **in-Teams chat** copilot.
 
 ## 4. What the agents do
 
-Two ways to think about the agents. **Today** they're **persona-shaped** (one agent per PE role
-— Analyst, Partner, Fund CFO, Operating Partner, GC, IR, plus the sector MDs and the external
-News Scout). The **scaffolded target** is **purpose-shaped** — a few agents named for the *job*,
-with an **orchestrator** that routes to them. Full reference: [AGENTS.md](AGENTS.md).
+Each agent is a **specialist for one job on a deal** — sourcing, screening, diligence, modelling,
+the IC memo, value creation — and the user just asks; the request is routed to the right one.
+(Two internal shapes: **today** one agent per PE role — Analyst, Partner, Fund CFO, Operating
+Partner, GC, IR, plus the sector MDs and the external News Scout; the **scaffolded target** is
+**purpose-shaped**, a few agents named for the *job* with an **orchestrator** that routes to them.
+Full reference: [AGENTS.md](AGENTS.md).)
 
 Purpose agents (the direction), each bundling **skills** (`skills/<slug>/SKILL.md`):
 

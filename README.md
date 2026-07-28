@@ -58,10 +58,10 @@ tenant.
 
 ### 💬 An AI deal team you @mention
 
-**`@Deal Room Assistant`** is a Teams bot you @mention in any deal channel. It replies in
-**natural language, grounded in that specific deal** — it works out *which* deal from the
-channel itself, so you never restate the company or deal name, and it answers from the right
-**specialist's** viewpoint (analyst, sector MDs, partner, …).
+Ask any deal a question the way you'd ask a colleague. **`@Deal Room Assistant`** answers in
+**plain language from that specific deal's live record** — mentioned right in the deal's channel,
+it already works out *which* deal you mean, so you never restate the company or deal name, and it
+answers from the right **specialist's** viewpoint (analyst, sector MDs, partner, …).
 
 > 💬 *what's the investment thesis here, in three lines?*
 > 💬 *summarise the latest diligence findings and open risks.*
@@ -71,10 +71,10 @@ channel itself, so you never restate the company or deal name, and it answers fr
 
 ### 📊 A dashboard native to your channel
 
-An **Entra-SSO channel tab** renders the deal workspace **natively inside Teams** — no separate
-portal, no second sign-in — and the *same* build runs as a standalone web console. Fund KPIs,
-the live origination funnel, per-deal detail, an inline agent chat, and proactive **Adaptive
-Card** alerts that turn the channel into the deal's activity feed.
+The full deal workspace lives **right where the team already works — natively inside Teams** — no
+separate portal and no second sign-in, and the *same* build also runs as a standalone web console.
+Fund KPIs, the live origination funnel, per-deal detail, an inline assistant, and proactive
+**alerts** turn the channel into the deal's activity feed.
 
 ### 🗂️ The whole lifecycle — source to exit
 
@@ -89,8 +89,9 @@ actually decides on.
 
 ### 📁 Every deal gets its own data room
 
-The moment a deal is pursued it gets a **Teams channel** and a **SharePoint virtual data room**,
-provisioned via Microsoft Graph. From the deal's **Documents** tab you generate board-ready
+The moment you commit to pursue a deal, it gets its own private home for the team — a **Teams
+channel** to work in and a **secure data room** for its documents — set up automatically. From the
+deal's **Documents** tab you generate board-ready
 **Word IC memos**, **Excel deal / returns models** and **PowerPoint IC decks** straight from the
 live record — **download** a personal copy on your own M365 licence, or **publish** into the shared
 data room (write-gated to the deal team, authored *as you*).
@@ -143,18 +144,17 @@ single control for its **Teams channel, SharePoint data room and workspace**.
 
 ### 📈 Real numbers, no paid data
 
-For demos without a paid provider, the platform runs on **real, keyless** data — **SEC EDGAR /
-XBRL** fundamentals, **GLEIF** entity & ownership, and **GDELT** news — so every figure is real
-and cited, out of the box.
+Evaluate the product on real companies from day one — every figure is genuine, cited public-market
+data (**SEC EDGAR / XBRL** fundamentals, **GLEIF** entity & ownership, **GDELT** news), so there's
+nothing to buy or license just to see it work.
 
 ### 🧠 Work IQ — grounded in your Microsoft 365 work data
 
-**Work IQ** lets the deal team's AI reach into the fund's real Microsoft 365 work — **SharePoint /
-OneDrive files, Teams channel messages and Outlook mail** — over Microsoft Graph, so answers are
-grounded in the actual data room, threads and inboxes, not just the deal record. The app *is* the
-Work IQ MCP server (Microsoft-native, no third-party endpoint), exposing four **read-only** tools —
-`search_files`, `search`, `search_mail` and `read_channel_messages` — to the in-app agents **and**
-to **M365 Copilot / Copilot Studio** over Streamable HTTP.
+**Work IQ** lets the deal team's AI draw on the fund's real Microsoft 365 work — **files, deal-channel
+messages and inboxes** — so answers reflect the actual data room, threads and correspondence, not just
+the structured deal record. It stays **read-only** and **never leaves your tenant**, and the same reach
+is available to **M365 Copilot**. *(Under the hood: the app is a Microsoft-native Work IQ MCP server
+exposing four read-only tools — `search_files`, `search`, `search_mail`, `read_channel_messages`.)*
 
 It's **governed by construction**: read-only, app-only Graph scopes with mailbox reach bounded by
 an **Exchange Application Access Policy**, and every tool is registered as **internal-data** so the
@@ -162,11 +162,11 @@ external-web news scout can never call it — the sovereignty guard refuses any 
 
 ### ☁️ Enterprise-ready, one command to deploy
 
-Azure-native and portable: **Azure AI Foundry** agents via managed identity, **10 role-governed
-specialist agents**, **Fabric / OneLake** market intelligence, and a **Deal MCP server** that
-lets **M365 Copilot** and hosted agents call the same grounded tools. It ships as
-subscription-agnostic **Bicep** you deploy with **one `azd up`**, with a built-in **sleep/wake**
-switch so an idle demo costs nothing.
+Runs entirely in **your own Azure tenant**, on your terms — **no keys or secrets to manage**, ten
+role-aware specialists, and the same governed deal tools reusable from **M365 Copilot**. It deploys
+with **one `azd up`** and idles at near-zero cost thanks to a built-in **sleep/wake** switch.
+*(Built on Azure AI Foundry agents via managed identity, Fabric / OneLake market intelligence, a
+Deal MCP server, and subscription-agnostic Bicep.)*
 
 > 🔎 **[Deploy it in your own tenant →](docs/DEPLOY.md)** · **[How it works →](docs/HOW-IT-WORKS.md)**
 

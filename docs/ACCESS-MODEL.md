@@ -73,8 +73,10 @@ feed [`app/lib/userPolicy.js`](../app/lib/userPolicy.js), so a client can never 
 
 ## Territories & deal groups — access by group membership
 
-Beyond role, two axes narrow *which deals* a person sees — both driven by **Entra
-security-group membership**, resolved server-side:
+Beyond a person's role, two things decide *which deals* they can even see — the **territory** they
+cover and the specific **deal teams** they belong to — so a regional MD sees their coast and a
+clean-team sees only its carve-out. Both are driven by **Entra security-group membership**,
+resolved server-side:
 
 - **Territory (region).** Each deal has a region (Northeast, Southeast, Midwest, South
   Central, Northwest, Southwest, International — inferred from HQ or set explicitly).
