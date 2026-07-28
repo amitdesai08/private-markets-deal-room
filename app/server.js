@@ -124,7 +124,7 @@ import { askFabricDataAgent, fabricDataAgentInfo } from './lib/fabricDataAgent.j
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import m365LoginRouter from './lib/m365/loginRoutes.js';
 import { m365Configured, m365Connected, m365Ready, m365AppOnly, m365FilesScope, listDealDocuments, saveDealDocument, M365NotConnectedError } from './lib/m365/graph.js';
-import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml, buildModelCsv, buildReturnsXlsx, buildIcDeckPptx, OFFICE_MIME } from './lib/m365/office.js';
+import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml, buildModelCsv, buildReturnsXlsx, buildIcDeckPptx, OFFICE_MIME } from './lib/m365/officeRich.js';
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
@@ -440,22 +440,25 @@ api.post('/deals/:id/documents/:kind', async (req, res) => {
   }
   try {
     const co = docSafeCompany(deal);
+    // The full decision-artifact bundle — enriches every generated document with the
+    // returns, value-creation, risk-register and IC-readiness detail.
+    const artifacts = {
+      returns: getDealReturns(id),
+      valueCreation: getDealValueCreation(id),
+      risks: getDealRiskRegister(id),
+      ic: getICReadiness(id),
+    };
     let filename, buffer, contentType;
     if (kind === 'ic-memo') {
-      buffer = await buildIcMemoDocx(deal);
+      buffer = await buildIcMemoDocx(deal, artifacts);
       filename = `IC Memo — ${co}.docx`;
       contentType = OFFICE_MIME.docx;
     } else if (kind === 'ic-deck') {
-      buffer = await buildIcDeckPptx(deal, {
-        returns: getDealReturns(id),
-        valueCreation: getDealValueCreation(id),
-        risks: getDealRiskRegister(id),
-        ic: getICReadiness(id),
-      });
+      buffer = await buildIcDeckPptx(deal, artifacts);
       filename = `IC Deck — ${co}.pptx`;
       contentType = OFFICE_MIME.pptx;
     } else if (kind === 'returns') {
-      buffer = await buildReturnsXlsx(getDealReturns(id));
+      buffer = await buildReturnsXlsx(artifacts.returns, artifacts);
       filename = `Returns Model — ${co}.xlsx`;
       contentType = OFFICE_MIME.xlsx;
     } else {
@@ -467,7 +470,7 @@ api.post('/deals/:id/documents/:kind', async (req, res) => {
         buffer = await buildLiveModelXlsx(deal, liveUrl);
         filename = `Deal Model (live) — ${co}.xlsx`;
       } else {
-        buffer = await buildDealModelXlsx(deal);
+        buffer = await buildDealModelXlsx(deal, artifacts);
         filename = `Deal Model — ${co}.xlsx`;
       }
       contentType = OFFICE_MIME.xlsx;
