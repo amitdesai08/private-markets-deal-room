@@ -583,6 +583,9 @@ export function createDealFromIntake(spec = {}) {
   deals.push(deal);
   attachWorkspaces([deal]);
   persistDeal(deal);
+  // Data room dependencies (Teams channel + SharePoint + access group) provision in
+  // the background as soon as the deal is on the platform — no separate launch step.
+  startDealProvisioning(deal.id);
   return { deal: derive(deal) };
 }
 
@@ -2046,7 +2049,11 @@ async function provisionDealChannel(deal) {
 export async function ensureDealTeamsChannel(id) {
   const deal = getDealRaw(id);
   if (!deal) return { error: 'not-found' };
-  if (!deal.workspace) return { error: 'not-launched' };
+  if (!deal.workspace) {
+    // Build the workspace on demand so an intake / screened deal can provision its
+    // data room too — being on the platform is enough; no manual “launch” needed.
+    deal.workspace = buildWorkspace(deal, { maturity: 0, createdAt: new Date().toISOString() });
+  }
   if (!m365Connected()) {
     return { ok: false, provisioned: false, connected: false, teamsUrl: deal.workspace.teamsUrl, sharePointProvisioned: !!deal.workspace.sharePointProvisioned, workspace: deal.workspace, error: 'm365-not-connected' };
   }
@@ -2056,6 +2063,26 @@ export async function ensureDealTeamsChannel(id) {
   } catch (err) {
     return { ok: false, provisioned: false, connected: true, teamsUrl: deal.workspace.teamsUrl, sharePointProvisioned: !!deal.workspace.sharePointProvisioned, workspace: deal.workspace, error: String(err?.message || err).slice(0, 200) };
   }
+}
+
+// Background provisioning guard — a deal's data room (Teams channel + SharePoint
+// site + per-deal access group) is provisioned lazily on first Documents access and
+// eagerly at intake, WITHOUT blocking the request. Idempotent: a deal already
+// provisioned, with provisioning in flight, or with M365 offline is a no-op.
+const _provisioning = new Set();
+export function isDealProvisioning(id) { return _provisioning.has(id); }
+export function startDealProvisioning(id) {
+  const deal = getDealRaw(id);
+  if (!deal) return { started: false, error: 'not-found' };
+  if (deal.teamsChannel?.teamId) return { started: false, alreadyProvisioned: true };
+  if (!m365Connected()) return { started: false, connected: false };
+  if (_provisioning.has(id)) return { started: false, inFlight: true };
+  _provisioning.add(id);
+  ensureDealTeamsChannel(id)
+    .then((r) => logEvent(id, 'data-room-auto-provisioned', { ok: !!r?.ok, error: r?.error || null }))
+    .catch((err) => logEvent(id, 'data-room-auto-provision-error', { error: String(err?.message || err).slice(0, 160) }))
+    .finally(() => _provisioning.delete(id));
+  return { started: true };
 }
 
 // Backfill: ensure EVERY existing deal has its own Teams channel (threads layout),

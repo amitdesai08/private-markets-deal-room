@@ -102,7 +102,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
   const [busy, setBusy] = useState<string>('');
   const [note, setNote] = useState<string>('');
   const [cfg, setCfg] = useState<any>(null);
-  const [docs, setDocs] = useState<{ folderUrl?: string; documents?: any[]; canWrite?: boolean; error?: string; notConnected?: boolean } | null>(null);
+  const [docs, setDocs] = useState<{ folderUrl?: string; documents?: any[]; canWrite?: boolean; error?: string; notConnected?: boolean; provisioning?: boolean } | null>(null);
   const [docsBusy, setDocsBusy] = useState<string>('');
   const [dealGroups, setDealGroups] = useState<any[]>([]);
   const [newTag, setNewTag] = useState('');
@@ -174,13 +174,25 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, dealId]);
 
-  // Lazily list the deal's SharePoint data-room documents when the tab opens.
+  // Lazily list the deal's SharePoint data-room documents when the tab opens. The
+  // data room auto-provisions on first access (no manual launch) — while that runs the
+  // endpoint returns { provisioning: true }, so we poll until the folders appear.
   useEffect(() => {
     if (tab !== 'documents') return;
+    let cancelled = false; let timer: any;
     setDocs(null);
-    af(`/api/deals/${dealId}/documents`)
-      .then(async (r) => { const d = await r.json().catch(() => ({})); setDocs(r.ok ? d : { error: d?.error || `Failed (${r.status})`, notConnected: !!d?.notConnected }); })
-      .catch((e) => setDocs({ error: String(e?.message || e) }));
+    const loadDocs = () => {
+      af(`/api/deals/${dealId}/documents`)
+        .then(async (r) => {
+          if (cancelled) return;
+          const d = await r.json().catch(() => ({}));
+          if (r.ok && d?.provisioning) { setDocs({ provisioning: true, canWrite: d.canWrite }); timer = setTimeout(loadDocs, 8000); return; }
+          setDocs(r.ok ? d : { error: d?.error || `Failed (${r.status})`, notConnected: !!d?.notConnected });
+        })
+        .catch((e) => { if (!cancelled) setDocs({ error: String(e?.message || e) }); });
+    };
+    loadDocs();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, dealId]);
 
@@ -484,7 +496,9 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                     {docs?.folderUrl ? <a className="btn ghost" href={docs.folderUrl} target="_blank" rel="noopener">Open data room ↗</a> : null}
                   </div>
                   {note ? <div className="muted" style={{ marginBottom: 6 }}>{note}</div> : null}
-                  {docs?.notConnected ? (
+                  {docs?.provisioning ? (
+                    <div className="muted" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>⏳ Setting up this deal’s Teams channel &amp; SharePoint data room… this takes about a minute, and it will appear here automatically.</div>
+                  ) : docs?.notConnected ? (
                     <div className="muted">Downloads work now. Connect Microsoft 365 (from the Deal Dashboard) to also publish into this deal’s shared SharePoint data room.</div>
                   ) : docs?.error ? (
                     <div className="muted">Couldn’t load the data room: {docs.error}</div>

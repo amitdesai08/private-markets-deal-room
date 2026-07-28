@@ -11,6 +11,7 @@ import {
   setDealTags,
   setDealRegion,
   createDealFromIntake,
+  startDealProvisioning,
   listSourcing,
   promoteSourcing,
   getPersonas,
@@ -399,6 +400,16 @@ api.get('/deals/:id/documents', async (req, res) => {
   const identity = requestingIdentity(req);
   const gate = authorizeDealContent(identity, deal, requestingViewAs(req));
   if (!gate.ok) return res.status(403).json({ denied: true, reason: gate.reason });
+  // Auto-provision the data room on first access — a deal on the platform shouldn't
+  // need a manual “launch”. If M365 is connected and there's no Teams/SharePoint space
+  // yet, kick provisioning off in the background and report progress (the UI polls).
+  if (!deal.teamsChannel?.teamId) {
+    if (!m365Connected()) {
+      return res.status(409).json({ error: 'Microsoft 365 isn’t connected yet — connect it from the Home connectivity panel to provision this deal’s data room.', notConnected: true });
+    }
+    startDealProvisioning(deal.id);
+    return res.json({ provisioning: true, canWrite: !!gate.access.canWrite });
+  }
   try {
     const out = await listDealDocuments(deal);
     res.json({ ...out, canWrite: !!gate.access.canWrite });
