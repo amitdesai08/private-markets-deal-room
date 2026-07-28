@@ -3,6 +3,11 @@
 The Deal Room is an **Azure accelerator** built to be secure-by-default. This
 document summarises the security model and how to report a vulnerability.
 
+**Why it matters:** a deal room holds the fund's most sensitive material — live deal
+terms, MNPI and confidential targets — so confidentiality, need-to-know access and a
+clean audit trail aren't features, they're the point. The controls below exist to keep
+that material defensible to compliance and to LPs.
+
 ## Reporting a vulnerability
 
 **Please do not open a public GitHub issue for security vulnerabilities.**

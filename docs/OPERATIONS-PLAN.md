@@ -1,5 +1,9 @@
 # Operations plan — networking, least-privilege power control & cost
 
+**Why it matters:** a pilot should cost almost nothing when idle, run on least-privilege
+by default, and keep the fund's data on a private network — so a firm can evaluate the
+product without a standing bill or an over-permissioned footprint.
+
 This plan captures three operational workstreams for The Deal Room's Azure
 deployment:
 
