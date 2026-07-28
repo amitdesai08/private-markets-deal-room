@@ -123,7 +123,7 @@ import { certifyReport, listCertifications, getCertification, archiveCertificati
 import { askFabricDataAgent, fabricDataAgentInfo } from './lib/fabricDataAgent.js';
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import m365LoginRouter from './lib/m365/loginRoutes.js';
-import { m365Configured, m365Connected, m365FilesScope, listDealDocuments, saveDealDocument, M365NotConnectedError } from './lib/m365/graph.js';
+import { m365Configured, m365Connected, m365Ready, m365AppOnly, m365FilesScope, listDealDocuments, saveDealDocument, M365NotConnectedError } from './lib/m365/graph.js';
 import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml, buildModelCsv, buildReturnsXlsx, buildIcDeckPptx, OFFICE_MIME } from './lib/m365/office.js';
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
@@ -195,7 +195,7 @@ api.get('/config', (_req, res) => {
     personaAgents: personaAgentsInfo(),
     orchestration: orchestratorInfo(),
     dealMcp: { ...dealMcpInfo(), auth: mcpAuthInfo(), readonly: { ...dealMcpReadonlyInfo(), keyConfigured: mcpReadonlyKeyConfigured() } },
-    m365: { configured: m365Configured(), connected: m365Connected(), files: m365FilesScope() },
+    m365: { configured: m365Configured(), connected: m365Connected(), appOnly: m365AppOnly(), dataRoom: m365Ready(), files: m365FilesScope() },
     morningstar: morningstarReady() ? 'live' : 'demo',
     fabric: fabricStatus(),
     fabricDataAgent: fabricDataAgentInfo(),
@@ -404,8 +404,8 @@ api.get('/deals/:id/documents', async (req, res) => {
   // need a manual “launch”. If M365 is connected and there's no Teams/SharePoint space
   // yet, kick provisioning off in the background and report progress (the UI polls).
   if (!deal.teamsChannel?.teamId) {
-    if (!m365Connected()) {
-      return res.status(409).json({ error: 'Microsoft 365 isn’t connected yet — connect it from the Home connectivity panel to provision this deal’s data room.', notConnected: true });
+    if (!m365Ready()) {
+      return res.status(409).json({ error: 'The shared data room isn’t available yet — documents generate and download in the meantime.', notConnected: true });
     }
     startDealProvisioning(deal.id);
     return res.json({ provisioning: true, canWrite: !!gate.access.canWrite });

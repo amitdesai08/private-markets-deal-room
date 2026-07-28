@@ -17,6 +17,7 @@ import { getAccessToken, hasLogin, loadTokens, NotLoggedInError } from '../mcp/o
 import { config } from '../config.js';
 
 const GRAPH = 'https://graph.microsoft.com/v1.0';
+const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class GraphError extends Error {}
 export class M365NotConnectedError extends Error {}
@@ -29,6 +30,43 @@ export function m365Configured() {
 export function m365Connected() {
   return hasLogin('m365');
 }
+// APP-ONLY (client-credentials) is available whenever the connector app is fully
+// configured (client id + secret + a real GUID tenant). This is the durable path:
+// the deal data room (Teams channel in the parent team + SharePoint folders +
+// document list/upload) provisions with the app's OWN identity — no per-user
+// sign-in that drops on redeploys. Requires the matching Graph APPLICATION
+// permissions to be admin-consented on the app registration.
+export function m365AppOnly() {
+  const m = config.m365 || {};
+  return !!(m.clientId && m.clientSecret && GUID_RE.test(String(m.tenantId || '')));
+}
+// READY = the app can talk to Graph for the deal data room, either as the signed-in
+// user (delegated) or app-only. This is what gates data-room provisioning/listing.
+export function m365Ready() {
+  return hasLogin('m365') || m365AppOnly();
+}
+
+// ---- app-only token (client credentials), cached until ~2 min before expiry ----
+let _appTok = { value: '', exp: 0 };
+async function appToken() {
+  const m = config.m365 || {};
+  if (!m365AppOnly()) throw new M365NotConnectedError('M365 app is not configured (client id / secret / tenant).');
+  const now = Date.now();
+  if (_appTok.value && now < _appTok.exp) return _appTok.value;
+  const body = new URLSearchParams({
+    client_id: m.clientId,
+    client_secret: m.clientSecret,
+    grant_type: 'client_credentials',
+    scope: 'https://graph.microsoft.com/.default',
+  });
+  const resp = await fetch(`https://login.microsoftonline.com/${m.tenantId}/oauth2/v2.0/token`, {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body,
+  });
+  if (!resp.ok) throw new GraphError(`app-token ${resp.status}: ${(await resp.text().catch(() => '')).slice(0, 200)}`);
+  const json = await resp.json();
+  _appTok = { value: json.access_token, exp: now + (Number(json.expires_in || 3600) - 120) * 1000 };
+  return _appTok.value;
+}
 
 // Whether the stored delegated token carries the SharePoint/OneDrive file write
 // scope (Files.ReadWrite.All) — i.e. the deal SharePoint data room can actually
@@ -37,20 +75,30 @@ export function m365Connected() {
 export function m365FilesScope() {
   try {
     const rec = loadTokens('m365');
-    return /(^|\s)Files\.ReadWrite(\.All)?(\s|$)/i.test(rec?.scope || '');
-  } catch {
-    return false;
+    if (/(^|\s)Files\.ReadWrite(\.All)?(\s|$)/i.test(rec?.scope || '')) return true;
+  } catch { /* no delegated token */ }
+  // App-only carries Files/Sites.ReadWrite.All (application) when consented.
+  return m365AppOnly();
+}
+
+// Acquire a Graph token for a call. Prefer the delegated user token (acts AS the
+// signed-in user); when no user is connected, fall back to APP-ONLY client
+// credentials so the deal data room works without a per-user sign-in. /me endpoints
+// require a signed-in user, so they never fall back to app-only.
+async function graphToken(path) {
+  try {
+    return await getAccessToken('m365');
+  } catch (err) {
+    if (err instanceof NotLoggedInError) {
+      if (!path.startsWith('/me') && m365AppOnly()) return appToken();
+      throw new M365NotConnectedError('M365 is not connected — sign in from the Home connectivity panel.');
+    }
+    throw err;
   }
 }
 
 async function graph(path, { method = 'GET', body, headers = {}, expect } = {}) {
-  let token;
-  try {
-    token = await getAccessToken('m365');
-  } catch (err) {
-    if (err instanceof NotLoggedInError) throw new M365NotConnectedError('M365 is not connected — sign in from the Home connectivity panel.');
-    throw err;
-  }
+  const token = await graphToken(path);
   const resp = await fetch(`${GRAPH}${path}`, {
     method,
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...headers },
@@ -422,14 +470,7 @@ export async function saveDealDocument(deal, filename, buffer, contentType, user
   // authored AS the requester on their own M365 license; otherwise fall back to
   // the shared connector account that provisioned the data room.
   let token = userToken;
-  if (!token) {
-    try {
-      token = await getAccessToken('m365');
-    } catch (err) {
-      if (err instanceof NotLoggedInError) throw new M365NotConnectedError('M365 is not connected — sign in from the Home connectivity panel.');
-      throw err;
-    }
-  }
+  if (!token) token = await graphToken('/drives');
   const seg = encodeURIComponent(filename);
   const resp = await fetch(`${GRAPH}/drives/${driveId}/items/${folderId}:/${seg}:/content`, {
     method: 'PUT',

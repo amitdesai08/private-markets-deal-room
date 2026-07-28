@@ -24,7 +24,7 @@ import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scorin
 import { buildScorecard, buildTriageScore, buildMemoBase } from './screening.js';
 import { buildDiligencePlan, buildFindingsReport, buildFinalMemoBase, buildExecutionPack, buildCloseoutPlan, buildReturnsModel, buildValueCreationPlan, buildRiskRegister, buildIoi, buildLoi } from './diligence.js';
 import { buildWorkspace, checklistStats, MD_OPTIONS, WORKSTREAM_DEFAULTS, ensureWorkspaceSwimlanes, LANE_ORDER } from '../data/workspace.js';
-import { ensureDealChannel, provisionDealFolders, m365Connected, publishTeamToGroup, installTeamsAppInTeam, ensureDealAccessGroup } from './m365/graph.js';
+import { ensureDealChannel, provisionDealFolders, m365Connected, m365Ready, publishTeamToGroup, installTeamsAppInTeam, ensureDealAccessGroup } from './m365/graph.js';
 import { generateAnalystReport } from './analystReport.js';
 import {
   PASS_REASONS,
@@ -1824,8 +1824,9 @@ export function gateCandidate(id, action, reason, note) {
     persistDeal(deal);
     logEvent(c.deskId || c.id, 'pursue', { deal: deal.id, company: c.company });
     // Auto-provision this deal's Teams channel the moment it exists (best-effort,
-    // only when M365 is connected). Fire-and-forget so the gate response is instant.
-    if (m365Connected()) {
+    // whenever M365 is reachable — delegated OR app-only). Fire-and-forget so the
+    // gate response is instant.
+    if (m365Ready()) {
       provisionDealChannel(deal).catch((err) => logEvent(deal.id, 'teams-provision-error', { error: String(err?.message || err).slice(0, 200) }));
     }
     return { ok: true, candidate: publicCandidate(c), deal: getDeal(deal.id) };
@@ -1905,10 +1906,10 @@ export async function launchDeal(id) {
   logEvent(deal.id, 'launch', { company: deal.company });
 
   // Provision the REAL Teams channel for this deal (best-effort). When M365 is
-  // connected this creates a live channel the workspace map button opens; if not
-  // connected (or Graph errors) the deep-link workspace still stands and the
-  // channel can be provisioned later via ensureDealTeamsChannel().
-  if (m365Connected()) {
+  // reachable (delegated OR app-only) this creates a live channel the workspace map
+  // button opens; if not reachable (or Graph errors) the deep-link workspace still
+  // stands and the channel can be provisioned later via ensureDealTeamsChannel().
+  if (m365Ready()) {
     try {
       await provisionDealChannel(deal);
     } catch (err) {
@@ -2054,7 +2055,7 @@ export async function ensureDealTeamsChannel(id) {
     // data room too — being on the platform is enough; no manual “launch” needed.
     deal.workspace = buildWorkspace(deal, { maturity: 0, createdAt: new Date().toISOString() });
   }
-  if (!m365Connected()) {
+  if (!m365Ready()) {
     return { ok: false, provisioned: false, connected: false, teamsUrl: deal.workspace.teamsUrl, sharePointProvisioned: !!deal.workspace.sharePointProvisioned, workspace: deal.workspace, error: 'm365-not-connected' };
   }
   try {
@@ -2075,7 +2076,7 @@ export function startDealProvisioning(id) {
   const deal = getDealRaw(id);
   if (!deal) return { started: false, error: 'not-found' };
   if (deal.teamsChannel?.teamId) return { started: false, alreadyProvisioned: true };
-  if (!m365Connected()) return { started: false, connected: false };
+  if (!m365Ready()) return { started: false, connected: false };
   if (_provisioning.has(id)) return { started: false, inFlight: true };
   _provisioning.add(id);
   ensureDealTeamsChannel(id)
@@ -2089,7 +2090,7 @@ export function startDealProvisioning(id) {
 // best-effort. Used to auto-create channels for deals that existed before M365 was
 // connected, and to force existing channels into the threads (chat) layout.
 export async function provisionAllDealChannels() {
-  if (!m365Connected()) return { ok: false, connected: false, provisioned: 0, total: deals.length, deals: [] };
+  if (!m365Ready()) return { ok: false, connected: false, provisioned: 0, total: deals.length, deals: [] };
   let provisioned = 0; const results = [];
   for (const deal of deals) {
     try {
