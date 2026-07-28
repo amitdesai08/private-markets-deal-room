@@ -24,7 +24,7 @@ import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scorin
 import { buildScorecard, buildTriageScore, buildMemoBase } from './screening.js';
 import { buildDiligencePlan, buildFindingsReport, buildFinalMemoBase, buildExecutionPack, buildCloseoutPlan, buildReturnsModel, buildValueCreationPlan, buildRiskRegister, buildIoi, buildLoi } from './diligence.js';
 import { buildWorkspace, checklistStats, MD_OPTIONS, WORKSTREAM_DEFAULTS, ensureWorkspaceSwimlanes, LANE_ORDER } from '../data/workspace.js';
-import { ensureDealChannel, provisionDealFolders, m365Connected, m365Ready, publishTeamToGroup, installTeamsAppInTeam, ensureDealAccessGroup } from './m365/graph.js';
+import { ensureDealChannel, provisionDealDataRoom, m365Connected, m365Ready, publishTeamToGroup, installTeamsAppInTeam, ensureDealAccessGroup } from './m365/graph.js';
 import { generateAnalystReport } from './analystReport.js';
 import {
   PASS_REASONS,
@@ -1998,13 +1998,15 @@ async function provisionDealChannel(deal) {
     }
   }
 
-  // Provision the SharePoint VDR folders (best-effort — never block launch/Teams).
+  // Provision the SharePoint VDR framework INSIDE this deal's own data-room folder
+  // (…/<Company>/00_Administration, …) so the deal opens on a structured data room,
+  // not an empty folder. Best-effort — never block launch/Teams.
   if (channel.teamId && deal.workspace) {
     try {
       const names = (deal.workspace.folders || []).map((f) => f.name);
-      const sp = await provisionDealFolders(channel.teamId, names);
+      const sp = await provisionDealDataRoom(deal, names);
       const byName = new Map(sp.folders.map((f) => [f.name, f.url]));
-      if (sp.driveWebUrl) { deal.workspace.sharePointUrl = sp.driveWebUrl; deal.workspace.sharePointUrlResolved = true; }
+      if (sp.folderUrl) { deal.workspace.sharePointUrl = sp.folderUrl; deal.workspace.sharePointUrlResolved = true; }
       deal.workspace.sharePointProvisioned = true;
       // Reflect the REAL folder web URLs (fall back to the constructed link).
       deal.workspace.folders = (deal.workspace.folders || []).map((f) => ({ ...f, url: byName.get(f.name) || f.url }));
@@ -2012,7 +2014,7 @@ async function provisionDealChannel(deal) {
       const laneFolder = { commercial: '03_Commercial & Sales', techai: '09_IT & Technology', operations: '10_Operations' };
       deal.workspace.swimlanes = (deal.workspace.swimlanes || []).map((s) => ({ ...s, folderUrl: byName.get(laneFolder[s.lane]) || s.folderUrl }));
       const made = sp.folders.filter((f) => f.created).length;
-      logEvent(deal.id, 'sharepoint-provisioned', { drive: sp.driveWebUrl, created: made, total: sp.folders.length });
+      logEvent(deal.id, 'sharepoint-provisioned', { drive: sp.folderUrl, created: made, total: sp.folders.length });
     } catch (err) {
       logEvent(deal.id, 'sharepoint-provision-error', { error: String(err?.message || err).slice(0, 200) });
     }

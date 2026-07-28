@@ -102,7 +102,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
   const [busy, setBusy] = useState<string>('');
   const [note, setNote] = useState<string>('');
   const [cfg, setCfg] = useState<any>(null);
-  const [docs, setDocs] = useState<{ folderUrl?: string; documents?: any[]; canWrite?: boolean; error?: string; notConnected?: boolean; provisioning?: boolean } | null>(null);
+  const [docs, setDocs] = useState<{ folderUrl?: string; folders?: any[]; documents?: any[]; canWrite?: boolean; error?: string; notConnected?: boolean; provisioning?: boolean } | null>(null);
   const [docsBusy, setDocsBusy] = useState<string>('');
   const [dealGroups, setDealGroups] = useState<any[]>([]);
   const [newTag, setNewTag] = useState('');
@@ -512,6 +512,20 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                         <button className="btn" disabled={!docs.canWrite || !!docsBusy} onClick={() => genDoc('model', 'sharepoint', true)}>{docsBusy === 'model:sharepoint:live' ? 'Saving…' : '📤 Save deal model to data room'}</button>
                       </div>
                       {!docs.canWrite ? <div className="muted" style={{ marginBottom: 6 }}>Read-only — publishing to the shared data room needs deal-team or partner access. You can still download your own copy.</div> : null}
+                      {(docs.folders || []).length ? (
+                        <div style={{ margin: '4px 0 10px' }}>
+                          <div className="muted" style={{ fontWeight: 600, marginBottom: 6 }}>Data room structure</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 6 }}>
+                            {(docs.folders || []).map((fd: any) => (
+                              <a key={fd.name} href={fd.url} target="_blank" rel="noopener" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8, textDecoration: 'none', color: 'inherit' }}>
+                                <span style={{ fontSize: 16 }}>📁</span>
+                                <span style={{ fontWeight: 600, flex: 1, fontSize: 13 }}>{fd.name.replace(/^\d+_/, '')}</span>
+                                {fd.childCount ? <span className="muted" style={{ fontSize: 11 }}>{fd.childCount}</span> : null}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {(docs.documents || []).length ? (docs.documents || []).map((f: any) => (
                           <a key={f.id} href={f.webUrl} target="_blank" rel="noopener" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8, textDecoration: 'none', color: 'inherit' }}>
@@ -519,7 +533,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                             <span style={{ fontWeight: 600, flex: 1 }}>{f.name}</span>
                             <span className="muted">{f.modified ? new Date(f.modified).toLocaleDateString() : ''}</span>
                           </a>
-                        )) : <div className="muted">No documents in the data room yet.</div>}
+                        )) : <div className="muted">No documents generated yet — use the buttons above, or drop files into the data-room folders.</div>}
                       </div>
                     </>
                   )}

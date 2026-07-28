@@ -465,14 +465,50 @@ async function dealDocFolder(deal) {
   return { driveId: drive.id, folderId: folder.id, folderUrl: folder.webUrl || drive.webUrl || null };
 }
 
-// List the deal's generated/uploaded documents (files only), newest first.
+// List the deal's data room: the standard VDR folder framework (so it's never an
+// empty page) plus any generated/uploaded documents. Folders in taxonomy order,
+// documents newest-first.
 export async function listDealDocuments(deal) {
   const { driveId, folderId, folderUrl } = await dealDocFolder(deal);
-  const res = await graph(`/drives/${driveId}/items/${folderId}/children?$select=id,name,size,webUrl,lastModifiedDateTime,file&$orderby=lastModifiedDateTime desc`);
-  const documents = (res?.value || [])
+  const res = await graph(`/drives/${driveId}/items/${folderId}/children?$select=id,name,size,webUrl,lastModifiedDateTime,file,folder&$top=200`);
+  const items = res?.value || [];
+  const folders = items
+    .filter((x) => x.folder)
+    .map((x) => ({ name: x.name, url: x.webUrl, childCount: x.folder?.childCount ?? 0 }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const documents = items
     .filter((x) => x.file)
-    .map((x) => ({ id: x.id, name: x.name, size: x.size, webUrl: x.webUrl, modified: x.lastModifiedDateTime, mime: x.file?.mimeType || null }));
-  return { folderUrl, documents };
+    .map((x) => ({ id: x.id, name: x.name, size: x.size, webUrl: x.webUrl, modified: x.lastModifiedDateTime, mime: x.file?.mimeType || null }))
+    .sort((a, b) => String(b.modified || '').localeCompare(String(a.modified || '')));
+  return { folderUrl, folders, documents };
+}
+
+// Provision the standard VDR folder framework INSIDE this deal's own data-room
+// folder (…/<Company>/00_Administration, …/01_Corporate & Legal, …), so a freshly
+// provisioned deal opens on a structured data room rather than an empty folder.
+// Idempotent: an existing subfolder (409) is treated as success. Returns the deal
+// folder URL + the created/reused subfolders.
+export async function provisionDealDataRoom(deal, folderNames) {
+  const { driveId, folderId, folderUrl } = await dealDocFolder(deal);
+  const folders = [];
+  for (const name of folderNames) {
+    try {
+      const created = await graph(`/drives/${driveId}/items/${folderId}/children`, {
+        method: 'POST',
+        body: { name, folder: {}, '@microsoft.graph.conflictBehavior': 'fail' },
+      });
+      folders.push({ name, url: created?.webUrl || null, created: true });
+    } catch (err) {
+      if (/→ 409/.test(String(err?.message || ''))) {
+        const seg = encodeURIComponent(name);
+        const existing = await graph(`/drives/${driveId}/items/${folderId}:/${seg}?$select=webUrl`).catch(() => null);
+        folders.push({ name, url: existing?.webUrl || null, created: false });
+      } else {
+        folders.push({ name, url: null, created: false, error: String(err?.message || err).slice(0, 120) });
+      }
+    }
+  }
+  return { driveId, folderId, folderUrl, folders };
 }
 
 // Upload a generated document (Buffer) into the deal's data-room folder. Returns
