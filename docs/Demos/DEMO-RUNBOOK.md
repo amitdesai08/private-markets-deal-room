@@ -1,9 +1,10 @@
 # Demo runbook
 
-A ~18-minute guided demo of The Deal Room for delivery teams. It showcases the
-**AI-native PE deal flow**, the **identity-aware access model**, the **full deal
-lifecycle**, the **specialist agents**, the **decision artifacts**, and the
-**post-IC fund & portfolio lens** — all grounded in a live (seeded) deal record.
+A ~18-minute guided demo of The Deal Room for delivery teams. It follows a
+real institutional deal flow — **who can see what**, the **full lifecycle and its
+gates**, the **senior expertise on every workstream**, the **artifacts an IC votes
+on**, and how the **fund monitors the company after close** — all drawn from the
+fund's own deal record.
 
 > Prefer a story to a checklist? See the [demo walkthrough](DEMO-WALKTHROUGH.md) —
 > the same material told as one deal's end-to-end journey.
@@ -23,17 +24,17 @@ lifecycle**, the **specialist agents**, the **decision artifacts**, and the
   hours-saved framing**: the audience is the deal team, so every surface is
   decision-data-first.
 
-> Everything is grounded in the live deal record. If asked "is this real?",
-> point out the answers cite the tools (`list_deals`, `get_deal`, `get_returns`…).
+> Everything comes from the fund's own deal record. If asked "is this real?",
+> show that each answer traces back to a source you can open — nothing is invented.
 
 ---
 
 ## 1 · The pitch (30s)
 
-> "The Deal Room is an AI-native private-equity workspace that lives inside
-> Microsoft Teams — and the *same* console runs standalone on the web. Deal teams
-> source, screen, run diligence, and take deals to IC, with every answer grounded
-> in the live deal record and **scoped to who is asking**."
+> "The Deal Room is where deal teams source, screen, run diligence, and take
+> deals to IC — all in one place, inside Microsoft Teams or the browser. Every
+> answer comes from the fund's own record, and **each person sees only what their
+> role allows**."
 
 ## 2 · Identity-aware access (2 min) — *the differentiator*
 
@@ -50,11 +51,11 @@ dropdown (it shows **Name — Role**, no clutter):
 4. **Jason Mendoza — Member.** The **guardrail floor**: view-only, **zero persona agents**,
    dashboard only.
 
-> Two things to call out: the **totals follow the identity** — switch persona and the
+> Two things to call out: **what you see follows who you are** — switch persona and the
 > "Live deals" KPI changes *with* the deal list, not just the stage views; and outside demo
-> mode a real user sees only **their own** persona agent, not the whole tier. Access is
-> resolved **server-side** from the requesting identity — a client can never widen its own
-> powers.
+> mode a real user sees only **their own** view, not the whole tier. No one can grant
+> themselves access they weren't given — it's the information barrier a fund has to
+> enforce, not just display.
 
 ## 3 · The full deal lifecycle (2 min)
 
@@ -74,8 +75,8 @@ dropdown (it shows **Name — Role**, no clutter):
 > the bottom**. Then open a deal.
 
 1. From **Deals Overview**, open a deal (e.g. the top consumer deal). Each stage names its
-   **👤 owner persona** — the specialist bots stay behind the single assistant, so the
-   surface reads like a deal team's own workspace, not an agent console.
+   **👤 owner persona** — the senior expertise stays in the background, so the
+   surface reads like a deal team's own workspace, not a chatbot.
 2. On the deal's **Overview**, call out the **decision cockpit**:
    - **IC readiness breakdown** — the **READY / CONDITIONAL / NOT-READY** verdict, the
      readiness %, days-to-IC, and the **top 3 blockers**, each with a one-click **Resolve ▸**.
@@ -96,8 +97,8 @@ dropdown (it shows **Name — Role**, no clutter):
    grid (stage, IC readiness, days-to-IC, size, priority, recommended action); hit
    **⧉ Copy table** to paste it straight into a note.
 
-> "Every number is derived from the live record — change the deal and the returns,
-> risks, verdict and delta change with it."
+> "Every number is the deal's real number — change the deal and the returns, the
+> risks, the IC verdict and the delta all move with it. Nothing is static or hand-typed."
 
 ## 5 · Fund & portfolio — monitor what you own (2 min)
 
@@ -122,7 +123,7 @@ Open the **Fund & Portfolio** tab — the *post-IC* lens most tools stop short o
 
 ## 6 · Talk to the specialists (3 min)
 
-Two ways to chat — both grounded in the live record and persona-framed:
+Two ways to chat — both answer from the live record and in the right specialist's voice:
 
 - **Portfolio-wide:** open the **agents** panel (as **Michael** or **Eleanor** so the full
   roster shows) and ask across deals.
@@ -134,17 +135,15 @@ Ask:
 - **Operating Partner:** *"What are the top value-creation levers across the portfolio?"*
 - **Deal Room Analyst:** *"What's blocking this deal from going to IC?"*
 
-> The agents are Foundry agents that read the pipeline through the governed MCP
-> tools — grounded, cited, and persona-framed.
+> Each specialist answers from the live pipeline and shows its sources — so you get
+> a partner-, CFO- or analyst-level view you can actually trust and trace.
 
-> **One assistant, many specialists.** The user talks to a single **Deal Room
-> Assistant**; behind it the **orchestrator** decides whether to answer directly or
-> pull in the right **stage specialists** — sourcing, screening, diligence, modeling,
-> IC-memo, value-creation — consults them in parallel, and **composes one answer**
-> (the reply reports which agents it used). Ask a modeling + IC question and watch it
-> bring in the **modeling** and **ic-memo** specialists together. It's on by default
-> (`ORCHESTRATION=purpose`) and falls back to the single analyst agent if a specialist
-> is unavailable.
+> **One assistant, the whole deal team behind it.** The user talks to a single **Deal
+> Room Assistant**; behind that one answer, the right experts get pulled in
+> automatically — sourcing, screening, diligence, modeling, IC-memo, value-creation —
+> and their views are combined into a single reply that tells you who weighed in. Ask a
+> modeling + IC question and watch the **modeling** and **ic-memo** experts come in
+> together. You get the whole deal team's judgment from one question.
 
 > **Approve-to-apply + the audit trail (🆕).** Inside a deal, the assistant doesn't just
 > answer — it **proposes concrete next steps** grounded in the deal's state (e.g. *“Log
@@ -170,9 +169,10 @@ this in-app Report tab.)
 Open **Settings (⚙) → Data Sources → Work IQ**: paste the MCP endpoint and **Connect**. Once
 connected, the internal-data agents gain **governed, delegated** M365 tools —
 `workiq_search_files` (SharePoint/OneDrive), `workiq_read_channel` (Teams) and
-`workiq_search_mail` (Outlook) — so a diligence question can be grounded in the deal's real
-documents, channel discussion and correspondence. The **external** news scout can **never**
-call them: the data-sovereignty guard refuses any boundary crossing and audit-logs it.
+`workiq_search_mail` (Outlook) — so a diligence question can draw on the deal's real
+documents, channel discussion and correspondence. Your **external** news tool can
+**never** reach inside your firm's documents: the boundary between outside data and
+your confidential estate is enforced and logged, so nothing leaks across it.
 
 > **Add your own provider.** In **Data Sources**, the **Add a data source** form registers any
 > provider the platform doesn't ship a built-in for (PitchBook, Morningstar Direct, an internal
@@ -194,12 +194,10 @@ call them: the data-sovereignty guard refuses any boundary crossing and audit-lo
 
 ## 11 · Close (30s)
 
-> "One command deploys the whole thing — `azd up`. It's a parameterised Azure
-> accelerator: bring your own roles, personas and data; the lean blob store
-> (**Cosmos is optional**) means a demo costs almost nothing; and you can add your
-> own Foundry agents from a template. It takes a deal from the first signal all the
-> way to a **monitored portfolio company** — all Microsoft-native: Teams, Foundry,
-> Graph, managed identity."
+> "It stands up fast on your own Microsoft tenant and costs almost nothing to pilot —
+> shaped to your roles, your senior personas and your data. And it carries a deal the
+> whole way: from the first sourcing signal to a portfolio company you actively
+> monitor, inside the tools your firm already runs."
 
 ---
 

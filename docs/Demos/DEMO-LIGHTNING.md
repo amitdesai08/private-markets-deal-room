@@ -5,15 +5,13 @@ minutes, plus an explicit **feature → private-equity need** map you can speak 
 
 - Longer options: the [feature tour](DEMO-RUNBOOK.md) (~18 min) and the
   [end-to-end narrative](DEMO-WALKTHROUGH.md) (~20 min).
-- Everything is grounded in the live (seeded) record — *Fund IV, US Mid-Market
-  Buyout* ($2.6B, vintage 2024, ~46% deployed, 6 portfolio companies). If anyone
-  asks "is this real?", the agents' answers cite the tools (`list_deals`,
-  `get_deal`, `get_returns`, `get_fund_overview`).
+- Everything is the fund's own record — *Fund IV, US Mid-Market Buyout* ($2.6B,
+  vintage 2024, ~46% deployed, 6 portfolio companies). If anyone asks "is this
+  real?", every answer shows the source it came from.
 
-> **One-line positioning:** *An AI-native private-equity workspace that lives
-> inside Microsoft Teams — deal teams source, screen, run diligence, and take
-> deals to IC, with every answer grounded in the deal record and scoped to who
-> is asking.*
+> **One-line positioning:** *One workspace where deal teams source, screen, run
+> diligence, and take deals to IC — every answer drawn from the fund's own record,
+> and every person seeing only what their role allows.*
 
 ---
 
@@ -39,7 +37,7 @@ minutes, plus an explicit **feature → private-equity need** map you can speak 
 | 6 | **Report & connect** (0:45) | Open the in-app **Report** tab (Power BI). Then **Settings → Data Sources**: free tier on by default, **Work IQ** endpoint for M365 (SharePoint/Teams/mail) agent access, **Add a data source** to register a custom provider, toggle a source off live. | Power BI in the app; governed connectors + custom providers |
 
 **Ultra-short (3 min):** run beats **0 → 1 → 3 → 4** — the differentiator (access),
-a grounded specialist answer, and the IC artifact. That alone tells the story.
+a cited specialist answer, and the IC artifact. That alone tells the story.
 
 ---
 
@@ -69,5 +67,6 @@ a grounded specialist answer, and the IC artifact. That alone tells the story.
 
 > "One workspace, inside the tools your deal teams already use, that takes a deal
 > from a sourcing signal to an IC decision to a monitored portfolio company —
-> every answer grounded and scoped to who's asking, and every data source under
+> every answer traceable to its source and scoped to who's asking, and every data
+> source under
 > your control. It stands up in one command and runs on free data out of the box."

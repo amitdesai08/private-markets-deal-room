@@ -11,9 +11,9 @@ persona who owns it, so the access model, the agents, the lifecycle and the new
 **Fund & Portfolio** lens all land as one coherent story.
 
 > **The fund in the demo:** *Fund IV — US Mid-Market Buyout* ($2.6B, vintage 2024,
-> ~46% deployed, 6 portfolio companies). Everything below is grounded in the live
-> (seeded) record — if anyone asks "is this real?", the agent answers cite the
-> tools (`list_deals`, `get_returns`, `get_fund_overview`…).
+> ~46% deployed, 6 portfolio companies). Everything below is the fund's own
+> record — deals, returns, the fund overview. If anyone asks "is this real?", the
+> answers show their work: each one traces back to a source you can open.
 
 ---
 
@@ -39,11 +39,11 @@ tier, then act *through* the specialist persona agents in the panel:
 
 ## Act 0 · The 30-second pitch
 
-> "The Deal Room is an AI-native private-equity workspace that lives inside
-> Microsoft Teams — and the *same* console runs standalone on the web. A deal team
-> sources, screens, runs diligence, takes a deal to IC, **and then monitors what
-> they own** — with every answer grounded in the live record and **scoped to who
-> is asking**."
+> "The Deal Room is where a deal team runs the whole institutional arc in one
+> place — source, screen, diligence, take it to IC, **and then monitor the
+> company they own**. The *same* workspace runs inside Microsoft Teams or the
+> browser, every answer is drawn from the fund's own record, and **each person
+> only sees what their role allows**."
 
 Then set the frame: *"Let's follow one deal the whole way through."*
 
@@ -84,9 +84,10 @@ Then set the frame: *"Let's follow one deal the whole way through."*
    **Activity** trail — never acting on its own.
 4. Note that an MD **can only touch their own lane** — try the access model live.
 
-> "Diligence is parallelised across specialists, but governed — the AI MD can't
-> quietly edit the commercial lane, and when the assistant changes anything a human
-> approved it and it's on the audit trail. Every contribution is attributable."
+> "Diligence runs on every workstream at once, but with guardrails — the tech
+> lead can't touch the commercial lane, and nothing changes unless a person signs
+> off. Every finding and edit is attributable, so you always know who put a number
+> in front of the IC."
 
 ---
 
@@ -113,7 +114,7 @@ Then set the frame: *"Let's follow one deal the whole way through."*
    Partner can approve at the **IC gate**.
 
 > "The IC verdict isn't a progress bar — it's real gating facts. And approving at
-> the gate is a partner-only power that a client can't spoof."
+> the IC gate is a partner-only authority — no one can grant themselves that sign-off."
 
 ---
 
@@ -132,8 +133,9 @@ tab.
      with % progress, the **100-day** completion, and **KPIs vs the underwriting
      plan** with variance.
    - Contrast with **Harbor Industrial Coatings** (underperform, ~0.6x) → *"The
-     platform is honest — input-cost inflation pushed it below the plan, and the
-     lens flags it, not hides it."*
+     reporting is honest — input-cost inflation pushed it below plan, and the
+     portfolio view surfaces the underperformer instead of burying it. That's the
+     mark you'd actually defend to an LP."*
 3. **Concentration vs LPA limits** — sector and single-position exposure against
    the mandate's hard caps (max % per sector / per deal). *"Compliance-by-design —
    the same LPA gate that screens deals also watches the portfolio."*
@@ -158,21 +160,23 @@ tab.
 
 Pull the threads together:
 
-- **One backend, two surfaces** — the *same* console in Teams and on the web.
-- **Identity-aware** — access resolved server-side from who is asking; agents
-  routed by role; view-as only goes down.
-- **Grounded & cited** — one assistant that **delegates to purpose-built specialists**
-  (sourcing, screening, diligence, modeling, IC-memo, value-creation) and composes the
-  answer, all reading the live record through governed MCP tools (`get_fund_overview` ·
-  `get_portfolio` · `get_fund_value` …).
-- **Free, keyless data** — real SEC/XBRL, GLEIF and GDELT with no paid provider.
-- **Lean & Microsoft-native** — `azd up` deploys it all; the blob store means a
-  demo costs almost nothing; **Cosmos is optional**; bring your own roles, personas
-  and Foundry agents.
+- **One workspace, wherever the deal team already works** — the *same* experience
+  in Teams and on the web.
+- **Access follows the person** — a partner sees the whole room, an analyst sees
+  only their deals, and no one can look *up* the chain. It's the information
+  barrier a fund is required to run.
+- **One question, the whole deal team behind it** — ask once and get one answer,
+  with the depth of sourcing, screening, diligence, modeling, IC-memo and
+  value-creation expertise behind it. Every figure comes from the fund's own
+  record, and it shows where each one came from.
+- **Real data out of the box** — market, filings, ownership and live news
+  catalysts, with no data-vendor subscription to buy.
+- **Runs on your own tenant** — stands up fast, costs almost nothing to pilot,
+  and bends to your roles, your senior personas and your own investment process.
 
-> "One command deploys the whole accelerator, and it takes a deal from the first
-> signal all the way to a monitored portfolio company — all on Teams, Foundry,
-> Graph and managed identity."
+> "It takes a deal from the very first signal all the way to a portfolio company
+> you actively monitor — the full loop, source to own, inside the tools your firm
+> already trusts."
 
 ---
 
