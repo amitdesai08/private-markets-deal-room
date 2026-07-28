@@ -499,9 +499,9 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                   {docs?.provisioning ? (
                     <div className="muted" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>⏳ Setting up this deal’s Teams channel &amp; SharePoint data room… this takes about a minute, and it will appear here automatically.</div>
                   ) : docs?.notConnected ? (
-                    <div className="muted">Downloads work now. Connect Microsoft 365 (from the Deal Dashboard) to also publish into this deal’s shared SharePoint data room.</div>
+                    <div className="muted">Generate and download any document above now. This deal’s shared SharePoint data room is being set up and will appear here automatically.</div>
                   ) : docs?.error ? (
-                    <div className="muted">Couldn’t load the data room: {docs.error}</div>
+                    <div className="muted">The shared data room is still being prepared — you can generate and download documents above in the meantime.</div>
                   ) : !docs ? (
                     <div className="muted">Loading data room…</div>
                   ) : (
