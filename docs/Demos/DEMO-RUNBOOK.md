@@ -180,11 +180,18 @@ your confidential estate is enforced and logged, so nothing leaks across it.
 > connector with an honest **reachability** test (never a faked "connected"). A name that
 > duplicates a built-in is rejected; remove a custom source anytime.
 
-## 9 · Documents on your own license (1 min)
+## 9 · Board-ready documents, in your firm's house style (1 min)
 
-- In a deal's **Documents** tab, generate the **IC memo (Word)** and **Deal model
-  (Excel)** — built on the requester's own M365 license (full mode), or downloaded
-  as a personal working copy. Show the **live-refreshable** Excel model.
+- Every deal's data room **arrives pre-populated**: a full **IC pack** — memo (Word), deck
+  (PowerPoint) and deal & returns models (Excel) — plus a plain-English **data-room guide** are
+  drafted from the live record and dropped straight into the room, so the team opens to a finished
+  first draft, not a blank page. Open a deal's **Documents** tab and the seeded **IC Materials** folder.
+- The memo is a real committee paper — thesis, merits, risks, valuation & returns, value creation,
+  diligence findings and the IC ask — so a partner starts from something to polish, not to write.
+- Open **Settings → Document templates**: set the **fund name, brand colours, confidentiality
+  wording and which sections appear**, and every future document follows suit — *"it looks like your
+  firm's paper, not a vendor's; you adopt it without re-templating a thing."*
+- Generate on the requester's own M365 license, or download a personal working copy.
 
 ## 10 · Real data, no paid provider (1 min) *(optional)*
 

@@ -101,6 +101,10 @@ Then set the frame: *"Let's follow one deal the whole way through."*
    - **Value creation** — the EBITDA bridge, quantified levers, 100-day plan.
    - **Risk register** — open risks by severity × likelihood (red/amber/green).
    - **IOI / LOI** — the non-binding indication and letter of intent.
+
+   > The deal's **data room arrives pre-populated** with the full board-ready **IC pack** — memo,
+   > deck and these models — drafted from this same live record and **branded to the fund's house
+   > style** (set once in Settings). The partner opens to a finished first draft, not a blank page.
 2. As **Fund CFO**, ask the agent: *"Pull the returns model — base IRR and MOIC,
    and does it clear the hurdle?"*
 3. Open the **IC readiness** tab — the decision-grade board answering the seven

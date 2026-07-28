@@ -49,7 +49,7 @@ tenant.
 - **Decide** on returns (IRR/MOIC), value-creation, risk and IOI/LOI — exportable to Excel — with an **IC-readiness cockpit** (verdict + top blockers + *what changed since last check*).
 - **Compare deals side-by-side** on the same decision fields and copy the grid out.
 - **Own & exit** — monitor MOIC/IRR, run the 100-day plan, work the **watchlist**, and prep the exit.
-- **Generate board-ready documents** (Word IC memos, Excel models, PowerPoint IC decks) into each deal's data room, and export **LP reports with a full source-and-methodology lineage** — then **certify** a report LP-ready as an immutable, dated snapshot.
+- **Get board-ready documents drafted for you** — every deal's data room arrives **pre-populated** with a full IC pack (memo, deck, deal & returns models) drafted from the live record and **branded to your firm's house style**; export **LP reports with a full source-and-methodology lineage**, then **certify** a report LP-ready as an immutable, dated snapshot.
 - **Keep it confidential** — hide sensitive deals and grant access person-by-person.
 
 ---
@@ -87,14 +87,24 @@ actually decides on.
 
 > 🔎 **[Inside a deal — a tab-by-tab tour of every stage & workspace →](docs/DEAL-STAGES.md)**
 
-### 📁 Every deal gets its own data room
+### 📁 Every deal gets its own data room — arriving ready to work
 
 The moment you commit to pursue a deal, it gets its own private home for the team — a **Teams
-channel** to work in and a **secure data room** for its documents — set up automatically. From the
-deal's **Documents** tab you generate board-ready
-**Word IC memos**, **Excel deal / returns models** and **PowerPoint IC decks** straight from the
-live record — **download** a personal copy on your own M365 licence, or **publish** into the shared
-data room (write-gated to the deal team, authored *as you*).
+channel** to work in and a **secure data room** for its documents — set up automatically, and it
+**arrives pre-populated**. A complete, board-ready **IC pack** — memo, deck, and deal & returns
+models — plus a plain-English **data-room guide** are drafted from the live record and dropped
+straight into the room, so the team opens to a finished first draft, never a blank page. Generate
+or refresh any document from the **Documents** tab — **download** a personal copy on your own M365
+licence, or **publish** into the shared data room (write-gated to the deal team, authored *as you*).
+
+### 📝 Documents that look like *your* firm's — not a template's
+
+The generated IC memo, deck and models are **institutional-grade** — thesis, merits, risks,
+valuation & returns, value creation, diligence findings and the IC ask, all built from the live
+record so a partner starts from a real draft that needs only a light polish. And they carry **your
+house style**: set your fund name, brand colours, confidentiality wording and which sections appear
+once in **Settings → Document templates**, and every future document follows suit — adopt the
+product without re-templating a thing.
 
 ### 📑 Decision-grade artifacts & IC readiness
 

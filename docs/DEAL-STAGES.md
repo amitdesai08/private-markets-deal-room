@@ -106,7 +106,7 @@ a **full** workspace if you're on the deal team (or a deal-team-tier role / admi
 | **Workspace** | Work the diligence swimlanes, cycle checklist items, and record contributions. | `…/checklist/:item/cycle` · `…/contributions` |
 | **Market research** | **Comparable deals**, prior **IC precedents** and **benchmark findings** to pressure-test the case, plus a **source-citation audit** that traces every claim in the memo. | `…/citations` · `/api/market-intel` |
 | **Decision artifacts** | The artifacts a PE IC decides on — returns, value-creation, risk register, IOI/LOI — each exportable to Excel. | see below |
-| **Documents** | Generate Word/Excel docs from the live record and publish them into the deal's SharePoint data room. | see [The document repository](#the-document-repository) |
+| **Documents** | The board-ready IC pack (memo, deck, deal & returns models) — **pre-seeded into the data room** and **branded to your firm** — generate or refresh from the live record and publish into the shared data room. | see [The document repository](#the-document-repository) |
 | **IC readiness** | The **READY / CONDITIONAL / NOT-READY** verdict and the required-artifact checklist. | `…/ic-readiness` |
 | **Ask agents** | Chat with the deal analyst or a persona agent, scoped to this deal and grounded in its record. | `/api/deal-agent/chat` · `/api/persona-agents/:p/chat` |
 
@@ -135,8 +135,13 @@ channel↔deal mapping):
 
 ### Generate documents from the live deal
 
-From a deal's **Documents** tab you produce polished, board-ready documents straight from the
-live record — no copy-paste, always current:
+The data room **arrives pre-populated**: the full board-ready **IC pack** — memo, deck, and deal &
+returns models — plus a plain-English **data-room guide** are drafted from the live record and
+seeded into it the moment the room is provisioned, so the team opens to a finished first draft, not a
+blank page. From the **Documents** tab you can generate or refresh any of them straight from the
+live record — no copy-paste, always current — and each carries **your firm's house style** (fund
+name, brand colours, confidentiality wording and which sections appear, set in **Settings → Document
+templates**):
 
 | Document | Format | Endpoint |
 |---|---|---|
