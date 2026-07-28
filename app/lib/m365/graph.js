@@ -299,37 +299,67 @@ export async function ensureDealAccessGroup(deal, memberUserIds = []) {
 // Idempotently ensure THIS deal has its own team; returns its live coordinates
 // (webUrl opens the team / its General channel). Reuses the team recorded on the
 // deal, or an existing joined team with the same name, before creating a new one.
-// Deal channel display name (Teams: ≤50 chars, limited punctuation).
+// Deal channel display name (Teams: ≤50 chars, limited punctuation). Trim AFTER the
+// slice so a truncation never leaves a trailing space (Teams stores names trimmed,
+// which would otherwise break same-name matching and cause "name already exists").
 function channelName(deal) {
   const base = String(deal.company || `Deal ${deal.id}`).replace(/[~#%&*{}/\\:<>?+|"'\[\]]/g, '').replace(/\s+/g, ' ').trim();
-  return base.slice(0, 48) || `Deal ${String(deal.id || '').slice(0, 20)}`;
+  return base.slice(0, 48).trim() || `Deal ${String(deal.id || '').slice(0, 20)}`;
+}
+
+// Find a channel in the parent team by display name (trimmed, case-insensitive).
+async function findParentChannel(parentTeamId, name) {
+  const list = await graph(`/teams/${parentTeamId}/channels?$select=id,displayName,webUrl`).catch(() => null);
+  const target = name.trim().toLowerCase();
+  return (list?.value || []).find((c) => (c.displayName || '').trim().toLowerCase() === target) || null;
 }
 
 // Create/reuse ONE channel per deal inside the pinned parent team (e.g. "Private
 // Equity Deals"), in the threads (chat) layout. Everyone in that team sees it and
 // the app/bot is installed once on the team. Requires Channel.Create (admin-consented).
+// Idempotent AND race-safe: if a same-named channel already exists (or is mid-
+// provision), it's reused rather than throwing "name already exists".
 async function ensureDealChannelInParent(deal, parentTeamId, existing) {
   const name = channelName(deal);
   const team = await getTeam(parentTeamId);
+  const reuse = (c) => ({ teamId: parentTeamId, channelId: c.id, webUrl: c.webUrl, displayName: c.displayName, createdAt: (existing?.createdAt) || new Date().toISOString() });
+
   if (existing?.channelId && existing.teamId === parentTeamId) {
     try {
       const c = await graph(`/teams/${parentTeamId}/channels/${existing.channelId}?$select=id,displayName,webUrl`);
-      if (c?.id) return { teamId: parentTeamId, channelId: c.id, webUrl: c.webUrl, displayName: c.displayName, createdAt: existing.createdAt || new Date().toISOString() };
+      if (c?.id) return reuse(c);
     } catch { /* recreate below */ }
   }
-  const list = await graph(`/teams/${parentTeamId}/channels?$select=id,displayName,webUrl`).catch(() => null);
-  const found = (list?.value || []).find((c) => (c.displayName || '').toLowerCase() === name.toLowerCase());
+  const found = await findParentChannel(parentTeamId, name);
   if (found) {
     try { await graph(`/teams/${parentTeamId}/channels/${found.id}`, { method: 'PATCH', body: { layoutType: 'chat' } }); } catch { /* best-effort threads */ }
-    return { teamId: parentTeamId, channelId: found.id, webUrl: found.webUrl, displayName: found.displayName, createdAt: new Date().toISOString() };
+    return reuse(found);
   }
-  let created;
+
+  const body = (withLayout) => ({ displayName: name, description: `${deal.company} — deal channel (auto-provisioned)`.slice(0, 1024), membershipType: 'standard', ...(withLayout ? { layoutType: 'chat' } : {}) });
+  const isDup = (e) => /NameAlreadyExists|name already exists/i.test(String(e?.message || ''));
+  let created = null;
   try {
-    created = await graph(`/teams/${parentTeamId}/channels`, { method: 'POST', body: { displayName: name, description: `${deal.company} — deal channel (auto-provisioned)`.slice(0, 1024), membershipType: 'standard', layoutType: 'chat' } });
-  } catch {
+    created = await graph(`/teams/${parentTeamId}/channels`, { method: 'POST', body: body(true) });
+  } catch (err) {
+    // A same-named channel already exists (or is still provisioning) — reuse it.
+    if (isDup(err)) {
+      for (let i = 0; i < 3; i++) {
+        await sleep(3000);
+        const ex = await findParentChannel(parentTeamId, name);
+        if (ex) { try { await graph(`/teams/${parentTeamId}/channels/${ex.id}`, { method: 'PATCH', body: { layoutType: 'chat' } }); } catch { /* ignore */ } return reuse(ex); }
+      }
+    }
     // Some tenants reject layoutType at creation — retry without it, then PATCH.
-    created = await graph(`/teams/${parentTeamId}/channels`, { method: 'POST', body: { displayName: name, membershipType: 'standard' } });
-    if (created?.id) { try { await graph(`/teams/${parentTeamId}/channels/${created.id}`, { method: 'PATCH', body: { layoutType: 'chat' } }); } catch { /* ignore */ } }
+    try {
+      created = await graph(`/teams/${parentTeamId}/channels`, { method: 'POST', body: body(false) });
+      if (created?.id) { try { await graph(`/teams/${parentTeamId}/channels/${created.id}`, { method: 'PATCH', body: { layoutType: 'chat' } }); } catch { /* ignore */ } }
+    } catch (err2) {
+      // Last resort: a same-named channel exists after all — reuse rather than fail.
+      const ex = await findParentChannel(parentTeamId, name);
+      if (ex) return reuse(ex);
+      throw err2;
+    }
   }
   return { teamId: parentTeamId, channelId: created?.id || null, webUrl: created?.webUrl || team.webUrl, displayName: created?.displayName || name, createdAt: new Date().toISOString() };
 }
