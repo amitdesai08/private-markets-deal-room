@@ -20,14 +20,14 @@ import { testFilings, filingsConfigured } from './filings.js';
 import { gdeltNews, gdeltConfigured } from './providers/gdelt.js';
 import { leiLookup, gleifConfigured } from './providers/gleif.js';
 import { fabricDataAgentConfigured, fabricDataAgentInfo } from './fabricDataAgent.js';
-import { isConnectorEnabled, getConnectorConfig, listCustomConnectors } from './connectorSettings.js';import { m365Configured, m365Connected, me as m365Me } from './m365/graph.js';
+import { isConnectorEnabled, getConnectorConfig, listCustomConnectors } from './connectorSettings.js';import { m365Configured, m365Connected, m365Ready, m365AppOnly, me as m365Me, m365AppPing } from './m365/graph.js';
 import { workiqConfigured, workiqConnected, workiqUrl } from './mcp/workiq.js';
 
 export const CONNECTORS = [
   {
     id: 'm365', name: 'M365 Login', kind: 'm365', role: 'identity',
-    primaryJob: 'Microsoft 365 sign-in — Teams, SharePoint & mailbox (delegated)',
-    sweetSpot: 'One delegated connection reused by every M365-powered step',
+    primaryJob: 'Microsoft 365 access — Teams, SharePoint & mailbox (runs on the app’s own permissions; optional user sign-in to act as you)',
+    sweetSpot: 'App-only by default — no user sign-in needed; the deal data room provisions with the app’s identity',
     loginUrl: '/api/m365/login'
   },
   {
@@ -159,7 +159,7 @@ function isConfigured(c) {
   if (c.kind === 'gdelt') return gdeltConfigured();
   if (c.kind === 'gleif') return gleifConfigured();
   if (c.kind === 'fabric-agent') return fabricDataAgentConfigured();
-  if (c.kind === 'm365') return m365Connected();
+  if (c.kind === 'm365') return m365Ready();
   if (c.kind === 'workiq') return workiqConnected();
   if (c.kind === 'custom') return c.approved === true && !!getConnectorConfig(c.id).endpoint;
   return false;
@@ -282,17 +282,24 @@ async function testWorkiq(c) {
 }
 
 async function testM365(c) {
-  if (!m365Connected()) {
-    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Not connected — sign in with your Microsoft 365 account to enable Teams, SharePoint and mailbox steps.' });
+  const delegated = m365Connected();
+  if (!delegated && !m365AppOnly()) {
+    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Not configured — set the Microsoft 365 app (client id / secret / tenant) to enable Teams, SharePoint and mailbox steps.' });
   }
   const t0 = Date.now();
   try {
-    const who = await m365Me();
+    if (delegated) {
+      const who = await m365Me();
+      const latencyMs = Date.now() - t0;
+      markSync(c.id);
+      return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Connected as ${who.displayName} (${who.upn}) · Graph reachable in ${latencyMs}ms` });
+    }
+    const ping = await m365AppPing();
     const latencyMs = Date.now() - t0;
     markSync(c.id);
-    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Connected as ${who.displayName} (${who.upn}) · Graph reachable in ${latencyMs}ms` });
+    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Connected via the app’s own permissions (app-only)${ping.name ? ` · ${ping.name}` : ''} · Graph reachable in ${latencyMs}ms` });
   } catch (e) {
-    return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Signed in but Graph errored · ${String(e.message || e).slice(0, 90)}` });
+    return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Graph errored · ${String(e.message || e).slice(0, 90)}` });
   }
 }
 

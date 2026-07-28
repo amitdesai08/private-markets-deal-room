@@ -120,6 +120,19 @@ export async function me() {
   return { displayName: u.displayName, upn: u.userPrincipalName, mail: u.mail || u.userPrincipalName, id: u.id };
 }
 
+// App-only connectivity probe — confirms the app can reach Graph with its OWN
+// identity (application permissions), no per-user sign-in. Used by the connectivity
+// panel when there's no delegated login. Resolves the pinned parent team (or the
+// tenant org) via the app-only token path in graph().
+export async function m365AppPing() {
+  if (!m365AppOnly()) throw new M365NotConnectedError('M365 app is not configured (client id / secret / tenant).');
+  const teamId = (process.env.M365_TEAM_ID || '').trim();
+  const info = teamId
+    ? await graph(`/groups/${teamId}?$select=id,displayName`)
+    : await graph('/organization?$select=id,displayName');
+  return { id: info?.id || null, name: info?.displayName || null };
+}
+
 // ---- Teams provisioning (one Team per deal) ------------------------------
 // A deal gets its OWN Microsoft Teams team ("Deal - <company>"), created with the
 // user-consentable Team.Create permission (no tenant-admin consent needed — unlike
