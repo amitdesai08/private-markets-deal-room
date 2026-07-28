@@ -147,6 +147,19 @@ For demos without a paid provider, the platform runs on **real, keyless** data �
 XBRL** fundamentals, **GLEIF** entity & ownership, and **GDELT** news — so every figure is real
 and cited, out of the box.
 
+### 🧠 Work IQ — grounded in your Microsoft 365 work data
+
+**Work IQ** lets the deal team's AI reach into the fund's real Microsoft 365 work — **SharePoint /
+OneDrive files, Teams channel messages and Outlook mail** — over Microsoft Graph, so answers are
+grounded in the actual data room, threads and inboxes, not just the deal record. The app *is* the
+Work IQ MCP server (Microsoft-native, no third-party endpoint), exposing four **read-only** tools —
+`search_files`, `search`, `search_mail` and `read_channel_messages` — to the in-app agents **and**
+to **M365 Copilot / Copilot Studio** over Streamable HTTP.
+
+It's **governed by construction**: read-only, app-only Graph scopes with mailbox reach bounded by
+an **Exchange Application Access Policy**, and every tool is registered as **internal-data** so the
+external-web news scout can never call it — the sovereignty guard refuses any egress crossover.
+
 ### ☁️ Enterprise-ready, one command to deploy
 
 Azure-native and portable: **Azure AI Foundry** agents via managed identity, **10 role-governed
