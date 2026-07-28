@@ -17,7 +17,7 @@ export default function Settings({ isAdmin, ssoToken, viewAs, onClose }: {
       <div className="set-head">
         <button className="set-back" onClick={onClose}>← Back to deals</button>
         <h2>Settings</h2>
-        <p>Connectivity and access configuration. These technical surfaces live here so the deal views stay focused on the data.</p>
+        <p>Data sources and access. Kept here so the deal views stay focused on your pipeline.</p>
       </div>
       <nav className="set-tabs">
         <button className={tab === 'sources' ? 'on' : ''} onClick={() => setTab('sources')}>Data Sources</button>

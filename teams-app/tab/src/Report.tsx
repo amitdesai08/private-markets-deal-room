@@ -54,7 +54,7 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
 
   // LP-grade lineage: every headline metric traces to a source system + as-of date +
   // method. Output mode reflects data certification (live external sources => LP-ready).
-  const srcLabel = fabric?.source || (fabric?.mode === 'live' ? 'Fabric · OneLake' : 'Deal Room store');
+  const srcLabel = fabric?.source || (fabric?.mode === 'live' ? 'Market data (live)' : 'Deal Room record');
   const asOf = (fabric as any)?.freshness?.label || TODAY;
   const mode = currentCert
     ? { label: 'LP-ready · certified', cls: 'ok' }
@@ -71,7 +71,7 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
         { metric: 'In diligence', value: String(analytics?.inDiligence ?? 0), source: 'Deal Room store', asOf: TODAY, method: 'Deals in Diligence & Approval stages' },
         { metric: 'Avg IC readiness', value: `${analytics?.avgReadiness ?? 0}%`, source: 'IC readiness engine', asOf: TODAY, method: 'Mean readiness across live deals' },
         { metric: 'Pipeline value', value: money(deals.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6), source: 'Deal Room store', asOf: TODAY, method: 'Sum of enterprise values in flight' },
-        { metric: 'Comps · IC precedents', value: `${comps.length} · ${precedents.length}`, source: srcLabel, asOf, method: 'Sourced from market-intel connector' },
+        { metric: 'Comps · IC precedents', value: `${comps.length} · ${precedents.length}`, source: srcLabel, asOf, method: 'Market comparables & IC precedents' },
       ];
 
   return (
@@ -200,7 +200,7 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
       </section>
 
       <footer className="rpt-foot">
-        Generated from the live Deal Room backend · {fabric?.mode === 'live' ? 'Fabric market intel: live' : 'seeded / materialized data'} · CONFIDENTIAL
+        Generated from the live Deal Room · {fabric?.mode === 'live' ? 'market intel: live' : 'market intel: sample data'} · CONFIDENTIAL
       </footer>
     </div>
   );

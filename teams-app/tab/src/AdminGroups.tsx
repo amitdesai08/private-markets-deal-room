@@ -30,7 +30,7 @@ export default function AdminGroups({ deals, onClose }: { deals: Deal[]; onClose
     setBusy('create'); setNote('');
     try {
       const r = await af('/api/deal-groups', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ label }) });
-      if (r.ok) { const dg = await r.json(); setDealGroups((p) => [...p.filter((x) => x.id !== dg.id), dg]); setNewLabel(''); setNote(dg.groupPending ? 'Deal group created — Entra group pending (connect M365 to provision it).' : 'Deal group + Entra security group created.'); }
+      if (r.ok) { const dg = await r.json(); setDealGroups((p) => [...p.filter((x) => x.id !== dg.id), dg]); setNewLabel(''); setNote(dg.groupPending ? 'Deal group created — access group pending (connect M365 to set it up).' : 'Deal group and access group created.'); }
       else setNote(r.status === 403 ? 'Admins only.' : `Failed (${r.status}).`);
     } finally { setBusy(''); }
   }
@@ -41,7 +41,7 @@ export default function AdminGroups({ deals, onClose }: { deals: Deal[]; onClose
   }
   async function reconcile() {
     setBusy('reconcile'); setNote('');
-    try { const r = await af('/api/deal-groups/reconcile', { method: 'POST' }); if (r.ok) { setNote('Retried Entra group provisioning for pending deal groups.'); reloadGroups(); } else setNote('Admins only.'); }
+    try { const r = await af('/api/deal-groups/reconcile', { method: 'POST' }); if (r.ok) { setNote('Retried access-group setup for pending deal groups.'); reloadGroups(); } else setNote('Admins only.'); }
     finally { setBusy(''); }
   }
 
@@ -61,8 +61,8 @@ export default function AdminGroups({ deals, onClose }: { deals: Deal[]; onClose
           {/* Deal groups */}
           <section style={card}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>Deal groups <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· customizable tags → Entra security groups</span></div>
-              <button className="chbtn" disabled={busy === 'reconcile'} onClick={reconcile} title="Retry Entra group creation for any pending groups">↻ reconcile</button>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>Deal groups <span style={{ color: 'var(--muted)', fontWeight: 400 }}>· tags that grant deal access</span></div>
+              <button className="chbtn" disabled={busy === 'reconcile'} onClick={reconcile} title="Retry access-group setup for any pending groups">↻ reconcile</button>
             </div>
             <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
               <input style={{ flex: 1, fontSize: 13, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg, #111)', color: 'inherit' }} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') createGroup(); }} placeholder="New deal group — e.g. Fund V, Healthcare Pod, Project Falcon clean-team" />
@@ -73,7 +73,7 @@ export default function AdminGroups({ deals, onClose }: { deals: Deal[]; onClose
                 {dealGroups.map((g) => (
                   <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderTop: '1px solid var(--border)' }}>
                     <span style={{ fontWeight: 600, fontSize: 13 }}>#{g.label}</span>
-                    <span style={{ fontSize: 11.5, fontWeight: 600, padding: '1px 8px', borderRadius: 999, background: g.groupPending ? 'rgba(216,128,0,.16)' : 'rgba(0,170,102,.14)', color: g.groupPending ? '#d80' : '#0a6' }}>{g.groupPending ? '⏳ Entra group pending' : '✓ Entra group'}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, padding: '1px 8px', borderRadius: 999, background: g.groupPending ? 'rgba(216,128,0,.16)' : 'rgba(0,170,102,.14)', color: g.groupPending ? '#d80' : '#0a6' }}>{g.groupPending ? '⏳ Access group pending' : '✓ Access group'}</span>
                     <span style={{ fontSize: 12, color: 'var(--muted)' }}>{groupDealCount(g.id)} deal(s)</span>
                     <button className="chbtn" style={{ marginLeft: 'auto' }} disabled={busy === g.id} onClick={() => del(g.id)}>Remove</button>
                   </div>
@@ -103,7 +103,7 @@ export default function AdminGroups({ deals, onClose }: { deals: Deal[]; onClose
                 ))}
               </div>
             ) : null}
-            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 10 }}>Add a user to a <code>DealRoom-Region-*</code> group to scope them to that territory. Users in no region group (MDs, partners, admins) see every territory.</div>
+            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 10 }}>Add a user to a region’s access group to scope them to that territory. Users in no region group (MDs, partners, admins) see every territory.</div>
           </section>
         </div>
       </aside>

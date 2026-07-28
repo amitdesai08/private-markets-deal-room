@@ -48,14 +48,14 @@ export default function Admin({ ssoToken, viewAs }: { ssoToken?: string; viewAs?
       <style>{CSS}</style>
       <div className="adm-head">
         <h2>Access administration</h2>
-        <p>Define custom RBAC roles and personas — data sovereignty, access level, and workflow rights. Select a row to expand and edit; changes persist and layer over the built-in defaults.</p>
+        <p>Define custom roles and personas — data access, permission level and workflow rights. Select a row to expand and edit; changes persist and layer over the built-in defaults.</p>
       </div>
 
       {data.demoModeConfigurable ? (
         <div className="adm-demo">
           <div className="adm-demo-txt">
             <div className="adm-demo-t">Demo mode {data.demoMode ? <span className="adm-demo-on">On</span> : <span className="adm-demo-off">Off</span>}</div>
-            <div className="adm-demo-s">Shows the “View as” switcher and showcase personas so the access model is demoable. Turn this off for a production-style experience — every user then sees only their own role and identity.</div>
+            <div className="adm-demo-s">Shows the “View as” switcher and showcase personas so you can preview the access model. Turn this off for a production-style experience — every user then sees only their own role and identity.</div>
           </div>
           <label className="adm-toggle" title={data.demoMode ? 'Disable demo mode' : 'Enable demo mode'}>
             <input

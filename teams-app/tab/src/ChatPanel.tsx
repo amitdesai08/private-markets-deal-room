@@ -13,7 +13,7 @@ type Msg = { role: 'user' | 'agent'; text: string; source?: string; tools?: stri
 
 const DEAL_STARTERS = [
   'Give me the IC readiness verdict and what is blocking it.',
-  'Show comparable deals and IC precedents from Fabric.',
+  'Show comparable deals and IC precedents.',
   'What are the top risks and the compliance status?',
 ];
 
@@ -74,7 +74,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
       if (data?.responseId) setPrevId((p) => ({ ...p, [threadKey]: data.responseId }));
       setThreads((t) => { const arr = (t[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: reply, source: data?.source, tools, proposed }; return { ...t, [threadKey]: arr }; });
     } catch (e: any) {
-      setThreads((t) => { const arr = (t[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: `Sorry — I couldn't reach the agent (${String(e?.message || e)}).`, source: 'error' }; return { ...t, [threadKey]: arr }; });
+      setThreads((t) => { const arr = (t[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: `Sorry — I couldn't reach the assistant (${String(e?.message || e)}).`, source: 'error' }; return { ...t, [threadKey]: arr }; });
     } finally { setSending(false); }
   }
 
@@ -138,7 +138,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
               {m.role === 'agent' ? <span className="msg-av">{agent.initials}</span> : null}
               <div className={`bubble ${m.role}`}>
                 {m.pending ? (<span className="typing"><span></span><span></span><span></span></span>)
-                  : m.role === 'agent' ? (<><div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />{m.tools?.length ? <div className="tools">grounded via {m.tools.join(', ')}</div> : m.source === 'live' ? <div className="tools">live</div> : null}</>)
+                    : m.role === 'agent' ? (<><div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />{m.tools?.length ? <div className="tools">Sources: {m.tools.join(', ')}</div> : m.source === 'live' ? <div className="tools">live</div> : null}</>)
                     : (<div>{m.text}</div>)}
                 {m.proposed?.length ? (
                   <div className="proposed">

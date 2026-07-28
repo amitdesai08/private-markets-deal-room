@@ -39,11 +39,11 @@ export default function Offline({ status, ssoToken }: { status: PlatformStatus; 
         body: JSON.stringify({ mode: m, ssoToken: ssoToken || undefined }),
       });
       if (r.status === 403) {
-        setErr('Only an admin can keep the platform online indefinitely. Use “for ' + hrs(leaseHours) + '”, or ask an admin.');
+        setErr('Only an admin can keep the Deal Room online indefinitely. Use “for ' + hrs(leaseHours) + '”, or ask an admin.');
         setPhase('idle');
         return;
       }
-      if (!r.ok) throw new Error(`Couldn't start the platform (${r.status}).`);
+      if (!r.ok) throw new Error(`Couldn't wake the Deal Room (${r.status}).`);
     } catch (e) {
       setErr(String((e as Error).message || e));
       setPhase('idle');
@@ -61,7 +61,7 @@ export default function Offline({ status, ssoToken }: { status: PlatformStatus; 
         /* keep polling */
       }
       if (Date.now() - started > 180_000) {
-        setErr('The platform is taking longer than expected. Give it another moment, then retry.');
+        setErr('The Deal Room is taking longer than expected. Give it another moment, then retry.');
         setPhase('idle');
         return;
       }
@@ -79,7 +79,7 @@ export default function Offline({ status, ssoToken }: { status: PlatformStatus; 
         {phase === 'starting' ? (
           <>
             <p className="off-sub">
-              Waking the platform{mode === 'indefinite' ? '' : ` for ${hrs(leaseHours)}`}… this takes about a minute.
+              Waking the Deal Room{mode === 'indefinite' ? '' : ` for ${hrs(leaseHours)}`}… this takes about a minute.
             </p>
             <div className="off-spinner" aria-label="starting"><span /><span /><span /></div>
             <p className="off-note">You'll be dropped straight into the deal room once it's up.</p>
@@ -87,7 +87,7 @@ export default function Offline({ status, ssoToken }: { status: PlatformStatus; 
         ) : (
           <>
             <p className="off-sub">
-              To keep costs near zero, the platform powers down when it's idle. Bring it back online to continue.
+              To keep costs near zero, the Deal Room powers down when it's idle. Bring it back online to continue.
             </p>
             <div className="off-actions">
               <button className="off-btn primary" onClick={() => wake('hour')}>▶ Bring online for {hrs(leaseHours)}</button>

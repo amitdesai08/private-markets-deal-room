@@ -275,7 +275,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
     try {
       const r = await fetch(`/api/deals/${dealId}/teams/ensure`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
       const data = await r.json().catch(() => ({}));
-      if (r.status === 409) { setNote('Launch the deal first to stand up its SharePoint VDR — opening the in-app data room.'); setTab('documents'); }
+      if (r.status === 409) { setNote('Launch the deal first to set up its data room — opening the in-app data room.'); setTab('documents'); }
       else if (!r.ok || data.error) { setTab('documents'); }
       else { const d = await load(true); const u = d?.workspace?.sharePointUrl; if (d?.workspace?.sharePointProvisioned && u) window.open(u, '_blank', 'noopener'); else setTab('documents'); }
     } catch { setTab('documents'); }
@@ -408,13 +408,13 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                 <span className="chip">Step {deal.stepNumber}/{deal.totalSteps} · {STEP_LABEL[deal.currentStep || ''] || deal.currentStep}</span>
                 <span className="chip">{money(deal.dealSize)}</span>
                 <span className="chip">IC readiness {deal.readiness ?? 0}%</span>
-                {(deal as any).region ? <span className="chip" title="Territory — access follows the Entra region group">◧ {REGION_LABEL[(deal as any).region] || (deal as any).region}</span> : null}
+                {(deal as any).region ? <span className="chip" title="Territory — visible to your regional deal team">◧ {REGION_LABEL[(deal as any).region] || (deal as any).region}</span> : null}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, alignItems: 'center' }}>
                 {(((deal as any).tags) || []).map((t: string) => {
                   const g = dealGroups.find((x) => x.id === t);
                   return (
-                    <span key={t} title={g?.groupPending ? 'Entra group provisioning pending' : 'Deal group (Entra security group grants access)'} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'rgba(3,105,161,.16)', color: '#6cb6ea', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span key={t} title={g?.groupPending ? 'Access group being set up' : 'Deal group — members get access to this deal'} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'rgba(3,105,161,.16)', color: '#6cb6ea', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       #{g?.label || t}{g?.groupPending ? ' · ⏳' : ''}
                       {canViewStage2 ? <button onClick={() => saveTags((((deal as any).tags) || []).filter((x: string) => x !== t))} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, fontSize: 13, lineHeight: 1 }}>×</button> : null}
                     </span>
@@ -450,7 +450,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
             <div className="dd-tabs">
               {(['overview', 'stages', 'workspace', 'research', 'artifacts', 'documents', 'ic', 'activity'] as Tab[]).map((t) => (
                 <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>
-                  {t === 'stages' ? 'Stages & orchestration' : t === 'overview' ? 'Overview' : t === 'workspace' ? 'Workspace' : t === 'research' ? 'Market research' : t === 'artifacts' ? 'Decision artifacts' : t === 'documents' ? 'Documents' : t === 'activity' ? 'Activity' : 'IC readiness'}
+                  {t === 'stages' ? 'Deal workflow' : t === 'overview' ? 'Overview' : t === 'workspace' ? 'Workspace' : t === 'research' ? 'Market research' : t === 'artifacts' ? 'Decision artifacts' : t === 'documents' ? 'Documents' : t === 'activity' ? 'Activity' : 'IC readiness'}
                 </button>
               ))}
             </div>
@@ -483,7 +483,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
 
               {tab === 'documents' && (
                 <div className="dd-panel">
-                  <div style={{ fontWeight: 700, marginBottom: 4 }}>📁 Deal documents <span className="muted" style={{ fontWeight: 400 }}>— generate a Word IC memo, an Excel model or a PowerPoint IC deck from the live deal, on your Microsoft 365 license</span></div>
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>📁 Deal documents <span className="muted" style={{ fontWeight: 400 }}>— generate a board-ready IC memo, model or IC deck from the live deal record</span></div>
                   {/* Download works for anyone with deal access — built on the requester's
                       license, no M365 connection required. */}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
@@ -546,7 +546,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                       they're reachable without scrolling past the stage grid. */}
                   <div className="orch-links">
                     <button className="wsp-link teams" disabled={!!busy} onClick={() => (ws.teamsProvisioned && ws.teamsUrl) ? window.open(ws.teamsUrl, '_blank', 'noopener') : dealChannel()}>{ws.teamsProvisioned ? 'Open Teams ↗' : '# Deal channel'}</button>
-                    <button className="wsp-link spo" disabled={!!busy} onClick={openDataRoom}>{ws.sharePointProvisioned ? '📁 SharePoint data room ↗' : '📁 Data room'}</button>
+                    <button className="wsp-link spo" disabled={!!busy} onClick={openDataRoom}>{ws.sharePointProvisioned ? '📁 Data room ↗' : '📁 Data room'}</button>
                     <button className="wsp-link mr" onClick={() => setTab('research')}>📊 Market comparisons →</button>
                   </div>
                   {/* Guided "work the deal" hero — where you are in the process and the
@@ -562,7 +562,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                       </div>
                       <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
                         {!deal.workspaceReady
-                          ? 'Launch the deal to provision its workspace, then run each step in order — the assistant drafts the deliverable, you review, and Advance to the next gate. Work it end-to-end to reach IC and close.'
+                          ? 'Launch the deal to open its workspace, then work each step in order — the assistant drafts the deliverable, you review, and Advance to the next gate. Work it end-to-end to reach IC and close.'
                           : (<>Run <b>{STEP_LABEL[deal.currentStep || ''] || deal.currentStep}</b> {curProduces.length ? <>generates <b>{curProduces.join(' · ')}</b></> : 'generates this step’s deliverable'}, shown below — then Advance to the next step.{curWhat ? <span style={{ display: 'block', marginTop: 4, opacity: .85 }}>{curWhat}</span> : null}</>)}
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -634,7 +634,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                     {!deal.workspaceReady ? (
                       canViewStage2 ? (
                       <button className="btn primary" disabled={!!busy} onClick={() => act('launch', `/api/deals/${dealId}/launch`)}>
-                        {busy === 'launch' ? 'Launching…' : '▶ Launch diligence (provision workspace)'}
+                        {busy === 'launch' ? 'Launching…' : '▶ Launch diligence'}
                       </button>
                       ) : (
                         <span className="muted">🔒 Launching diligence (Stage 2) is restricted to the deal team.</span>
@@ -768,14 +768,14 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                   ) : null}
 
                   <section className="dd-panel">
-                    <div className="dd-panel-h">Deal workspace<span className="muted">provisioned by {ws.provisionedBy || '—'}</span></div>
+                    <div className="dd-panel-h">Deal workspace<span className="muted">set up by {ws.provisionedBy || '—'}</span></div>
                     <div className="wsp-links">
                       <button className="wsp-link teams" disabled={!!busy} onClick={() => (ws.teamsProvisioned && ws.teamsUrl) ? window.open(ws.teamsUrl, '_blank', 'noopener') : dealChannel()}>{ws.teamsProvisioned ? 'Open in Teams ↗' : busy === 'channel' ? 'Creating…' : 'Create Teams space ↗'}</button>
-                      <button className="wsp-link spo" disabled={!!busy} onClick={openDataRoom}>{ws.sharePointProvisioned ? 'Open SharePoint data room ↗' : busy === 'dataroom' ? 'Opening…' : 'Data room ↗'}</button>
+                      <button className="wsp-link spo" disabled={!!busy} onClick={openDataRoom}>{ws.sharePointProvisioned ? 'Open data room ↗' : busy === 'dataroom' ? 'Opening…' : 'Data room ↗'}</button>
                     </div>
                     <div className="ws-grid">
-                      <div className="ws-row"><span>Teams channel</span><span>{ws.teamsProvisioned ? (ws.teamsChannelName || 'provisioned') : 'not provisioned'}</span></div>
-                      <div className="ws-row"><span>SharePoint VDR</span><span>{ws.sharePointProvisioned ? `${(ws.folders || []).length} folders · live` : 'not provisioned'}</span></div>
+                      <div className="ws-row"><span>Teams channel</span><span>{ws.teamsProvisioned ? (ws.teamsChannelName || 'active') : 'not set up'}</span></div>
+                      <div className="ws-row"><span>Data room (VDR)</span><span>{ws.sharePointProvisioned ? `${(ws.folders || []).length} folders · live` : 'not set up'}</span></div>
                       <div className="ws-row"><span>DD checklist</span><span>{deal.workspace?.checklist ? `${(deal as any).checklistStats?.pct ?? 0}% · ${(deal as any).checklistStats?.total ?? (ws.checklist || []).reduce((n: number, s: any) => n + (s.items?.length || 0), 0)} items` : '—'}</span></div>
                       <div className="ws-row"><span>Templates</span><span>{(ws.templates || []).length} docs</span></div>
                       <div className="ws-row"><span>IC date</span><span>{ws.icDate ? new Date(ws.icDate).toLocaleDateString() : '—'}</span></div>
@@ -783,7 +783,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                     {!ws.teamsProvisioned || !ws.sharePointProvisioned ? (
                       <div className="orch-bar">
                         <button className="btn" disabled={!!busy} onClick={() => act('teams', `/api/deals/${dealId}/teams/ensure`)}>
-                          {busy === 'teams' ? 'Provisioning…' : '☁ Provision Teams + SharePoint'}
+                          {busy === 'teams' ? 'Setting up…' : '☁ Set up team space + data room'}
                         </button>
                       </div>
                     ) : null}
@@ -791,7 +791,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
 
                   {(ws.folders || []).length ? (
                     <section className="dd-panel">
-                      <div className="dd-panel-h">📁 SharePoint data room<span className="muted">{(ws.folders || []).length} folders (VDR)</span></div>
+                      <div className="dd-panel-h">📁 Data room<span className="muted">{(ws.folders || []).length} folders (VDR)</span></div>
                       <div className="vdr-grid">
                         {(ws.folders || []).map((f: any, i: number) => (
                           f.url
@@ -804,7 +804,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
 
                   {Array.isArray(ws.swimlanes) && ws.swimlanes.length ? (
                     <section className="dd-panel">
-                      <div className="dd-panel-h">Diligence swimlanes<span className="muted">{ws.swimlanes.length} lanes</span></div>
+                      <div className="dd-panel-h">Diligence workstreams<span className="muted">{ws.swimlanes.length} workstreams</span></div>
                       <div className="dd-lanes" style={{ padding: '0 14px 14px' }}>
                         {ws.swimlanes.map((s: any, i: number) => (
                           <div className="dd-lane" key={i}>
@@ -847,7 +847,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
                   </section>
 
                   <section className="dd-panel">
-                    <div className="dd-panel-h">Comparable &amp; historical deals<span className="muted">{market?.info?.source ? `${market.info.source}${market.info.freshness?.label ? ` · ${market.info.freshness.label}` : ''}` : 'Fabric · OneLake'}</span></div>
+                    <div className="dd-panel-h">Comparable &amp; historical deals<span className="muted">{market?.info?.source ? `${market.info.source}${market.info.freshness?.label ? ` · ${market.info.freshness.label}` : ''}` : 'Market data'}</span></div>
                     {!market ? <div className="dd-empty-p">Loading market intelligence…</div> : !(market.comparableDeals || []).length ? <div className="dd-empty-p">No comparables for this sector.</div> : (
                       <div className="mr-list">
                         {(market.comparableDeals || []).slice(0, 8).map((c, i) => (

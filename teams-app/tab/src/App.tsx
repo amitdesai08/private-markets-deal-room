@@ -204,14 +204,14 @@ export default function App() {
           <div className="logo">◆</div>
           <div>
             <div className="brand-t">Deal Dashboard</div>
-            <div className="brand-s">Deal flow, market intel & your agents — in one place</div>
+            <div className="brand-s">Deal flow, market intel and your team’s AI assistant — in one place</div>
           </div>
         </div>
         <div className="topbar-r">
           {persona?.name ? <span className="badge" title="Signed-in persona">{persona.name}</span> : null}
           {roleLabel ? <span className="badge" title="Your role">{isAdmin ? '★ ' : ''}{roleLabel}</span> : null}
           {demoUsers.length ? (
-            <select className="viewas" value={viewAs} onChange={(e) => { setViewAsRole(''); setViewAs(e.target.value); }} title="Demo — sign in as one of the showcase profiles to see their agents and access">
+            <select className="viewas" value={viewAs} onChange={(e) => { setViewAsRole(''); setViewAs(e.target.value); }} title="Sign in as one of the showcase profiles to see their view and access">
               {demoUsers.map((u) => (<option key={u.id} value={u.upn}>👤 {u.label}</option>))}
             </select>
           ) : null}

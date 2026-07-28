@@ -500,7 +500,7 @@ function TargetDetailBody({ d }: { d: TargetDetail }) {
       </div>
 
       <div className="td-panel td-wide">
-        <div className="td-panel-h">📝 Analyst report<span className={`chip ${r.generated ? 'ai' : ''}`}>{r.generated ? '✦ AI-generated' : 'grounded'}</span>{(r.sources || []).length ? <span className="muted">{(r.sources || []).join(' · ')}</span> : null}</div>
+        <div className="td-panel-h">📝 Analyst report<span className={`chip ${r.generated ? 'ai' : ''}`}>{r.generated ? '✦ AI-generated' : 'sourced'}</span>{(r.sources || []).length ? <span className="muted">{(r.sources || []).join(' · ')}</span> : null}</div>
         {r.summary ? <div className="td-summary">💡 {r.summary}</div> : null}
         {r.sectorOutlook ? (
           <div className="td-row"><span className="td-k">Sector outlook</span><span className="td-v"><span className={`pill ${STANCE_CLASS[r.sectorOutlook.stance || ''] || 'warn'}`}>{r.sectorOutlook.stance}</span> {r.sectorOutlook.text}</span></div>

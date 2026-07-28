@@ -97,7 +97,7 @@ export default function IntakeWizard({ isAdmin, onClose, onCreated }: { isAdmin:
                   <option value="">— infer from HQ —</option>
                   {regions.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
                 </select>
-                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>Access is scoped to members of this territory’s Entra region group. Leave blank to infer from the HQ.</div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>Only your firm’s deal team for this territory will see the deal. Leave blank to set it from the HQ.</div>
               </div>
               <div>
                 <label style={label}>Deal groups (tags)</label>
@@ -113,7 +113,7 @@ export default function IntakeWizard({ isAdmin, onClose, onCreated }: { isAdmin:
                   <datalist id="iw-groups">{dealGroups.map((g) => <option key={g.id} value={g.label} />)}</datalist>
                   <button className="chbtn" disabled={!newTag.trim()} onClick={addTag}>add</button>
                 </div>
-                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>Each deal group is backed by an Entra security group{isAdmin ? ' (created automatically)' : ''}; its members get this deal’s workspace.</div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>Everyone in the deal group gets access to this deal’s workspace{isAdmin ? ' (access group created automatically)' : ''}.</div>
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
                 <input type="checkbox" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} />

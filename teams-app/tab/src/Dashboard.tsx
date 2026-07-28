@@ -205,7 +205,7 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
         {deals.length === 0 ? (
           <div className="empty-panel">
             No deals are live yet. Sourced candidates that clear the screening gate appear here.
-            <button className="linkbtn" onClick={() => onAsk('')}>Ask an agent what to source next →</button>
+            <button className="linkbtn" onClick={() => onAsk('')}>Ask what to source next →</button>
           </div>
         ) : (
           <div className="deals">
@@ -234,7 +234,7 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
       <section className="panel">
         <div className="panel-h">
           <span>Market intelligence</span>
-          <span className="muted">{fabric?.source ? `${fabric.source}${fabric?.freshness?.label ? ` · ${fabric.freshness.label}` : ''}` : 'Microsoft Fabric / OneLake'}</span>
+          <span className="muted">{fabric?.source ? `${fabric.source}${fabric?.freshness?.label ? ` · ${fabric.freshness.label}` : ''}` : 'Live market data'}</span>
         </div>
         <div className="mi">
           <div className="mi-col">

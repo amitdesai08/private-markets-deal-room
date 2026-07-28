@@ -28,12 +28,12 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const TIERS: { key: string; title: string; blurb: string; match: (c: Connector) => boolean }[] = [
-  { key: 'free', title: 'Free & open (no subscription)', blurb: 'Keyless public data — on by default for demos.', match: (c) => c.free && c.kind !== 'web' },
-  { key: 'web', title: 'Live web search', blurb: 'Bing-grounded Foundry agent (Azure-metered).', match: (c) => c.kind === 'web' },
-  { key: 'fabric-agent', title: 'Fabric Data Agent', blurb: 'Natural-language Q&A over the fund\u2019s lakehouse (live or grounded).', match: (c) => c.kind === 'fabric-agent' },
-  { key: 'mcp', title: 'Subscription providers', blurb: 'Vendor data over MCP — sign in to connect.', match: (c) => c.kind === 'mcp' },
-  { key: 'm365', title: 'Microsoft 365', blurb: 'Delegated Teams / SharePoint / mailbox.', match: (c) => c.kind === 'm365' },  { key: 'workiq', title: 'Work IQ (M365 work data for agents)', blurb: 'SharePoint files \u00b7 Teams threads \u00b7 mailbox over MCP \u2014 set the endpoint, then connect.', match: (c) => c.kind === 'workiq' },  { key: 'database', title: 'Not wired', blurb: 'Vendor DBs shown for context — no live connection.', match: (c) => c.kind === 'database' },
-  { key: 'custom', title: 'Custom sources', blurb: 'Providers your fund added — declared honestly, probed for reachability.', match: (c) => c.kind === 'custom' },
+  { key: 'free', title: 'Free & open (no subscription)', blurb: 'Free public market & company data — on by default.', match: (c) => c.free && c.kind !== 'web' },
+  { key: 'web', title: 'Live web search', blurb: 'Live web search for market news and signals (usage-metered).', match: (c) => c.kind === 'web' },
+  { key: 'fabric-agent', title: 'Ask your fund data', blurb: 'Natural-language Q&A over the fund\u2019s data.', match: (c) => c.kind === 'fabric-agent' },
+  { key: 'mcp', title: 'Subscription providers', blurb: 'Premium vendor data — sign in to connect.', match: (c) => c.kind === 'mcp' },
+  { key: 'm365', title: 'Microsoft 365', blurb: 'Your team’s files, chats and email.', match: (c) => c.kind === 'm365' },  { key: 'workiq', title: 'Work IQ (your team’s work data)', blurb: 'Your files \u00b7 chat threads \u00b7 email \u2014 add the connection, then connect.', match: (c) => c.kind === 'workiq' },  { key: 'database', title: 'Reference only', blurb: 'Shown for context — not connected.', match: (c) => c.kind === 'database' },
+  { key: 'custom', title: 'Custom sources', blurb: 'Sources your fund added — shown with their live status.', match: (c) => c.kind === 'custom' },
 ];
 
 export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) {
@@ -150,15 +150,15 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
       <div className="ds-head">
         <h2>Data sources</h2>
         <p>
-          Configure the connectors that ground the Deal Room. {activeFree}/{freeTotal} free &amp; open sources active —
-          no subscription needed. Toggle a source off to exclude it from the demo; sign in to enable a vendor provider.
+          Choose the market-data sources that power the Deal Room. {activeFree}/{freeTotal} free &amp; open sources active —
+          no subscription needed. Turn a source off to leave it out; sign in to enable a paid provider.
         </p>
       </div>
 
       <div className="ds-add">
         <div className="ds-add-h">
           <span className="ds-add-t">Add a data source</span>
-          <span className="ds-add-b">No built-in for your provider (PitchBook, Morningstar Direct, an internal API)? Register it here. New sources start <b>pending</b> until an admin approves them.</span>
+          <span className="ds-add-b">Don't see your provider (PitchBook, Morningstar Direct, an internal source)? Add it here. New sources stay <b>pending</b> until an admin approves them.</span>
         </div>
         <div className="ds-add-grid">
           <input className="ds-cfg-in" placeholder="Name (e.g. PitchBook)" value={form.name} maxLength={60}
@@ -171,7 +171,7 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
             <option value="quality">Quality</option>
             <option value="context">Context</option>
           </select>
-          <input className="ds-cfg-in" type="url" placeholder="Endpoint / API URL (optional)" value={form.endpoint} spellCheck={false}
+          <input className="ds-cfg-in" type="url" placeholder="Data source URL (optional)" value={form.endpoint} spellCheck={false}
             onChange={(e) => setForm((f) => ({ ...f, endpoint: e.target.value }))} />
           <button className="ds-btn primary" disabled={adding || !form.name.trim()} onClick={addSource}>{adding ? 'Adding…' : 'Add source'}</button>
         </div>
