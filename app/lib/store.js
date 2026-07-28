@@ -24,7 +24,8 @@ import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scorin
 import { buildScorecard, buildTriageScore, buildMemoBase } from './screening.js';
 import { buildDiligencePlan, buildFindingsReport, buildFinalMemoBase, buildExecutionPack, buildCloseoutPlan, buildReturnsModel, buildValueCreationPlan, buildRiskRegister, buildIoi, buildLoi } from './diligence.js';
 import { buildWorkspace, checklistStats, MD_OPTIONS, WORKSTREAM_DEFAULTS, ensureWorkspaceSwimlanes, LANE_ORDER } from '../data/workspace.js';
-import { ensureDealChannel, provisionDealDataRoom, m365Connected, m365Ready, publishTeamToGroup, installTeamsAppInTeam, ensureDealAccessGroup } from './m365/graph.js';
+import { ensureDealChannel, provisionDealDataRoom, m365Connected, m365Ready, publishTeamToGroup, installTeamsAppInTeam, ensureDealAccessGroup, saveDealDocument } from './m365/graph.js';
+import { buildIcMemoDocx, buildDealModelXlsx, buildReturnsXlsx, buildIcDeckPptx, buildDataRoomGuideDocx, OFFICE_MIME } from './m365/officeRich.js';
 import { generateAnalystReport } from './analystReport.js';
 import {
   PASS_REASONS,
@@ -2044,7 +2045,41 @@ async function provisionDealChannel(deal) {
     logEvent(deal.id, 'teams-channel-persist-error', { error: String(err?.message || err).slice(0, 160) });
   }
   logEvent(deal.id, 'teams-provisioned', { channel: channel.displayName, webUrl: channel.webUrl });
+  // Seed the data room with the generated IC pack + guide (best-effort, background).
+  seedDealDataRoom(deal.id).catch(() => {});
   return channel;
+}
+
+// Populate the deal's SharePoint data room with the generated IC pack (memo, deck, deal
+// model, returns model) into 13_IC Materials, plus a data-room guide into Administration
+// — so a firm opening the room is set up for success. Best-effort + idempotent (a
+// seeded deal is skipped unless force).
+const _seedingRooms = new Set();
+export async function seedDealDataRoom(id, { force = false } = {}) {
+  const deal = getDealRaw(id);
+  if (!deal) return { ok: false, reason: 'not-found' };
+  if (!deal.teamsChannel?.teamId) return { ok: false, reason: 'no-data-room' };
+  if (_seedingRooms.has(id)) return { ok: false, reason: 'in-progress' };
+  if (!force && deal.workspace?.dataRoomSeeded) return { ok: true, alreadySeeded: true };
+  _seedingRooms.add(id);
+  try {
+    const co = String(deal.company || deal.id);
+    const artifacts = { returns: getDealReturns(id), valueCreation: getDealValueCreation(id), risks: getDealRiskRegister(id), ic: getICReadiness(id) };
+    const items = [];
+    const put = async (name, bufP, mime, subfolder) => {
+      try { const buf = await bufP; const r = await saveDealDocument(deal, name, buf, mime, { subfolder }); items.push({ name, url: r.webUrl }); }
+      catch (e) { logEvent(id, 'data-room-seed-error', { name, error: String(e?.message || e).slice(0, 160) }); }
+    };
+    await put(`IC Memo — ${co}.docx`, buildIcMemoDocx(deal, artifacts), OFFICE_MIME.docx, '13_IC Materials');
+    await put(`IC Deck — ${co}.pptx`, buildIcDeckPptx(deal, artifacts), OFFICE_MIME.pptx, '13_IC Materials');
+    await put(`Deal Model — ${co}.xlsx`, buildDealModelXlsx(deal, artifacts), OFFICE_MIME.xlsx, '13_IC Materials');
+    await put(`Returns Model — ${co}.xlsx`, buildReturnsXlsx(artifacts.returns, artifacts), OFFICE_MIME.xlsx, '13_IC Materials');
+    await put(`Data Room Guide — ${co}.docx`, buildDataRoomGuideDocx(deal), OFFICE_MIME.docx, '00_Administration');
+    if (deal.workspace) deal.workspace.dataRoomSeeded = true;
+    try { await mutateDeal(id, (fresh) => { if (fresh.workspace) fresh.workspace.dataRoomSeeded = true; return { event: 'data-room-seeded', detail: { count: items.length } }; }); } catch { /* best-effort */ }
+    logEvent(id, 'data-room-seeded', { count: items.length });
+    return { ok: true, items };
+  } finally { _seedingRooms.delete(id); }
 }
 
 // On-demand Teams provisioning for a launched deal (used by the workspace Teams

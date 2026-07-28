@@ -541,17 +541,21 @@ export async function provisionDealDataRoom(deal, folderNames) {
   return { driveId, folderId, folderUrl, folders };
 }
 
-// Upload a generated document (Buffer) into the deal's data-room folder. Returns
-// the SharePoint item (webUrl opens it in Word/Excel on the web).
-export async function saveDealDocument(deal, filename, buffer, contentType, userToken = null) {
+// Upload a generated document (Buffer) into the deal's data-room folder (optionally a
+// named subfolder of the VDR taxonomy). Returns the SharePoint item (webUrl opens it in
+// Word/Excel on the web). The 5th arg accepts a userToken string (back-compat) or an
+// options object { userToken, subfolder }.
+export async function saveDealDocument(deal, filename, buffer, contentType, opts = null) {
+  const options = typeof opts === 'string' ? { userToken: opts } : (opts || {});
+  const { userToken = null, subfolder = '' } = options;
   const { driveId, folderId, folderUrl } = await dealDocFolder(deal);
   // A per-user OBO Graph token (supplied by the Teams server) makes the upload
   // authored AS the requester on their own M365 license; otherwise fall back to
   // the shared connector account that provisioned the data room.
   let token = userToken;
   if (!token) token = await graphToken('/drives');
-  const seg = encodeURIComponent(filename);
-  const resp = await fetch(`${GRAPH}/drives/${driveId}/items/${folderId}:/${seg}:/content`, {
+  const rel = subfolder ? `${encodeURIComponent(subfolder)}/${encodeURIComponent(filename)}` : encodeURIComponent(filename);
+  const resp = await fetch(`${GRAPH}/drives/${driveId}/items/${folderId}:/${rel}:/content`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': contentType },
     body: buffer,

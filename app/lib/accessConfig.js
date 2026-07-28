@@ -22,7 +22,7 @@ let _cfg = emptyCfg();
 let _loaded = false;
 
 function emptyCfg() {
-  return { roles: {}, assignments: {}, personas: {}, personaActions: {}, personaStages: {}, settings: {}, dealGroups: {}, regionGroups: {} };
+  return { roles: {}, assignments: {}, personas: {}, personaActions: {}, personaStages: {}, settings: {}, dealGroups: {}, regionGroups: {}, docTemplate: {} };
 }
 function normalize(rec) {
   const e = emptyCfg();
@@ -62,6 +62,34 @@ export function getRegionGroups() { return _cfg.regionGroups || {}; }
 // the admin's demo-mode choice (true/false) or undefined when never set — in which case
 // the deploy-time DEMO_PROFILES env default applies (resolved in userPolicy).
 export function getRuntimeSettings() { return { ...(_cfg.settings || {}) }; }
+
+// Document TEMPLATE / white-label branding (admin-editable, persisted). Applied by the
+// document generators (officeRich.js) so a firm can brand and tweak the IC memo, deck
+// and models WITHOUT a code change. Empty => the shipped defaults are used.
+export const DOC_TEMPLATE_DEFAULTS = Object.freeze({
+  fundName: 'The Deal Room',
+  accentColor: '2E74B5',
+  inkColor: '1F3864',
+  confidentialLabel: 'CONFIDENTIAL',
+  coverEyebrow: 'INVESTMENT COMMITTEE MEMORANDUM',
+  disclaimer: 'This memorandum is generated from the live deal record, drawing on the returns model, value-creation plan, risk register and IC-readiness assessment. Figures reflect the state of diligence at generation time and are provided for committee discussion on a strictly confidential basis.',
+  sections: { merits: true, financials: true, valuation: true, valueCreation: true, findings: true },
+});
+export function getDocTemplate() {
+  const t = _cfg.docTemplate || {};
+  return { ...DOC_TEMPLATE_DEFAULTS, ...t, sections: { ...DOC_TEMPLATE_DEFAULTS.sections, ...(t.sections || {}) } };
+}
+export async function setDocTemplate(patch) {
+  const clean = { ...(patch || {}) };
+  // hex colors: strip leading # and validate 6-hex; ignore bad values.
+  for (const k of ['accentColor', 'inkColor']) {
+    if (clean[k] != null) { const v = String(clean[k]).replace(/^#/, '').trim(); if (!/^[0-9a-fA-F]{6}$/.test(v)) delete clean[k]; else clean[k] = v.toUpperCase(); }
+  }
+  _cfg.docTemplate = { ...(_cfg.docTemplate || {}), ...clean };
+  if (clean.sections) _cfg.docTemplate.sections = { ...((_cfg.docTemplate && _cfg.docTemplate.sections) || {}), ...clean.sections };
+  await persist();
+  return getDocTemplate();
+}
 export function getDemoModeOverride() { return _cfg.settings ? _cfg.settings.demoMode : undefined; }
 export async function setDemoMode(on) {
   _cfg.settings = { ...(_cfg.settings || {}), demoMode: !!on };

@@ -65,6 +65,7 @@ import {
   getDealArtifact,
   ensureDealTeamsChannel,
   provisionAllDealChannels,
+  seedDealDataRoom,
   dealForTeam,
   getMdOptions,
   assignSwimlane,
@@ -130,7 +131,7 @@ import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
 import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent, dealAccessLevel, describeAccess, describeDemoProfiles, demoModeActive, demoProfilesEnabled, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
 import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
-import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments, setDemoMode } from './lib/accessConfig.js';
+import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments, setDemoMode, getDocTemplate, setDocTemplate, DOC_TEMPLATE_DEFAULTS } from './lib/accessConfig.js';
 
 validateConfig({ strict: false });
 
@@ -371,6 +372,13 @@ api.post('/deals/:id/teams/ensure', async (req, res) => {
 // backfill used to auto-create channels for all deals + force existing ones to threads.
 api.post('/deals/teams/ensure-all', async (_req, res) => {
   res.json(await provisionAllDealChannels());
+});
+// Populate a deal's SharePoint data room with the generated IC pack + guide.
+api.post('/deals/:id/data-room/seed', async (req, res) => {
+  const r = await seedDealDataRoom(req.params.id, { force: true });
+  if (r.reason === 'not-found') return res.status(404).json(r);
+  if (r.reason === 'no-data-room') return res.status(409).json({ ...r, error: 'This deal has no provisioned data room yet.' });
+  res.json(r);
 });
 // Resolve the deal that owns a given Teams team/channel id — used by the in-channel
 // conversational bot to map a message to its deal.
@@ -1151,6 +1159,20 @@ api.post('/admin/demo-mode', async (req, res) => {
   if (!demoProfilesEnabled) return res.status(409).json({ error: 'demo mode is disabled for this deployment (DEMO_PROFILES is off)' });
   await setDemoMode(!!req.body?.on);
   res.json({ demoMode: demoModeActive(), demoModeConfigurable: demoProfilesEnabled });
+});
+// Document templates / white-label branding (persisted). The generators (officeRich.js)
+// read this so a firm can brand & tweak every IC memo, deck and model without a code
+// change. Read is open (branding isn't secret); writes are admin-only.
+api.get('/doc-template', (_req, res) => res.json({ template: getDocTemplate(), defaults: DOC_TEMPLATE_DEFAULTS }));
+api.post('/admin/doc-template', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const t = await setDocTemplate(req.body || {});
+  res.json({ template: t });
+});
+api.post('/admin/doc-template/reset', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const t = await setDocTemplate({ ...DOC_TEMPLATE_DEFAULTS, sections: { ...DOC_TEMPLATE_DEFAULTS.sections } });
+  res.json({ template: t });
 });
 api.post('/admin/roles/:id', async (req, res) => {
   if (!requireAdmin(req, res)) return;

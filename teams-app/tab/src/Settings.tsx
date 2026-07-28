@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import DataSources from './DataSources';
 import Admin from './Admin';
+import DocTemplates from './DocTemplates';
 
 // Settings panel — houses the technical / configuration surfaces (data-source
 // connectors, and access administration for admins) so the primary navigation stays
@@ -8,8 +9,9 @@ import Admin from './Admin';
 export default function Settings({ isAdmin, ssoToken, viewAs, onClose }: {
   isAdmin: boolean; ssoToken?: string; viewAs?: string; onClose: () => void;
 }) {
-  const [tab, setTab] = useState<'sources' | 'admin'>('sources');
+  const [tab, setTab] = useState<'sources' | 'templates' | 'admin'>('sources');
   const showAdmin = isAdmin && tab === 'admin';
+  const showTemplates = isAdmin && tab === 'templates';
 
   return (
     <div className="settings">
@@ -21,10 +23,11 @@ export default function Settings({ isAdmin, ssoToken, viewAs, onClose }: {
       </div>
       <nav className="set-tabs">
         <button className={tab === 'sources' ? 'on' : ''} onClick={() => setTab('sources')}>Data Sources</button>
+        {isAdmin ? <button className={tab === 'templates' ? 'on' : ''} onClick={() => setTab('templates')}>Document templates</button> : null}
         {isAdmin ? <button className={tab === 'admin' ? 'on' : ''} onClick={() => setTab('admin')}>Access Administration</button> : null}
       </nav>
       <div className="set-body">
-        {showAdmin ? <Admin ssoToken={ssoToken} viewAs={viewAs} /> : <DataSources isAdmin={isAdmin} />}
+        {showAdmin ? <Admin ssoToken={ssoToken} viewAs={viewAs} /> : showTemplates ? <DocTemplates ssoToken={ssoToken} viewAs={viewAs} /> : <DataSources isAdmin={isAdmin} />}
       </div>
     </div>
   );

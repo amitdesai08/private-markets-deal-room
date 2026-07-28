@@ -16,6 +16,7 @@ import {
 import ExcelJS from 'exceljs';
 import { renderPptx } from './pptx.js';
 import { buildLiveModelXlsx, buildModelHtml, buildModelCsv, OFFICE_MIME } from './office.js';
+import { getDocTemplate } from '../accessConfig.js';
 
 export { buildLiveModelXlsx, buildModelHtml, buildModelCsv, OFFICE_MIME };
 
@@ -37,8 +38,22 @@ const dateStr = (v) => {
   return Number.isNaN(d.getTime()) ? String(v) : d.toISOString().slice(0, 10);
 };
 
-// ---- palette ----------------------------------------------------------------
-const INK = '1F3864', ACCENT = '2E74B5', MUTE = '6B7280', LINE = 'D9DEE7', BAND = 'EEF2F7';
+// ---- palette (INK/ACCENT are white-labelable via the template config) -------
+let INK = '1F3864', ACCENT = '2E74B5';
+const MUTE = '6B7280', LINE = 'D9DEE7', BAND = 'EEF2F7';
+let BRAND = 'The Deal Room', FOOTER_CONF = 'CONFIDENTIAL', EYEBROW = 'INVESTMENT COMMITTEE MEMORANDUM';
+let DISCLAIMER = 'This memorandum is generated from the live deal record, drawing on the returns model, value-creation plan, risk register and IC-readiness assessment. Figures reflect the state of diligence at generation time and are provided for committee discussion on a strictly confidential basis.';
+let SECTIONS = { merits: true, financials: true, valuation: true, valueCreation: true, findings: true };
+// Pull the admin-authored template so a firm can brand / tweak every generated document.
+function applyBrand() {
+  let t; try { t = getDocTemplate(); } catch { t = null; }
+  if (!t) return;
+  INK = t.inkColor || INK; ACCENT = t.accentColor || ACCENT;
+  XNAVY = 'FF' + (t.inkColor || '1F3864'); XACC = 'FF' + (t.accentColor || '2E74B5');
+  P_INK = t.inkColor || P_INK; P_ACCENT = t.accentColor || P_ACCENT;
+  BRAND = t.fundName || BRAND; FOOTER_CONF = t.confidentialLabel || FOOTER_CONF; EYEBROW = t.coverEyebrow || EYEBROW; DISCLAIMER = t.disclaimer || DISCLAIMER;
+  SECTIONS = { ...SECTIONS, ...(t.sections || {}) };
+}
 const GREEN = '0A8A5A', AMBER = 'B26A00', RED = 'B23B3B';
 const NOFILL = { style: BorderStyle.NONE };
 
@@ -184,6 +199,7 @@ function callout(title, text, accent = ACCENT) {
 }
 
 export async function buildIcMemoDocx(deal, extras = {}) {
+  applyBrand();
   const company = deal.company || deal.id || 'Deal';
   const subtitle = [deal.sector, deal.subSector, deal.hq || deal.region].filter(Boolean).join('  ·  ');
   const readiness = Number(deal.readiness) || 0;
@@ -248,14 +264,14 @@ export async function buildIcMemoDocx(deal, extras = {}) {
   const businessPara = `${company} operates in the ${sec}${deal.subSector ? ` / ${deal.subSector}` : ''} sector${deal.hq ? `, headquartered in ${deal.hq}` : ''}. ${deal.thesis ? String(deal.thesis).split(/(?<=\.)\s/).slice(1, 3).join(' ') || 'The business, its end markets and revenue model are detailed in the sourcing pack and confirmed through commercial diligence.' : 'The business, its end markets and revenue model are detailed in the sourcing pack and confirmed through commercial diligence.'}`;
 
   const footer = new Footer({ children: [new Paragraph({ tabStops: [{ type: TabStopType.RIGHT, position: 9360 }], border: { top: { style: BorderStyle.SINGLE, size: 4, color: LINE } }, children: [
-    new TextRun({ text: `CONFIDENTIAL · ${company} · Investment Committee Memorandum`, color: MUTE, size: 15 }),
+    new TextRun({ text: `${FOOTER_CONF} · ${company} · Investment Committee Memorandum`, color: MUTE, size: 15 }),
     new TextRun({ text: '\t', size: 15 }),
     new TextRun({ children: ['Page ', PageNumber.CURRENT, ' of ', PageNumber.TOTAL_PAGES], color: MUTE, size: 15 }),
   ] })] });
   const header = new Header({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `${company} — IC Memorandum · Prepared ${dateStr(new Date())}`, color: MUTE, size: 14 })] })] });
 
   const children = [
-    new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: 'INVESTMENT COMMITTEE MEMORANDUM', bold: true, color: ACCENT, size: 16, characterSpacing: 20 })] }),
+    new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: EYEBROW, bold: true, color: ACCENT, size: 16, characterSpacing: 20 })] }),
     new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: company, bold: true, color: INK, size: 44 })] }),
     subtitle ? new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: subtitle, color: MUTE, size: 20 })] }) : new Paragraph({ text: '' }),
     new Paragraph({ children: [new TextRun({ text: `Prepared ${dateStr(new Date())}  ·  Enterprise value ${evStr}  ·  IC readiness ${pct(deal.readiness)}  ·  ${verdict.state || 'IN DILIGENCE'}`, color: MUTE, italics: true, size: 18 })] }),
@@ -273,7 +289,7 @@ export async function buildIcMemoDocx(deal, extras = {}) {
     body(businessPara),
 
     sectionHeading('4. Investment merits'),
-    ...bullets(merits),
+    ...(SECTIONS.merits ? bullets(merits) : [body('Investment merits summarised in the executive summary.')]),
 
     sectionHeading('5. Key risks & mitigants'),
     riskRows.length ? dataTable(['Risk', 'Timing', 'Likelihood', 'Mitigation', 'Residual'], riskRows, [34, 16, 11, 27, 12]) : body('No material risks flagged — diligence findings are clear or pending.'),
@@ -308,7 +324,7 @@ export async function buildIcMemoDocx(deal, extras = {}) {
     sectionHeading('9. Diligence status'),
     wsRows.length ? dataTable(['Workstream', 'Owner', 'Progress', 'Status'], wsRows, [40, 26, 14, 20]) : body('Workstreams not yet provisioned for this deal.'),
     body(`Diligence is ${pct(deal.diligenceProgress)} complete overall; compliance/KYC ${dash(deal.complianceCleared)} of ${dash(deal.complianceTotal)} items cleared.`),
-    ...(findingsRows.length ? [subHead('Findings by workstream'), dataTable(['Workstream', 'Finding', 'Treatment', 'Timing'], findingsRows, [22, 40, 26, 12])] : []),
+    ...((SECTIONS.findings && findingsRows.length) ? [subHead('Findings by workstream'), dataTable(['Workstream', 'Finding', 'Treatment', 'Timing'], findingsRows, [22, 40, 26, 12])] : []),
 
     sectionHeading('10. IC readiness'),
     body('This memorandum, together with the accompanying returns and value-creation models, constitutes the draft IC paper and recommendation for this transaction. The checklist below tracks the items still outstanding to reach a formal IC-ready status.'),
@@ -321,21 +337,71 @@ export async function buildIcMemoDocx(deal, extras = {}) {
     ...(conditions.length ? [subHead('Conditions to close'), ...bullets(conditions.map((r) => `${r.risk}${r.mitigation ? ` — ${r.mitigation}` : ''}`))] : []),
 
     sectionHeading('Appendix — basis of preparation'),
-    body('This memorandum is generated from the live deal record in The Deal Room, drawing on the returns model, value-creation plan, risk register and IC-readiness assessment. Figures reflect the state of diligence at generation time and are provided for committee discussion on a strictly confidential basis. Sources for key figures are shown inline; assumptions are held in the accompanying Excel models.', { italics: true, color: MUTE, size: 18 }),
+    body(`${DISCLAIMER} Sources for key figures are shown inline; assumptions are held in the accompanying Excel models.`, { italics: true, color: MUTE, size: 18 }),
   ];
 
   const doc = new Document({
-    creator: 'The Deal Room', title: `IC Memo — ${company}`, subject: 'Investment Committee Memorandum', company: 'The Deal Room',
+    creator: BRAND, title: `IC Memo — ${company}`, subject: 'Investment Committee Memorandum', company: BRAND,
     styles: { default: { document: { run: { font: 'Calibri', size: 21, color: '2B2B2B' } } } },
     sections: [{ properties: { page: { margin: { top: 1200, bottom: 1200, left: 1200, right: 1200 } } }, headers: { default: header }, footers: { default: footer }, children }],
   });
   return Packer.toBuffer(doc);
 }
 
+// A self-contained onboarding / reference doc dropped into the deal's Administration
+// folder so a firm opening the data room knows how it's organised, what's generated for
+// them, and how to brand the templates. Sets teams up for success on first use.
+const FOLDER_GUIDE = [
+  ['00_Administration', 'Working-group list, timelines, checklists, this guide and process docs.'],
+  ['01_Corporate & Legal', 'Incorporation, org chart, cap table, board and corporate records.'],
+  ['02_Financial Information', 'Historical accounts, management accounts, QoE, working-capital analysis.'],
+  ['03_Commercial & Sales', 'Market, customers, pipeline, pricing and commercial diligence.'],
+  ['04_Tax', 'Tax returns, structuring, transfer pricing and exposures.'],
+  ['05_Intellectual Property', 'Patents, trademarks, licences and IP ownership.'],
+  ['06_Real Property & Assets', 'Leases, owned property and fixed-asset registers.'],
+  ['07_Contracts', 'Material contracts, change-of-control and key terms.'],
+  ['08_Employment & HR', 'Org, key employees, benefits and employment matters.'],
+  ['09_IT & Technology', 'Systems, architecture, cyber and technology diligence.'],
+  ['10_Operations', 'Supply chain, operations and footprint.'],
+  ['11_Insurance', 'Policies, claims history and coverage.'],
+  ['12_Environmental & Regulatory', 'Permits, compliance and environmental matters.'],
+  ['13_IC Materials', 'The generated IC memo, deck and models — the committee pack.'],
+];
+export async function buildDataRoomGuideDocx(deal) {
+  applyBrand();
+  const co = (deal && (deal.company || deal.id)) || 'this deal';
+  const footer = new Footer({ children: [new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 4, color: LINE } }, children: [new TextRun({ text: `${FOOTER_CONF} · ${BRAND} · Deal Room data-room guide`, color: MUTE, size: 15 })] })] });
+  const children = [
+    new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: `${BRAND.toUpperCase()} · DATA ROOM`, bold: true, color: ACCENT, size: 16, characterSpacing: 20 })] }),
+    new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: `${co} — data room guide`, bold: true, color: INK, size: 36 })] }),
+    new Paragraph({ children: [new TextRun({ text: `Prepared ${dateStr(new Date())}`, color: MUTE, italics: true, size: 18 })] }),
+    rule(ACCENT, 10),
+    sectionHeading('Welcome'),
+    body(`This is the secure virtual data room for ${co}. It holds the deal's confidential documents, organised into a standard institutional index so every workstream knows exactly where material lives. Access is scoped to the deal team on a need-to-know basis.`),
+    sectionHeading('How this data room is organised'),
+    dataTable(['Folder', 'What lives here'], FOLDER_GUIDE, [32, 68]),
+    sectionHeading('What is generated for you'),
+    body('The following board-ready documents are drafted automatically from the live deal record and placed in 13_IC Materials — refine and re-publish as diligence progresses:'),
+    ...bullets([
+      'IC Memorandum (Word) — the full committee paper: thesis, merits, risks, financials, valuation & returns, value creation, diligence findings and the IC recommendation.',
+      'IC Deck (PowerPoint) — the presentation version of the memo, with KPI tiles and returns charts.',
+      'Deal Model (Excel) — the dashboard, key figures, returns scenarios, value-creation levers and risk register.',
+      'Returns / LBO Model (Excel) — entry economics, sources & uses, an indicative debt & cash-flow build, scenarios, returns bridge and sensitivity.',
+    ]),
+    sectionHeading('Branding & templates'),
+    body(`Every generated document follows your firm's template. An administrator can set the fund name, brand colours, confidentiality label and which sections appear in Settings → Document templates — no code change required.`),
+    new Paragraph({ spacing: { before: 240 }, children: [new TextRun({ text: DISCLAIMER, italics: true, color: MUTE, size: 18 })] }),
+  ];
+  const doc = new Document({ creator: BRAND, title: `Data Room Guide — ${co}`, company: BRAND, styles: { default: { document: { run: { font: 'Calibri', size: 21, color: '2B2B2B' } } } }, sections: [{ properties: { page: { margin: { top: 1200, bottom: 1200, left: 1200, right: 1200 } } }, footers: { default: footer }, children }] });
+  return Packer.toBuffer(doc);
+}
+
 // =============================================================================
 // EXCEL — deal model & LBO/returns model
 // =============================================================================
-const XNAVY = 'FF1F3864', XACC = 'FF2E74B5', XMUT = 'FF6B7280', XBAND = 'FFEEF2F7', XLINE = 'FFD9DEE7', XGREEN = 'FF0A8A5A', XRED = 'FFB23B3B', XAMBER = 'FFB26A00';
+const XNAVY0 = 'FF1F3864';
+let XNAVY = 'FF1F3864', XACC = 'FF2E74B5';
+const XMUT = 'FF6B7280', XBAND = 'FFEEF2F7', XLINE = 'FFD9DEE7', XGREEN = 'FF0A8A5A', XRED = 'FFB23B3B', XAMBER = 'FFB26A00';
 const XTHIN = { style: 'thin', color: { argb: XLINE } };
 const XBOX = { top: XTHIN, left: XTHIN, bottom: XTHIN, right: XTHIN };
 
@@ -373,6 +439,7 @@ function dataBar(sheet, ref, color = XACC) {
 }
 
 function composeRichModel(deal, extras = {}) {
+  applyBrand();
   const d = derive(deal, extras);
   const { base, up, down, entry: e, hurdle, bridge, levers, hundredDay, riskItems, verdict, reqItems, workstreams, figures } = d;
   const R = d.returns;
@@ -380,12 +447,12 @@ function composeRichModel(deal, extras = {}) {
   const m$ = (v) => (Number.isFinite(Number(v)) ? `${cur}${Number(v)}M` : '—');
   const evStr = e.entryEV != null ? m$(e.entryEV) : money(deal);
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'The Deal Room'; wb.company = 'The Deal Room'; wb.created = new Date(); wb.title = `Deal Model — ${deal.company || deal.id}`;
+  wb.creator = BRAND; wb.company = BRAND; wb.created = new Date(); wb.title = `Deal Model — ${deal.company || deal.id}`;
 
   // ---- Dashboard -------------------------------------------------------------
   const s = wb.addWorksheet('Dashboard', { views: [{ showGridLines: false }] });
   s.getColumn(1).width = 3; s.getColumn(2).width = 30; s.getColumn(3).width = 34; s.getColumn(4).width = 4; s.getColumn(5).width = 30; s.getColumn(6).width = 20;
-  titleBlock(s, deal.company || deal.id || 'Deal', `${[deal.sector, deal.subSector, deal.hq || deal.region].filter(Boolean).join('  ·  ')}  ·  Prepared ${dateStr(new Date())}  ·  CONFIDENTIAL`);
+  titleBlock(s, deal.company || deal.id || 'Deal', `${[deal.sector, deal.subSector, deal.hq || deal.region].filter(Boolean).join('  ·  ')}  ·  Prepared ${dateStr(new Date())}  ·  ${FOOTER_CONF}`);
   // KPI tiles (right)
   const tiles = [
     ['Enterprise value', evStr],
@@ -502,17 +569,18 @@ export async function buildDealModelXlsx(deal, extras = {}) {
 // The LBO / returns workbook — Summary dashboard, Sources & Uses (with fees), Debt &
 // cash-flow build, Scenarios, Returns bridge, Sensitivity and downside/covenant view.
 export async function buildReturnsXlsx(returns, extras = {}) {
+  applyBrand();
   const r = returns || {};
   const vcp = extras.valueCreation || {};
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'The Deal Room'; wb.company = 'The Deal Room'; wb.created = new Date(); wb.title = `Returns Model — ${r.company || 'Deal'}`;
+  wb.creator = BRAND; wb.company = BRAND; wb.created = new Date(); wb.title = `Returns Model — ${r.company || 'Deal'}`;
   const e = r.entry || {};
   const base = (r.scenarios || []).find((x) => x.name === 'Base') || {};
   const down = (r.scenarios || []).find((x) => x.name === 'Downside') || {};
 
   const s = wb.addWorksheet('Summary', { views: [{ showGridLines: false }] });
   s.getColumn(1).width = 3; s.getColumn(2).width = 32; s.getColumn(3).width = 26; s.getColumn(4).width = 4; s.getColumn(5).width = 28; s.getColumn(6).width = 18;
-  titleBlock(s, `${r.company || 'Deal'} — LBO / Returns`, `Prepared ${dateStr(new Date())}  ·  The Deal Room  ·  CONFIDENTIAL`);
+  titleBlock(s, `${r.company || 'Deal'} — LBO / Returns`, `Prepared ${dateStr(new Date())}  ·  ${BRAND}  ·  ${FOOTER_CONF}`);
   // takeaways box
   s.getCell('E6').value = 'KEY TAKEAWAYS'; s.getCell('E6').font = { size: 9, bold: true, color: { argb: XACC } };
   const takeaways = [
@@ -613,7 +681,9 @@ export async function buildReturnsXlsx(returns, extras = {}) {
 // =============================================================================
 // POWERPOINT — IC deck (text boxes + rects only; tiles/bars built from rects)
 // =============================================================================
-const P_INK = '1F3864', P_ACCENT = '2E74B5', P_MUTE = '6B7280', P_WHITE = 'FFFFFF', P_GREEN = '0A8A5A', P_AMBER = 'B26A00', P_RED = 'B23B3B';
+const P_WHITE = 'FFFFFF';
+let P_INK = '1F3864', P_ACCENT = '2E74B5';
+const P_MUTE = '6B7280', P_GREEN = '0A8A5A', P_AMBER = 'B26A00', P_RED = 'B23B3B';
 const VERDICT_COLOR = { READY: P_GREEN, CONDITIONAL: P_AMBER, 'NOT-READY': P_RED };
 function deckHeader(title, co) {
   return [
@@ -621,7 +691,7 @@ function deckHeader(title, co) {
     { kind: 'rect', x: 0, y: 1.05, w: 13.333, h: 0.06, fill: P_ACCENT },
     { kind: 'text', x: 0.68, y: 0.24, w: 9.5, h: 0.6, valign: 'ctr', paras: [{ text: title, size: 24, bold: true, color: P_WHITE }] },
     { kind: 'text', x: 9.9, y: 0.3, w: 3.0, h: 0.5, valign: 'ctr', paras: [{ text: co, size: 11, color: 'AFC6E4', align: 'r' }] },
-    { kind: 'text', x: 0.68, y: 7.02, w: 12, h: 0.35, paras: [{ text: 'CONFIDENTIAL · The Deal Room · Investment Committee', size: 9, color: P_MUTE }] },
+    { kind: 'text', x: 0.68, y: 7.02, w: 12, h: 0.35, paras: [{ text: `${FOOTER_CONF} · ${BRAND} · Investment Committee`, size: 9, color: P_MUTE }] },
   ];
 }
 function bulletPara(text, opts = {}) { return { text, bullet: true, size: opts.size || 14, color: opts.color || '2B2B2B', spaceAfter: opts.spaceAfter ?? 8 }; }
@@ -670,6 +740,7 @@ function gridTable(x0, y0, w, headers, rows, colFr) {
 }
 
 export async function buildIcDeckPptx(deal, extras = {}) {
+  applyBrand();
   const co = deal.company || deal.id || 'Deal';
   const sectorLine = [deal.sector, deal.subSector].filter(Boolean).join(' · ');
   const d = derive(deal, extras);
