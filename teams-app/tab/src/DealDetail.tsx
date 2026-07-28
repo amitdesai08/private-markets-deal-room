@@ -295,7 +295,9 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
   // What each step generates (from the flow definition) — surfaced on the Run button &
   // hero so every action describes its expected deliverable.
   const producesFor = (key?: string): string[] => { const s = steps.find((x) => x.key === key); return Array.isArray(s?.produces) ? s!.produces! : []; };
-  const whatFor = (key?: string): string => { const s = steps.find((x) => x.key === key); return typeof s?.what === 'string' ? s!.what! : ''; };
+  // The Work-the-deal box shows the step's VALUE ("why" — what the firm gets from it),
+  // falling back to the descriptive "what" (which the stage guide keeps).
+  const whatFor = (key?: string): string => { const s = steps.find((x) => x.key === key) as any; return (typeof s?.why === 'string' && s.why) ? s.why : (typeof s?.what === 'string' ? s.what : ''); };
   const curProduces = producesFor(deal?.currentStep);
   const curWhat = whatFor(deal?.currentStep);
   const viewStep = selStep || deal?.currentStep || '';
