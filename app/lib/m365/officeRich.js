@@ -32,6 +32,34 @@ const dash = (v) => (v === 0 || v ? String(v) : '—');
 const m$ = (v) => (Number.isFinite(Number(v)) ? `$${Number(v)}M` : '—');
 const x$ = (v) => (Number.isFinite(Number(v)) ? `${Number(v)}x` : '—');
 const p$ = (v) => (Number.isFinite(Number(v)) ? `${Number(v)}%` : '—');
+// Prettify raw persona / role slugs (e.g. 'retail-md', 'operating-partner') into readable
+// role labels; values that already read as names/titles are left untouched.
+const ROLE_LABELS = {
+  partner: 'Deal Partner', analyst: 'Deal Analyst', principal: 'Principal', vp: 'Vice President',
+  'operating-partner': 'Operating Partner', 'commercial-md': 'Commercial MD',
+  'retail-md': 'Sector MD', 'finance-md': 'Finance MD', 'legal-md': 'Legal MD',
+  'tax-md': 'Tax MD', 'ai-md': 'AI MD', 'supply-md': 'Supply Chain MD', 'esg-md': 'ESG MD',
+};
+const ROLE_ABBR = new Set(['MD', 'AI', 'ESG', 'IT', 'HR', 'VP', 'IC', 'DD', 'QOE', 'ERP', 'CEO', 'CFO', 'CTO', 'COO', 'CIO', 'CMO', 'GC', 'GP', 'LP']);
+function prettyRole(v) {
+  if (v == null || v === '') return '—';
+  const s = String(v).trim();
+  const key = s.toLowerCase();
+  if (ROLE_LABELS[key]) return ROLE_LABELS[key];
+  // Already a human label (contains a space or an internal capital) — leave as-is.
+  if (/\s/.test(s) || /[A-Z]/.test(s)) return s;
+  return s.split(/[-_]+/).filter(Boolean)
+    .map((w) => (ROLE_ABBR.has(w.toUpperCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(' ');
+}
+// Word-aware clip with an ellipsis, so tight deck cells read as intentional summaries
+// rather than mid-word truncations.
+const clip = (s, n) => {
+  const t = String(s ?? '').trim();
+  if (t.length <= n) return t;
+  const cut = t.slice(0, n); const sp = cut.lastIndexOf(' ');
+  return (sp > n * 0.6 ? cut.slice(0, sp) : cut).replace(/[\s.,;:—–-]+$/, '') + '…';
+};
 const dateStr = (v) => {
   if (!v) return '—';
   const d = new Date(v);
@@ -69,8 +97,8 @@ function summaryRows(deal, evStr) {
     ['IC readiness', pct(deal.readiness)],
     ['Target IC date', dateStr(deal.targetICDate || deal.projectedICDate)],
     ['Days to IC', dash(deal.daysToIC)],
-    ['Lead analyst', deal.leadAnalyst || '—'],
-    ['Sponsor', deal.sponsorPersona || '—'],
+    ['Deal lead', prettyRole(deal.leadAnalyst)],
+    ['Sponsor', prettyRole(deal.sponsorPersona)],
     ['Diligence progress', pct(deal.diligenceProgress)],
     ['Compliance', `${dash(deal.complianceCleared)} / ${dash(deal.complianceTotal)} cleared`],
     ['IC memo', `${dash(deal.memoProgress)} / ${dash(deal.memoTotal)} sections${deal.memoApproved ? ' · approved' : ''}`],
@@ -255,9 +283,9 @@ export async function buildIcMemoDocx(deal, extras = {}) {
   const suRows = [];
   for (let i = 0; i < Math.max(suSrc.length, suUse.length); i++) suRows.push([suSrc[i]?.label || '', suSrc[i]?.amount != null ? m$(suSrc[i].amount) : '', suUse[i]?.label || '', suUse[i]?.amount != null ? m$(suUse[i].amount) : '']);
   if (R.sourcesUses && (R.sourcesUses.totalSources != null || R.sourcesUses.totalUses != null)) suRows.push(['Total sources', m$(R.sourcesUses.totalSources), 'Total uses', m$(R.sourcesUses.totalUses)]);
-  const bridgeRows = (bridge.components || []).map((c) => [c.lever, c.contribution != null ? `+${m$(c.contribution).slice(1)}` : '—', c.owner || '—']);
-  const leverRows = levers.map((l) => [l.name, l.workstream || '—', l.impact != null ? `+${m$(l.impact).slice(1)}` : '—', l.timeline || '—', l.owner || '—']);
-  const wsRows = workstreams.map((w) => [w.name || w.title || w.lane || 'Workstream', w.owner || w.md || w.lead || '—', Number.isFinite(Number(w.progress)) ? `${Number(w.progress)}%` : '—', w.status || 'In progress']);
+  const bridgeRows = (bridge.components || []).map((c) => [c.lever, c.contribution != null ? `+${m$(c.contribution).slice(1)}` : '—', prettyRole(c.owner)]);
+  const leverRows = levers.map((l) => [l.name, l.workstream || '—', l.impact != null ? `+${m$(l.impact).slice(1)}` : '—', l.timeline || '—', prettyRole(l.owner)]);
+  const wsRows = workstreams.map((w) => [w.name || w.title || w.lane || 'Workstream', prettyRole(w.owner || w.md || w.lead), Number.isFinite(Number(w.progress)) ? `${Number(w.progress)}%` : '—', w.status || 'In progress']);
   const artRows = reqItems.map((a) => [a.label, a.complete ? '✓ Complete' : '✗ Open', a.detail || '']);
   const conditions = riskItems.filter((r) => r.severity === 'condition' || r.severityLabel === 'Closing condition');
 
@@ -283,7 +311,7 @@ export async function buildIcMemoDocx(deal, extras = {}) {
     kvTable(decisionRows),
 
     sectionHeading('2. Transaction overview & rationale'),
-    body(`The fund is evaluating the acquisition of ${company} at ${evStr} enterprise value${e.evEbitda != null ? `, equivalent to ${e.evEbitda}x EBITDA` : ''}${e.leverage ? ` and financed with ${e.leverage} leverage` : ''}. ${base.irr != null ? `The transaction is underwritten to a ${base.moic}x / ${base.irr}% base case over ${dash(e.holdYears)} years.` : 'The financing structure and entry economics are being finalised.'} Sponsorship sits with the ${deal.sponsorPersona || 'deal partner'}; the lead analyst is ${deal.leadAnalyst || 'assigned'}.`),
+    body(`The fund is evaluating the acquisition of ${company} at ${evStr} enterprise value${e.evEbitda != null ? `, equivalent to ${e.evEbitda}x EBITDA` : ''}${e.leverage ? ` and financed with ${e.leverage} leverage` : ''}. ${base.irr != null ? `The transaction is underwritten to a ${base.moic}x / ${base.irr}% base case over ${dash(e.holdYears)} years.` : 'The financing structure and entry economics are being finalised.'} Sponsorship sits with the ${deal.sponsorPersona ? prettyRole(deal.sponsorPersona) : 'deal partner'}; the deal lead is ${deal.leadAnalyst ? prettyRole(deal.leadAnalyst) : 'assigned'}.`),
 
     sectionHeading('3. Business description'),
     body(businessPara),
@@ -309,7 +337,7 @@ export async function buildIcMemoDocx(deal, extras = {}) {
     ]),
     ...(scenRows.length ? [subHead('Returns by scenario'), dataTable(['Scenario', 'Exit EBITDA', 'Exit EV', 'Equity out', 'MOIC', 'IRR'], scenRows, [18, 18, 16, 18, 15, 15])] : []),
     ...(sens ? [subHead(`Base IRR sensitivity — ${sens.rowLabel} × ${sens.colLabel}`), dataTable([`${sens.rowLabel} ↓ / ${sens.colLabel} →`, ...(sens.cols || [])], (sens.rows || []).map((r) => [r.cagr, ...(r.irr || []).map((v) => `${v}%`)]))] : []),
-    ...(suRows.length ? [subHead('Sources & uses'), dataTable(['Sources', '$M', 'Uses', '$M'], suRows, [34, 16, 34, 16])] : []),
+    ...(suRows.length ? [subHead('Sources & uses'), dataTable(['Sources', `${cur}M`, 'Uses', `${cur}M`], suRows, [34, 16, 34, 16])] : []),
     callout(R.meetsHurdle ? 'Returns clear the fund hurdle' : 'Returns vs. hurdle', R.headline || (base.irr != null ? `Base case ${base.moic}x / ${base.irr}% versus a ${hurdle.moic || '—'}x / ${hurdle.irr || '—'}% hurdle.` : 'Returns to be finalised.'), R.meetsHurdle ? GREEN : AMBER),
     subHead('Model assumptions & basis'),
     ...bullets(modelAdj.length ? modelAdj : ['Entry economics and the operating case are taken from the base scenario; the debt schedule and free-cash-flow build sit in the accompanying Returns Model. Indicative build assumptions (capex, working capital, cost of debt, tax) are to be replaced with the confirmed operating model at IC.']),
@@ -527,13 +555,13 @@ function composeRichModel(deal, extras = {}) {
   if (levers.length || bridge.exit != null) {
     const vc = wb.addWorksheet('Value Creation', { views: [{ showGridLines: false }] });
     vc.columns = [{ header: 'Lever', key: 'name', width: 30 }, { header: 'Workstream', key: 'ws', width: 16 }, { header: 'EBITDA impact (M)', key: 'impact', width: 18 }, { header: 'Timeline', key: 'timeline', width: 18 }, { header: 'Owner', key: 'owner', width: 28 }];
-    for (const l of levers) vc.addRow({ name: l.name, ws: l.workstream || '', impact: l.impact ?? '', timeline: l.timeline || '', owner: l.owner || '' });
+    for (const l of levers) vc.addRow({ name: l.name, ws: l.workstream || '', impact: l.impact ?? '', timeline: l.timeline || '', owner: l.owner ? prettyRole(l.owner) : '' });
     styleTable(vc);
     dataBar(vc, `C2:C${vc.rowCount}`);
     if (bridge.components) {
       let b = vc.rowCount + 3;
       vc.getCell(b, 1).value = `EBITDA BRIDGE  ${m$(bridge.entry)} → ${m$(bridge.exit)}  (+${m$(bridge.delta).slice(1)})`; vc.getCell(b, 1).font = { bold: true, color: { argb: XNAVY } }; b++;
-      for (const c of bridge.components) { vc.getCell(b, 1).value = c.lever; vc.getCell(b, 2).value = c.contribution; vc.getCell(b, 2).numFmt = '#,##0'; vc.getCell(b, 3).value = c.owner; b++; }
+      for (const c of bridge.components) { vc.getCell(b, 1).value = c.lever; vc.getCell(b, 2).value = c.contribution; vc.getCell(b, 2).numFmt = '#,##0'; vc.getCell(b, 3).value = c.owner ? prettyRole(c.owner) : ''; b++; }
     }
   }
 
@@ -555,7 +583,7 @@ function composeRichModel(deal, extras = {}) {
   }
   const w = wb.addWorksheet('Workstreams', { views: [{ showGridLines: false }] });
   w.columns = [{ header: 'Workstream', key: 'name', width: 34 }, { header: 'Owner', key: 'owner', width: 24 }, { header: 'Progress', key: 'progress', width: 12 }, { header: 'Status', key: 'status', width: 22 }];
-  if (workstreams.length) { for (const ws of workstreams) w.addRow({ name: ws.name || ws.title || ws.lane || 'Workstream', owner: ws.owner || ws.md || ws.lead || '', progress: Number.isFinite(Number(ws.progress)) ? Number(ws.progress) / 100 : '', status: ws.status || 'In progress' }); w.getColumn('progress').numFmt = '0%'; dataBar(w, `C2:C${w.rowCount}`); }
+  if (workstreams.length) { for (const ws of workstreams) w.addRow({ name: ws.name || ws.title || ws.lane || 'Workstream', owner: (ws.owner || ws.md || ws.lead) ? prettyRole(ws.owner || ws.md || ws.lead) : '', progress: Number.isFinite(Number(ws.progress)) ? Number(ws.progress) / 100 : '', status: ws.status || 'In progress' }); w.getColumn('progress').numFmt = '0%'; dataBar(w, `C2:C${w.rowCount}`); }
   else w.addRow({ name: 'No workstreams provisioned yet', owner: '', progress: '', status: '' });
   styleTable(w);
   return wb;
@@ -767,7 +795,7 @@ export async function buildIcDeckPptx(deal, extras = {}) {
       { label: 'IC VERDICT', value: verdict.state || 'IN DILIGENCE', color: vColor },
     ]),
     { kind: 'text', x: 0.68, y: 5.1, w: 12, h: 1.3, paras: [{ text: verdict.headline || deal.thesis || '', size: 14, color: '2B2B2B', italic: true }] },
-    { kind: 'text', x: 0.68, y: 6.6, w: 12, h: 0.5, paras: [{ text: [`Prepared ${dateStr(new Date())}`, deal.leadAnalyst ? `Lead: ${deal.leadAnalyst}` : '', deal.sponsorPersona ? `Sponsor: ${deal.sponsorPersona}` : '', typeof deal.readiness === 'number' ? `IC readiness ${pct(deal.readiness)}` : ''].filter(Boolean).join('    ·    '), size: 11, color: P_MUTE }] },
+    { kind: 'text', x: 0.68, y: 6.6, w: 12, h: 0.5, paras: [{ text: [`Prepared ${dateStr(new Date())}`, deal.leadAnalyst ? `Lead: ${prettyRole(deal.leadAnalyst)}` : '', deal.sponsorPersona ? `Sponsor: ${prettyRole(deal.sponsorPersona)}` : '', typeof deal.readiness === 'number' ? `IC readiness ${pct(deal.readiness)}` : ''].filter(Boolean).join('    ·    '), size: 11, color: P_MUTE }] },
   ]);
 
   // 2) Agenda & the ask
@@ -849,7 +877,7 @@ export async function buildIcDeckPptx(deal, extras = {}) {
   slides.push([
     ...deckHeader('Value creation plan', co),
     { kind: 'text', x: 0.68, y: 1.3, w: 7.3, h: 0.4, paras: [{ text: 'OPERATING LEVERS', size: 11, bold: true, color: P_ACCENT }] },
-    ...(levers.length ? gridTable(0.68, 1.72, 7.6, ['Lever', 'Impact', 'Timeline'], levers.slice(0, 6).map((l) => [l.name, l.impact != null ? `+$${l.impact}M` : '—', l.timeline || '—']), [50, 22, 28]) : [{ kind: 'text', x: 0.68, y: 1.8, w: 7.3, h: 1, paras: [{ text: 'Levers populate from the value-creation plan.', size: 13, color: P_MUTE }] }]),
+    ...(levers.length ? gridTable(0.68, 1.72, 7.6, ['Lever', 'Impact', 'Timeline'], levers.slice(0, 6).map((l) => [l.name, l.impact != null ? `+${cur}${l.impact}M` : '—', l.timeline || '—']), [50, 22, 28]) : [{ kind: 'text', x: 0.68, y: 1.8, w: 7.3, h: 1, paras: [{ text: 'Levers populate from the value-creation plan.', size: 13, color: P_MUTE }] }]),
     { kind: 'rect', x: 8.6, y: 1.3, w: 4.05, h: 5.1, fill: 'F4F7FB' },
     { kind: 'text', x: 8.82, y: 1.45, w: 3.7, h: 0.4, paras: [{ text: 'EBITDA BRIDGE', size: 11, bold: true, color: P_ACCENT }] },
     { kind: 'text', x: 8.82, y: 1.85, w: 3.7, h: 0.5, paras: [{ text: bridge.exit != null ? `${m$(bridge.entry)} → ${m$(bridge.exit)}  (+${m$(bridge.delta).slice(1)})` : '', size: 13, bold: true, color: P_INK }] },
@@ -860,7 +888,7 @@ export async function buildIcDeckPptx(deal, extras = {}) {
   const wsColor = (w) => { const p = Number(w.progress); const st = (w.status || '').toLowerCase(); if (/block|red|stop/.test(st)) return P_RED; if (p >= 80 || /complete|clear|green/.test(st)) return P_GREEN; if (p >= 40 || /progress|amber/.test(st)) return P_AMBER; return P_MUTE; };
   slides.push([
     ...deckHeader('Diligence findings by workstream', co),
-    ...(workstreams.length ? gridTable(0.68, 1.35, 12, ['Workstream', 'Owner', 'Progress', 'Status'], workstreams.map((w) => [w.name || w.lane, w.owner || w.md || w.lead || '—', Number.isFinite(Number(w.progress)) ? `${w.progress}%` : '—', w.status || 'In progress']), [34, 26, 14, 26]) : [{ kind: 'text', x: 0.68, y: 1.5, w: 12, h: 1, paras: [{ text: 'Workstreams not yet provisioned.', size: 13, color: P_MUTE }] }]),
+    ...(workstreams.length ? gridTable(0.68, 1.35, 12, ['Workstream', 'Owner', 'Progress', 'Status'], workstreams.map((w) => [w.name || w.lane, prettyRole(w.owner || w.md || w.lead), Number.isFinite(Number(w.progress)) ? `${w.progress}%` : '—', w.status || 'In progress']), [34, 26, 14, 26]) : [{ kind: 'text', x: 0.68, y: 1.5, w: 12, h: 1, paras: [{ text: 'Workstreams not yet provisioned.', size: 13, color: P_MUTE }] }]),
     { kind: 'text', x: 0.68, y: 5.6, w: 12, h: 1.2, valign: 't', paras: [{ runs: [{ text: 'Status:  ', size: 12, bold: true, color: P_INK }, { text: `${workstreams.filter((w) => Number(w.progress) >= 80).length} substantially complete · ${workstreams.filter((w) => Number(w.progress) < 40).length} early · compliance ${dash(deal.complianceCleared)}/${dash(deal.complianceTotal)} cleared.`, size: 12, color: '2B2B2B' }] }] },
   ]);
 
@@ -869,7 +897,7 @@ export async function buildIcDeckPptx(deal, extras = {}) {
   const sevColor = (r) => { const s = (r.severity || r.severityLabel || '').toLowerCase(); if (/stop|high|red/.test(s)) return P_RED; if (/condition|reprice|closing/.test(s)) return P_AMBER; return P_MUTE; };
   slides.push([
     ...deckHeader('Key risks & mitigants', co),
-    ...(riskList.length ? gridTable(0.68, 1.35, 12, ['Risk', 'Timing', 'Likelihood', 'Mitigation'], riskList.map((r) => [r.risk?.slice(0, 66), riskTiming(r), r.likelihood || '—', (r.mitigation || '—').slice(0, 56)]), [36, 20, 12, 32]) : [{ kind: 'text', x: 0.68, y: 1.5, w: 12, h: 1, paras: [{ text: 'No material risks flagged — diligence clear or pending.', size: 13, color: P_MUTE }] }]),
+    ...(riskList.length ? gridTable(0.68, 1.35, 12, ['Risk', 'Timing', 'Likelihood', 'Mitigation'], riskList.map((r) => [clip(r.risk, 58), riskTiming(r), r.likelihood || '—', clip(r.mitigation || '—', 48)]), [38, 16, 12, 34]) : [{ kind: 'text', x: 0.68, y: 1.5, w: 12, h: 1, paras: [{ text: 'No material risks flagged — diligence clear or pending.', size: 13, color: P_MUTE }] }]),
   ]);
 
   // 10) IC readiness & recommendation

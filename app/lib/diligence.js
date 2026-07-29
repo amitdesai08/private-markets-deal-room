@@ -143,6 +143,11 @@ const SEVERITY = { stopper: { label: 'Deal-stopper', rank: 4 }, reprice: { label
 // they read as real diligence outcomes rather than lorem ipsum.
 function workstreamFindings(deal) {
   const f = dealFinancials(deal);
+  // Currency-aware money for the finding narrative, so figures match the deal's
+  // reporting currency (e.g. a £ deal never reads "$131M" in its red-flag report).
+  const CURSYM = { USD: '$', EUR: '€', GBP: '£' };
+  const sym = CURSYM[deal?.currency] || '$';
+  const money = (m) => (m == null ? '—' : m >= 1000 ? `${sym}${(m / 1000).toFixed(1)}B` : `${sym}${Math.round(m)}M`);
   const out = [];
   const add = (workstream, severity, finding, impact) => out.push({ workstream, severity, finding, impact });
 
