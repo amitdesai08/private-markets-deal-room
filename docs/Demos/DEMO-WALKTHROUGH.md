@@ -24,6 +24,10 @@ persona who owns it, so the access model, the agents, the lifecycle and the new
   means the demo costs almost nothing, and **Cosmos is entirely optional**.
 - Open the **web console** at `https://<teams-fqdn>/`, or the tab inside Teams.
 - Keep the top-bar **"sign in as"** switcher handy — you'll change profile per act.
+- **Data note (say once):** everything below is the fund's **seeded demo record**
+  (self-contained, and it resets clean); only the **keyless connectors** (SEC/XBRL,
+  GLEIF, GDELT) pull **real external data live**. If a live source is slow, fall back to
+  the seeded view and keep the story moving — nothing in the arc depends on an external call.
 
 **The cast** — the demo roster is **The Good Place**, one character per RBAC tier. Sign in as a
 tier, then act *through* the specialist persona agents in the panel:
@@ -68,6 +72,9 @@ Then set the frame: *"Let's follow one deal the whole way through."*
 > "Screening isn't one filter narrowed three times — it's a gate, a guide and a
 > ranker. That's how a real fund actually sources."
 
+> **→ Act 2:** that target just cleared **PURSUE** and became a *deal* with its own Teams +
+> SharePoint data room — sign in as the deal team and step **inside** it to run diligence.
+
 ---
 
 ## Act 2 · Diligence — *sign in as Tahani Al-Jamil (Deal Team), act as a Sector MD*  ⏱ 4 min
@@ -88,6 +95,9 @@ Then set the frame: *"Let's follow one deal the whole way through."*
 > lead can't touch the commercial lane, and nothing changes unless a person signs
 > off. Every finding and edit is attributable, so you always know who put a number
 > in front of the IC."
+
+> **→ Act 3:** diligence has filled the record — now the partner asks the committee's
+> question: *do the returns clear the hurdle, and is this deal IC-ready?*
 
 ---
 
@@ -181,6 +191,9 @@ Pull the threads together:
 > "It takes a deal from the very first signal all the way to a portfolio company
 > you actively monitor — the full loop, source to own, inside the tools your firm
 > already trusts."
+
+> **The ask:** *"Let's run this on **your** tenant, with **your** deal process — a short
+> pilot on one live deal."*
 
 ---
 

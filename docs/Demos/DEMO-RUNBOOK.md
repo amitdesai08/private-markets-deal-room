@@ -29,6 +29,34 @@ fund's own deal record.
 
 ---
 
+## The canonical spine (tell it in this order)
+
+Whatever the time budget, run the story in **one** order — all three demo assets map to it,
+so you never mix “feature order” with “act order” mid-demo:
+
+1. **Open & access** — the 30s pitch, then **“sign in as”** (who sees what).
+2. **Source & screen** — Stage 1 funnel: signal → candidate → auto-screen → **PURSUE** gate.
+3. **Diligence** — Stage 2 workbench: RYG workstreams, findings, **Apply ▸**.
+4. **IC pack & decision** — Decision artifacts + the **pre-populated, firm-branded IC pack** +
+   the **IC-readiness verdict** *(this is the wow — the blank page is gone)*.
+5. **Own & monitor** — Fund & Portfolio: marks, watchlist, LPA limits.
+6. **Safe & real** — one line each: access enforced server-side, Work IQ over M365, keyless real data.
+7. **Close & ask** — the source-to-own loop, then *“let's run this on your tenant next.”*
+
+> **Safe fallback (~7 min):** beats **1 → 2 → 4 → 5 → 7** — skip live diligence *Apply* and the
+> integrations. If a beat is fragile, narrate it rather than clicking it.
+
+> **Data note — say this once:** everything is the fund's **seeded demo record** (realistic,
+> self-contained, and it resets clean); only the **keyless connectors** (SEC/XBRL, GLEIF, GDELT)
+> pull **real external data live**. If a live source is slow, fall back to the seeded view and keep
+> moving — the story never depends on an external call.
+
+> **60-second pre-flight (before the room):** confirm the **“sign in as”** switcher flips the deal
+> counts (**9 → 7** for the analyst), the top consumer deal opens with **returns/risks populated**,
+> and one **Apply ▸** writes to the **Activity** trail. If *Apply* is flaky, treat it as optional.
+
+---
+
 ## 1 · The pitch (30s)
 
 > "The Deal Room is where deal teams source, screen, run diligence, and take
@@ -205,6 +233,9 @@ your confidential estate is enforced and logged, so nothing leaks across it.
 > shaped to your roles, your senior personas and your data. And it carries a deal the
 > whole way: from the first sourcing signal to a portfolio company you actively
 > monitor, inside the tools your firm already runs."
+
+> **The ask:** *"Let's stand this up on **your** tenant, with **your** deal process — a short
+> pilot on one live deal, shaped to your roles and personas."*
 
 ---
 
