@@ -3,6 +3,7 @@
 // console is the Deal Room Teams app (also served as a standalone web console).
 
 import express from 'express';
+import crypto from 'node:crypto';
 
 import {
   listDeals,
@@ -142,6 +143,23 @@ app.use(express.json({ limit: '1mb' }));
 // proves it is the Teams bot (shared BOT_BACKEND_KEY). Otherwise the request is
 // treated as unidentified (DEFAULT_AGENT_ROLE) so a client can't spoof a role.
 const BOT_BACKEND_KEY = (process.env.BOT_BACKEND_KEY || '').trim();
+
+// Signed per-deal token for the otherwise-unauthenticated live-model endpoints
+// (Excel's Data ▸ Refresh fetches them without an auth header). The token is an
+// HMAC of the deal id under a stable server secret, so only a link we generated
+// server-side can pull a given deal's model rows. Falls back to a config-derived
+// secret so links stay valid across restarts without extra configuration.
+const MODEL_LINK_SECRET = (process.env.MODEL_LINK_SECRET || '').trim()
+  || crypto.createHash('sha256').update(`${config.m365?.clientId || ''}:${config.m365?.tenantId || ''}:deal-room-model-link`).digest('hex');
+function signModelToken(id) {
+  return crypto.createHmac('sha256', MODEL_LINK_SECRET).update(String(id)).digest('hex').slice(0, 32);
+}
+function verifyModelToken(id, t) {
+  if (!t || typeof t !== 'string') return false;
+  const expected = signModelToken(id);
+  if (t.length !== expected.length) return false;
+  try { return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(t)); } catch { return false; }
+}
 function requestingIdentity(req) {
   // Only honour a supplied identity when the caller proves it is the Teams bot.
   if (BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY) return null;
@@ -474,7 +492,7 @@ api.post('/deals/:id/documents/:kind', async (req, res) => {
       if (live) {
         const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
         const host = req.headers['x-forwarded-host'] || req.headers.host;
-        const liveUrl = `${proto}://${host}/api/deals/${encodeURIComponent(id)}/model.html`;
+        const liveUrl = `${proto}://${host}/api/deals/${encodeURIComponent(id)}/model.html?t=${signModelToken(id)}`;
         buffer = await buildLiveModelXlsx(deal, liveUrl);
         filename = `Deal Model (live) — ${co}.xlsx`;
       } else {
@@ -500,11 +518,13 @@ api.post('/deals/:id/documents/:kind', async (req, res) => {
 // workbook's Data ▸ Refresh All fetches these unauthenticated) returning the same
 // model rows as the generated workbook.
 api.get('/deals/:id/model.html', (req, res) => {
+  if (!verifyModelToken(req.params.id, req.query.t)) return res.status(403).type('text/plain').send('forbidden');
   const deal = getDealRaw(req.params.id);
   if (!deal) return res.status(404).type('text/plain').send('not found');
   res.type('text/html; charset=utf-8').send(buildModelHtml(deal));
 });
 api.get('/deals/:id/model.csv', (req, res) => {
+  if (!verifyModelToken(req.params.id, req.query.t)) return res.status(403).type('text/plain').send('forbidden');
   const deal = getDealRaw(req.params.id);
   if (!deal) return res.status(404).type('text/plain').send('not found');
   res.type('text/csv; charset=utf-8').setHeader('Content-Disposition', `attachment; filename="deal-model-${req.params.id}.csv"`);

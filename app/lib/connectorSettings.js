@@ -10,6 +10,7 @@
 // at boot so isEnabled()/getConnectorConfig() are synchronous at any call site.
 
 import { connectors } from './repo/index.js';
+import { validateHttpUrlSync } from './ssrf.js';
 
 const DOC_ID = 'connector-settings';
 
@@ -79,12 +80,17 @@ export async function setConnectorEnabled(id, enabled) {
 }
 
 // Merge a config patch for a connector (e.g. { mcpUrl }). Empty-string values clear
-// the key so an operator can blank a URL from Settings.
+// the key so an operator can blank a URL from Settings. Any URL-typed value is
+// SSRF-validated (https + no private/loopback host) before it is persisted.
 export async function setConnectorConfig(id, patch = {}) {
   const next = { ...(_config[id] || {}) };
   for (const [k, v] of Object.entries(patch)) {
-    if (v === '' || v === null || v === undefined) delete next[k];
-    else next[k] = typeof v === 'string' ? v.trim() : v;
+    if (v === '' || v === null || v === undefined) { delete next[k]; continue; }
+    const val = typeof v === 'string' ? v.trim() : v;
+    if (typeof val === 'string' && /url|endpoint|uri|mcp|webhook/i.test(k)) {
+      validateHttpUrlSync(val); // throws on non-https / localhost / literal private IP
+    }
+    next[k] = val;
   }
   _config[id] = next;
   await persist();

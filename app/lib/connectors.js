@@ -21,6 +21,7 @@ import { gdeltNews, gdeltConfigured } from './providers/gdelt.js';
 import { leiLookup, gleifConfigured } from './providers/gleif.js';
 import { fabricDataAgentConfigured, fabricDataAgentInfo } from './fabricDataAgent.js';
 import { isConnectorEnabled, getConnectorConfig, listCustomConnectors } from './connectorSettings.js';import { m365Configured, m365Connected, m365Ready, m365AppOnly, me as m365Me, m365AppPing } from './m365/graph.js';
+import { assertPublicHttpUrl } from './ssrf.js';
 import { workiqConfigured, workiqConnected, workiqUrl } from './mcp/workiq.js';
 
 export const CONNECTORS = [
@@ -313,6 +314,7 @@ async function testCustom(c) {
   }
   const t0 = Date.now();
   try {
+    await assertPublicHttpUrl(endpoint); // SSRF guard: https + no private/loopback/metadata target
     await fetch(endpoint, { method: 'GET', signal: AbortSignal.timeout(8000) });
     const latencyMs = Date.now() - t0;
     markSync(c.id);
