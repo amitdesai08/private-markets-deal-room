@@ -156,14 +156,14 @@ function workstreamFindings(deal) {
   const adjEbitda = round(f.ebitda * (1 - haircut / 100));
   add('financial', haircut >= 15 ? 'reprice' : 'condition',
     `QoE normalizes EBITDA down ${haircut}% (${money(f.ebitda)} → ${money(adjEbitda)}) after removing unsupported add-backs and owner-comp normalization.`,
-    haircut >= 15 ? `Repricing lever — reset entry EV off ${money(adjEbitda)} adjusted EBITDA.` : 'Manageable — reflect in the model and NWC peg.');
+    haircut >= 15 ? `Repricing lever — reset entry EV against ${money(adjEbitda)} adjusted EBITDA.` : 'Reflected in the model and the SPA net-working-capital peg.');
   add('financial', 'condition', `Net-working-capital peg set at ~${money(round(f.revenue * 0.12))} from a 12–24 month seasonality analysis.`, 'Becomes the SPA true-up mechanism at close.');
 
   // Commercial — customer concentration is the classic binary risk.
   const conc = f.ebitdaMargin > 15 ? 22 : 31;
   add('commercial', conc >= 30 ? 'reprice' : 'monitor',
     `Top-customer concentration ~${conc}% of revenue${conc >= 30 ? ' without a long-term contract — a binary revenue risk.' : ' — within tolerance but monitored.'}`,
-    conc >= 30 ? 'Seek contract protection or an escrow/holdback.' : 'Track post-close; diversify in the 100-day plan.');
+    conc >= 30 ? 'Mitigated via contract protection or an escrow/holdback.' : 'Track post-close; diversify in the 100-day plan.');
   add('commercial', 'clear', `Voice-of-customer (20+ calls) supports the growth thesis: durable demand and pricing power in ${deal.sector}.`, 'Thesis-supportive.');
 
   // Legal — contracts change-of-control.
@@ -171,17 +171,17 @@ function workstreamFindings(deal) {
   add('legal', 'clear', 'No material undisclosed litigation or government investigation identified.', 'Clean — no legal deal-stopper.');
 
   // Tax.
-  add('tax', 'monitor', 'Multi-state sales/use-tax exposure identified; quantify and structure as a covered risk.', 'Backstop with R&W insurance; reflect in structuring.');
+  add('tax', 'monitor', 'Multi-state sales/use-tax exposure identified; quantify and structure as a covered risk.', 'Backstopped by R&W insurance and addressed in deal structuring.');
 
   // Operational.
-  add('operational', 'monitor', `Cost-out opportunity identified in procurement & footprint (~${money(round(f.revenue * 0.02))} run-rate).`, 'Feed the value-creation plan.');
+  add('operational', 'monitor', `Cost-out opportunity identified in procurement & footprint (~${money(round(f.revenue * 0.02))} run-rate).`, 'Folded into the value-creation plan.');
 
   // Tech.
-  add('tech', 'monitor', 'Manageable tech debt; core systems scale to the growth plan. Cyber posture adequate with gaps to close.', 'Post-close IT roadmap in the 100-day plan.');
+  add('tech', 'monitor', 'Manageable tech debt; core systems scale to the growth plan. Cyber posture adequate with gaps to close.', 'Addressed by the post-close IT roadmap in the 100-day plan.');
 
   // HR / management.
   add('hr', deal.ownership && /founder/i.test(deal.ownership) ? 'condition' : 'monitor',
-    'Key-person dependency on founder/CEO; structured references positive.', 'Retention + incentive (MIP) structuring pre-close.');
+    'Key-person dependency on founder/CEO; structured references positive.', 'Addressed via retention and management-incentive (MIP) structuring pre-close.');
 
   // ESG / environmental.
   add('esg', 'clear', 'Phase I ESA per ASTM E1527-21 identifies no Recognized Environmental Conditions (no Phase II triggered).', 'CERCLA safe-harbor established.');

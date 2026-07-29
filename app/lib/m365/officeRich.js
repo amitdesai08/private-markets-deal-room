@@ -60,6 +60,34 @@ const clip = (s, n) => {
   const cut = t.slice(0, n); const sp = cut.lastIndexOf(' ');
   return (sp > n * 0.6 ? cut.slice(0, sp) : cut).replace(/[\s.,;:—–-]+$/, '') + '…';
 };
+// Normalize workstream keys to one consistent label set across every document, so the
+// two internal taxonomies (e.g. 'tech'/'techai', 'operational'/'operations') never read
+// inconsistently in the memo, models and deck.
+const WS_LABELS = {
+  financial: 'Financial', finance: 'Financial',
+  commercial: 'Commercial',
+  legal: 'Legal',
+  tax: 'Tax',
+  operational: 'Operations', operations: 'Operations', ops: 'Operations',
+  tech: 'Technology / AI', techai: 'Technology / AI', 'tech-ai': 'Technology / AI', technology: 'Technology / AI',
+  hr: 'HR / Management', management: 'HR / Management', people: 'HR / Management',
+  esg: 'ESG',
+};
+function prettyWorkstream(v) {
+  if (v == null || v === '') return '—';
+  const s = String(v).trim();
+  const key = s.toLowerCase();
+  if (WS_LABELS[key]) return WS_LABELS[key];
+  // Already a human label (contains a space or an internal capital) — leave as-is.
+  if (/\s/.test(s) || /[A-Z]/.test(s)) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+// Normalize status tokens (e.g. 'in_progress') to readable labels.
+function prettyStatus(v) {
+  if (v == null || v === '') return 'In progress';
+  const s = String(v).trim().replace(/[_-]+/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 const dateStr = (v) => {
   if (!v) return '—';
   const d = new Date(v);
@@ -271,7 +299,7 @@ export async function buildIcMemoDocx(deal, extras = {}) {
   ].filter(Boolean);
 
   const riskRows = riskItems.slice(0, 10).map((r) => [r.risk, riskTiming(r), r.likelihood || '—', r.mitigation || '—', riskResidual(r)]);
-  const findingsRows = [...riskItems].sort((a, b) => String(a.workstream || '').localeCompare(String(b.workstream || ''))).map((r) => [r.workstream || '—', r.risk, r.mitigation || '—', riskTiming(r)]);
+  const findingsRows = [...riskItems].sort((a, b) => String(a.workstream || '').localeCompare(String(b.workstream || ''))).map((r) => [prettyWorkstream(r.workstream), r.risk, r.mitigation || '—', riskTiming(r)]);
   const modelAdj = riskItems.filter((r) => r.severity === 'condition' || /condition/i.test(r.severityLabel || '')).map((r) => `${r.risk} — reflected in the model and/or SPA (${r.mitigation || 'adjustment'}).`);
   const closingCount = riskItems.filter((r) => r.severity === 'condition').length;
   const monitorCount = riskItems.filter((r) => r.severity === 'monitor').length;
@@ -284,8 +312,8 @@ export async function buildIcMemoDocx(deal, extras = {}) {
   for (let i = 0; i < Math.max(suSrc.length, suUse.length); i++) suRows.push([suSrc[i]?.label || '', suSrc[i]?.amount != null ? m$(suSrc[i].amount) : '', suUse[i]?.label || '', suUse[i]?.amount != null ? m$(suUse[i].amount) : '']);
   if (R.sourcesUses && (R.sourcesUses.totalSources != null || R.sourcesUses.totalUses != null)) suRows.push(['Total sources', m$(R.sourcesUses.totalSources), 'Total uses', m$(R.sourcesUses.totalUses)]);
   const bridgeRows = (bridge.components || []).map((c) => [c.lever, c.contribution != null ? `+${m$(c.contribution).slice(1)}` : '—', prettyRole(c.owner)]);
-  const leverRows = levers.map((l) => [l.name, l.workstream || '—', l.impact != null ? `+${m$(l.impact).slice(1)}` : '—', l.timeline || '—', prettyRole(l.owner)]);
-  const wsRows = workstreams.map((w) => [w.name || w.title || w.lane || 'Workstream', prettyRole(w.owner || w.md || w.lead), Number.isFinite(Number(w.progress)) ? `${Number(w.progress)}%` : '—', w.status || 'In progress']);
+  const leverRows = levers.map((l) => [l.name, prettyWorkstream(l.workstream), l.impact != null ? `+${m$(l.impact).slice(1)}` : '—', l.timeline || '—', prettyRole(l.owner)]);
+  const wsRows = workstreams.map((w) => [(w.name || w.title || w.lane) ? prettyWorkstream(w.name || w.title || w.lane) : 'Workstream', prettyRole(w.owner || w.md || w.lead), Number.isFinite(Number(w.progress)) ? `${Number(w.progress)}%` : '—', prettyStatus(w.status)]);
   const artRows = reqItems.map((a) => [a.label, a.complete ? '✓ Complete' : '✗ Open', a.detail || '']);
   const conditions = riskItems.filter((r) => r.severity === 'condition' || r.severityLabel === 'Closing condition');
 
@@ -555,7 +583,7 @@ function composeRichModel(deal, extras = {}) {
   if (levers.length || bridge.exit != null) {
     const vc = wb.addWorksheet('Value Creation', { views: [{ showGridLines: false }] });
     vc.columns = [{ header: 'Lever', key: 'name', width: 30 }, { header: 'Workstream', key: 'ws', width: 16 }, { header: 'EBITDA impact (M)', key: 'impact', width: 18 }, { header: 'Timeline', key: 'timeline', width: 18 }, { header: 'Owner', key: 'owner', width: 28 }];
-    for (const l of levers) vc.addRow({ name: l.name, ws: l.workstream || '', impact: l.impact ?? '', timeline: l.timeline || '', owner: l.owner ? prettyRole(l.owner) : '' });
+    for (const l of levers) vc.addRow({ name: l.name, ws: l.workstream ? prettyWorkstream(l.workstream) : '', impact: l.impact ?? '', timeline: l.timeline || '', owner: l.owner ? prettyRole(l.owner) : '' });
     styleTable(vc);
     dataBar(vc, `C2:C${vc.rowCount}`);
     if (bridge.components) {
@@ -569,7 +597,7 @@ function composeRichModel(deal, extras = {}) {
   if (riskItems.length) {
     const rk = wb.addWorksheet('Risks', { views: [{ showGridLines: false }] });
     rk.columns = [{ header: 'ID', key: 'id', width: 6 }, { header: 'Workstream', key: 'ws', width: 24 }, { header: 'Risk', key: 'risk', width: 60 }, { header: 'Severity', key: 'sev', width: 18 }, { header: 'Likelihood', key: 'lk', width: 12 }, { header: 'Mitigation', key: 'mit', width: 50 }];
-    for (const r of riskItems) rk.addRow({ id: r.id || '', ws: r.workstream || '', risk: r.risk || '', sev: r.severityLabel || r.severity || '', lk: r.likelihood || '', mit: r.mitigation || '' });
+    for (const r of riskItems) rk.addRow({ id: r.id || '', ws: r.workstream ? prettyWorkstream(r.workstream) : '', risk: r.risk || '', sev: r.severityLabel || r.severity || '', lk: r.likelihood || '', mit: r.mitigation || '' });
     styleTable(rk);
     rk.getColumn('risk').alignment = { wrapText: true, vertical: 'top' }; rk.getColumn('mit').alignment = { wrapText: true, vertical: 'top' };
   }
@@ -583,7 +611,7 @@ function composeRichModel(deal, extras = {}) {
   }
   const w = wb.addWorksheet('Workstreams', { views: [{ showGridLines: false }] });
   w.columns = [{ header: 'Workstream', key: 'name', width: 34 }, { header: 'Owner', key: 'owner', width: 24 }, { header: 'Progress', key: 'progress', width: 12 }, { header: 'Status', key: 'status', width: 22 }];
-  if (workstreams.length) { for (const ws of workstreams) w.addRow({ name: ws.name || ws.title || ws.lane || 'Workstream', owner: (ws.owner || ws.md || ws.lead) ? prettyRole(ws.owner || ws.md || ws.lead) : '', progress: Number.isFinite(Number(ws.progress)) ? Number(ws.progress) / 100 : '', status: ws.status || 'In progress' }); w.getColumn('progress').numFmt = '0%'; dataBar(w, `C2:C${w.rowCount}`); }
+  if (workstreams.length) { for (const ws of workstreams) w.addRow({ name: (ws.name || ws.title || ws.lane) ? prettyWorkstream(ws.name || ws.title || ws.lane) : 'Workstream', owner: (ws.owner || ws.md || ws.lead) ? prettyRole(ws.owner || ws.md || ws.lead) : '', progress: Number.isFinite(Number(ws.progress)) ? Number(ws.progress) / 100 : '', status: prettyStatus(ws.status) }); w.getColumn('progress').numFmt = '0%'; dataBar(w, `C2:C${w.rowCount}`); }
   else w.addRow({ name: 'No workstreams provisioned yet', owner: '', progress: '', status: '' });
   styleTable(w);
   return wb;
@@ -888,7 +916,7 @@ export async function buildIcDeckPptx(deal, extras = {}) {
   const wsColor = (w) => { const p = Number(w.progress); const st = (w.status || '').toLowerCase(); if (/block|red|stop/.test(st)) return P_RED; if (p >= 80 || /complete|clear|green/.test(st)) return P_GREEN; if (p >= 40 || /progress|amber/.test(st)) return P_AMBER; return P_MUTE; };
   slides.push([
     ...deckHeader('Diligence findings by workstream', co),
-    ...(workstreams.length ? gridTable(0.68, 1.35, 12, ['Workstream', 'Owner', 'Progress', 'Status'], workstreams.map((w) => [w.name || w.lane, prettyRole(w.owner || w.md || w.lead), Number.isFinite(Number(w.progress)) ? `${w.progress}%` : '—', w.status || 'In progress']), [34, 26, 14, 26]) : [{ kind: 'text', x: 0.68, y: 1.5, w: 12, h: 1, paras: [{ text: 'Workstreams not yet provisioned.', size: 13, color: P_MUTE }] }]),
+    ...(workstreams.length ? gridTable(0.68, 1.35, 12, ['Workstream', 'Owner', 'Progress', 'Status'], workstreams.map((w) => [prettyWorkstream(w.name || w.lane), prettyRole(w.owner || w.md || w.lead), Number.isFinite(Number(w.progress)) ? `${w.progress}%` : '—', prettyStatus(w.status)]), [34, 26, 14, 26]) : [{ kind: 'text', x: 0.68, y: 1.5, w: 12, h: 1, paras: [{ text: 'Workstreams not yet provisioned.', size: 13, color: P_MUTE }] }]),
     { kind: 'text', x: 0.68, y: 5.6, w: 12, h: 1.2, valign: 't', paras: [{ runs: [{ text: 'Status:  ', size: 12, bold: true, color: P_INK }, { text: `${workstreams.filter((w) => Number(w.progress) >= 80).length} substantially complete · ${workstreams.filter((w) => Number(w.progress) < 40).length} early · compliance ${dash(deal.complianceCleared)}/${dash(deal.complianceTotal)} cleared.`, size: 12, color: '2B2B2B' }] }] },
   ]);
 
