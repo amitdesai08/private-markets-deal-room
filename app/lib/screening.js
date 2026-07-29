@@ -12,9 +12,9 @@
 //   O4 Screening Gate -> paper-LBO returns (entry mult, leverage, MOIC, IRR) + memo
 
 import { gateCompany } from './scoring.js';
+import { money, symbolFor } from './money.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const money = (m) => (m == null ? '—' : m >= 1000 ? `$${(m / 1000).toFixed(1)}B` : `$${Math.round(m)}M`);
 
 // ===========================================================================
 //  O2 · AUTO SCREEN — Investment-Criteria Scorecard (hard knockouts + soft flags)
@@ -38,6 +38,7 @@ function verdict(pass, flag) {
 function scorecardRows(c, fund) {
   const rows = [];
   const gate = gateCompany(c, fund);
+  const sym = symbolFor(c);
 
   // --- Hard knockouts (a FAIL blocks advancement) --------------------------
   const sectorOk = fund.sectorsPermitted?.includes(c.sector) && !fund.sectorsExcluded?.includes(c.sector);
@@ -62,9 +63,9 @@ function scorecardRows(c, fund) {
     key: 'ev', label: 'Enterprise-value band', group: 'hard',
     status: evOk ? 'pass' : evNear ? 'flag' : 'fail',
     detail: evOk
-      ? `${money(c.dealSize)} EV sits inside the ${money(fund.evMin)}–${money(fund.evMax)} band.`
-      : `${money(c.dealSize)} EV is ${c.dealSize < fund.evMin ? 'below' : 'above'} the ${money(fund.evMin)}–${money(fund.evMax)} band${evNear ? ' (marginal).' : '.'}`,
-    value: money(c.dealSize)
+      ? `${money(c.dealSize, sym)} EV sits inside the ${money(fund.evMin, sym)}–${money(fund.evMax, sym)} band.`
+      : `${money(c.dealSize, sym)} EV is ${c.dealSize < fund.evMin ? 'below' : 'above'} the ${money(fund.evMin, sym)}–${money(fund.evMax, sym)} band${evNear ? ' (marginal).' : '.'}`,
+    value: money(c.dealSize, sym)
   });
 
   const ebitdaPositive = (c.ebitda ?? 0) > 0;
@@ -72,9 +73,9 @@ function scorecardRows(c, fund) {
     key: 'ebitda-floor', label: 'Positive EBITDA (LBO viability)', group: 'hard',
     status: verdict(ebitdaPositive, (c.ebitda ?? 0) < 10),
     detail: !ebitdaPositive
-      ? `Non-positive EBITDA (${money(c.ebitda)}) — cannot service acquisition debt.`
-      : (c.ebitda < 10 ? `${money(c.ebitda)} EBITDA is thin for a platform; may fit only as an add-on.` : `${money(c.ebitda)} EBITDA supports a leveraged structure.`),
-    value: money(c.ebitda)
+      ? `Non-positive EBITDA (${money(c.ebitda, sym)}) — cannot service acquisition debt.`
+      : (c.ebitda < 10 ? `${money(c.ebitda, sym)} EBITDA is thin for a platform; may fit only as an add-on.` : `${money(c.ebitda, sym)} EBITDA supports a leveraged structure.`),
+    value: money(c.ebitda, sym)
   });
 
   const impliedMult = c.ebitda > 0 ? c.dealSize / c.ebitda : null;
@@ -329,13 +330,21 @@ export function buildReturns(c) {
     holdYears: HOLD_YEARS,
     scenarios,
     hurdle: { irr: 20, moic: 2.0 },
-    meetsHurdle
+    meetsHurdle,
+    grade: 'screening',
+    assumptions: [
+      'Screening-grade paper LBO — an indicative heuristic, not an IC model.',
+      '~50% of entry debt repaid from cumulative free cash flow over the hold.',
+      'No explicit cash interest, cash taxes, capex or working-capital drag.',
+      'Deterministic EBITDA CAGR to a fixed-multiple exit.'
+    ]
   };
 }
 
 // Deterministic IC pre-screen memo — the fallback/base the AI narrative enriches.
 export function buildMemoBase(c, fund, { fitScore, tier } = {}) {
   const returns = buildReturns(c);
+  const sym = symbolFor(c);
   const isProprietary = /founder|family/i.test(c.ownership || '') && (c.sources || []).includes('cxo');
   const rec = returns.meetsHurdle ? 'PURSUE' : 'PASS';
   const ceilingNote = returns.entryAboveCeiling
@@ -345,7 +354,7 @@ export function buildMemoBase(c, fund, { fitScore, tier } = {}) {
     kind: 'memo',
     generated: false,
     recommendation: rec,
-    execSummary: `${c.company} — a ${money(c.dealSize)} ${c.sector.toLowerCase()} ${c.ownership}-owned target. Paper LBO returns ${returns.scenarios.base.moic}x / ${returns.scenarios.base.irr}% IRR in the base case at a ${returns.entryMultiple}x entry.${ceilingNote} ${returns.meetsHurdle ? 'Clears the fund hurdle — recommend PURSUE and authorize an IOI.' : 'Below the 20% / 2.0x hurdle on paper — recommend PASS unless the angle or entry improves.'}`,
+    execSummary: `${c.company} — a ${money(c.dealSize, sym)} ${c.sector.toLowerCase()} ${c.ownership}-owned target. Paper LBO returns ${returns.scenarios.base.moic}x / ${returns.scenarios.base.irr}% IRR in the base case at a ${returns.entryMultiple}x entry.${ceilingNote} ${returns.meetsHurdle ? 'Clears the fund hurdle — recommend PURSUE and authorize an IOI.' : 'Below the 20% / 2.0x hurdle on paper — recommend PASS unless the angle or entry improves.'}`,
     sourcingAngle: isProprietary
       ? 'Warm CxO relationship into a founder/family owner — a proprietary, limited-process angle with room to lead on certainty rather than price.'
       : `${c.ownership}-owned; likely a ${/sponsor|public/i.test(c.ownership) ? 'competitive/auction' : 'semi-intermediated'} process. Angle-to-win must be defined before committing diligence spend.`,
@@ -355,7 +364,7 @@ export function buildMemoBase(c, fund, { fitScore, tier } = {}) {
     dealTeam: 'Sponsor: sector Partner · Execution: VP + Associate · Advisers: QoE (accounting), commercial DD, legal.',
     returns,
     ask: returns.meetsHurdle
-      ? `Approve an IOI at ${returns.entryMultiple}x EV/EBITDA (${money(returns.scenarios.base.entryEV)} EV) and a ~$0.4–0.7M diligence budget over ${returns.holdYears === 5 ? '6–8 weeks' : 'the diligence window'}.`
+      ? `Approve an IOI at ${returns.entryMultiple}x EV/EBITDA (${money(returns.scenarios.base.entryEV, sym)} EV) and a ~${sym}0.4–0.7M diligence budget over ${returns.holdYears === 5 ? '6–8 weeks' : 'the diligence window'}.`
       : 'No IC ask — recommend logging a pass (or parking on a re-engagement trigger).',
     tier: tier || null
   };
@@ -377,7 +386,7 @@ function memoRisks(c, returns) {
   if (/founder|family/i.test(c.ownership || '')) risks.push({ risk: 'Founder/key-person dependency', mitigant: 'Management diligence + retention/incentive structuring.' });
   if (!returns.meetsHurdle) risks.push({ risk: 'Base-case returns below hurdle on paper', mitigant: 'Negotiate entry multiple or identify additional value levers.' });
   risks.push({ risk: 'Customer concentration unknown', mitigant: 'Confirm top-customer mix (<20–30%) in early diligence.' });
-  return risks.slice(0, 5);
+  return risks.slice(0, 5).map((r) => ({ ...r, provenance: 'inferred' }));
 }
 function diligencePriorities(c) {
   return [

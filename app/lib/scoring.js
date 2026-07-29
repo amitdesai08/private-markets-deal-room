@@ -6,6 +6,8 @@
 //                 selected screens (keeping each company's best-matching screen).
 // validateScreen — enforce that a screen may only NARROW its theme & fund.
 
+import { money, symbolFor } from './money.js';
+
 const WEIGHTS = {
   sector: 15,
   region: 15,
@@ -20,6 +22,7 @@ const WEIGHTS = {
 
 export function gateCompany(company, fund) {
   const reasons = [];
+  const sym = symbolFor(company);
   if (fund.sectorsExcluded?.includes(company.sector)) {
     reasons.push(`Excluded sector under the LPA (${company.sector})`);
   }
@@ -39,10 +42,10 @@ export function gateCompany(company, fund) {
     }
   }
   if (company.dealSize < fund.evMin) {
-    reasons.push(`EV $${company.dealSize}M below the mandate floor ($${fund.evMin}M)`);
+    reasons.push(`EV ${money(company.dealSize, sym)} below the mandate floor (${money(fund.evMin, sym)})`);
   }
   if (company.dealSize > fund.evMax) {
-    reasons.push(`EV $${company.dealSize}M above the mandate cap ($${fund.evMax}M)`);
+    reasons.push(`EV ${money(company.dealSize, sym)} above the mandate cap (${money(fund.evMax, sym)})`);
   }
   return { passes: reasons.length === 0, reasons };
 }
@@ -143,6 +146,7 @@ export function scoreTargets(companies, selectedScreens, fund) {
 export function validateScreen(screen, theme, fund) {
   const errors = [];
   const warnings = [];
+  const sym = symbolFor(fund);
 
   // Hard — fund mandate
   if (screen.sector && fund.sectorsExcluded?.includes(screen.sector)) {
@@ -157,10 +161,10 @@ export function validateScreen(screen, theme, fund) {
     }
   }
   if (screen.evMin != null && screen.evMin < fund.evMin) {
-    errors.push(`EV floor $${screen.evMin}M is below the fund mandate floor of $${fund.evMin}M.`);
+    errors.push(`EV floor ${money(screen.evMin, sym)} is below the fund mandate floor of ${money(fund.evMin, sym)}.`);
   }
   if (screen.evMax != null && screen.evMax > fund.evMax) {
-    errors.push(`EV ceiling $${screen.evMax}M exceeds the fund mandate cap of $${fund.evMax}M.`);
+    errors.push(`EV ceiling ${money(screen.evMax, sym)} exceeds the fund mandate cap of ${money(fund.evMax, sym)}.`);
   }
 
   // Soft — parent theme

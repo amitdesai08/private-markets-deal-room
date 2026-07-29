@@ -13,7 +13,12 @@
 //   D4 Approval    -> Execution Pack (IC decision, SPA terms, conditions precedent, funds flow)
 //   D5 Archive     -> Close-out & 100-Day Plan (value creation, governance, records)
 
-import { buildReturns, fmtMoney as money, paperLbo } from './screening.js';
+import { buildReturns, paperLbo } from './screening.js';
+import { money as fmtMoney, symbolFor } from './money.js';
+
+// Module-level default keeps $ for any helper without a per-deal shadow; each
+// builder below redeclares a currency-aware `money(m)` from the deal's currency.
+const money = (m) => fmtMoney(m);
 
 const pct = (n) => `${Math.round(n)}%`;
 const round = (n) => Math.round(n);
@@ -79,6 +84,7 @@ function riskToWorkstream(riskText) {
 }
 
 export function buildDiligencePlan(deal, memoRisks = []) {
+  const money = (m) => fmtMoney(m, symbolFor(deal));
   const f = dealFinancials(deal);
   // Elevate the priority of workstreams that own a screening-memo risk.
   const riskCounts = {};
@@ -140,16 +146,17 @@ export function buildDiligencePlan(deal, memoRisks = []) {
 const SEVERITY = { stopper: { label: 'Deal-stopper', rank: 4 }, reprice: { label: 'Price-adjuster', rank: 3 }, condition: { label: 'Closing condition', rank: 2 }, monitor: { label: 'Post-close / 100-day', rank: 1 }, clear: { label: 'Confirmed clean', rank: 0 } };
 
 // Deterministic findings per workstream, calibrated off the deal's financials so
-// they read as real diligence outcomes rather than lorem ipsum.
+// they read as realistic diligence outcomes. These are TEMPLATED placeholders
+// (basis: 'templated') meant to seed the red-flag tracker — they are indicative
+// pending sourced evidence, not observed facts, and are tagged as such so callers
+// and documents can distinguish inferred content from confirmed findings.
 function workstreamFindings(deal) {
   const f = dealFinancials(deal);
-  // Currency-aware money for the finding narrative, so figures match the deal's
-  // reporting currency (e.g. a £ deal never reads "$131M" in its red-flag report).
-  const CURSYM = { USD: '$', EUR: '€', GBP: '£' };
-  const sym = CURSYM[deal?.currency] || '$';
-  const money = (m) => (m == null ? '—' : m >= 1000 ? `${sym}${(m / 1000).toFixed(1)}B` : `${sym}${Math.round(m)}M`);
+  // Currency-aware money so figures match the deal's reporting currency
+  // (e.g. a £ deal never reads "$131M" in its red-flag report).
+  const money = (m) => fmtMoney(m, symbolFor(deal));
   const out = [];
-  const add = (workstream, severity, finding, impact) => out.push({ workstream, severity, finding, impact });
+  const add = (workstream, severity, finding, impact, basis = 'templated') => out.push({ workstream, severity, finding, impact, basis });
 
   // Financial / QoE — EBITDA haircut sized off margin quality.
   const haircut = f.ebitdaMargin < 10 ? 18 : f.ebitdaMargin < 15 ? 12 : 6;
@@ -232,6 +239,7 @@ export function buildFindingsReport(deal) {
 // authorization sought (max EV, equity check, financing).
 
 export function buildFinalMemoBase(deal, { findings } = {}) {
+  const money = (m) => fmtMoney(m, symbolFor(deal));
   const cand = dealAsCandidate(deal);
   const returns = buildReturns(cand);
   const f = dealFinancials(deal);
@@ -273,7 +281,7 @@ export function buildFinalMemoBase(deal, { findings } = {}) {
       routes: [
         { route: 'Strategic sale (M&A)', note: 'Most common mid-market exit; trade buyers seeking scale/adjacency.' },
         { route: 'Secondary buyout (PE-to-PE)', note: 'Sponsor-to-sponsor at scale.' },
-        { route: 'IPO', note: `Requires scale (~$150M+ EBITDA) — ${f.ebitda >= 150 ? 'in range' : 'not a base-case route here'}.` }
+        { route: 'IPO', note: `Requires scale (~${money(150)}+ EBITDA) — ${f.ebitda >= 150 ? 'in range' : 'not a base-case route here'}.` }
       ],
       holdYears: returns.holdYears,
       exitMultiple: `${returns.entryMultiple}x (no multiple expansion assumed in base)`
@@ -291,11 +299,19 @@ export function buildFinalMemoBase(deal, { findings } = {}) {
 // Research: IC votes (unanimous at smaller funds) with conditions tracked to
 // close; the SPA carries price mechanism (locked-box vs completion accounts /
 // NWC true-up), reps & warranties, indemnity/escrow, earnout; RWI is standard
-// (80-90%+ of >$25M deals, 2.5-4% of limit); conditions precedent include HSR
-// (>~$119.5M), third-party consents & financing; a funds-flow memo documents
-// sources & uses at close.
+// (used on 80-90%+ of larger buyouts, 2.5-4% of limit); conditions precedent
+// include HSR (US size-of-transaction filing threshold), third-party consents &
+// financing; a funds-flow memo documents sources & uses at close.
+
+// US HSR Act size-of-transaction filing threshold. The FTC revises this annually
+// (indexed to GNP); keep this constant + year current. 2025 figure per the FTC's
+// Jan-2025 revision, effective ~Feb 2025. NOTE: US-only test; non-US deals follow
+// their own merger-control regimes.
+const HSR_THRESHOLD_USD_M = 126.4;
+const HSR_THRESHOLD_YEAR = 2025;
 
 export function buildExecutionPack(deal, { memo } = {}) {
+  const money = (m) => fmtMoney(m, symbolFor(deal));
   const cand = dealAsCandidate(deal);
   const returns = (memo && memo.returns) || buildReturns(cand);
   const f = dealFinancials(deal);
@@ -303,7 +319,7 @@ export function buildExecutionPack(deal, { memo } = {}) {
   const debt = round(returns.scenarios.base.debt);
   const equity = round(returns.scenarios.base.equityIn);
   const fees = round(ev * 0.02);
-  const hsrRequired = ev >= 119.5;
+  const hsrRequired = ev >= HSR_THRESHOLD_USD_M;
 
   return {
     kind: 'execution',
@@ -321,9 +337,9 @@ export function buildExecutionPack(deal, { memo } = {}) {
       { term: 'Earnout', detail: /founder/i.test(deal.ownership || '') ? 'Consider a modest earnout to bridge valuation with the founder.' : 'None contemplated.' },
       { term: 'Non-compete', detail: 'Seller/founder non-compete and non-solicit for the customary period.' }
     ],
-    rwi: { used: true, premiumPct: '2.5–4.0% of limit', retentionPct: '~0.5% of EV', note: 'Standard in mid-market (80–90%+ of >$25M deals).' },
+    rwi: { used: true, premiumPct: '2.5–4.0% of limit', retentionPct: '~0.5% of EV', note: 'Standard in mid-market (used on 80–90%+ of larger buyouts).' },
     conditionsPrecedent: [
-      { item: 'HSR antitrust clearance', status: hsrRequired ? 'Required' : 'Not required', detail: hsrRequired ? `EV ${money(ev)} exceeds the ~$119.5M HSR threshold — 30-day waiting period.` : `EV ${money(ev)} is below the ~$119.5M HSR threshold.` },
+      { item: 'HSR antitrust clearance', status: hsrRequired ? 'Required' : 'Not required', detail: hsrRequired ? `EV ${money(ev)} exceeds the ~$${HSR_THRESHOLD_USD_M}M US HSR Act filing threshold (${HSR_THRESHOLD_YEAR}; FTC-adjusted annually) — 30-day waiting period. US deals only; non-US targets follow local merger control.` : `EV ${money(ev)} is below the ~$${HSR_THRESHOLD_USD_M}M US HSR Act filing threshold (${HSR_THRESHOLD_YEAR}; US deals).` },
       { item: 'Third-party consents', status: 'Pending', detail: 'Change-of-control consents on material contracts (from legal DD).' },
       { item: 'Debt financing', status: 'Committed', detail: `Commitment letters for ~${money(debt)} of senior debt (Term Loan B + RCF).` },
       { item: 'Ordinary-course covenant', status: 'In effect', detail: 'Seller operates in the ordinary course through the gap period.' }
@@ -360,6 +376,7 @@ export function buildExecutionPack(deal, { memo } = {}) {
 // audit trail; fair-value (ASC 820) & ILPA reporting onboarded.
 
 export function buildCloseoutPlan(deal) {
+  const money = (m) => fmtMoney(m, symbolFor(deal));
   const f = dealFinancials(deal);
   return {
     kind: 'closeout',
@@ -448,6 +465,7 @@ export function buildReturnsModel(deal) {
 //  VALUE-CREATION PLAN — EBITDA bridge + levers (Operating Partner · 100-day)
 // ===========================================================================
 export function buildValueCreationPlan(deal) {
+  const money = (m) => fmtMoney(m, symbolFor(deal));
   const f = dealFinancials(deal);
   const cand = dealAsCandidate(deal);
   const r = buildReturns(cand);
@@ -504,6 +522,7 @@ export function buildRiskRegister(deal) {
       likelihood: likelihoodFor(fnd.severity),
       mitigation: fnd.impact || 'Owner to define mitigation and track to resolution before signing.',
       owner: wsLabel[fnd.workstream] || 'Deal team',
+      basis: fnd.basis || 'templated',
     }));
   const counts = { stopper: 0, reprice: 0, condition: 0, monitor: 0 };
   for (const rk of risks) if (counts[rk.severity] != null) counts[rk.severity]++;
@@ -529,6 +548,7 @@ export function buildRiskRegister(deal) {
 // structure submitted after the first management meeting, before diligence
 // resources are committed.
 export function buildIoi(deal) {
+  const money = (m) => fmtMoney(m, symbolFor(deal));
   const cand = dealAsCandidate(deal);
   const f = dealFinancials(deal);
   const r = buildReturns(cand);
@@ -556,6 +576,7 @@ export function buildIoi(deal) {
 //  LOI — Letter of Intent / Term Sheet (Partner · LOI gate)
 // ===========================================================================
 export function buildLoi(deal) {
+  const money = (m) => fmtMoney(m, symbolFor(deal));
   const cand = dealAsCandidate(deal);
   const r = buildReturns(cand);
   const base = r.scenarios.base;
