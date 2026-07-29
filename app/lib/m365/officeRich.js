@@ -95,20 +95,31 @@ const dateStr = (v) => {
 };
 
 // ---- palette (INK/ACCENT are white-labelable via the template config) -------
-let INK = '1F3864', ACCENT = '2E74B5';
+const DEFAULT_INK = '1F3864', DEFAULT_ACCENT = '2E74B5';
+const DEFAULT_BRAND = 'The Deal Room', DEFAULT_CONF = 'CONFIDENTIAL', DEFAULT_EYEBROW = 'INVESTMENT COMMITTEE MEMORANDUM';
+const DEFAULT_DISCLAIMER = 'This memorandum is generated from the live deal record, drawing on the returns model, value-creation plan, risk register and IC-readiness assessment. Figures reflect the state of diligence at generation time and are provided for committee discussion on a strictly confidential basis.';
+const DEFAULT_SECTIONS = Object.freeze({ merits: true, financials: true, valuation: true, valueCreation: true, findings: true });
+
+let INK = DEFAULT_INK, ACCENT = DEFAULT_ACCENT;
 const MUTE = '6B7280', LINE = 'D9DEE7', BAND = 'EEF2F7';
-let BRAND = 'The Deal Room', FOOTER_CONF = 'CONFIDENTIAL', EYEBROW = 'INVESTMENT COMMITTEE MEMORANDUM';
-let DISCLAIMER = 'This memorandum is generated from the live deal record, drawing on the returns model, value-creation plan, risk register and IC-readiness assessment. Figures reflect the state of diligence at generation time and are provided for committee discussion on a strictly confidential basis.';
-let SECTIONS = { merits: true, financials: true, valuation: true, valueCreation: true, findings: true };
-// Pull the admin-authored template so a firm can brand / tweak every generated document.
+let BRAND = DEFAULT_BRAND, FOOTER_CONF = DEFAULT_CONF, EYEBROW = DEFAULT_EYEBROW;
+let DISCLAIMER = DEFAULT_DISCLAIMER;
+let SECTIONS = { ...DEFAULT_SECTIONS };
+// Resolve branding from the single, platform-wide admin template on EVERY build.
+// Idempotent by design: it always RESETS to defaults first and then applies the
+// template, so brand state can never drift or leak from a prior render. Safe under
+// concurrency because (a) getDocTemplate() is a single platform-wide config, not a
+// per-firm/per-deal value, and (b) each builder resolves branding and then constructs
+// the whole document synchronously — completing before any await — so two in-flight
+// builds cannot interleave and observe each other's brand state.
 function applyBrand() {
   let t; try { t = getDocTemplate(); } catch { t = null; }
-  if (!t) return;
-  INK = t.inkColor || INK; ACCENT = t.accentColor || ACCENT;
-  XNAVY = 'FF' + (t.inkColor || '1F3864'); XACC = 'FF' + (t.accentColor || '2E74B5');
-  P_INK = t.inkColor || P_INK; P_ACCENT = t.accentColor || P_ACCENT;
-  BRAND = t.fundName || BRAND; FOOTER_CONF = t.confidentialLabel || FOOTER_CONF; EYEBROW = t.coverEyebrow || EYEBROW; DISCLAIMER = t.disclaimer || DISCLAIMER;
-  SECTIONS = { ...SECTIONS, ...(t.sections || {}) };
+  t = t || {};
+  INK = t.inkColor || DEFAULT_INK; ACCENT = t.accentColor || DEFAULT_ACCENT;
+  XNAVY = 'FF' + INK; XACC = 'FF' + ACCENT;
+  P_INK = INK; P_ACCENT = ACCENT;
+  BRAND = t.fundName || DEFAULT_BRAND; FOOTER_CONF = t.confidentialLabel || DEFAULT_CONF; EYEBROW = t.coverEyebrow || DEFAULT_EYEBROW; DISCLAIMER = t.disclaimer || DEFAULT_DISCLAIMER;
+  SECTIONS = { ...DEFAULT_SECTIONS, ...(t.sections || {}) };
 }
 const GREEN = '0A8A5A', AMBER = 'B26A00', RED = 'B23B3B';
 const NOFILL = { style: BorderStyle.NONE };
@@ -331,6 +342,7 @@ export async function buildIcMemoDocx(deal, extras = {}) {
     new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: company, bold: true, color: INK, size: 44 })] }),
     subtitle ? new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: subtitle, color: MUTE, size: 20 })] }) : new Paragraph({ text: '' }),
     new Paragraph({ children: [new TextRun({ text: `Prepared ${dateStr(new Date())}  ·  Enterprise value ${evStr}  ·  IC readiness ${pct(deal.readiness)}  ·  ${verdict.state || 'IN DILIGENCE'}`, color: MUTE, italics: true, size: 18 })] }),
+    (verdict.state !== 'READY') ? new Paragraph({ spacing: { before: 30, after: 20 }, children: [new TextRun({ text: 'DRAFT — FOR COMMITTEE DISCUSSION. Generated from the live deal record; figures and diligence findings are indicative and pending confirmatory, independently-sourced evidence.', bold: true, color: AMBER, size: 15 })] }) : new Paragraph({ spacing: { after: 0 }, text: '' }),
     rule(ACCENT, 10),
 
     sectionHeading('1. Executive summary'),
@@ -368,7 +380,10 @@ export async function buildIcMemoDocx(deal, extras = {}) {
     ...(suRows.length ? [subHead('Sources & uses'), dataTable(['Sources', `${cur}M`, 'Uses', `${cur}M`], suRows, [34, 16, 34, 16])] : []),
     callout(R.meetsHurdle ? 'Returns clear the fund hurdle' : 'Returns vs. hurdle', R.headline || (base.irr != null ? `Base case ${base.moic}x / ${base.irr}% versus a ${hurdle.moic || '—'}x / ${hurdle.irr || '—'}% hurdle.` : 'Returns to be finalised.'), R.meetsHurdle ? GREEN : AMBER),
     subHead('Model assumptions & basis'),
-    ...bullets(modelAdj.length ? modelAdj : ['Entry economics and the operating case are taken from the base scenario; the debt schedule and free-cash-flow build sit in the accompanying Returns Model. Indicative build assumptions (capex, working capital, cost of debt, tax) are to be replaced with the confirmed operating model at IC.']),
+    ...bullets([
+      ...(Array.isArray(R.assumptions) ? R.assumptions : []),
+      ...(modelAdj.length ? modelAdj : ['Entry economics and the operating case are taken from the base scenario; the debt schedule and free-cash-flow build sit in the accompanying Returns Model. Indicative build assumptions (capex, working capital, cost of debt, tax) are to be replaced with the confirmed operating model at IC.']),
+    ]),
 
     ...((bridge.exit != null || leverRows.length) ? [
       sectionHeading('8. Value creation plan'),
@@ -380,7 +395,7 @@ export async function buildIcMemoDocx(deal, extras = {}) {
     sectionHeading('9. Diligence status'),
     wsRows.length ? dataTable(['Workstream', 'Owner', 'Progress', 'Status'], wsRows, [40, 26, 14, 20]) : body('Workstreams not yet provisioned for this deal.'),
     body(`Diligence is ${pct(deal.diligenceProgress)} complete overall; compliance/KYC ${dash(deal.complianceCleared)} of ${dash(deal.complianceTotal)} items cleared.`),
-    ...((SECTIONS.findings && findingsRows.length) ? [subHead('Findings by workstream'), dataTable(['Workstream', 'Finding', 'Treatment', 'Timing'], findingsRows, [22, 40, 26, 12])] : []),
+    ...((SECTIONS.findings && findingsRows.length) ? [subHead('Findings by workstream'), dataTable(['Workstream', 'Finding', 'Treatment', 'Timing'], findingsRows, [22, 40, 26, 12]), body('Basis of findings: generated from the live deal record and templated / indicative — pending independent, sourced diligence evidence. Provenance is tracked per finding and these are not yet confirmed conclusions.', { italics: true, color: MUTE, size: 17 })] : []),
 
     sectionHeading('10. IC readiness'),
     body('This memorandum, together with the accompanying returns and value-creation models, constitutes the draft IC paper and recommendation for this transaction. The checklist below tracks the items still outstanding to reach a formal IC-ready status.'),

@@ -18,6 +18,25 @@ import { config } from '../config.js';
 
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// A bearer JWT is three base64url segments separated by dots. We validate the SHAPE
+// of a caller-supplied on-behalf-of token before ever placing it in an Authorization
+// header; its audience/scope/signature are then enforced by Microsoft Graph itself
+// (a forged or wrong-audience token yields 401), so we never trust it implicitly.
+const JWT_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+// The Microsoft Graph resource app id (the expected `aud` on a Graph token).
+const GRAPH_AUD = '00000003-0000-0000-c000-000000000000';
+// Decode (not verify) the JWT payload so we can fail fast on wrong-audience /
+// wrong-tenant / expired tokens before ever calling Graph. The cryptographic
+// signature is still enforced by Microsoft when the token is presented.
+function decodeJwtClaims(token) {
+  const parts = String(token).split('.');
+  if (parts.length !== 3) return null;
+  try {
+    return JSON.parse(Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
+  } catch { return null; }
+}
+// Reject anything that could escape the intended data-room folder.
+const safeSegment = (s) => typeof s === 'string' && s.length > 0 && s.length <= 255 && !/[\\/]|\.\./.test(s);
 
 export class GraphError extends Error {}
 export class M365NotConnectedError extends Error {}
@@ -489,7 +508,13 @@ async function dealDocFolder(deal) {
   if (!folder?.id) {
     folder = await graph(`/drives/${drive.id}/root/children`, {
       method: 'POST',
-      body: { name: folderName, folder: {}, '@microsoft.graph.conflictBehavior': 'replace' },
+      body: { name: folderName, folder: {}, '@microsoft.graph.conflictBehavior': 'fail' },
+    }).catch(async (e) => {
+      // Lost a create race, or the folder already exists — re-fetch it rather than
+      // overwriting (never destructively 'replace' a live data-room folder).
+      const existing = await graph(`/drives/${drive.id}/root:/${seg}?$select=id,webUrl`).catch(() => null);
+      if (existing?.id) return existing;
+      throw e;
     });
   }
   return { driveId: drive.id, folderId: folder.id, folderUrl: folder.webUrl || drive.webUrl || null };
@@ -548,12 +573,29 @@ export async function provisionDealDataRoom(deal, folderNames) {
 export async function saveDealDocument(deal, filename, buffer, contentType, opts = null) {
   const options = typeof opts === 'string' ? { userToken: opts } : (opts || {});
   const { userToken = null, subfolder = '' } = options;
+  // Path-safety: filename (and the optional subfolder) address a location inside the
+  // deal's data room — never allow separators or traversal that could redirect the write.
+  if (!safeSegment(filename)) throw new GraphError(`saveDealDocument: unsafe filename "${String(filename).slice(0, 60)}".`);
+  if (subfolder && !safeSegment(subfolder)) throw new GraphError(`saveDealDocument: unsafe subfolder "${String(subfolder).slice(0, 60)}".`);
   const { driveId, folderId, folderUrl } = await dealDocFolder(deal);
   // A per-user OBO Graph token (supplied by the Teams server) makes the upload
   // authored AS the requester on their own M365 license; otherwise fall back to
-  // the shared connector account that provisioned the data room.
+  // the shared connector account that provisioned the data room. When a token IS
+  // supplied we require it to be a well-formed bearer JWT before use.
   let token = userToken;
-  if (!token) token = await graphToken('/drives');
+  if (token != null) {
+    if (!JWT_RE.test(String(token))) throw new GraphError('saveDealDocument: userToken is not a well-formed bearer JWT.');
+    const claims = decodeJwtClaims(token);
+    if (!claims) throw new GraphError('saveDealDocument: userToken claims are unreadable.');
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (claims.exp && Number(claims.exp) < nowSec) throw new GraphError('saveDealDocument: userToken is expired.');
+    const aud = String(claims.aud || '');
+    if (aud !== GRAPH_AUD && !/graph\.microsoft\.com/i.test(aud)) throw new GraphError('saveDealDocument: userToken audience is not Microsoft Graph.');
+    const tenant = String((config.m365 && config.m365.tenantId) || '');
+    if (GUID_RE.test(tenant) && claims.tid && String(claims.tid) !== tenant) throw new GraphError('saveDealDocument: userToken tenant does not match the configured tenant.');
+  } else {
+    token = await graphToken('/drives');
+  }
   const rel = subfolder ? `${encodeURIComponent(subfolder)}/${encodeURIComponent(filename)}` : encodeURIComponent(filename);
   const resp = await fetch(`${GRAPH}/drives/${driveId}/items/${folderId}:/${rel}:/content`, {
     method: 'PUT',
