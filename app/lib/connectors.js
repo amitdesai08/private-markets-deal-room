@@ -22,7 +22,7 @@ import { leiLookup, gleifConfigured } from './providers/gleif.js';
 import { fabricDataAgentConfigured, fabricDataAgentInfo } from './fabricDataAgent.js';
 import { isConnectorEnabled, getConnectorConfig, listCustomConnectors } from './connectorSettings.js';import { m365Configured, m365Connected, m365Ready, m365AppOnly, me as m365Me, m365AppPing } from './m365/graph.js';
 import { assertPublicHttpUrl } from './ssrf.js';
-import { workiqConfigured, workiqConnected, workiqUrl } from './mcp/workiq.js';
+import { workiqConfigured, workiqConnected, workiqUrl, workiqBackend } from './mcp/workiq.js';
 
 export const CONNECTORS = [
   {
@@ -192,7 +192,7 @@ async function testWeb(c) {
 
 async function testMcp(c) {
   if (!hasLogin(c.provider)) {
-    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Not connected — sign in to enable this source.' });
+    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Licensed external market-data feed — requires vendor credentials, then Connect (optional for the demo).' });
   }
   const t0 = Date.now();
   try {
@@ -265,8 +265,15 @@ async function testFabricAgent(c) {
 
 async function testWorkiq(c) {
   if (!workiqConfigured()) {
-    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'No endpoint — set the WorkIQ MCP URL in Data Sources to enable M365 reads for agents.' });
+    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Not configured — set the Microsoft 365 app (app-only) or a WorkIQ MCP URL to enable governed M365 reads for agents.' });
   }
+  // App-only Microsoft Graph backend: Work IQ is LIVE using the APP'S OWN identity —
+  // no per-user sign-in required (this is the default when the M365 app is configured).
+  if (workiqBackend() === 'graph') {
+    markSync(c.id);
+    return result(c, { ok: true, status: 'connected', latencyMs: null, lastSync: getLastSync(c.id), message: 'Live · Microsoft Graph (app-only) — SharePoint / Teams / mailbox reads enabled for agents; no sign-in needed.' });
+  }
+  // External WorkIQ MCP endpoint path: needs a delegated sign-in.
   if (!workiqConnected()) {
     return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Endpoint set — Connect (delegated sign-in) to enable SharePoint / Teams / mailbox reads.' });
   }
