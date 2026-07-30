@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { initTeams, getSsoToken, toggleTheme, type TeamsInfo } from './teams';
 import { af, setAuthContext } from './authFetch';
 import Dashboard from './Dashboard';
+import AgentGuide from './AgentGuide';
 import ChatPanel from './ChatPanel';
 import DealDetail from './DealDetail';
 import Stage1 from './Stage1';
@@ -56,6 +57,7 @@ export default function App() {
   const [chatFocusDealId, setChatFocusDealId] = useState('');
   const [openDealId, setOpenDealId] = useState('');
   const [canViewStage2, setCanViewStage2] = useState(true);
+  const [canWrite, setCanWrite] = useState(true);
   const [demoUsers, setDemoUsers] = useState<{ id: string; upn: string; label: string; name?: string; roleLabel?: string; agentCount?: number }[]>([]);
   const [viewAs, setViewAs] = useState('');
   // Access profile from the orchestrator: which agents this user may use, and
@@ -97,6 +99,7 @@ export default function App() {
     if (!ctx) return;
     if (ctx.persona) setPersona(ctx.persona);
     setCanViewStage2(!!ctx.canViewStage2);
+    setCanWrite(ctx.canWrite !== false);
     if (Array.isArray(ctx.allowedPersonas)) setAllowedPersonas(ctx.allowedPersonas);
     if (typeof ctx.roleLabel === 'string') setRoleLabel(ctx.roleLabel);
     setIsAdmin(!!ctx.isAdmin);
@@ -248,7 +251,10 @@ export default function App() {
           {settingsOpen ? (
             <Settings isAdmin={isAdmin} ssoToken={ssoToken} viewAs={viewAs} onClose={() => setSettingsOpen(false)} />
           ) : mainTab === 'overview' ? (
-            <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onOpen={setOpenDealId} />
+            <>
+              <AgentGuide roleLabel={roleLabel} canViewStage2={canViewStage2} canWrite={canWrite} onAsk={() => setChatOpen(true)} />
+              <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onOpen={setOpenDealId} />
+            </>
           ) : mainTab === 'stage1' ? (
             <Stage1 deals={deals} onChanged={refreshData} onOpenDeal={setOpenDealId} />
           ) : mainTab === 'stage3' ? (

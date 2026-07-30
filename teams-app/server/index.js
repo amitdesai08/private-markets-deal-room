@@ -125,6 +125,7 @@ app.post('/api/teams/context', async (req, res) => {
     viewAsRoles: acc?.viewAsRoles || [],
     viewingAsRole: acc?.viewingAs || null,
     canViewStage2: acc?.canViewStage2 ?? fallback.canViewStage2,
+    canWrite: acc?.canWrite ?? true,
     viewingAs: asOverride || identity?.upn || null,
     demoMode: acc?.demoMode ?? false,
     demoUsers: await getDemoProfiles(),
