@@ -114,6 +114,8 @@ import { chatDealAgent, dealAgentInfo } from './lib/dealAgent.js';
 import { chatOrchestrator, orchestrationEnabled, orchestratorInfo } from './lib/purposeAgent.js';
 import { capabilitiesFor, capabilitiesNarrative, isCapabilityQuestion } from './lib/capabilities.js';
 import { chatPersonaAgent, personaAgentsInfo } from './lib/personaAgent.js';
+import { lensBlock } from './lib/personaLens.js';
+import { demoProfileById } from './data/demoProfiles.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
@@ -176,6 +178,17 @@ function requestingIdentity(req) {
 // The role the caller is previewing as (demo "view as"), from body or trusted header.
 function requestingViewAs(req) {
   return req.body?.viewAsRole || req.headers['x-dr-view-as'] || null;
+}
+// The human actor to attribute an action to in the audit trail: the verified SSO
+// user's name, else the acting demo persona's real name (from the "sign in as"
+// selection carried in x-dr-as / body.as), else null. Never a bare role label here —
+// callers fall back to a label only if this returns null.
+function actingName(req) {
+  const id = requestingIdentity(req);
+  if (id && id.name) return id.name;
+  const asId = req.body?.as || req.headers['x-dr-as'];
+  const p = asId && demoProfileById[String(asId)];
+  return p ? (p.name || null) : null;
 }
 
 // ---- API ----
@@ -650,7 +663,7 @@ api.post('/deals/:id/assistant-actions', async (req, res) => {
   const gate = authorizeDealContent(identity, deal, viewAs);
   if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
   const { kind, args = {} } = req.body || {};
-  const by = (identity && identity.name) || access.roleLabel || 'You';
+  const by = actingName(req) || access.roleLabel || 'You';
   let r;
   if (kind === 'record_issue') {
     r = await recordIssue(req.params.id, { lane: args.lane, title: args.title, severity: args.severity, resolutionPath: args.resolutionPath, sources: args.sources, by, persona: access.role, via: 'assistant' });
@@ -1110,8 +1123,9 @@ api.post('/deals/:id/chat', async (req, res) => {
   const persona = personaById[req.body?.personaId] || getPersonas()[0];
   const message = (req.body?.message || '').toString().slice(0, 2000);
   if (!message) return res.status(400).json({ error: 'message required' });
+  const lens = lensBlock({ identity: requestingIdentity(req), viewAsRole: requestingViewAs(req), persona: req.body?.personaId });
   try {
-    const out = await chat({ deal, persona, message });
+    const out = await chat({ deal, persona, message, lens });
     res.json(out);
   } catch (err) {
     res.status(500).json({ error: 'chat failed', detail: String(err?.message || err) });
@@ -1281,7 +1295,7 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   }
   try {
     const out = await chatPersonaAgent({ persona: authz.persona, message, dealId, previousResponseId, identity, viewAsRole: viewAs });
-    if (out?.error) return res.status(400).json(out);
+    if (out?.error && !out.reply) return res.status(400).json(out);
     res.json({ ...out, role: access.role });
   } catch (err) {
     res.status(500).json({ error: 'persona-agent chat failed', detail: String(err?.message || err) });
@@ -1315,7 +1329,7 @@ api.post('/deal-agent/chat', async (req, res) => {
     const out = orchestrationEnabled()
       ? await chatOrchestrator({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs })
       : await chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs });
-    if (out?.error) return res.status(400).json(out);
+    if (out?.error && !out.reply) return res.status(400).json(out);
     // Assistant proposes concrete next steps (user approves) — deterministic, grounded in
     // deal state. Only for a deal-scoped, write-capable, authorised caller.
     const effDealId = out.dealId || dealId;
