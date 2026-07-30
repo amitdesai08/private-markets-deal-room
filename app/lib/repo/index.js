@@ -143,6 +143,19 @@ export async function remove(name, id) {
   mem[name].delete(id);
 }
 
+// Delete an event by id within its /companyId partition. The generic remove() assumes an
+// id-partitioned container, which the events container is NOT (partition key is /companyId),
+// so a targeted delete of a stored event needs its partition value.
+export async function removeEvent(id, companyId) {
+  if (mode === 'cosmos') {
+    try { await containers.events.item(id, companyId || 'system').delete(); }
+    catch (err) { if (err?.code !== 404) throw err; }
+    return;
+  }
+  if (mode === 'blob') { await bsRemove('events', id); return; }
+  mem.events.delete(id);
+}
+
 // Append-only audit event (P5). Partition key is /companyId on the events
 // container; a null companyId is stored under a shared 'system' partition.
 export async function recordEvent(evt) {

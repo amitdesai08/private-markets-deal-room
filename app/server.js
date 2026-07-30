@@ -116,7 +116,7 @@ import { capabilitiesFor, capabilitiesNarrative, isCapabilityQuestion } from './
 import { chatPersonaAgent, personaAgentsInfo } from './lib/personaAgent.js';
 import { lensBlock } from './lib/personaLens.js';
 import { demoProfileById } from './data/demoProfiles.js';
-import { addWorkiqNote, listWorkiqNotes, hydrateWorkiqNotes } from './lib/workiqMemory.js';
+import { addWorkiqNote, listWorkiqNotes, hydrateWorkiqNotes, deleteWorkiqNote } from './lib/workiqMemory.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
@@ -726,6 +726,19 @@ api.post('/deals/:id/workiq-notes', (req, res) => {
     sharedWith: Array.isArray(req.body?.sharedWith) ? req.body.sharedWith : [],
   });
   res.json({ ok: true, note });
+});
+
+// Remove a Work IQ note (author-team retracts a shared note). Write-role + deal access gated.
+api.delete('/deals/:id/workiq-notes/:noteId', (req, res) => {
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  const access = accessFor(identity, viewAs);
+  if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only; you cannot remove Work IQ notes.' });
+  const deal = getDealRaw(req.params.id);
+  const gate = authorizeDealContent(identity, deal, viewAs);
+  if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
+  const removed = deleteWorkiqNote(req.params.id, req.params.noteId);
+  res.json({ ok: true, removed });
 });
 
 // Deal activity / audit trail — actor, action, timestamp and provenance (via='assistant').

@@ -13,7 +13,7 @@
 // gated by the caller in server.js.
 
 import { WORKIQ_SEED_NOTES } from '../data/workiqSeed.js';
-import { upsert, list } from './repo/index.js';
+import { upsert, list, removeEvent } from './repo/index.js';
 
 const NOTES = new Map(); // dealId -> Note[]
 let SEQ = 1;
@@ -77,6 +77,16 @@ export function addWorkiqNote({ dealId, author, personaId, personaLabel, role, t
 export function listWorkiqNotes(dealId) {
   const arr = NOTES.get(String(dealId || '').trim()) || [];
   return arr.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+// Delete a note (from the in-memory map and the durable store). Returns whether it existed.
+export function deleteWorkiqNote(dealId, id) {
+  const key = String(dealId || '').trim();
+  const arr = NOTES.get(key) || [];
+  const idx = arr.findIndex((n) => n.id === id);
+  if (idx >= 0) { arr.splice(idx, 1); NOTES.set(key, arr); }
+  Promise.resolve().then(() => removeEvent(id, key)).catch(() => {});
+  return idx >= 0;
 }
 
 // A grounding block injected into the deal-scoped agent prompt so prior shared notes
