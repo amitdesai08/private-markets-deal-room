@@ -10,10 +10,17 @@ the optional surfaces once their registrations exist:
                    the Entra-secured MCP) and emits copilotAgents
   --oauth-ref-id   fills the Teams Developer Portal OAuth registration id into
                    the bundled apiPlugin.json
+  --name           overrides the display name so a parallel instance (e.g. a
+                   beta channel) is distinguishable in the Teams client
+  --accent         overrides the accent colour / icon tint for that instance
 
 Usage (full package):
   python3 scripts/build_manifest.py --host <fqdn> \
     --sso-client-id <id> --bot-id <id> --copilot [--oauth-ref-id <id>]
+
+Usage (parallel beta instance):
+  python3 scripts/build_manifest.py --host <beta-fqdn> \
+    --name "Deal Room - Beta" --accent "#B23B7A" --sso-client-id <id>
 """
 import argparse
 import json
@@ -32,6 +39,12 @@ WHITE = (255, 255, 255, 255)
 CLEAR = (0, 0, 0, 0)
 
 
+def _hex_to_rgba(value):
+    """#RRGGBB -> (r, g, b, 255). Used to tint a parallel instance's icon."""
+    v = value.lstrip("#")
+    return (int(v[0:2], 16), int(v[2:4], 16), int(v[4:6], 16), 255)
+
+
 def _png(width, height, rgba):
     def chunk(typ, data):
         body = typ + data
@@ -48,20 +61,29 @@ def _png(width, height, rgba):
     return sig + chunk(b"IHDR", ihdr) + chunk(b"IDAT", idat) + chunk(b"IEND", b"")
 
 
-def color_icon(x, y):
-    cx, cy, r = 96, 96, 52
-    return WHITE if (x - cx) ** 2 + (y - cy) ** 2 < r * r else ACCENT
+def make_color_icon(tint):
+    def color_icon(x, y):
+        cx, cy, r = 96, 96, 52
+        return WHITE if (x - cx) ** 2 + (y - cy) ** 2 < r * r else tint
+
+    return color_icon
 
 
 def outline_icon(x, y):
     return WHITE if (x < 2 or x >= 30 or y < 2 or y >= 30) else CLEAR
 
 
-def build(host: str, sso_client_id=None, bot_id=None, copilot=False, oauth_ref_id=None) -> None:
+def build(host: str, sso_client_id=None, bot_id=None, copilot=False, oauth_ref_id=None,
+          name=None, accent=None, zip_name="deal-room-teams.zip") -> None:
     os.makedirs(OUT, exist_ok=True)
     base = f"https://{host}"
-    # Stable app id derived from the host (idempotent rebuilds).
+    # Stable app id derived from the host (idempotent rebuilds). A parallel
+    # instance on its own host therefore gets its own app id automatically,
+    # so both can be installed side by side in the same tenant.
     app_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{base}/deal-room-teams"))
+    display_name = name or "Deal Room Assistant"
+    accent_hex = accent or "#6264A7"
+    accent_rgba = _hex_to_rgba(accent_hex)
 
     manifest = {
         "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
@@ -74,13 +96,13 @@ def build(host: str, sso_client_id=None, bot_id=None, copilot=False, oauth_ref_i
             "privacyUrl": f"{base}/privacy",
             "termsOfUseUrl": f"{base}/terms",
         },
-        "name": {"short": "Deal Room Assistant", "full": "Deal Room Assistant"},
+        "name": {"short": display_name[:30], "full": display_name},
         "description": {
             "short": "AI-native private-equity deal flow in Teams.",
             "full": "Deal Dashboard brings your fund's live deal flow into Teams: a channel dashboard and personal tab (Entra SSO) over the shared Deal Room backend (single data source), proactive Adaptive Card alerts as deals advance, and an M365 Copilot agent that answers deal questions through the Entra-secured MCP. The deal chat is grounded in live data and screened by Azure AI Content Safety; a Bing-grounded news scout surfaces fresh M&A catalysts.",
         },
         "icons": {"color": "color.png", "outline": "outline.png"},
-        "accentColor": "#6264A7",
+        "accentColor": accent_hex,
         "configurableTabs": [
             {
                 "configurationUrl": f"{base}/config",
@@ -90,7 +112,12 @@ def build(host: str, sso_client_id=None, bot_id=None, copilot=False, oauth_ref_i
             }
         ],
         "staticTabs": [
-            {"entityId": "dealroom-home", "name": "Deal Room", "contentUrl": f"{base}/", "scopes": ["personal"]}
+                {
+                "entityId": "dealroom-home",
+                "name": display_name[:16],
+                "contentUrl": f"{base}/",
+                "scopes": ["personal"],
+            }
         ],
         "permissions": ["identity"],
         "validDomains": [host, "app.powerbi.com"],
@@ -123,7 +150,7 @@ def build(host: str, sso_client_id=None, bot_id=None, copilot=False, oauth_ref_i
     with open(os.path.join(OUT, "manifest.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
     with open(os.path.join(OUT, "color.png"), "wb") as f:
-        f.write(_png(192, 192, color_icon))
+        f.write(_png(192, 192, make_color_icon(accent_rgba)))
     with open(os.path.join(OUT, "outline.png"), "wb") as f:
         f.write(_png(32, 32, outline_icon))
 
@@ -140,7 +167,7 @@ def build(host: str, sso_client_id=None, bot_id=None, copilot=False, oauth_ref_i
             f.write(plugin)
         files_to_zip += ["declarativeAgent.json", "apiPlugin.json", "deal-mcp-openapi.yaml"]
 
-    zip_path = os.path.join(OUT, "deal-room-teams.zip")
+    zip_path = os.path.join(OUT, zip_name)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
         for name in files_to_zip:
             z.write(os.path.join(OUT, name), name)
@@ -157,5 +184,12 @@ if __name__ == "__main__":
     p.add_argument("--bot-id", default=None, help="Azure Bot app id to emit the bots block for Adaptive Card notifications.")
     p.add_argument("--copilot", action="store_true", help="Bundle the M365 Copilot declarative agent + emit copilotAgents.")
     p.add_argument("--oauth-ref-id", default=None, help="Teams Developer Portal OAuth registration id to fill into apiPlugin.json.")
+    p.add_argument("--name", default=None, help='Display name override, e.g. "Deal Room - Beta" for a parallel instance.')
+    p.add_argument("--accent", default=None, help='Accent colour override as #RRGGBB, e.g. "#B23B7A" to tint a beta instance.')
+    p.add_argument("--out", default=None, help="Output directory (defaults to ../package). Use a separate dir per instance.")
+    p.add_argument("--zip-name", default="deal-room-teams.zip", help='Package file name, e.g. "deal-room-teams-beta.zip" for a parallel instance.')
     args = p.parse_args()
-    build(args.host, args.sso_client_id, args.bot_id, args.copilot, args.oauth_ref_id)
+    if args.out:
+        OUT = os.path.abspath(args.out)
+    build(args.host, args.sso_client_id, args.bot_id, args.copilot, args.oauth_ref_id,
+          args.name, args.accent, args.zip_name)

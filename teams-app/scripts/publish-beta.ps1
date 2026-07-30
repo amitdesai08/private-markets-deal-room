@@ -27,7 +27,7 @@ param(
   [string]$ChannelId = '19:0c1c9fb56f264550806539d65eab5c5e@thread.tacv2',
   [string]$AppShortName = 'Deal Room - Beta',
   [string]$ContentUrl = 'https://ca-dealhub-teams-beta.ambitiousforest-08192d93.swedencentral.azurecontainerapps.io',
-  [string]$PackagePath = "$PSScriptRoot/../package-beta/deal-room-teams.zip",
+  [string]$PackagePath = "$PSScriptRoot/../package-beta/deal-room-teams-beta.zip",
   [string]$CredentialPath = "$env:USERPROFILE/.dealroom/automation.json"
 )
 

@@ -45,6 +45,7 @@ app/scripts/purpose-agents.env
 app/scripts/_sample-news.json
 app/scripts/__pycache__/
 deal-room-teams.zip
+deal-room-teams-beta.zip
 
 # Local planning / chat context (never commit — fork is public, may contain tenant/sub IDs)
 plan.md
