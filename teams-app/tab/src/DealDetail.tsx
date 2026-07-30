@@ -4,6 +4,7 @@ import { af } from './authFetch';
 import DealArtifacts from './DealArtifacts';
 import WorkIqPanel from './WorkIqPanel';
 import ChatPanel from './ChatPanel';
+import Cockpit from './Cockpit';
 import { renderMarkdown } from './md';
 import type { Agent, Deal } from './types';
 
@@ -85,7 +86,7 @@ const bigMoney = (n?: number) => (n == null ? '—' : n >= 1e9 ? `$${(n / 1e9).t
 
 const REGION_LABEL: Record<string, string> = { northeast: 'Northeast', southeast: 'Southeast', midwest: 'Midwest', southcentral: 'South Central', northwest: 'Northwest', southwest: 'Southwest', international: 'International' };
 
-type Tab = 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'artifacts' | 'documents' | 'activity';
+type Tab = 'cockpit' | 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'artifacts' | 'documents' | 'activity';
 type ResolveTarget = { tab: Tab; step?: string };
 type ActivityEntry = { actor?: string; action?: string; when?: string; via?: string | null };
 
@@ -110,6 +111,9 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   const [dealGroups, setDealGroups] = useState<any[]>([]);
   const [newTag, setNewTag] = useState('');
   const [tagBusy, setTagBusy] = useState(false);
+  // The cockpit is the beta instance's headline surface. Gated on the instance
+  // flag so the same image runs unchanged in the main channel.
+  const [cockpitOn, setCockpitOn] = useState(false);
 
   async function load(setSel = false) {
     const [d, i] = await Promise.all([
@@ -150,6 +154,14 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     setLoading(true); setNote(''); setDeal(null); setIc(null);
     fetch('/api/flow').then((r) => r.json()).then(setFlow).catch(() => {});
     fetch('/api/config').then((r) => r.json()).then(setCfg).catch(() => {});
+    fetch('/api/teams/config')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => {
+        const on = c?.channel === 'beta';
+        setCockpitOn(on);
+        if (on) setTab('cockpit');
+      })
+      .catch(() => {});
     fetch('/api/deal-groups').then((r) => r.json()).then((d) => setDealGroups(d?.dealGroups || [])).catch(() => {});
     load(true).finally(() => setLoading(false));
   }, [dealId]);
@@ -453,9 +465,9 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
             {!statusOnly && (
             <div className="dd-tabs">
-              {(['overview', 'stages', 'workspace', 'research', 'artifacts', 'documents', 'ic', 'activity'] as Tab[]).map((t) => (
+              {([...(cockpitOn ? ['cockpit'] as Tab[] : []), 'overview', 'stages', 'workspace', 'research', 'artifacts', 'documents', 'ic', 'activity'] as Tab[]).map((t) => (
                 <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>
-                  {t === 'stages' ? 'Deal workflow' : t === 'overview' ? 'Overview' : t === 'workspace' ? 'Workspace' : t === 'research' ? 'Market research' : t === 'artifacts' ? 'Decision artifacts' : t === 'documents' ? 'Documents' : t === 'activity' ? 'Activity' : 'IC readiness'}
+                  {t === 'cockpit' ? 'Cockpit' : t === 'stages' ? 'Deal workflow' : t === 'overview' ? 'Overview' : t === 'workspace' ? 'Workspace' : t === 'research' ? 'Market research' : t === 'artifacts' ? 'Decision artifacts' : t === 'documents' ? 'Documents' : t === 'activity' ? 'Activity' : 'IC readiness'}
                 </button>
               ))}
             </div>
@@ -483,6 +495,14 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
               ) : (
               <>
               {note ? <div className="dd-actionnote">{note}</div> : null}
+
+              {tab === 'cockpit' && (
+                <Cockpit
+                  dealId={dealId}
+                  onGoTab={(t) => setTab(t as Tab)}
+                  onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}
+                />
+              )}
 
               {tab === 'artifacts' && <DealArtifacts dealId={dealId} />}
 

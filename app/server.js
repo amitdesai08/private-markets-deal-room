@@ -136,6 +136,7 @@ import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
 import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent, dealAccessLevel, describeAccess, describeDemoProfiles, demoModeActive, demoProfilesEnabled, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
 import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
+import { buildCockpit } from './lib/cockpit.js';
 import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments, setDemoMode, getDocTemplate, setDocTemplate, DOC_TEMPLATE_DEFAULTS } from './lib/accessConfig.js';
 
 validateConfig({ strict: false });
@@ -586,6 +587,28 @@ api.get('/deals/:id/ic-readiness', (req, res) => {
   const board = getICReadiness(req.params.id);
   if (!board) return res.status(404).json({ error: 'not-found' });
   res.json(board);
+});
+
+// Deal cockpit — the briefing + ranked attention queue + milestone overlay.
+// Composed from state the platform already owns (workstreams, IC board, issue
+// log, compliance, flow spine); nothing here mutates the deal. Gated on the same
+// need-to-know rules as the deal record itself: a confidential deal you are not
+// named on does not exist for you, and the status tier gets no cockpit at all.
+api.get('/deals/:id/cockpit', (req, res) => {
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  const raw = getDealRaw(req.params.id);
+  if (!raw) return res.status(404).json({ error: 'not-found' });
+  const level = dealAccessLevel(identity, raw, viewAs);
+  if (level === 'none') return res.status(404).json({ error: 'not-found' });
+  if (level === 'status') return res.status(403).json({ error: 'forbidden', detail: 'Status-only access — the cockpit is deal-team only.' });
+  const board = getICReadiness(req.params.id);
+  const access = accessFor(identity, viewAs);
+  const out = buildCockpit(getDeal(req.params.id) || raw, board, {
+    since: String(req.query.since || '') || null,
+    role: access?.role || viewAs || null,
+  });
+  res.json({ ...out, canWrite: !!access?.canWrite, roleLabel: access?.roleLabel || null });
 });
 
 // Lifecycle-stage decision artifacts derived from the live deal record:

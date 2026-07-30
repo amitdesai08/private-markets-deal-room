@@ -85,6 +85,9 @@ app.get('/api/teams/config', (_req, res) =>
     appBaseUrl: config.server.appBaseUrl || null,
     sso: isSsoConfigured(),
     bot: isBotConfigured(),
+    // Which parallel instance this is. 'beta' turns on the deal cockpit so the two
+    // instances can be compared side by side from the same image.
+    channel: process.env.DEAL_ROOM_CHANNEL || 'main',
   })
 );
 
