@@ -224,6 +224,12 @@ export default function App() {
         </div>
       </header>
 
+      {viewAs ? (
+        <div role="note" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '6px 12px 0', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--muted)', fontSize: 12, lineHeight: 1.4 }}>
+          <span>Showcase mode — viewing as <strong style={{ color: 'var(--fg)' }}>{persona?.name || viewAs}</strong>. Their <strong style={{ color: 'var(--fg)' }}>role</strong> controls what they can access (RBAC is still enforced); the <strong style={{ color: 'var(--fg)' }}>persona lens</strong> controls how the assistant frames answers for that seat.</span>
+        </div>
+      ) : null}
+
       <nav className="maintabs">
         {mainTabs.map(([k, label]) => (
           <button key={k} className={`maintab${!settingsOpen && mainTab === k ? ' on' : ''}`} onClick={() => { setSettingsOpen(false); setMainTab(k); }}>{label}</button>
