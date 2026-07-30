@@ -471,10 +471,11 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .topbar-r { flex-wrap: wrap; justify-content: flex-end; }
 }
 
-/* Deal detail drawer (native Station) */
-.drawer-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 40; display: flex; justify-content: flex-end; }
-.drawer { width: min(560px, 96vw); height: 100%; position: relative; background: var(--bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,.3); }
-.drawer-chat { position: absolute; inset: 0; z-index: 6; display: flex; background: var(--bg); }
+/* Deal detail — opens as the MAIN FOCUS window (not a narrow drawer); the agent
+   chat opens as a right-side sub-drawer OVER it so the deal stays in focus. */
+.drawer-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; display: flex; justify-content: center; }
+.drawer { width: min(1180px, 100vw); height: 100%; position: relative; background: var(--bg); border-left: 1px solid var(--border); border-right: 1px solid var(--border); display: flex; flex-direction: column; box-shadow: 0 0 44px rgba(0,0,0,.38); }
+.drawer-chat { position: absolute; top: 0; right: 0; bottom: 0; left: auto; width: min(460px, 92%); z-index: 6; display: flex; background: var(--bg); border-left: 1px solid var(--border); box-shadow: -8px 0 26px rgba(0,0,0,.30); }
 .drawer-chat .chatpanel { flex: 1; max-width: none; border-left: none; }
 .drawer-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .drawer-title { font-weight: 700; font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
