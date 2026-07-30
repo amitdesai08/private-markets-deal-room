@@ -116,6 +116,7 @@ import { capabilitiesFor, capabilitiesNarrative, isCapabilityQuestion } from './
 import { chatPersonaAgent, personaAgentsInfo } from './lib/personaAgent.js';
 import { lensBlock } from './lib/personaLens.js';
 import { demoProfileById } from './data/demoProfiles.js';
+import { addWorkiqNote, listWorkiqNotes } from './lib/workiqMemory.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
@@ -688,6 +689,43 @@ api.post('/deals/:id/assistant-actions', async (req, res) => {
   }
   if (r.error) return res.status(String(r.error).endsWith('not-found') ? 404 : 422).json(r);
   res.json({ ok: true, applied: kind, by, activity: r.deal?.activity?.[0] || null, deal: getDeal(req.params.id) });
+});
+
+// ---- Work IQ — durable per-deal collaboration memory -----------------------
+// Notes a specialist SHARES from an assistant conversation, persisted against the deal so a
+// LATER conversation (even by a different persona — e.g. the Operating Partner after the AI
+// Partner's diligence) is grounded in them and surfaces them. GET is deal-access gated; POST
+// additionally requires a write role (read-only users cannot publish).
+api.get('/deals/:id/workiq-notes', (req, res) => {
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  const deal = getDealRaw(req.params.id);
+  const gate = authorizeDealContent(identity, deal, viewAs);
+  if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
+  res.json({ notes: listWorkiqNotes(req.params.id) });
+});
+api.post('/deals/:id/workiq-notes', (req, res) => {
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  const access = accessFor(identity, viewAs);
+  if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only; you cannot publish Work IQ notes.' });
+  const deal = getDealRaw(req.params.id);
+  const gate = authorizeDealContent(identity, deal, viewAs);
+  if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
+  const text = String(req.body?.text || '').slice(0, 2000);
+  if (!text.trim()) return res.status(400).json({ error: 'text-required' });
+  const asId = req.body?.as || req.headers['x-dr-as'] || identity?.oid || identity?.upn || identity?.name;
+  const profile = asId ? demoProfileById[String(asId)] : null;
+  const note = addWorkiqNote({
+    dealId: req.params.id,
+    author: actingName(req) || access.roleLabel || 'Team',
+    personaId: actingPersona(req),
+    personaLabel: profile?.title || access.roleLabel || null,
+    role: access.role,
+    text,
+    sharedWith: Array.isArray(req.body?.sharedWith) ? req.body.sharedWith : [],
+  });
+  res.json({ ok: true, note });
 });
 
 // Deal activity / audit trail — actor, action, timestamp and provenance (via='assistant').
