@@ -396,7 +396,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
         {askOpen && deal ? (
           <div className="drawer-chat">
-            <ChatPanel agents={agents} deals={deals} focusDealId={dealId} onClose={() => setAskOpen(false)} viewAsRole={viewAsRole} />
+              <ChatPanel agents={agents} deals={deals} focusDealId={dealId} onClose={() => setAskOpen(false)} viewAsRole={viewAsRole} canWrite={!!canWrite} />
           </div>
         ) : null}
 

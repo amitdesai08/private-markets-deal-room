@@ -269,7 +269,7 @@ export default function App() {
             <Stage2 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           )}
         </main>
-        {chatOpen ? <ChatPanel agents={visibleAgents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} viewAsRole={viewAsRole} /> : null}
+        {chatOpen ? <ChatPanel agents={visibleAgents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} viewAsRole={viewAsRole} canWrite={canWrite} /> : null}
       </div>
 
       {openDealId ? <DealDetail dealId={openDealId} canViewStage2={canViewStage2} canWrite={canWrite} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} /> : null}
