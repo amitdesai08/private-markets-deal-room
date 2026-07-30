@@ -43,16 +43,17 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareSeats, setCompareSeats] = useState<string[]>(['ai-md', 'fund-cfo']);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { if (focusDealId) setDealId(focusDealId); }, [focusDealId]);
-  // A corpus item (file / mail / channel) can seed a question into the chat and it auto-sends.
+  // A corpus item (file / mail / channel) seeds a question into the composer and focuses it —
+  // the presenter reviews and hits Enter (no accidental auto-send).
   const seedRef = useRef(0);
   useEffect(() => {
     if (!seedNonce || seedNonce === seedRef.current) return;
     seedRef.current = seedNonce;
-    if (seed && seed.trim()) send(seed);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seedNonce]);
+    if (seed && seed.trim()) { setInput(seed); setTimeout(() => { const el = taRef.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); }
+  }, [seed, seedNonce]);
 
   const agent = agents.find((a) => a.key === agentKey) || agents[0];
   const threadKey = `${agent?.key}:${dealId || 'portfolio'}`;
@@ -256,7 +257,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
           </div>
         ) : null}
         <div className="composer-row">
-          <textarea className="input" placeholder={compareOpen ? 'Type one question — it runs across the selected seats…' : `Message ${agent.label}…`} value={input} rows={1}
+          <textarea ref={taRef} className="input" placeholder={compareOpen ? 'Type one question — it runs across the selected seats…' : `Message ${agent.label}…`} value={input} rows={1}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }} />
           <button className="send" type="submit" disabled={sending || !input.trim()} aria-label="Send">{sending ? '…' : '➤'}</button>
