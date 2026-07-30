@@ -118,3 +118,16 @@ export function seedChannelResult({ team_id, channel_id, query, top = 15 } = {})
   const results = (pick.messages || []).slice(0, top).map((m) => ({ from: m.from, created: m.created, preview: m.preview, webUrl: undefined }));
   return { source: 'workiq.demo', entity: 'channel', team_id: team_id || pick.deal, channel_id: channel_id || pick.channel, count: results.length, results, demo: true };
 }
+
+// The seeded M365 corpus for ONE deal — Teams channel, SharePoint files and mail — so the
+// deal workspace can SHOW it deterministically (not only when the assistant calls a tool).
+export function workiqCorpusForDeal(dealId) {
+  const id = String(dealId || '').trim();
+  const chan = CHANNELS.find((c) => c.deal === id) || null;
+  return {
+    dealId: id,
+    channel: chan ? { name: chan.channel, messages: chan.messages.slice() } : null,
+    files: FILES.filter((f) => f.deal === id).map((f) => ({ name: f.name, type: f.type, summary: f.summary, lastModified: f.lastModified })),
+    mail: MAIL.filter((m) => m.deal === id).map((m) => ({ subject: m.subject, from: m.from, received: m.received, preview: m.preview })),
+  };
+}

@@ -117,6 +117,7 @@ import { chatPersonaAgent, personaAgentsInfo } from './lib/personaAgent.js';
 import { lensBlock } from './lib/personaLens.js';
 import { demoProfileById } from './data/demoProfiles.js';
 import { addWorkiqNote, listWorkiqNotes, hydrateWorkiqNotes, deleteWorkiqNote } from './lib/workiqMemory.js';
+import { workiqCorpusForDeal } from './data/workiqSeed.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
@@ -739,6 +740,18 @@ api.delete('/deals/:id/workiq-notes/:noteId', (req, res) => {
   if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
   const removed = deleteWorkiqNote(req.params.id, req.params.noteId);
   res.json({ ok: true, removed });
+});
+
+// Work IQ M365 corpus for a deal — the Teams war-room channel, SharePoint files and mail.
+// Deterministic so the deal workspace can SHOW it directly (not only when an agent calls a
+// Work IQ tool). Deal-access gated.
+api.get('/deals/:id/workiq-corpus', (req, res) => {
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  const deal = getDealRaw(req.params.id);
+  const gate = authorizeDealContent(identity, deal, viewAs);
+  if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
+  res.json(workiqCorpusForDeal(req.params.id));
 });
 
 // Deal activity / audit trail — actor, action, timestamp and provenance (via='assistant').

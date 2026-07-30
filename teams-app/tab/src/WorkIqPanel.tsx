@@ -7,6 +7,8 @@ import { af } from './authFetch';
 // resurfaces in the value-creation run. This panel makes that durable memory visible.
 
 type Note = { id: string; author: string; personaLabel?: string; role?: string; text: string; sharedWith: string[]; createdAt: string };
+type CorpusMsg = { from: string; created: string; preview: string };
+type Corpus = { channel?: { name: string; messages: CorpusMsg[] } | null; files?: { name: string; summary: string; lastModified: string }[]; mail?: { subject: string; from: string; received: string; preview: string }[] };
 
 const SHARE_OPTIONS: { id: string; label: string }[] = [
   { id: 'partner', label: 'Lead Partner' },
@@ -36,6 +38,7 @@ export default function WorkIqPanel({ dealId, canWrite }: { dealId: string; canW
   const [share, setShare] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [corpus, setCorpus] = useState<Corpus | null>(null);
 
   function load() {
     af(`/api/deals/${dealId}/workiq-notes`)
@@ -44,6 +47,10 @@ export default function WorkIqPanel({ dealId, canWrite }: { dealId: string; canW
       .catch(() => {});
   }
   useEffect(() => { if (dealId) load(); /* eslint-disable-next-line */ }, [dealId]);
+  useEffect(() => {
+    if (!dealId) { setCorpus(null); return; }
+    af(`/api/deals/${dealId}/workiq-corpus`).then((r) => (r.ok ? r.json() : null)).then((d) => setCorpus(d && !d.error ? d : null)).catch(() => {});
+  }, [dealId]);
 
   async function post() {
     if (!text.trim() || busy) return;
@@ -61,6 +68,7 @@ export default function WorkIqPanel({ dealId, canWrite }: { dealId: string; canW
   }
 
   return (
+    <>
     <section className="dd-panel wiq">
       <style>{CSS}</style>
       <div className="dd-panel-h">
@@ -104,6 +112,45 @@ export default function WorkIqPanel({ dealId, canWrite }: { dealId: string; canW
         )}
       </div>
     </section>
+
+    {corpus && (corpus.channel || (corpus.files || []).length || (corpus.mail || []).length) ? (
+      <section className="dd-panel wiq">
+        <div className="dd-panel-h">
+          <span>Work IQ · deal corpus</span>
+          <span className="muted">Microsoft 365 — Teams · SharePoint · Mail</span>
+        </div>
+        <div className="wiq-corpus">
+          {corpus.channel ? (
+            <div className="wiq-cgroup">
+              <div className="wiq-ch">Teams channel · {corpus.channel.name}</div>
+              {corpus.channel.messages.slice(0, 5).map((m, i) => (
+                <div className="wiq-cmsg" key={i}>
+                  <div className="wiq-cmeta"><span className="wiq-cwho">{m.from}</span><span className="wiq-ctime">{ago(m.created)}</span></div>
+                  <div className="wiq-cprev">{m.preview}</div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {(corpus.files || []).length ? (
+            <div className="wiq-cgroup">
+              <div className="wiq-ch">Data room · files ({corpus.files!.length})</div>
+              {corpus.files!.map((f, i) => (
+                <div className="wiq-file" key={i}><span className="wiq-fname">{f.name}</span><span className="wiq-fsum">{f.summary}</span></div>
+              ))}
+            </div>
+          ) : null}
+          {(corpus.mail || []).length ? (
+            <div className="wiq-cgroup">
+              <div className="wiq-ch">Mailbox ({corpus.mail!.length})</div>
+              {corpus.mail!.map((m, i) => (
+                <div className="wiq-file" key={i}><span className="wiq-fname">{m.subject}</span><span className="wiq-fsum">{m.from} · {m.preview}</span></div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </section>
+    ) : null}
+    </>
   );
 }
 
@@ -124,4 +171,15 @@ const CSS = `
 .wiq-chip.on { border-color: var(--accent, #6ea8fe); color: var(--accent, #6ea8fe); }
 .wiq-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .wiq-err { color: #f99; font-size: 12px; }
+.wiq-corpus { padding: 6px 14px 14px; display: flex; flex-direction: column; gap: 12px; }
+.wiq-cgroup { display: flex; flex-direction: column; gap: 6px; }
+.wiq-ch { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; }
+.wiq-cmsg { border-left: 2px solid var(--border, #2a2a35); padding: 2px 0 2px 10px; }
+.wiq-cmeta { display: flex; align-items: center; gap: 8px; font-size: 11.5px; }
+.wiq-cwho { font-weight: 700; color: var(--fg); }
+.wiq-ctime { color: var(--muted); }
+.wiq-cprev { font-size: 12px; color: var(--fg); line-height: 1.4; margin-top: 1px; }
+.wiq-file { display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--border, #2a2a35); border-radius: 8px; background: var(--bg, #131318); padding: 7px 10px; }
+.wiq-fname { font-size: 12.5px; font-weight: 600; color: var(--fg); }
+.wiq-fsum { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
 `;
