@@ -41,15 +41,15 @@ const LANE_LABEL = {
 // Human labels for the persona (for tool responses / next-action prompts).
 export const PERSONA_LABEL = {
   analyst: 'Analyst — Deal Associate',
-  partner: 'Partner / MD — Deal Sponsor',
-  'retail-md': 'Retail Sector MD (Commercial lane)',
-  'ai-md': 'AI MD (Tech / AI lane)',
-  'supply-md': 'Supply Chain MD (Operations lane)',
-  principal: 'Principal / VP — Deal Lead',
+  partner: 'Lead Partner — Deal Sponsor',
+  'retail-md': 'Commercial Partner — Sector & Growth',
+  'ai-md': 'AI Partner — Tech & Digital',
+  'supply-md': 'Supply Chain Partner — Operations',
+  principal: 'Principal — Deal Lead',
   'operating-partner': 'Operating Partner — Value Creation',
-  'fund-cfo': 'Fund CFO — Finance & Financing',
-  'legal-gc': 'General Counsel (Legal lane)',
-  'ir-lp': 'Investor Relations — LP & Fund'
+  'fund-cfo': 'Finance Partner — Fund CFO',
+  'legal-gc': 'Legal Partner — General Counsel',
+  'ir-lp': 'IR Partner — LP & Fund'
 };
 
 // The full action catalog exposed to agents, each with the personas allowed to
