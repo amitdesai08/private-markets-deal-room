@@ -21,6 +21,7 @@ import { hasLogin } from './oauth.js';
 import { getConnectorConfig } from '../connectorSettings.js';
 import { config } from '../config.js';
 import { workIqGraphConfigured, wiSearchFiles, wiSearch, wiSearchMail, wiReadChannel } from '../m365/workIqGraph.js';
+import { seedFilesResult, seedSearchResult, seedMailResult, seedChannelResult } from '../../data/workiqSeed.js';
 
 export const WORKIQ_PROVIDER = 'workiq';
 
@@ -83,16 +84,38 @@ export async function callWorkiqTool(mcpToolName, args = {}) {
 export async function dispatchWorkiq(governedName, args = {}) {
   const graphFn = GRAPH_BACKEND[governedName];
   if (!graphFn) return { error: 'unknown-workiq-tool', name: governedName };
+  let result;
   if (workIqGraphConfigured()) {
-    try { return await graphFn(args); }
-    catch (e) { return { error: 'workiq-call-failed', tool: governedName, detail: String(e?.message || e).slice(0, 200) }; }
+    try { result = await graphFn(args); }
+    catch (e) { result = { error: 'workiq-call-failed', tool: governedName, detail: String(e?.message || e).slice(0, 200) }; }
+  } else {
+    // Fallback: external WorkIQ MCP endpoint (delegated sign-in).
+    const mcpTool = WORKIQ_TOOLS[governedName];
+    try { result = await callWorkiqTool(mcpTool, args); }
+    catch (e) { result = { error: 'workiq-call-failed', tool: governedName, detail: String(e?.message || e).slice(0, 200) }; }
   }
-  // Fallback: external WorkIQ MCP endpoint (delegated sign-in).
-  const mcpTool = WORKIQ_TOOLS[governedName];
-  try {
-    return await callWorkiqTool(mcpTool, args);
-  } catch (e) {
-    return { error: 'workiq-call-failed', tool: governedName, detail: String(e?.message || e).slice(0, 200) };
+  // Demo corpus fallback: when live Work IQ is unavailable, not signed in, or returns
+  // nothing, surface the seeded Teams/SharePoint/mailbox content so the capability always
+  // has realistic material to show. Marked `demo: true` so it's transparent.
+  if (isEmptyOrError(result)) {
+    const seed = seedFor(governedName, args);
+    if (seed) return seed;
+  }
+  return result;
+}
+
+function isEmptyOrError(r) {
+  if (!r || r.error) return true;
+  if (Array.isArray(r.results) && r.results.length === 0) return true;
+  return false;
+}
+function seedFor(governedName, args = {}) {
+  switch (governedName) {
+    case 'workiq_search_files': return seedFilesResult(args.query, args.size);
+    case 'workiq_search': return seedSearchResult(args.query, args.size);
+    case 'workiq_search_mail': return seedMailResult(args);
+    case 'workiq_read_channel': return seedChannelResult(args);
+    default: return null;
   }
 }
 

@@ -116,7 +116,7 @@ import { capabilitiesFor, capabilitiesNarrative, isCapabilityQuestion } from './
 import { chatPersonaAgent, personaAgentsInfo } from './lib/personaAgent.js';
 import { lensBlock } from './lib/personaLens.js';
 import { demoProfileById } from './data/demoProfiles.js';
-import { addWorkiqNote, listWorkiqNotes } from './lib/workiqMemory.js';
+import { addWorkiqNote, listWorkiqNotes, hydrateWorkiqNotes } from './lib/workiqMemory.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
@@ -1497,7 +1497,10 @@ const port = config.server.port;
 
 // Rehydrate persisted state from Cosmos before accepting traffic (P1/P5).
 hydrate()
-  .then((h) => console.log(`Datastore: ${h.mode} — ${h.companies ?? 0} companies, ${h.deals ?? 0} deals, ${h.signals ?? 0} signals`))
+  .then(async (h) => {
+    console.log(`Datastore: ${h.mode} — ${h.companies ?? 0} companies, ${h.deals ?? 0} deals, ${h.signals ?? 0} signals`);
+    try { const w = await hydrateWorkiqNotes(); console.log(`Work IQ: seeded + ${w.hydrated} persisted note(s) restored`); } catch { /* seed-only */ }
+  })
   .catch((e) => console.log(`Datastore init issue: ${String(e?.message || e)}`))
   .finally(() => {
     app.listen(port, () => {

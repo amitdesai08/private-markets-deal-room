@@ -6,13 +6,46 @@
 // diligence) — are grounded in these notes, so a decision made in one seat resurfaces in
 // the next. This is the "context persists into Work IQ and shows up later" behaviour.
 //
-// In-memory (per container) by design for the showcase: it survives across requests and
-// conversations within the running app, which is all the demo scenario needs. Nothing here
-// is confidential beyond the deal it is attached to (reads are still deal-access gated by
-// the caller in server.js).
+// DURABILITY: a demo corpus (data/workiqSeed.js) is re-seeded on every boot so Work IQ is
+// populated out of the box and survives restarts; user-added notes are persisted to the
+// durable `events` collection (Cosmos on the deployed app) and re-hydrated at startup. The
+// in-memory Map is the fast read path in front of that store. Reads are still deal-access
+// gated by the caller in server.js.
+
+import { WORKIQ_SEED_NOTES } from '../data/workiqSeed.js';
+import { upsert, list } from './repo/index.js';
 
 const NOTES = new Map(); // dealId -> Note[]
 let SEQ = 1;
+const EVENT_TYPE = 'workiq-note';
+
+function pushNote(note) {
+  const arr = NOTES.get(note.dealId) || [];
+  if (arr.some((x) => x.id === note.id)) return; // idempotent (seed / hydrate dedupe)
+  arr.push(note);
+  NOTES.set(note.dealId, arr);
+}
+
+// Seed the demo corpus at module load so Work IQ is populated on every boot (survives restart).
+for (const n of WORKIQ_SEED_NOTES) pushNote({ ...n, seeded: true });
+
+// Re-hydrate user-added notes persisted to the durable `events` collection. Called once at
+// startup (after the repo is initialised). No-op on the in-memory store — seed remains.
+let hydrated = false;
+export async function hydrateWorkiqNotes() {
+  if (hydrated) return { hydrated: 0 };
+  hydrated = true;
+  let n = 0;
+  try {
+    const docs = await list('events');
+    for (const d of docs || []) {
+      if (d?.type !== EVENT_TYPE || !d.note?.id) continue;
+      pushNote(d.note);
+      n += 1;
+    }
+  } catch { /* memory store / no persistence — seed only */ }
+  return { hydrated: n };
+}
 
 // Add a shared note. `author` is the human display name (e.g. "Janet"); `personaLabel`
 // is their seat (e.g. "AI Partner — Tech & Digital Value"); `sharedWith` is a list of
@@ -32,9 +65,11 @@ export function addWorkiqNote({ dealId, author, personaId, personaLabel, role, t
     sharedWith: Array.isArray(sharedWith) ? sharedWith.filter(Boolean).map(String).slice(0, 12) : [],
     createdAt: new Date().toISOString(),
   };
-  const arr = NOTES.get(id) || [];
-  arr.push(note);
-  NOTES.set(id, arr);
+  pushNote(note);
+  // Durable persistence (survives restart on Cosmos/blob; best-effort — never blocks).
+  Promise.resolve()
+    .then(() => upsert('events', { id: note.id, companyId: note.dealId, type: EVENT_TYPE, note }))
+    .catch(() => {});
   return note;
 }
 
