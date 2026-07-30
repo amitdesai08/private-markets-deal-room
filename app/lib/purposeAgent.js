@@ -234,13 +234,13 @@ async function composeAnswer(ctx, message, findings, previousResponseId) {
 
 // ---- public entry point ------------------------------------------------------
 // Same signature + response shape as chatDealAgent, so server.js can swap on a flag.
-export async function chatOrchestrator({ message, dealId, scope, previousResponseId, identity, viewAsRole } = {}) {
+export async function chatOrchestrator({ message, dealId, scope, previousResponseId, identity, viewAsRole, askerPersona } = {}) {
   const text = String(message || '').trim();
   if (!text) return { error: 'message-required' };
 
   // If orchestration is off or unconfigured, defer to the single-agent path.
   if (!orchestrationEnabled() || !orchestratorConfigured()) {
-    return chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole });
+    return chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole, askerPersona });
   }
 
   // Content Safety guard on user input (fail-open; blocks only egregious content).
@@ -270,7 +270,7 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
     }
   }
 
-  const ctx = { scope: effScope, focusId, focusCompany, lens: lensBlock({ identity, viewAsRole }) };
+  const ctx = { scope: effScope, focusId, focusCompany, lens: lensBlock({ identity, viewAsRole, persona: askerPersona }) };
 
   try {
     // 1) Route.
@@ -312,7 +312,7 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
     };
   } catch (err) {
     // Any hard failure degrades to the proven single-agent analyst chat.
-    const out = await chatDealAgent({ message: text, dealId: focusId || dealId, scope: effScope, previousResponseId, identity, viewAsRole });
+    const out = await chatDealAgent({ message: text, dealId: focusId || dealId, scope: effScope, previousResponseId, identity, viewAsRole, askerPersona });
     return { ...out, orchestration: 'fallback', orchestrationError: String(err?.message || err) };
   }
 }

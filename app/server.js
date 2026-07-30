@@ -180,15 +180,29 @@ function requestingViewAs(req) {
   return req.body?.viewAsRole || req.headers['x-dr-view-as'] || null;
 }
 // The human actor to attribute an action to in the audit trail: the verified SSO
-// user's name, else the acting demo persona's real name (from the "sign in as"
-// selection carried in x-dr-as / body.as), else null. Never a bare role label here —
-// callers fall back to a label only if this returns null.
+// user's name, else the acting demo persona's real name. The Teams proxy resolves a
+// demo "sign in as" into a requesting identity whose name IS the profile id (or it
+// arrives directly in x-dr-as / body.as) — map that back to the profile's display name.
+// Never a bare role label here — callers fall back to a label only if this returns null.
 function actingName(req) {
   const id = requestingIdentity(req);
-  if (id && id.name) return id.name;
-  const asId = req.body?.as || req.headers['x-dr-as'];
+  const asId = req.body?.as || req.headers['x-dr-as'] || id?.oid || id?.upn || id?.name;
   const p = asId && demoProfileById[String(asId)];
-  return p ? (p.name || null) : null;
+  if (p && p.name) return p.name;
+  if (id && id.name) return id.name;
+  return null;
+}
+
+// The persona the caller is acting AS — the demo profile's personaId (e.g. 'ai-md',
+// 'supply-md', 'fund-cfo'). Sourced from the "sign in as" selection: x-dr-as / body.as
+// directly, or (via the Teams proxy) the resolved identity whose name is the profile id.
+// Lets the assistant answer in that specific partner's domain voice (the persona lens
+// keys off this), independent of the coarse RBAC role. Null for real SSO users.
+function actingPersona(req) {
+  const id = requestingIdentity(req);
+  const asId = req.body?.as || req.headers['x-dr-as'] || id?.oid || id?.upn || id?.name;
+  const p = asId && demoProfileById[String(asId)];
+  return p ? (p.personaId || null) : null;
 }
 
 // ---- API ----
@@ -1263,6 +1277,9 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   // ---- RBAC (requesting user; optional view-as a lower role) ----
   const identity = requestingIdentity(req);
   const viewAs = req.body?.viewAsRole || null;
+  // The specific persona the caller signed in AS (e.g. ai-md) — drives the domain
+  // voice of the read-only / downgraded fallbacks below.
+  const askerPersona = actingPersona(req);
   const access = accessFor(identity, viewAs);
   // "What can you do?" — role-scoped capability answer (deterministic), before any deal gate.
   if (isCapabilityQuestion(message)) {
@@ -1277,7 +1294,7 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   // agents — answer via the read-only deal analyst instead.
   if (!access.canWrite) {
     try {
-      const out = await chatDealAgent({ message, dealId, scope: dealId ? 'deal' : 'portfolio', identity, viewAsRole: viewAs });
+      const out = await chatDealAgent({ message, dealId, scope: dealId ? 'deal' : 'portfolio', identity, viewAsRole: viewAs, askerPersona });
       return res.json({ ...out, role: access.role, readOnly: true });
     } catch (err) {
       return res.status(500).json({ error: 'chat failed', detail: String(err?.message || err) });
@@ -1287,7 +1304,7 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   const authz = authorizePersona(identity, req.params.persona, viewAs);
   if (!authz.ok) {
     try {
-      const out = await chatDealAgent({ message, dealId, scope: dealId ? 'deal' : 'portfolio', identity, viewAsRole: viewAs });
+      const out = await chatDealAgent({ message, dealId, scope: dealId ? 'deal' : 'portfolio', identity, viewAsRole: viewAs, askerPersona });
       return res.json({ reply: `${authz.reason}\n\n${out.reply || ''}`.trim(), downgraded: true, role: access.role });
     } catch (err) {
       return res.status(500).json({ error: 'chat failed', detail: String(err?.message || err) });
@@ -1314,6 +1331,9 @@ api.post('/deal-agent/chat', async (req, res) => {
   // ---- RBAC: gate Stage-2 deal access by the requesting user's role ----
   const identity = requestingIdentity(req);
   const viewAs = req.body?.viewAsRole || null;
+  // The specific persona the caller signed in AS (e.g. ai-md) — the assistant answers
+  // in that partner's domain voice via the persona lens.
+  const askerPersona = actingPersona(req);
   // "What can you do?" — answered from the role-scoped capability map (deterministic,
   // instant, always correctly scoped) so a new user can start cold.
   const access = accessFor(identity, viewAs);
@@ -1327,8 +1347,8 @@ api.post('/deal-agent/chat', async (req, res) => {
   }
   try {
     const out = orchestrationEnabled()
-      ? await chatOrchestrator({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs })
-      : await chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs });
+      ? await chatOrchestrator({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs, askerPersona })
+      : await chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs, askerPersona });
     if (out?.error && !out.reply) return res.status(400).json(out);
     // Assistant proposes concrete next steps (user approves) — deterministic, grounded in
     // deal state. Only for a deal-scoped, write-capable, authorised caller.

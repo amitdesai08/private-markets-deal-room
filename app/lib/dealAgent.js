@@ -240,13 +240,14 @@ async function dealFallback(focusId, message, lens) {
 }
 
 // ---- public entry point -----------------------------------------------------
-// chatDealAgent({ message, dealId?, scope?, previousResponseId?, identity?, viewAsRole? })
+// chatDealAgent({ message, dealId?, scope?, previousResponseId?, identity?, viewAsRole?, askerPersona? })
 //   scope defaults to 'deal' when a dealId is given, else 'portfolio'. When an identity
 //   is supplied, every deal read is gated to what that user may see (no RBAC bypass).
-export async function chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole } = {}) {
+//   askerPersona pins the persona lens to the specific specialist the caller signed in as.
+export async function chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole, askerPersona } = {}) {
   const text = String(message || '').trim();
   if (!text) return { error: 'message-required' };
-  const lens = lensBlock({ identity, viewAsRole });
+  const lens = lensBlock({ identity, viewAsRole, persona: askerPersona });
 
   // Content Safety guard on user input (fail-open; blocks only egregious content).
   const safety = await screenText(text);
