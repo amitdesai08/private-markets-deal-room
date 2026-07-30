@@ -17,9 +17,15 @@ import { personaById } from './personas.js';
 //   • Tahani Al-Jamil (the consummate connector & value-builder)          → Deal Team.
 //   • Chidi Anagonye (the rigorous over-thinker who reads every source)   → Analyst (read-only).
 //   • Jason Mendoza (along for the ride, out of his depth)                → Member / observer (floor).
-// The second tier pins the SPECIFIC sector / functional partners (AI Partner, Supply Chain
-// Partner, Commercial Partner, Fund CFO, Principal, Operating Partner) — each mapped to its
+// The second tier pins the SPECIFIC sector / functional partners \u2014 each mapped to its
 // persona so signing in AS them makes the assistant answer in that partner's domain voice.
+// Still Good Place, mapped by personality:
+//   \u2022 Janet (the all-knowing being)                                    \u2192 AI Partner (Tech & Digital).
+//   \u2022 Doug Forcett (off-grid, self-sufficient radish farmer)           \u2192 Supply Chain Partner (Operations).
+//   \u2022 Brent Norwalk (ran Norwalk Materials, all commercial ego)         \u2192 Commercial Partner (Sector & Growth).
+//   \u2022 Mindy St. Claire (high-powered attorney-turned-financier)        \u2192 Finance Partner (Fund CFO).
+//   \u2022 Simone Garnett (rigorous neuroscientist who needs the evidence)  \u2192 Principal (Deal Lead).
+//   \u2022 Derek Hofstetler (rebooted & improved a thousand times over)     \u2192 Operating Partner (Value Creation).
 //
 // These are ONLY honoured when DEMO_PROFILES is enabled (see lib/userPolicy.js and
 // the `deployDemoProfiles` infra toggle); a production deploy with the flag off
@@ -37,18 +43,18 @@ const SPEC = [
   // assistant answers in THEIR voice (each maps to a persona → the persona lens). Deal-team
   // access; each owns their diligence lane. This is what the feedback asked for: not just
   // "MD / Partner" but AI Partner, Supply Chain Partner, Commercial Partner, Fund CFO, etc.
-  { id: 'ai-md', role: 'deal-team', personaId: 'ai-md', name: 'Dr. Priya Nair', title: 'AI Partner — Tech & Digital Value', initials: 'PN', color: '#7e22ce',
-    blurb: 'AI & digital-value lead. Owns the Tech/AI diligence lane — data & AI readiness, the tech stack and the digital EBITDA levers. The assistant answers in the AI partner\'s voice.' },
-  { id: 'supply-md', role: 'deal-team', personaId: 'supply-md', name: 'Diego Marquez', title: 'Supply Chain Partner — Operations', initials: 'DM', color: '#b45309',
-    blurb: 'Operations & supply-chain lead. Owns the Operations lane — supplier map, tariff exposure, COGS bridge and footprint. The assistant answers in the supply-chain partner\'s voice.' },
-  { id: 'retail-md', role: 'deal-team', personaId: 'retail-md', name: 'James Whitfield', title: 'Commercial Partner — Sector & Growth', initials: 'JW', color: '#0e7490',
-    blurb: 'Commercial / sector lead. Owns the Commercial lane — market, share, growth durability, pricing power and customer concentration. The assistant answers in the commercial partner\'s voice.' },
-  { id: 'fund-cfo', role: 'deal-team', personaId: 'fund-cfo', name: 'David Osei', title: 'Finance Partner — Fund CFO', initials: 'DO', color: '#a16207',
-    blurb: 'Finance & financing lead. Owns the LBO / returns model, sensitivities and sources & uses. The assistant answers in the Fund CFO\'s voice — returns and structure first.' },
-  { id: 'principal', role: 'deal-team', personaId: 'principal', name: 'Marcus Feld', title: 'Principal — Deal Lead', initials: 'MF', color: '#0d9488',
-    blurb: 'Deal lead / VP driving execution — IOI / LOI, the diligence plan and the path to IC. The assistant answers in the deal lead\'s voice — what\'s blocking IC and the next actions.' },
-  { id: 'operating-partner', role: 'deal-team', personaId: 'operating-partner', name: 'Rachel Nguyen', title: 'Operating Partner — Value Creation', initials: 'RN', color: '#0f766e',
-    blurb: 'Value-creation lead — the 100-day plan, the EBITDA bridge and portfolio monitoring vs the underwriting. The assistant answers in the operating partner\'s voice.' },
+  { id: 'ai-md', role: 'deal-team', personaId: 'ai-md', name: 'Janet', title: 'AI Partner — Tech & Digital Value', initials: 'JA', color: '#7e22ce',
+    blurb: 'The all-knowing Janet — ask and the answer appears. AI & digital-value lead: owns the Tech/AI diligence lane — data & AI readiness, the tech stack and the digital EBITDA levers. The assistant answers in the AI partner\'s voice.' },
+  { id: 'supply-md', role: 'deal-team', personaId: 'supply-md', name: 'Doug Forcett', title: 'Supply Chain Partner — Operations', initials: 'DF', color: '#b45309',
+    blurb: 'The off-grid radish farmer who lives entirely self-sufficiently. Operations & supply-chain lead: owns the Operations lane — supplier map, tariff exposure, COGS bridge and footprint. The assistant answers in the supply-chain partner\'s voice.' },
+  { id: 'retail-md', role: 'deal-team', personaId: 'retail-md', name: 'Brent Norwalk', title: 'Commercial Partner — Sector & Growth', initials: 'BN', color: '#0e7490',
+    blurb: 'Ran Norwalk Materials and never lets you forget it. Commercial / sector lead: owns the Commercial lane — market, share, growth durability, pricing power and customer concentration. The assistant answers in the commercial partner\'s voice.' },
+  { id: 'fund-cfo', role: 'deal-team', personaId: 'fund-cfo', name: 'Mindy St. Claire', title: 'Finance Partner — Fund CFO', initials: 'MS', color: '#a16207',
+    blurb: 'The high-powered attorney-turned-financier of the Medium Place. Finance & financing lead: owns the LBO / returns model, sensitivities and sources & uses. The assistant answers in the Fund CFO\'s voice — returns and structure first.' },
+  { id: 'principal', role: 'deal-team', personaId: 'principal', name: 'Simone Garnett', title: 'Principal — Deal Lead', initials: 'SG', color: '#0d9488',
+    blurb: 'The rigorous neuroscientist who needs the evidence. Deal lead / VP driving execution — IOI / LOI, the diligence plan and the path to IC. The assistant answers in the deal lead\'s voice — what\'s blocking IC and the next actions.' },
+  { id: 'operating-partner', role: 'deal-team', personaId: 'operating-partner', name: 'Derek Hofstetler', title: 'Operating Partner — Value Creation', initials: 'DH', color: '#0f766e',
+    blurb: 'Rebooted and improved a thousand times over. Value-creation lead — the 100-day plan, the EBITDA bridge and portfolio monitoring vs the underwriting. The assistant answers in the operating partner\'s voice.' },
   { id: 'analyst', role: 'analyst', personaId: 'analyst', name: 'Chidi Anagonye', title: 'Analyst — Northeast desk', initials: 'CA', color: '#2563eb', regionScope: ['northeast'],
     blurb: 'The rigorous over-thinker who reads every source. Read-only analyst scoped to a SINGLE region (Northeast) — sources, screens and models Northeast deals in Stage 1; other territories and confidential deals stay hidden.' },
   { id: 'member', role: 'member', personaId: null, name: 'Jason Mendoza', title: 'Member — Observer', initials: 'JM', color: '#64748b',
