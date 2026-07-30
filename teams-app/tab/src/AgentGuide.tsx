@@ -6,15 +6,15 @@
 // Mirrors the server capability catalog (app/lib/capabilities.js) so the lineup and
 // the "what can you do?" chat answer stay in lockstep. Presentational only.
 
-type Cap = { agent: string; purpose: string; stage: string; needs: 'read' | 'stage2'; asks: string[] };
+type Cap = { agent: string; purpose: string; stage: string; needs: 'read' | 'stage2'; asks: string[]; skills: string[] };
 
 const CATALOG: Cap[] = [
-  { agent: 'Sourcing', purpose: 'Find, map & qualify new targets from signals, news & filings', stage: 'Origination', needs: 'read', asks: ['What should we source next in industrials?'] },
-  { agent: 'Screening', purpose: 'Screen a target against the fund mandate, comps & unit economics', stage: 'Screening', needs: 'read', asks: ['Screen this company against our mandate.'] },
-  { agent: 'Diligence', purpose: 'Plan & run diligence, surface red-flag risks by workstream', stage: 'Diligence · Stage 2', needs: 'stage2', asks: ['Build the diligence plan for this deal.'] },
-  { agent: 'Modeling', purpose: 'Build the returns case — LBO, DCF, 3-statement & comps', stage: 'Diligence / Execution', needs: 'read', asks: ['Build the base / bull / bear LBO returns.'] },
-  { agent: 'IC Memo', purpose: 'Draft the IC memo + deck, audit every figure to a source', stage: 'Approval · Stage 3', needs: 'stage2', asks: ['Draft the IC memo for this deal.'] },
-  { agent: 'Value Creation & Portfolio', purpose: 'Own the value-creation plan & monitor the portfolio vs the underwriting', stage: 'Ownership · Stage 4', needs: 'read', asks: ['Draft the 100-day value-creation plan.'] },
+  { agent: 'Sourcing', purpose: 'Find, map & qualify new targets from signals, news & filings', stage: 'Origination', needs: 'read', asks: ['What should we source next in industrials?'], skills: ['deal-sourcing', 'market-map', 'competitive-analysis'] },
+  { agent: 'Screening', purpose: 'Screen a target against the fund mandate, comps & unit economics', stage: 'Screening', needs: 'read', asks: ['Screen this company against our mandate.'], skills: ['deal-screening', 'comps-analysis', 'unit-economics', 'ai-readiness'] },
+  { agent: 'Diligence', purpose: 'Plan & run diligence, surface red-flag risks by workstream', stage: 'Diligence · Stage 2', needs: 'stage2', asks: ['Build the diligence plan for this deal.'], skills: ['dd-checklist', 'dd-meeting-prep', 'competitive-analysis'] },
+  { agent: 'Modeling', purpose: 'Build the returns case — LBO, DCF, 3-statement & comps', stage: 'Diligence / Execution', needs: 'read', asks: ['Build the base / bull / bear LBO returns.'], skills: ['lbo-model', 'dcf-model', '3-statement-model', 'returns-analysis'] },
+  { agent: 'IC Memo', purpose: 'Draft the IC memo + deck, audit every figure to a source', stage: 'Approval · Stage 3', needs: 'stage2', asks: ['Draft the IC memo for this deal.'], skills: ['ic-memo', 'deck-refresh', 'citation-audit'] },
+  { agent: 'Value Creation & Portfolio', purpose: 'Own the value-creation plan & monitor the portfolio vs the underwriting', stage: 'Ownership · Stage 4', needs: 'read', asks: ['Draft the 100-day value-creation plan.'], skills: ['value-creation-plan', 'portfolio-monitoring', 'returns-analysis'] },
 ];
 
 export default function AgentGuide({ roleLabel, canViewStage2, canWrite, onAsk }: {
@@ -43,6 +43,7 @@ export default function AgentGuide({ roleLabel, canViewStage2, canWrite, onAsk }
                 <div className="ag-agent">{c.agent}</div>
                 <div className="ag-purpose">{c.purpose}</div>
                 <div className="ag-ask">e.g. “{c.asks[0]}”</div>
+                <div className="ag-skills">{c.skills.map((s) => <span key={s} className="ag-skill">{s}</span>)}</div>
               </button>
             );
           })}
@@ -51,6 +52,10 @@ export default function AgentGuide({ roleLabel, canViewStage2, canWrite, onAsk }
         <div className="ag-access">
           <span className="ag-access-h">Your access</span>
           <ul>{limits.map((l, i) => <li key={i}>{l}</li>)}</ul>
+        </div>
+
+        <div className="ag-custom">
+          Each agent is a <strong>customizable pack</strong> — its instructions, tools and skills (shown above) live in editable <code>Agent.md</code> / <code>Skill.md</code> files, so a firm can tailor how the assistant sources, screens, models and writes without touching code.
         </div>
       </details>
     </div>
@@ -74,8 +79,12 @@ const CSS = `
 .ag-agent { font-weight: 700; font-size: 13px; color: var(--fg); }
 .ag-purpose { font-size: 12px; color: var(--muted); line-height: 1.4; }
 .ag-ask { font-size: 12px; color: var(--accent, #6ea8fe); margin-top: 2px; }
+.ag-skills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.ag-skill { font-size: 10px; color: var(--muted); background: rgba(140,140,150,.14); border-radius: 4px; padding: 1px 6px; }
 .ag-access { border-top: 1px solid var(--border, #2a2a35); padding: 10px 16px 12px; }
 .ag-access-h { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; }
 .ag-access ul { margin: 6px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; }
 .ag-access li { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.ag-custom { border-top: 1px solid var(--border, #2a2a35); padding: 10px 16px 12px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.ag-custom code { font-size: 11px; background: rgba(140,140,150,.16); border-radius: 4px; padding: 0 5px; }
 `;

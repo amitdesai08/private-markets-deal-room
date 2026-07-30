@@ -272,7 +272,7 @@ export default function App() {
         {chatOpen ? <ChatPanel agents={visibleAgents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} viewAsRole={viewAsRole} /> : null}
       </div>
 
-      {openDealId ? <DealDetail dealId={openDealId} canViewStage2={canViewStage2} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} /> : null}
+      {openDealId ? <DealDetail dealId={openDealId} canViewStage2={canViewStage2} canWrite={canWrite} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} /> : null}
       {intakeOpen ? <IntakeWizard isAdmin={isAdmin} onClose={() => setIntakeOpen(false)} onCreated={(id) => { setIntakeOpen(false); refreshData(); setOpenDealId(id); }} /> : null}
       {adminGroupsOpen ? <AdminGroups deals={deals} onClose={() => setAdminGroupsOpen(false)} /> : null}
     </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getSsoToken } from './teams';
 import { af } from './authFetch';
 import DealArtifacts from './DealArtifacts';
+import WorkIqPanel from './WorkIqPanel';
 import ChatPanel from './ChatPanel';
 import { renderMarkdown } from './md';
 import type { Agent, Deal } from './types';
@@ -88,7 +89,7 @@ type Tab = 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'artifacts'
 type ResolveTarget = { tab: Tab; step?: string };
 type ActivityEntry = { actor?: string; action?: string; when?: string; via?: string | null };
 
-export default function DealDetail({ dealId, canViewStage2, agents, deals, viewAsRole, onChanged, onClose }: { dealId: string; canViewStage2: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void }) {
+export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, onClose }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
   const [ic, setIc] = useState<ICReadiness | null>(null);
   const [flow, setFlow] = useState<Flow | null>(null);
@@ -744,6 +745,7 @@ export default function DealDetail({ dealId, canViewStage2, agents, deals, viewA
 
               {tab === 'workspace' && (
                 <>
+                  <WorkIqPanel dealId={dealId} canWrite={!!canWrite} />
                   {workbench.length ? (
                     <section className="dd-panel">
                       <div className="dd-panel-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
