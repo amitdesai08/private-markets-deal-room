@@ -236,7 +236,10 @@ export function describeDemoProfiles() {
       role: a.role, roleLabel: a.roleLabel, isAdmin: a.isAdmin,
       allowedPersonas: a.allowedPersonas, agentCount: n,
       canWrite: a.canWrite, canViewStage2: a.canViewStage2,
-      label: `${p.name} \u2014 ${a.roleLabel}`,
+      // Dropdown label shows the SPECIFIC persona/title (e.g. "AI Partner — Tech &
+      // Digital Value"), not just the coarse RBAC role, so each showcase profile is
+      // distinguishable. Falls back to the role label when a profile has no title.
+      label: `${p.name} \u2014 ${p.title || a.roleLabel}`,
     };
   });
 }
