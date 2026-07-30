@@ -29,11 +29,11 @@ const COMPARE_SEATS: { id: string; label: string }[] = [
   { id: 'partner', label: 'Lead Partner' },
 ];
 
-export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsRole, canWrite }: {
-  agents: Agent[]; deals: Deal[]; focusDealId: string; onClose: () => void; viewAsRole?: string; canWrite?: boolean;
+export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsRole, canWrite, seed, seedNonce }: {
+  agents: Agent[]; deals: Deal[]; focusDealId: string; onClose: () => void; viewAsRole?: string; canWrite?: boolean; seed?: string; seedNonce?: number;
 }) {
   const [agentKey, setAgentKey] = useState('orchestrator');
-  const [dealId, setDealId] = useState('');
+  const [dealId, setDealId] = useState(focusDealId || '');
   const [threads, setThreads] = useState<Record<string, Msg[]>>({});
   const [prevId, setPrevId] = useState<Record<string, string | undefined>>({});
   const [input, setInput] = useState('');
@@ -45,6 +45,14 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (focusDealId) setDealId(focusDealId); }, [focusDealId]);
+  // A corpus item (file / mail / channel) can seed a question into the chat and it auto-sends.
+  const seedRef = useRef(0);
+  useEffect(() => {
+    if (!seedNonce || seedNonce === seedRef.current) return;
+    seedRef.current = seedNonce;
+    if (seed && seed.trim()) send(seed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedNonce]);
 
   const agent = agents.find((a) => a.key === agentKey) || agents[0];
   const threadKey = `${agent?.key}:${dealId || 'portfolio'}`;

@@ -99,6 +99,8 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('overview');
   const [askOpen, setAskOpen] = useState(false);
+  const [chatSeed, setChatSeed] = useState('');
+  const [chatSeedNonce, setChatSeedNonce] = useState(0);
   const [selStep, setSelStep] = useState<string>('');
   const [busy, setBusy] = useState<string>('');
   const [note, setNote] = useState<string>('');
@@ -396,7 +398,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
         {askOpen && deal ? (
           <div className="drawer-chat">
-              <ChatPanel agents={agents} deals={deals} focusDealId={dealId} onClose={() => setAskOpen(false)} viewAsRole={viewAsRole} canWrite={!!canWrite} />
+              <ChatPanel agents={agents} deals={deals} focusDealId={dealId} onClose={() => setAskOpen(false)} viewAsRole={viewAsRole} canWrite={!!canWrite} seed={chatSeed} seedNonce={chatSeedNonce} />
           </div>
         ) : null}
 
@@ -745,7 +747,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
               {tab === 'workspace' && (
                 <>
-                  <WorkIqPanel dealId={dealId} canWrite={!!canWrite} />
+                  <WorkIqPanel dealId={dealId} canWrite={!!canWrite} onAsk={(p) => { setChatSeed(p); setChatSeedNonce((n) => n + 1); setAskOpen(true); }} />
                   {workbench.length ? (
                     <section className="dd-panel">
                       <div className="dd-panel-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

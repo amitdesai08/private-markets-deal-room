@@ -32,7 +32,7 @@ function ago(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
-export default function WorkIqPanel({ dealId, canWrite }: { dealId: string; canWrite: boolean }) {
+export default function WorkIqPanel({ dealId, canWrite, onAsk }: { dealId: string; canWrite: boolean; onAsk?: (prompt: string) => void }) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [text, setText] = useState('');
   const [share, setShare] = useState<string[]>([]);
@@ -129,13 +129,14 @@ export default function WorkIqPanel({ dealId, canWrite }: { dealId: string; canW
                   <div className="wiq-cprev">{m.preview}</div>
                 </div>
               ))}
+              {onAsk ? <button type="button" className="wiq-ask" onClick={() => onAsk('Catch me up — use Work IQ to summarise the latest war-room discussion in this deal\u2019s Teams channel.')}>Ask the assistant to summarise this channel ▸</button> : null}
             </div>
           ) : null}
           {(corpus.files || []).length ? (
             <div className="wiq-cgroup">
               <div className="wiq-ch">Data room · files ({corpus.files!.length})</div>
               {corpus.files!.map((f, i) => (
-                <div className="wiq-file" key={i}><span className="wiq-fname">{f.name}</span><span className="wiq-fsum">{f.summary}</span></div>
+                <button type="button" className="wiq-file wiq-clk" key={i} onClick={() => onAsk?.(`Open the file “${f.name}” via Work IQ and give me its key points and any risks for this deal.`)} disabled={!onAsk}><span className="wiq-fname">{f.name}</span><span className="wiq-fsum">{f.summary}</span></button>
               ))}
             </div>
           ) : null}
@@ -143,7 +144,7 @@ export default function WorkIqPanel({ dealId, canWrite }: { dealId: string; canW
             <div className="wiq-cgroup">
               <div className="wiq-ch">Mailbox ({corpus.mail!.length})</div>
               {corpus.mail!.map((m, i) => (
-                <div className="wiq-file" key={i}><span className="wiq-fname">{m.subject}</span><span className="wiq-fsum">{m.from} · {m.preview}</span></div>
+                <button type="button" className="wiq-file wiq-clk" key={i} onClick={() => onAsk?.(`Summarise this email for the deal — “${m.subject}” from ${m.from} — and what it means for us.`)} disabled={!onAsk}><span className="wiq-fname">{m.subject}</span><span className="wiq-fsum">{m.from} · {m.preview}</span></button>
               ))}
             </div>
           ) : null}
@@ -180,6 +181,11 @@ const CSS = `
 .wiq-ctime { color: var(--muted); }
 .wiq-cprev { font-size: 12px; color: var(--fg); line-height: 1.4; margin-top: 1px; }
 .wiq-file { display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--border, #2a2a35); border-radius: 8px; background: var(--bg, #131318); padding: 7px 10px; }
+.wiq-clk { cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%; }
+.wiq-clk:hover:not(:disabled) { border-color: var(--accent, #6ea8fe); }
+.wiq-clk:disabled { cursor: default; }
+.wiq-ask { margin-top: 4px; align-self: flex-start; font: inherit; font-size: 11.5px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--accent, #6ea8fe); cursor: pointer; }
+.wiq-ask:hover { border-color: var(--accent, #6ea8fe); }
 .wiq-fname { font-size: 12.5px; font-weight: 600; color: var(--fg); }
 .wiq-fsum { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
 `;

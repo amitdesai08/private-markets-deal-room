@@ -58,6 +58,7 @@ export default function App() {
   const [openDealId, setOpenDealId] = useState('');
   const [canViewStage2, setCanViewStage2] = useState(true);
   const [canWrite, setCanWrite] = useState(true);
+  const [accFlash, setAccFlash] = useState(false);
   const [demoUsers, setDemoUsers] = useState<{ id: string; upn: string; label: string; name?: string; roleLabel?: string; agentCount?: number }[]>([]);
   const [viewAs, setViewAs] = useState('');
   // Access profile from the orchestrator: which agents this user may use, and
@@ -160,6 +161,15 @@ export default function App() {
     })();
   }, [viewAs, viewAsRole]);
 
+  // Pulse the showcase banner whenever the access profile changes, so a persona switch
+  // visibly changes what the seat can access (not just the answer framing).
+  useEffect(() => {
+    if (!viewAs) return;
+    setAccFlash(true);
+    const id = setTimeout(() => setAccFlash(false), 1500);
+    return () => clearTimeout(id);
+  }, [viewAs, roleLabel, canWrite, canViewStage2]);
+
   // Critical data load with an explicit failure/retry state, so a transient API error
   // degrades to "last known data + Retry" instead of a silent blank.
   function loadDeals() {
@@ -228,9 +238,26 @@ export default function App() {
       </header>
 
       {viewAs ? (
-        <div role="note" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '6px 12px 0', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--muted)', fontSize: 12, lineHeight: 1.4 }}>
-          <span>Showcase mode — viewing as <strong style={{ color: 'var(--fg)' }}>{persona?.name || viewAs}</strong>. Their <strong style={{ color: 'var(--fg)' }}>role</strong> controls what they can access (RBAC is still enforced); the <strong style={{ color: 'var(--fg)' }}>persona lens</strong> controls how the assistant frames answers for that seat.</span>
-        </div>
+        <>
+          <style>{`
+            .sbn { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:6px 12px 0; padding:7px 12px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--muted); font-size:12px; line-height:1.4; }
+            .sbn strong { color: var(--fg); }
+            .sbn.flash { animation: sbnflash 1.5s ease-out; }
+            @keyframes sbnflash { 0% { border-color: var(--accent,#6ea8fe); box-shadow: 0 0 0 2px rgba(110,168,254,.35); } 100% { border-color: var(--border); box-shadow: none; } }
+            .sbn-chips { display:flex; flex-wrap:wrap; gap:6px; margin-left:auto; }
+            .sbn-chip { font-size:11px; font-weight:600; padding:1px 8px; border-radius:999px; border:1px solid var(--border); white-space:nowrap; }
+            .sbn-chip.on { color:#34d399; border-color:rgba(52,211,153,.4); }
+            .sbn-chip.off { color:var(--muted); }
+          `}</style>
+          <div role="note" className={`sbn${accFlash ? ' flash' : ''}`}>
+            <span>Showcase mode — viewing as <strong>{persona?.name || viewAs}</strong>. Their <strong>role</strong> controls what they can access (RBAC is still enforced); the <strong>persona lens</strong> controls how the assistant frames answers for that seat.</span>
+            <span className="sbn-chips">
+              <span className="sbn-chip">{isAdmin ? '★ ' : ''}{roleLabel || 'role'}</span>
+              <span className={`sbn-chip ${canWrite ? 'on' : 'off'}`}>{canWrite ? 'Can act · write' : 'Read-only'}</span>
+              <span className={`sbn-chip ${canViewStage2 ? 'on' : 'off'}`}>{canViewStage2 ? 'Stage-2 visible' : 'Stage-2 · status-only'}</span>
+            </span>
+          </div>
+        </>
       ) : null}
 
       <nav className="maintabs">
