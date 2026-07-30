@@ -217,7 +217,7 @@ export default function App() {
           ) : null}
           {teamsInfo?.inTeams ? <a className="dashlink" href={cfg?.appBaseUrl || window.location.origin} target="_blank" rel="noopener noreferrer">Open web console ↗</a> : null}
           {canViewStage2 ? <button className="asktoggle" onClick={() => setIntakeOpen(true)} title="Create a new deal via guided intake">+ New deal</button> : null}
-          {isAdmin ? <button className="gearbtn" onClick={() => setAdminGroupsOpen(true)} title="Admin — deal groups &amp; territories" aria-label="Deal groups and territories">🗂</button> : null}
+          {isAdmin ? <button className="gearbtn" onClick={() => setAdminGroupsOpen(true)} title="Admin — deal groups &amp; territories" aria-label="Deal groups and territories">�</button> : null}
           <button className={`asktoggle${chatOpen ? ' on' : ''}`} onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide agents' : '💬 Ask agents'}</button>
           <button className="gearbtn" onClick={() => setTheme(toggleTheme())} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label="Toggle light or dark theme">{theme === 'dark' ? '☀' : '🌙'}</button>
           <button className={`gearbtn${settingsOpen ? ' on' : ''}`} onClick={() => setSettingsOpen((v) => !v)} title="Settings — data sources & administration" aria-label="Settings">⚙</button>
