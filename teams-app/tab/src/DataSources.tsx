@@ -266,7 +266,7 @@ const CSS = `
 .ds-add-b { font-size: 12px; color: var(--muted); }
 .ds-add-grid { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.4fr) auto minmax(180px, 1.4fr) auto; gap: 8px; align-items: center; }
 @media (max-width: 720px) { .ds-add-grid { grid-template-columns: 1fr 1fr; } }
-.ds-add-err { margin: 8px 0 0; font-size: 12px; color: var(--bad); }
+.ds-add-err { margin: 8px 0 0; font-size: 12px; color: var(--warn); }
 .ds-tier { margin-bottom: 22px; }
 .ds-tier-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border, #2a2a35); padding-bottom: 6px; }
 .ds-tier-t { font-weight: 600; font-size: 14px; color: var(--fg); }
@@ -298,7 +298,7 @@ const CSS = `
 .ds-msg { margin: 8px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.4; }
 .ds-pill { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 9px; }
 .ds-pill.connected { color: var(--good); background: var(--good-bg); }
-.ds-pill.disconnected { color: var(--muted); background: var(--chip); }
+.ds-pill.disconnected { color: var(--muted); background: transparent; border: 1px dashed var(--border); }
 .ds-pill.degraded { color: var(--warn); background: var(--warn-bg); }
 .ds-pill.disabled { color: var(--muted); background: var(--chip); }
 .ds-pill.pending { color: var(--warn); background: var(--warn-bg); }

@@ -88,7 +88,7 @@ export default function DocumentDesk({
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div className="k">{d.name}</div>
                   <div className="sub">{d.author || 'unknown author'} · {ago(d.lastModified)}</div>
-                  {d.delta ? <div className={`delta${d.deltaTone === 'bad' ? '' : ' ok'}`}>{d.delta}</div> : null}
+                  {d.delta ? <div className={`delta ${d.deltaTone || 'warn'}`}>{d.delta}</div> : null}
                   {d.basis ? <div className="sub" style={{ marginTop: 4 }}>{d.basis}</div> : null}
                   <div className="acts">
                     {d.webUrl ? <a className="btn compact" href={d.webUrl} target="_blank" rel="noreferrer">Open ↗</a> : null}

@@ -193,10 +193,13 @@ export default function WorkflowDesk({
             <div className="step-r">
               <span className={`dot ${s.state === 'done' ? 'done' : s.flagged ? 'blocked' : s.state === 'current' ? 'now' : ''}`} />
               <span className="k">{s.key} · {s.title}</span>
-              <span className={`chip ${s.state === 'done' ? 'good' : s.flagged ? 'bad' : s.state === 'current' ? '' : ''}`}>
-                {s.state === 'done' ? 'Completed' : s.flagged ? 'At risk' : s.state === 'current' ? 'In progress' : 'Pending'}
+              {/* Authoritative status. It comes from the deal record and the AI
+                  overlay never touches it — the risk is a separate chip below. */}
+              <span className={`chip ${s.state === 'done' ? 'good' : ''}`}>
+                {s.state === 'done' ? 'Completed' : s.state === 'current' ? 'In progress' : 'Pending'}
               </span>
-              {s.mine ? <span className="chip ai">Mine</span> : null}
+              {s.flagged ? <span className="chip ai">✦ AI · at risk</span> : null}
+              {s.mine ? <span className="chip">Mine</span> : null}
               <span className="spacer" />
               <span className="m">{s.stage}</span>
             </div>

@@ -166,7 +166,7 @@ export default function ThreadsDesk({
               ))}
             </div>
 
-            {data.suggestedParticipants.length ? (
+            {canWrite && data.suggestedParticipants.length ? (
               <div className="bd suggest" style={{ borderTop: '1px dashed var(--border)' }}>
                 <span className="sub" style={{ fontWeight: 600 }}>Suggested participants from thread context</span>
                 {data.suggestedParticipants.map((p) => (

@@ -264,9 +264,12 @@ export default function Cockpit({
                       </details>
                     ) : null}
                   </div>
-                  <span className={`chip ${m.state === 'done' ? 'good' : m.aiRisk ? 'warn' : ''}`}>
-                    {m.state === 'done' ? 'Completed' : m.state === 'current' ? (m.aiRisk ? 'At risk' : 'In progress') : 'Pending'}
+                  {/* Status is the deal record's. The AI risk is shown beside it,
+                      labelled, so an overlay is never mistaken for a state change. */}
+                  <span className={`chip ${m.state === 'done' ? 'good' : ''}`}>
+                    {m.state === 'done' ? 'Completed' : m.state === 'current' ? 'In progress' : 'Pending'}
                   </span>
+                  {m.aiRisk ? <span className="chip ai">✦ AI · at risk</span> : null}
                 </div>
               ))}
             </div>

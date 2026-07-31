@@ -16,8 +16,8 @@ export function Tag({ kind }: { kind: 'live' | 'ext' | 'new' }) {
   return <span className={`tag ${kind}`}>{label}</span>;
 }
 
-// A cited narrative. Clicking a citation reveals the source list rather than
-// navigating away, so the reader never loses their place in the paragraph.
+// A cited narrative. Citations are real buttons: they are a drill-down control,
+// so they have to be reachable by keyboard and announced as interactive.
 export function Narrative({
   paragraphs, sources, onCite,
 }: { paragraphs: Para[]; sources: string[]; onCite?: (n: number) => void }) {
@@ -27,7 +27,11 @@ export function Narrative({
         <p key={i}>
           {p.text}
           {p.cites.map((n) => (
-            <cite key={n} title={sources[n - 1] || 'source'} onClick={() => onCite?.(n)}>{n}</cite>
+            <cite key={n}>
+              <button type="button" title={sources[n - 1] || 'source'}
+                aria-label={`Source ${n}: ${sources[n - 1] || 'unknown'}`}
+                onClick={() => onCite?.(n)}>{n}</button>
+            </cite>
           ))}
         </p>
       ))}

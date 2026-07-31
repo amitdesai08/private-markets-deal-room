@@ -4,6 +4,7 @@
 // ioi,loi}, plus the returns Excel download. All read-only projections of the live
 // record (built server-side in app/lib/diligence.js).
 import { useEffect, useState } from 'react';
+import { af } from './authFetch';
 
 const money = (n?: number) => (n == null ? '—' : n >= 1000 ? `$${(n / 1000).toFixed(1)}B` : `$${Math.round(n)}M`);
 
@@ -18,7 +19,7 @@ export default function DealArtifacts({ dealId }: { dealId: string }) {
 
   useEffect(() => {
     const load = (u: string, set: (x: Any | null) => void) =>
-      fetch(u).then((r) => (r.ok ? r.json() : null)).then(set).catch(() => {});
+      af(u).then((r) => (r.ok ? r.json() : null)).then(set).catch(() => {});
     load(`/api/deals/${dealId}/returns`, setReturns);
     load(`/api/deals/${dealId}/value-creation`, setVcp);
     load(`/api/deals/${dealId}/risk-register`, setRisk);
@@ -115,8 +116,8 @@ const CSS = `
 .da-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; }
 .da-h { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
 .da-owner { margin-left: auto; font-size: 11px; font-weight: 600; background: var(--chip); padding: 3px 9px; border-radius: 999px; }
-.da-status { margin-left: auto; font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; color: #fff; }
-.da-status.green { background: var(--good); } .da-status.amber { background: var(--warn); } .da-status.red { background: var(--bad); }
+.da-status { margin-left: auto; font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; border: 1px solid; }
+.da-status.green { background: var(--good-bg); color: var(--good); border-color: var(--good-br); } .da-status.amber { background: var(--warn-bg); color: var(--warn); border-color: var(--warn-br); } .da-status.red { background: var(--bad-bg); color: var(--bad); border-color: var(--bad-br); }
 .da-headline { font-size: 12.5px; color: var(--fg); opacity: .9; margin: 6px 0 10px; line-height: 1.5; }
 .da-scen { display: grid; gap: 4px; }
 .da-scenrow { display: grid; grid-template-columns: 90px 90px 90px 1fr; gap: 8px; font-size: 12px; padding: 5px 8px; border-radius: 7px; background: var(--chip); }

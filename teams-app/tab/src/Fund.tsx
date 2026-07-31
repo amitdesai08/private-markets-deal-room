@@ -292,8 +292,8 @@ const CSS = `
 .fnd-panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
 .fnd-panel-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 700; flex-wrap: wrap; }
 .fnd-mut { color: var(--muted); font-size: 12px; font-weight: 400; }
-.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 3px 0 8px; vertical-align: middle; }
-.dot.ok { background: var(--good); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+.fnd-wrap .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 3px 0 8px; vertical-align: middle; }
+.fnd-wrap .dot.ok { background: var(--good); } .fnd-wrap .dot.warn { background: var(--warn); } .fnd-wrap .dot.bad { background: var(--bad); }
 .fnd-table { display: flex; flex-direction: column; }
 .fnd-tr { display: grid; grid-template-columns: 2.2fr .7fr 1.1fr .8fr .8fr .9fr 1.6fr 1fr; align-items: center; gap: 8px; padding: 10px 16px; font-size: 13px; text-align: left; }
 .fnd-th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid var(--border); }

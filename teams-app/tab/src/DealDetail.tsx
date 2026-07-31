@@ -223,7 +223,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
       const sso = await getSsoToken();
       const headers: Record<string, string> = { 'content-type': 'application/json' };
       if (sso) headers['authorization'] = `Bearer ${sso}`;
-      const r = await fetch(`/api/deals/${dealId}/documents/${kind}?dest=${dest}${live ? '&live=1' : ''}`, { method: 'POST', headers, body: '{}' });
+      const r = await af(`/api/deals/${dealId}/documents/${kind}?dest=${dest}${live ? '&live=1' : ''}`, { method: 'POST', headers, body: '{}' });
       if (dest === 'download') {
         if (!r.ok) { const d = await r.json().catch(() => ({})); setNote(d?.reason || d?.error || 'Could not generate the document.'); return; }
         const blob = await r.blob();
@@ -248,7 +248,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   async function act(label: string, url: string, body: unknown = {}) {
     setBusy(label); setNote('');
     try {
-      const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      const r = await af(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
         if (r.status === 409) setNote(`Blocked: ${data?.headline || data?.reason || 'IC gate not satisfied (Partner override required).'}`);
@@ -269,7 +269,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     if (cfg?.m365 && cfg.m365.connected === false) { setNote('Connect M365 (from the Deal Dashboard) to create a deal channel where the team can converse.'); return; }
     setBusy('channel'); setNote('');
     try {
-      const r = await fetch(`/api/deals/${dealId}/teams/ensure`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      const r = await af(`/api/deals/${dealId}/teams/ensure`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
       const data = await r.json().catch(() => ({}));
       if (r.status === 409) setNote('Launch the deal first (Stages → Launch), then create its channel.');
       else if (!r.ok || data.error) setNote(`Could not create the deal channel${data.error ? `: ${data.error}` : ''}.${cfg?.m365?.connected === false ? ' Connect M365 first.' : ''}`);
@@ -291,7 +291,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     if (cfg?.m365 && cfg.m365.connected === false) { setTab('documents'); return; }
     setBusy('dataroom'); setNote('');
     try {
-      const r = await fetch(`/api/deals/${dealId}/teams/ensure`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      const r = await af(`/api/deals/${dealId}/teams/ensure`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
       const data = await r.json().catch(() => ({}));
       if (r.status === 409) { setNote('Launch the deal first to set up its data room — opening the in-app data room.'); setTab('documents'); }
       else if (!r.ok || data.error) { setTab('documents'); }
@@ -499,7 +499,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
               <>
               {note ? <div className="dd-actionnote">{note}</div> : null}
 
-              {tab === 'cockpit' && (
+              {cockpitOn && tab === 'cockpit' && (
                 <Cockpit
                   dealId={dealId}
                   onGoTab={(t) => setTab(t as Tab)}
@@ -507,21 +507,21 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                 />
               )}
 
-              {tab === 'workflow' && (
+              {cockpitOn && tab === 'workflow' && (
                 <WorkflowDesk
                   dealId={dealId}
                   onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}
                 />
               )}
 
-              {tab === 'threads' && (
+              {cockpitOn && tab === 'threads' && (
                 <ThreadsDesk
                   dealId={dealId}
                   onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}
                 />
               )}
 
-              {tab === 'docdesk' && (
+              {cockpitOn && tab === 'docdesk' && (
                 <DocumentDesk
                   dealId={dealId}
                   onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}

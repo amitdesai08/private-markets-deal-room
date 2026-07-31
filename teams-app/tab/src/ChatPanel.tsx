@@ -5,7 +5,7 @@
 // forwarded so the backend answers as the impersonated (never-elevated) role.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderMarkdown } from './md';
-import { af } from './authFetch';
+import { af, authHeaders } from './authFetch';
 import type { Agent, Deal } from './types';
 
 type ProposedAction = { id: string; kind: string; label: string; summary: string; args: Record<string, unknown>; sources?: string[] };
@@ -154,7 +154,12 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
       try {
         const body: Record<string, unknown> = { message: q, scope: dealId ? 'deal' : 'portfolio' };
         if (dealId) body.dealId = dealId;
-        const res = await fetch('/api/deal-agent/chat', { method: 'POST', headers: { 'content-type': 'application/json', 'x-dr-as': seat }, body: JSON.stringify(body) });
+        // Run as the chosen seat, but keep the caller's real identity attached so
+        // the server still gates on who is asking — a seat lens must not become a
+        // way to shed your own need-to-know.
+        const headers = authHeaders({ 'content-type': 'application/json' });
+        headers['x-dr-as'] = seat;
+        const res = await fetch('/api/deal-agent/chat', { method: 'POST', headers, body: JSON.stringify(body) });
         const data = await res.json().catch(() => ({}));
         const reply = data?.reply || data?.error || 'No response.';
         setThreads((t) => { const arr = (t[threadKey] || []).slice(); const m = arr[msgIdx]; if (m?.compare) arr[msgIdx] = { ...m, compare: m.compare.map((c) => c.seat === seat ? { ...c, text: reply, role: data?.role, pending: false } : c) }; return { ...t, [threadKey]: arr }; });

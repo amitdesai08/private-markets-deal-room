@@ -39,10 +39,16 @@ export function applyTheme(theme: string) {
   };
   // AI / machine-generated. Deliberately a different hue from --accent so an AI
   // surface is never mistaken for an authoritative one.
-  family('ai', '#7c3aed', '#b79cff', '#ffff01', dark ? '140,110,255' : '124,58,237');
-  family('warn', '#b8860b', '#e0b341', '#ffff01', dark ? '224,179,65' : '184,134,11');
-  family('bad', '#b23b3b', '#ff9d9d', '#ffff01', dark ? '255,120,120' : '178,59,59');
-  family('good', '#1b7f37', '#5fd68a', '#ffff01', dark ? '95,214,138' : '27,127,55');
+  //
+  // High contrast keeps the four families distinct rather than collapsing them all
+  // to the accent yellow: if every status renders the same colour, a user relying on
+  // the contrast theme loses the good/bad/AI distinction entirely. These four are all
+  // drawn from the Windows high-contrast palette, so each still meets the theme's
+  // contrast floor against the black background.
+  family('ai', '#7c3aed', '#b79cff', '#1aebff', dark ? '140,110,255' : '124,58,237');
+  family('warn', '#b8860b', '#e0b341', '#ffd700', dark ? '224,179,65' : '184,134,11');
+  family('bad', '#b23b3b', '#ff9d9d', '#ff8c8c', dark ? '255,120,120' : '178,59,59');
+  family('good', '#1b7f37', '#5fd68a', '#3ff23f', dark ? '95,214,138' : '27,127,55');
 }
 
 // User theme choice (light/dark) persists across sessions and, when set, overrides

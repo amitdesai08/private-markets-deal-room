@@ -243,10 +243,10 @@ export default function App() {
             .sbn { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:6px 12px 0; padding:7px 12px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--muted); font-size:12px; line-height:1.4; }
             .sbn strong { color: var(--fg); }
             .sbn.flash { animation: sbnflash 1.5s ease-out; }
-            @keyframes sbnflash { 0% { border-color: var(--accent,#6ea8fe); box-shadow: 0 0 0 2px rgba(110,168,254,.35); } 100% { border-color: var(--border); box-shadow: none; } }
+            @keyframes sbnflash { 0% { border-color: var(--accent); box-shadow: 0 0 0 2px var(--chip); } 100% { border-color: var(--border); box-shadow: none; } }
             .sbn-chips { display:flex; flex-wrap:wrap; gap:6px; margin-left:auto; }
             .sbn-chip { font-size:11px; font-weight:600; padding:1px 8px; border-radius:999px; border:1px solid var(--border); white-space:nowrap; }
-            .sbn-chip.on { color:#34d399; border-color:rgba(52,211,153,.4); }
+            .sbn-chip.on { color: var(--good); border-color: var(--good-br); }
             .sbn-chip.off { color:var(--muted); }
           `}</style>
           <div role="note" className={`sbn${accFlash ? ' flash' : ''}`}>
@@ -267,7 +267,7 @@ export default function App() {
       </nav>
 
       {dealsError ? (
-        <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 12px', padding: '8px 12px', borderRadius: 8, border: '1px solid #b23b3b', background: 'rgba(178,59,59,.10)', fontSize: 13 }}>
+        <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 12px', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--bad-br)', background: 'var(--bad-bg)', fontSize: 13 }}>
           <span>⚠ Couldn’t refresh deals — showing the last known data.</span>
           <button className="maintab" style={{ marginLeft: 'auto' }} onClick={() => loadDeals()}>Retry</button>
         </div>
@@ -345,8 +345,9 @@ button { color: inherit; }
 .narr p { margin: 0 0 9px; }
 .narr b { font-weight: 650; }
 /* Inline evidence marker — every AI claim can be traced to a source. */
-cite { font-style: normal; font-size: 9.5px; font-weight: 700; color: var(--ai); background: var(--ai-bg); border: 1px solid var(--ai-br); border-radius: 3px; padding: 0 3px; margin-left: 2px; vertical-align: super; cursor: pointer; }
-cite:hover { background: var(--ai); color: var(--accent-fg); }
+cite { font: inherit; font-style: normal; font-size: 9.5px; font-weight: 700; color: var(--ai); background: var(--ai-bg); border: 1px solid var(--ai-br); border-radius: 3px; padding: 0 3px; margin-left: 2px; vertical-align: super; }
+cite button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+cite:has(button):hover, cite:focus-within { background: var(--ai); color: var(--accent-fg); }
 .suggest { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding-top: 10px; margin-top: 4px; border-top: 1px dashed var(--border); }
 .sgchip { border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 999px; padding: 4px 11px; font-size: 12px; font-weight: 600; cursor: pointer; }
 .sgchip:hover { background: var(--accent); color: var(--accent-fg); }
@@ -420,6 +421,7 @@ details[open] > summary:before { content: "\\25BE "; }
 /* --- documents --- */
 .docgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
 .doc { border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 12px; }
+.doc .t { display: flex; align-items: flex-start; gap: 8px; }
 .doc .k { font-weight: 650; font-size: 13px; margin-top: 6px; }
 .callout { margin: 9px 0; padding: 9px 11px; border-radius: 8px; font-size: 12px; border: 1px solid var(--warn-br); background: var(--warn-bg); }
 .callout.bad { border-color: var(--bad-br); background: var(--bad-bg); }
@@ -427,7 +429,14 @@ details[open] > summary:before { content: "\\25BE "; }
 .callout.ai { border-color: var(--ai-br); background: var(--ai-bg); }
 .chg { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
 .chg:last-child { border-bottom: none; }
-.delta { color: var(--bad); font-weight: 600; font-size: 12.5px; }
+.chg .k, .gap .k { font-weight: 650; font-size: 13px; }
+/* An icon glyph that has to line up with the text beside it. */
+.ic { flex: 0 0 auto; font-size: 15px; line-height: 1.3; }
+/* A delta is only red when the change is bad news. Neutral and favourable
+   changes must not be dressed up as problems. */
+.delta { color: var(--warn); font-weight: 600; font-size: 12.5px; }
+.delta.bad { color: var(--bad); }
+.delta.good { color: var(--good); }
 .cmt { padding: 10px 0; border-bottom: 1px solid var(--border); }
 .cmt:last-child { border-bottom: none; }
 .gap { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -646,6 +655,9 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 @media (max-width: 560px) {
   .kpis { grid-template-columns: 1fr; }
   .topbar-r { flex-wrap: wrap; justify-content: flex-end; }
+  /* Below this width a 300px minimum column overflows the viewport. */
+  .docgrid { grid-template-columns: 1fr; }
+  .searchrow input { min-width: 0; }
 }
 
 /* Deal detail — opens as the MAIN FOCUS window (not a narrow drawer); the agent
