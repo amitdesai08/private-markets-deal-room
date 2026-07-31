@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="en" data-theme="default">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Deal Room — navigation IA mockup, rev 2 (not deployed)</title>
+<style>
+:root{
+  --bg:#f5f5f5; --surface:#ffffff; --card:#ffffff; --fg:#1f1f1f; --muted:#57606a;
+  --border:#d7dbe0; --accent:#5b5fc7; --accent-fg:#ffffff; --hover:#f0f0f0;
+  --chip:#eeeef7; --input-bg:#ffffff;
+  --shadow:0 1px 2px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.06);
+  --ai:#7c3aed; --ai-bg:rgba(124,58,237,.08); --ai-br:rgba(124,58,237,.28);
+  --warn:#b8860b; --warn-bg:rgba(184,134,11,.10); --warn-br:rgba(184,134,11,.35);
+  --bad:#b23b3b; --bad-bg:rgba(178,59,59,.09); --bad-br:rgba(178,59,59,.32);
+  --good:#1b7f37; --good-bg:rgba(27,127,55,.09); --good-br:rgba(27,127,55,.30);
+}
+html[data-theme="dark"]{
+  --bg:#1f1f1f; --surface:#2b2b2b; --card:#292929; --fg:#f3f3f3; --muted:#b7bfca;
+  --border:#3d3d3d; --accent:#7f85f5; --accent-fg:#ffffff; --hover:#333333;
+  --chip:#33344a; --input-bg:#1f1f1f; --shadow:none;
+  --ai:#b79cff; --ai-bg:rgba(140,110,255,.14); --ai-br:rgba(140,110,255,.38);
+  --warn:#e0b341; --warn-bg:rgba(224,179,65,.12); --warn-br:rgba(224,179,65,.35);
+  --bad:#ff9d9d; --bad-bg:rgba(255,120,120,.12); --bad-br:rgba(255,120,120,.32);
+  --good:#5fd68a; --good-bg:rgba(95,214,138,.12); --good-br:rgba(95,214,138,.30);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+h1,h2,h3,h4{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+
+/* ---------- chrome ---------- */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-size:18px}
+.brand-t{font-weight:700}
+.brand-s{color:var(--muted);font-size:12px}
+.tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+select,.ghostbtn,input[type=search]{background:var(--input-bg);color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px}
+input[type=search]{min-width:210px}
+.mocknote{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 16px;background:var(--warn-bg);border-bottom:1px solid var(--warn-br);color:var(--muted);font-size:12px}
+.mocknote strong{color:var(--fg)}
+.maintabs{display:flex;gap:4px;padding:8px 16px 0;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
+.maintab{border:none;background:none;color:var(--muted);padding:9px 14px;font-weight:600;font-size:13px;border-bottom:2px solid transparent;white-space:nowrap}
+.maintab:hover{color:var(--fg)}
+.maintab.on{color:var(--accent);border-bottom-color:var(--accent)}
+
+.chip{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;border:1px solid var(--border);background:var(--chip);color:var(--muted);white-space:nowrap}
+.chip.warn{color:var(--warn);border-color:var(--warn-br);background:var(--warn-bg)}
+.chip.bad{color:var(--bad);border-color:var(--bad-br);background:var(--bad-bg)}
+.chip.good{color:var(--good);border-color:var(--good-br);background:var(--good-bg)}
+.chip.ai{color:var(--ai);border-color:var(--ai-br);background:var(--ai-bg)}
+.chip.stage{font-variant-numeric:tabular-nums}
+
+.tag{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:4px;border:1px solid;white-space:nowrap}
+.tag.live{color:var(--good);border-color:var(--good-br);background:var(--good-bg)}
+.tag.moved{color:var(--warn);border-color:var(--warn-br);background:var(--warn-bg)}
+.tag.new{color:var(--accent);border-color:var(--accent);background:transparent}
+.tag.kept{color:var(--good);border-color:var(--good-br);background:transparent}
+.tag.defer{color:var(--muted);border-color:var(--border);background:var(--chip)}
+.tag.rev{color:var(--ai);border-color:var(--ai-br);background:var(--ai-bg)}
+
+/* ---------- layout ---------- */
+.page{padding:12px 16px 40px;display:none;max-width:1560px;margin:0 auto}
+.page.on{display:block}
+.grid{display:grid;gap:12px}
+.g2{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
+@media(max-width:1150px){.g2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);margin-bottom:12px}
+.card>.hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:11px 14px;border-bottom:1px solid var(--border)}
+.card>.hd h3{font-size:14px}
+.card>.bd{padding:12px 14px}
+.spacer{flex:1}
+.sub{color:var(--muted);font-size:11.5px}
+.note{padding:9px 14px;border-top:1px solid var(--border);color:var(--muted);font-size:11.5px}
+.note.top{border-top:none;border-bottom:1px solid var(--border)}
+
+/* ---------- the argument strip ---------- */
+.compare{margin:12px auto 0;max-width:1560px;border:1px solid var(--accent);border-radius:10px;overflow:hidden;background:var(--card)}
+.compare .ch{padding:10px 14px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cmprow{display:flex;gap:10px;align-items:flex-start;padding:11px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.cmprow:last-child{border-bottom:none}
+.cmplab{width:96px;flex:0 0 auto;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding-top:5px}
+.pills{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0}
+.pill{font-size:12px;font-weight:600;padding:4px 11px;border-radius:7px;border:1px solid var(--border);background:var(--chip);color:var(--muted);white-space:nowrap}
+.pill.stagey{border-style:dashed;color:var(--bad);border-color:var(--bad-br);background:var(--bad-bg)}
+.pill.keep{color:var(--fg);background:var(--surface)}
+.pill.hero{color:var(--accent-fg);background:var(--accent);border-color:var(--accent)}
+.pill.dead{text-decoration:line-through;opacity:.5}
+.cmprow.super{background:var(--hover)}
+
+/* ---------- desk ---------- */
+.deskhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:14px 16px 2px}
+.deskhead h1{font-size:20px}
+.deskhead .when{color:var(--muted);font-size:13px}
+.deskline{padding:0 16px 10px;color:var(--muted);font-size:13px}
+.deskline b{color:var(--fg)}
+
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+@media(max-width:700px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow)}
+.kpi-v{font-size:20px;font-weight:700;line-height:1.2}
+.kpi-l{font-size:11.5px;color:var(--muted);font-weight:600}
+.kpi-s{font-size:11px;color:var(--muted)}
+
+/* attention */
+.att{padding:12px 14px;border-bottom:1px solid var(--border)}
+.att:last-of-type{border-bottom:none}
+.att-t{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.rank{font-weight:800;color:var(--muted);font-size:12px}
+.att-t .name{font-weight:650;font-size:13.5px}
+.att-l{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin-top:4px;flex-wrap:wrap}
+.impact{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:12px;font-weight:600;color:var(--bad)}
+.acts{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.btn{border:1px solid var(--border);background:var(--surface);border-radius:7px;padding:4px 11px;font-size:12px;font-weight:600}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.primary:hover{color:var(--accent-fg);opacity:.9}
+.btn.link{border-color:transparent;background:none;color:var(--muted);font-weight:500}
+.btn.link:hover{color:var(--fg)}
+.btn.sm{padding:2px 8px;font-size:11px}
+
+/* changed feed */
+.ev{display:flex;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);align-items:flex-start}
+.ev:last-of-type{border-bottom:none}
+.ev .ic{width:22px;flex:0 0 auto;text-align:center;font-size:13px;padding-top:1px}
+.ev .tx{flex:1;min-width:0;font-size:12.5px;line-height:1.5}
+.ev .tx b{font-weight:650}
+.ev .mt{color:var(--muted);font-size:11px;margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ev.def{opacity:.55}
+.ev.def .tx{text-decoration:none}
+
+/* commitments */
+.cm{padding:10px 14px;border-bottom:1px solid var(--border)}
+.cm:last-of-type{border-bottom:none}
+.cm .q{font-size:12.5px;line-height:1.45}
+.cm .mt{color:var(--muted);font-size:11px;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* briefing */
+.narr{font-size:13.5px;line-height:1.65}
+.narr p{margin:0 0 9px}
+cite{font-style:normal;font-size:9.5px;font-weight:700;color:var(--ai);background:var(--ai-bg);border:1px solid var(--ai-br);border-radius:3px;padding:0 3px;margin-left:2px;vertical-align:super}
+details.brief{background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);margin-bottom:12px}
+details.brief>summary{list-style:none;cursor:pointer;padding:11px 14px;font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px}
+details.brief>summary::-webkit-details-marker{display:none}
+details.brief>summary:before{content:"\25B8";color:var(--muted);font-size:11px}
+details.brief[open]>summary:before{content:"\25BE"}
+details.brief>summary+*{border-top:1px solid var(--border)}
+
+/* deal rows */
+.dl{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.dl:last-of-type{border-bottom:none}
+.dl input[type=checkbox]{flex:0 0 auto;margin:0}
+.dl .st{flex:0 0 auto;font-size:11px;font-weight:600;color:var(--muted);width:132px;font-variant-numeric:tabular-nums}
+.dl .nm{font-weight:650;font-size:13.5px;min-width:180px;flex:0 1 240px}
+.dl .next{color:var(--muted);font-size:12px;flex:1 1 220px;min-width:200px}
+.bar{width:104px;height:6px;border-radius:999px;background:var(--chip);overflow:hidden;flex:0 0 auto}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar.low i{background:var(--bad)}
+.bar.mid i{background:var(--warn)}
+.bar.high i{background:var(--good)}
+.pct{font-size:11.5px;color:var(--muted);width:34px;text-align:right;flex:0 0 auto;font-variant-numeric:tabular-nums}
+.locked{opacity:.62}
+
+/* candidates */
+.cnd{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.cnd:last-of-type{border-bottom:none}
+.cnd .nm{font-weight:650;font-size:13.5px;flex:0 1 230px;min-width:170px}
+.cnd .rat{color:var(--muted);font-size:12px;flex:1 1 240px;min-width:200px}
+
+/* stage filter */
+.seg{display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);flex-wrap:wrap}
+.seg button{border:none;background:none;padding:6px 13px;font-size:12.5px;font-weight:600;color:var(--muted);border-right:1px solid var(--border)}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--accent);color:var(--accent-fg)}
+.filterbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.subtab{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:5px 13px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.subtab.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+
+.why{background:var(--ai-bg);border:1px solid var(--ai-br);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.6;margin-bottom:12px}
+.why h3{font-size:13.5px;margin-bottom:6px}
+.why ul{margin:6px 0 0;padding-left:18px}
+.why li{margin:5px 0}
+.open{background:var(--warn-bg);border:1px solid var(--warn-br);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.6}
+.open h3{font-size:13.5px;margin-bottom:6px}
+.open ul{margin:6px 0 0;padding-left:18px}
+.open li{margin:5px 0}
+.empty{padding:22px 14px;text-align:center;color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="logo">&#9672;</div>
+    <div>
+      <div class="brand-t">The Deal Room</div>
+      <div class="brand-s">Navigation IA &mdash; rev 2, after design review</div>
+    </div>
+  </div>
+  <div class="tools">
+    <label class="sub">Viewing as</label>
+    <select id="persona">
+      <option>Tahani Al-Jamil &middot; Deal Team &middot; all regions</option>
+      <option>Eleanor Shellstrop &middot; Lead Partner &middot; all regions</option>
+      <option>Riley West &middot; Deal Team &middot; EMEA only</option>
+      <option>Chidi Anagonye &middot; Analyst &middot; read-only, NA only</option>
+    </select>
+    <button class="ghostbtn" id="themebtn">&#127769; Dark</button>
+  </div>
+</div>
+
+<div class="mocknote">
+  <strong>Mockup only &mdash; nothing deployed.</strong>
+  <span>Static HTML on our live theme tokens, using the real <code>/api/home-desk</code> and <code>/api/deals</code> payloads from beta (31 Jul).</span>
+  <span class="spacer"></span>
+  <span class="tag live">live</span><span>already in beta</span>
+  <span class="tag moved">moved</span><span>exists, new home</span>
+  <span class="tag kept">kept</span><span>rev 1 dropped it, restored</span>
+  <span class="tag new">new</span><span>net-new</span>
+  <span class="tag defer">defer</span><span>needs data we don't have</span>
+</div>
+
+<!-- ================= THE ARGUMENT ================= -->
+<div class="compare">
+  <div class="ch">
+    <span>Top-level navigation</span>
+    <span class="chip">7 tabs &rarr; 4</span>
+    <span class="spacer"></span>
+    <span class="sub">Four tabs that are four <em>populations</em> &mdash; not two views of the same list</span>
+  </div>
+
+  <div class="cmprow">
+    <div class="cmplab">Today</div>
+    <div class="pills">
+      <span class="pill keep">Deals Overview</span>
+      <span class="pill stagey">Stage 1 &mdash; Origination</span>
+      <span class="pill stagey">Stage 2 &mdash; Diligence</span>
+      <span class="pill stagey">Stage 3 &mdash; Execution</span>
+      <span class="pill stagey">Stage 4 &mdash; Value &amp; Exit</span>
+      <span class="pill keep">Fund &amp; Portfolio</span>
+      <span class="pill keep">Report</span>
+    </div>
+  </div>
+
+  <div class="cmprow super">
+    <div class="cmplab">Rev 1</div>
+    <div class="pills">
+      <span class="pill dead">My Desk</span>
+      <span class="pill dead">Deals</span>
+      <span class="pill dead">Fund &amp; Portfolio</span>
+      <span class="pill dead">Report</span>
+      <span class="sub" style="align-self:center">superseded &mdash; <b>My Desk</b> and <b>Deals</b> were the same list twice, and folding Stage&nbsp;1 into a filter was wrong</span>
+    </div>
+  </div>
+
+  <div class="cmprow">
+    <div class="cmplab">Rev 2</div>
+    <div class="pills">
+      <span class="pill hero">Home</span>
+      <span class="pill keep">Sourcing <span class="sub">(candidates)</span></span>
+      <span class="pill keep">Deals <span class="sub">(stage = filter)</span></span>
+      <span class="pill keep">Fund &amp; Portfolio</span>
+      <span class="sub" style="align-self:center">Report keeps its existing <code>?view=report</code> route and its pinned channel tab</span>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>What the review changed.</b>
+    (1)&nbsp;<b>My Desk is gone</b> &mdash; it duplicated Deals, and the &ldquo;only my team&rsquo;s deals&rdquo; filter isn't derivable
+    when Partners hold <code>full</code> access to everything. Home is today's dashboard <em>reordered</em>.
+    (2)&nbsp;<b>Stage&nbsp;1 survives as Sourcing</b> &mdash; it operates on candidates, not deals, and creates deals. Renaming it
+    removes the stage-as-address problem more honestly than pretending a candidate funnel is a filtered deal list.
+    (3)&nbsp;<b>Stages 2&ndash;4 still collapse into a filter</b> &mdash; they are the same component three times, so this deletes
+    duplication rather than capability.
+    (4)&nbsp;<b>&ldquo;What changed&rdquo; is scoped down</b> to what the record can actually answer today.
+    (5)&nbsp;<b>Compare deals, Market intelligence and the access strip are back</b> &mdash; rev 1 dropped them silently.
+    (6)&nbsp;<b>The bare stage code is gone</b> in favour of <code>Diligence &middot; 6/16</code>.
+  </div>
+</div>
+
+<div class="maintabs">
+  <button class="maintab on" data-p="home">Home</button>
+  <button class="maintab" data-p="sourcing">Sourcing</button>
+  <button class="maintab" data-p="deals">Deals</button>
+  <button class="maintab" data-p="fund">Fund &amp; Portfolio</button>
+</div>
+
+<!-- ============================== HOME ============================== -->
+<div class="page on" id="p-home">
+
+<div class="deskhead">
+  <h1>Good morning, Tahani</h1>
+  <span class="when">Friday, 31 July</span>
+  <span class="chip">Deal Team</span>
+  <span class="chip">all regions</span>
+</div>
+<div class="deskline">
+  <b>3 deals</b> need you before they slip &middot; <b>Nordic Grocery</b> goes to IC in 12 days at 28% &middot;
+  <b>39 commitments</b> made in deal channels that nobody has turned into a task.
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="kpi-v">19</div><div class="kpi-l">Deals in view</div><div class="kpi-s">9 in diligence</div></div>
+  <div class="kpi"><div class="kpi-v">$8.1B</div><div class="kpi-l">Enterprise value</div><div class="kpi-s">avg $427M &middot; 7 sectors</div></div>
+  <div class="kpi"><div class="kpi-v">46%</div><div class="kpi-l">Avg IC readiness</div><div class="kpi-s">0 past the 80% bar</div></div>
+  <div class="kpi"><div class="kpi-v">9d</div><div class="kpi-l">Next committee</div><div class="kpi-s">Lumen Analytics</div></div>
+</div>
+
+<div class="grid g2">
+  <div style="min-width:0">
+
+    <!-- 1. WHAT NEEDS ME -->
+    <div class="card">
+      <div class="hd">
+        <h3>What needs my attention</h3>
+        <span class="tag moved">moved</span>
+        <span class="spacer"></span>
+        <span class="chip">6 deals</span>
+      </div>
+      <div class="note top">
+        Ranked worst-first across every deal you can see &middot; weighted for <b>Deal Team</b>.
+        Unchanged code &mdash; it simply moves from third place to first, because it is the first question of the day.
+      </div>
+
+      <div class="att">
+        <div class="att-t"><span class="rank">#1</span><span class="chip bad">Approaching IC</span><span class="name">Nordic Grocery Group</span><span class="chip stage">Diligence &middot; 6/16</span></div>
+        <div class="att-l">&#9200; IC is 12 days out at 28% readiness &mdash; below the 80% bar.</div>
+        <div class="impact">&#9889; Open diligence gates become IC conditions, which is the slowest way to close them.</div>
+        <div class="sub" style="margin-top:6px">Basis: IC readiness board</div>
+        <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn">See the 5 open gates</button><button class="btn link">Ask agents</button></div>
+      </div>
+
+      <div class="att">
+        <div class="att-t"><span class="rank">#2</span><span class="chip bad">Approaching IC</span><span class="name">Lumen Analytics</span><span class="chip stage">Diligence &middot; 8/16</span></div>
+        <div class="att-l">&#9200; IC is 9 days out at 58% readiness &mdash; below the 80% bar.</div>
+        <div class="impact">&#9889; Open diligence gates become IC conditions, which is the slowest way to close them.</div>
+        <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn">See the 3 open gates</button><button class="btn link">Ask agents</button></div>
+      </div>
+
+      <div class="att">
+        <div class="att-t"><span class="rank">#3</span><span class="chip warn">Approaching IC</span><span class="name">Lone Star Energy Services</span><span class="chip stage">Diligence &middot; 8/16</span></div>
+        <div class="att-l">&#9200; IC is 21 days out at 59% readiness &mdash; below the 80% bar.</div>
+        <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn link">Ask agents</button></div>
+      </div>
+
+      <div class="att">
+        <div class="att-t"><span class="rank">#4</span><span class="chip warn">Not started</span><span class="name">Mojave Renewables</span><span class="chip stage">Origination &middot; 2/16</span></div>
+        <div class="att-l">&#9200; None of the 7 diligence lanes have recorded progress.</div>
+        <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn link">Ask agents</button></div>
+      </div>
+
+      <div class="note">Two more below &middot; nothing here changes a deal, it only tells you where to look first.</div>
+    </div>
+
+    <!-- 2. WHAT CHANGED -->
+    <div class="card">
+      <div class="hd">
+        <h3>What changed since you were last here</h3>
+        <span class="tag new">new</span>
+        <span class="spacer"></span>
+        <span class="chip">Wed 29 Jul, 17:40</span>
+      </div>
+      <div class="note top">
+        A section, not the hero. The per-deal version of this already works &mdash; the cockpit keeps a
+        <code>seen</code> watermark and the server filters <code>deal.activity</code> by it. This fans the same
+        mechanism out across the deals you can see. Two constraints the first draft got wrong:
+        the watermark must be stored <b>server-side per user</b> (a digest that resets when you open Teams on your
+        phone is worse than no digest), and every row must be routed through the same access check as the deal list,
+        so a status-only reader never learns that a confidential deal moved.
+      </div>
+
+      <div class="ev"><div class="ic">&#8599;</div><div class="tx"><b>Great Lakes Precision</b> advanced to <b>Execution &middot; Signing</b>.<div class="mt"><span>Eleanor Shellstrop &middot; yesterday 16:20</span><span class="tag live">deal.activity</span></div></div></div>
+      <div class="ev"><div class="ic">&#128196;</div><div class="tx"><b>Project Sterling</b> &mdash; QoE summary v3 published to the data room.<div class="mt"><span>Finance MD &middot; yesterday 11:04 &middot; supersedes v2</span><span class="tag live">document since=</span></div></div></div>
+      <div class="ev"><div class="ic">&#9888;</div><div class="tx"><b>Beacon Hill Biotech</b> &mdash; environmental lane recorded a new red finding.<div class="mt"><span>Diligence lanes &middot; yesterday 15:02</span><span class="tag live">deal.activity</span></div></div></div>
+      <div class="ev"><div class="ic">&#10003;</div><div class="tx"><b>Nordic Grocery Group</b> &mdash; tax gate closed by the deal team.<div class="mt"><span>Tahani Al-Jamil &middot; Wed 18:55</span><span class="tag live">deal.activity</span></div></div></div>
+
+      <div class="note" style="border-bottom:1px solid var(--border)">
+        <b>Deferred to a later release &mdash; shown here so the cost is visible, not to imply it ships.</b>
+        These were in rev 1 as if they were free. They are not.
+      </div>
+
+      <div class="ev def"><div class="ic">&#128200;</div><div class="tx"><b>Lumen Analytics</b> IC readiness fell 64% &rarr; 58%.<div class="mt"><span class="tag defer">needs a readiness snapshot</span><span>readiness is computed live on every request &mdash; there is no time series to diff against</span></div></div></div>
+      <div class="ev def"><div class="ic">&#128197;</div><div class="tx"><b>Helvetia Diagnostics</b> completion date moved out 2 weeks.<div class="mt"><span class="tag defer">needs an activity write</span><span>the target IC date is a scalar and nothing logs an event when it is edited</span></div></div></div>
+      <div class="ev def"><div class="ic">&#128172;</div><div class="tx">14 new messages in <b>Cascadia Timber</b>'s deal channel.<div class="mt"><span class="tag defer">wrong surface</span><span>a per-deal Graph round-trip the cockpit already fires separately because it is slow &mdash; across 19 deals this belongs in a proactive bot card, not a page load</span></div></div></div>
+    </div>
+
+    <!-- 3. COMPARE — RESTORED -->
+    <div class="card">
+      <div class="hd">
+        <h3>Compare deals</h3>
+        <span class="tag kept">kept</span>
+        <span class="spacer"></span>
+        <span class="sub">tick 2&ndash;4 deals for a field-by-field decision table</span>
+      </div>
+      <div class="note top">
+        Rev 1 dropped this without a word. It is one of the few genuinely private-markets-specific things the
+        product does, and it belongs next to the list it operates on.
+      </div>
+      <div class="dl"><input type="checkbox" checked /><span class="st">Diligence &middot; 6/16</span><span class="nm">Nordic Grocery Group</span><span class="next">$610M EV &middot; grocery &middot; 5 open gates</span><span class="bar low"><i style="width:28%"></i></span><span class="pct">28%</span></div>
+      <div class="dl"><input type="checkbox" checked /><span class="st">Diligence &middot; 8/16</span><span class="nm">Lumen Analytics</span><span class="next">$430M EV &middot; software &middot; 3 open gates</span><span class="bar mid"><i style="width:58%"></i></span><span class="pct">58%</span></div>
+      <div class="dl"><input type="checkbox" /><span class="st">Diligence &middot; 6/16</span><span class="nm">Project Sterling</span><span class="next">$775M EV &middot; industrials &middot; 2 open gates</span><span class="bar mid"><i style="width:61%"></i></span><span class="pct">61%</span></div>
+      <div class="note"><button class="btn primary">Compare 2 deals</button> <span class="sub" style="margin-left:8px">output copies to the clipboard for the IC memo</span></div>
+    </div>
+
+  </div>
+
+  <div style="min-width:0">
+
+    <!-- 4. WHAT I OWE -->
+    <div class="card">
+      <div class="hd">
+        <h3>Promises made in channels</h3>
+        <span class="tag live">live</span>
+        <span class="spacer"></span>
+        <span class="chip bad">39 untracked</span>
+      </div>
+      <div class="note top">Read out of deal channels by Work IQ. Detected, not decided.</div>
+
+      <div class="cm">
+        <div class="q">&ldquo;I'll run the QoE normalisations and the working-capital bridge and send the QoE summary to the channel <b>by Friday</b>.&rdquo;</div>
+        <div class="mt"><span>Finance MD</span><span>&middot;</span><span>Atlas Cold Chain Logistics</span><span class="chip bad">due today</span><span class="chip">Financial / QoE</span><button class="btn sm">Ask about it</button></div>
+      </div>
+      <div class="cm">
+        <div class="q">&ldquo;Happy to own this one: I'll draft the commercial DD pack covering customer concentration, pricing power and the growth bridge <b>by Friday</b>.&rdquo;</div>
+        <div class="mt"><span>James Whitfield</span><span>&middot;</span><span>Cypress Grove Dental</span><span class="chip bad">due today</span><span class="chip">Commercial DD</span><button class="btn sm">Ask about it</button></div>
+      </div>
+      <div class="cm">
+        <div class="q">&ldquo;I'll run the QoE normalisations and the working-capital bridge and send the QoE summary to the channel <b>in 3 days</b>.&rdquo;</div>
+        <div class="mt"><span>Finance MD</span><span>&middot;</span><span>Cascadia Timber</span><span class="chip warn">Mon 2 Aug</span><span class="chip">Financial / QoE</span><button class="btn sm">Ask about it</button></div>
+      </div>
+      <div class="note">Show all 39 &#9656; &middot; turning one into a tracked task happens on the deal, where the audit trail records who did it.</div>
+    </div>
+
+    <!-- 5. BRIEFING, DEMOTED -->
+    <details class="brief">
+      <summary>Portfolio briefing <span class="tag moved">moved</span><span class="spacer"></span><span class="chip ai">AI &middot; 4 sources</span></summary>
+      <div class="bd narr">
+        <p>You have 19 deals in view carrying $8.1B of enterprise value across 7 sectors, at 46% average IC readiness.<cite>1</cite><cite>2</cite></p>
+        <p>3 deals need attention before they slip &mdash; starting with Nordic Grocery Group: IC is 12 days out at 28% readiness.<cite>2</cite></p>
+        <p>The next committee date is Lumen Analytics in 9 days, at 58% readiness.<cite>3</cite></p>
+        <p>Work IQ found 39 commitments made in deal channels across 19 deals that are not tracked as tasks anywhere.<cite>4</cite></p>
+        <div class="sub" style="margin-top:8px">Collapsed by default &mdash; a one-line change. It narrates numbers already on screen; open it when you want the story, not every morning.</div>
+      </div>
+    </details>
+
+    <!-- 6. ACCESS STRIP — RESTORED -->
+    <div class="card">
+      <div class="hd"><h3>What you can and cannot see</h3><span class="tag kept">kept</span></div>
+      <div class="bd sub" style="line-height:1.65">
+        You are on <b>Deal Team</b>. Diligence detail is visible on deals you are on. Deals marked confidential are
+        hidden entirely, and status-only deals show progress without documents.
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          <span class="chip good">19 full</span><span class="chip warn">3 status-only</span><span class="chip">2 hidden</span>
+        </div>
+        <div style="margin-top:9px">
+          This strip lives inside the agent catalogue today, which is why rev 1 lost it when the catalogue moved.
+          It is the only always-visible statement of the governance model, so it stays on Home in its own right.
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. MARKET INTELLIGENCE — RESTORED -->
+    <div class="card">
+      <div class="hd"><h3>Market intelligence</h3><span class="tag kept">kept</span><span class="spacer"></span><span class="chip">Fabric &middot; 3h ago</span></div>
+      <div class="bd sub" style="line-height:1.65">
+        Comparable deals, IC voting precedents and benchmark findings, with the source and freshness stamp.
+        Rev 1 dropped this too. It is the only place the fund's own history shows up next to a live deal.
+      </div>
+    </div>
+
+    <!-- 8. AGENTS, DEMOTED -->
+    <div class="card">
+      <div class="hd"><h3>Ask the agents</h3><span class="tag moved">moved</span></div>
+      <div class="bd">
+        <div class="sub" style="margin-bottom:8px">
+          The stage-by-stage catalogue currently opens the app, expanded, above the work. It answers
+          &ldquo;what can this product do?&rdquo; &mdash; a question you ask once. It moves into the agents panel,
+          at the moment of asking.
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <button class="btn">Why is Nordic Grocery at risk?</button>
+          <button class="btn">What changed across my deals this week?</button>
+          <button class="btn">Which deals should I prioritise today?</button>
+        </div>
+        <div class="sub" style="margin-top:9px">&#8505; These prompts already come from the same API that writes the briefing &mdash; no new work.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="why">
+  <h3>Why this is the change worth making</h3>
+  <ul>
+    <li><b>Navigation modelled the process, not the person.</b> Four of seven tabs were a stage. Nobody starts their day wanting to visit Stage&nbsp;3 &mdash; they want to know what moved, what is stuck, and what needs them.</li>
+    <li><b>Deals moved house when they progressed.</b> A deal you are responsible for relocated to a different tab when it advanced. A deal should stay where you left it.</li>
+    <li><b>The landing page led with capability, not with work.</b> The agent catalogue &mdash; itself organised by stage &mdash; owned the top of the screen while &ldquo;what needs my attention&rdquo; sat third, below the fold.</li>
+    <li><b>Stages 2&ndash;4 were already a filter.</b> They are the same component three times &mdash; filter the deal list on a stage prefix, render a grid, append a guide. Collapsing them removes roughly 215 lines of duplication and no capability.</li>
+    <li><b>Stage&nbsp;1 was never the same kind of thing.</b> It works on candidates rather than deals, and one of its actions creates a deal. It becomes <b>Sourcing</b> &mdash; a desk, not a stage &mdash; which fixes the stage-as-address problem without pretending a funnel is a filtered list.</li>
+    <li><b>Almost none of this is new.</b> Home is today's dashboard reordered, with the briefing collapsed and the catalogue moved. The only net-new build is the change digest, and it ships scoped to what the record already holds.</li>
+  </ul>
+</div>
+
+<div class="open">
+  <h3>What this proposal does not fix</h3>
+  <ul>
+    <li><b>The deal interior is still twelve tabs.</b> Cockpit, workflow, threads, documents, overview, stages, workspace, research, artifacts, IC, activity. If the brief is &ldquo;focus on the day-to-day&rdquo;, this is where the day is actually spent &mdash; and it is the more overloaded surface by a wide margin. It should be the next cycle.</li>
+    <li><b>Push versus pull.</b> &ldquo;What changed&rdquo; may be a notification problem wearing a page section's clothes. The proactive bot card is arguably the right home for the channel-traffic half of it.</li>
+    <li><b>Fund &amp; Portfolio still overlaps the Value&nbsp;&amp;&nbsp;Exit filter.</b> Both list owned companies. Collapsing four stage tabs on a duplication argument while leaving that overlap is inconsistent &mdash; it needs a deliberate answer, not an assertion that fund-level is &ldquo;a different question&rdquo;.</li>
+    <li><b>Narrow width.</b> This is a Teams tab. KPI row plus two columns plus a six-item queue plus a change feed is a long scroll in a sidebar-width surface, and the mockup only reflows at 1150px.</li>
+    <li><b>Region scope.</b> Two personas are scoped to a region. Both the deal list and the change digest have to honour it; the mockup shows the selector but not the behaviour.</li>
+  </ul>
+</div>
+
+</div>
+
+<!-- ============================== SOURCING ============================== -->
+<div class="page" id="p-sourcing">
+
+<div class="card" style="border-color:var(--accent)">
+  <div class="hd"><h3>Why this is a tab and not a filter</h3><span class="tag rev">revised</span></div>
+  <div class="bd sub" style="line-height:1.7">
+    Rev 1 folded Stage&nbsp;1 into the Deals stage filter alongside Stages 2&ndash;4. That was wrong, and it was the
+    largest hole in the proposal. Stages 2&ndash;4 render <b>deals</b>; Stage&nbsp;1 renders <b>candidates</b>, which are a
+    different population that isn't in the deal list at all &mdash; and one of its actions <b>creates a deal</b>.
+    Filtering Deals to &ldquo;Origination&rdquo; would have shown four ordinary deal rows while the funnel a sourcing
+    analyst actually lives in had nowhere to go.
+    <div style="margin-top:9px">
+      So it keeps its own tab and takes its own name. <b>Sourcing</b> is a desk, not a stage of a deal &mdash; which
+      means renaming it removes the stage-as-address problem outright rather than working around it.
+    </div>
+  </div>
+</div>
+
+<div class="subtabs">
+  <button class="subtab on">Pipeline</button>
+  <button class="subtab">Framework &amp; mandate</button>
+  <button class="subtab">Research</button>
+  <button class="subtab">Signals</button>
+</div>
+
+<div class="card">
+  <div class="hd">
+    <h3>Candidate pipeline</h3>
+    <span class="tag live">live</span>
+    <span class="spacer"></span>
+    <span class="sub">candidates &mdash; not deals, and not in the deal list</span>
+  </div>
+  <div class="cnd"><span class="chip">Screened</span><span class="nm">Halden Marine Services</span><span class="rat">Fits the Nordics industrials theme &middot; 2 of 3 mandate gates met</span><button class="btn sm">Triage</button><button class="btn sm primary">Gate &rarr; create deal</button><button class="btn sm link">Park</button></div>
+  <div class="cnd"><span class="chip">Screened</span><span class="nm">Verdant Facilities Group</span><span class="rat">Below the EV floor &mdash; flagged for the mandate gate</span><button class="btn sm">Triage</button><button class="btn sm link">Pass</button></div>
+  <div class="cnd"><span class="chip warn">Triaged</span><span class="nm">Northwind Instruments</span><span class="rat">CxO signal: new CFO hired from a PE-backed comp</span><button class="btn sm primary">Gate &rarr; create deal</button><button class="btn sm link">Park</button></div>
+  <div class="cnd"><span class="chip">New</span><span class="nm">Coastal Dental Alliance</span><span class="rat">Sourced from the roll-up theme &middot; not yet screened</span><button class="btn sm">Screen</button></div>
+  <div class="note">
+    These write actions &mdash; screen, triage, gate, park, pass &mdash; are the point of the surface, and one of them
+    creates a Stage&nbsp;2 deal. That is why this cannot be a filter over a list of deals.
+  </div>
+</div>
+
+<div class="card">
+  <div class="hd"><h3>Also on this desk</h3><span class="tag live">live</span><span class="spacer"></span><span class="sub">unchanged &mdash; only the tab's name changes</span></div>
+  <div class="bd sub" style="line-height:1.7">
+    The fund-mandate gate, investment themes and ranked targets; the research desk with its lazily-generated
+    per-target SEC, Morningstar and AI reports; and the CxO signal explorer with its own &ldquo;screen this&rdquo; action.
+    Roughly 570 lines of surface that rev 1 disposed of in a single grey sentence.
+  </div>
+</div>
+
+</div>
+
+<!-- ============================== DEALS ============================== -->
+<div class="page" id="p-deals">
+
+<div class="filterbar">
+  <div class="seg" id="stageseg">
+    <button class="on" data-s="all">All 19</button>
+    <button data-s="O">Origination 4</button>
+    <button data-s="D">Diligence 9</button>
+    <button data-s="E">Execution 3</button>
+    <button data-s="V">Value &amp; Exit 3</button>
+  </div>
+  <input type="search" id="dealsearch" placeholder="Search company or deal name&hellip;" />
+  <span class="spacer"></span>
+  <span class="sub">Sort: needs attention first</span>
+</div>
+
+<div class="card" id="orignote" style="display:none;border-color:var(--warn-br)">
+  <div class="bd sub" style="line-height:1.65">
+    <b>These are deals, not the funnel.</b> Four deals sit at origination stage because they were created and then
+    knocked back or paused. The candidate funnel &mdash; screening, triage, research, signals &mdash; is a different
+    population and lives on <b>Sourcing</b>.
+    <button class="btn sm" style="margin-left:8px" data-go="sourcing">Go to Sourcing &#9656;</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="hd">
+    <h3>Deals</h3>
+    <span class="tag moved">moved</span>
+    <span class="spacer"></span>
+    <span class="sub" id="segnote">Stages 2&ndash;4 collapse here &mdash; the same component three times becomes one list</span>
+  </div>
+
+  <div class="dl" data-s="D" data-n="nordic grocery group"><span class="st">Diligence &middot; 6/16</span><span class="nm">Nordic Grocery Group</span><span class="next">5 open gates &middot; IC in 12 days</span><span class="bar low"><i style="width:28%"></i></span><span class="pct">28%</span></div>
+  <div class="dl" data-s="D" data-n="lumen analytics"><span class="st">Diligence &middot; 8/16</span><span class="nm">Lumen Analytics</span><span class="next">3 open gates &middot; IC in 9 days</span><span class="bar mid"><i style="width:58%"></i></span><span class="pct">58%</span></div>
+  <div class="dl" data-s="D" data-n="lone star energy services"><span class="st">Diligence &middot; 8/16</span><span class="nm">Lone Star Energy Services</span><span class="next">Environmental lane awaiting report</span><span class="bar mid"><i style="width:59%"></i></span><span class="pct">59%</span></div>
+  <div class="dl" data-s="D" data-n="cascadia timber partners"><span class="st">Diligence &middot; 6/16</span><span class="nm">Cascadia Timber Partners</span><span class="next">14 unread channel messages</span><span class="bar mid"><i style="width:52%"></i></span><span class="pct">52%</span></div>
+  <div class="dl" data-s="D" data-n="project sterling"><span class="st">Diligence &middot; 6/16</span><span class="nm">Project Sterling</span><span class="next">QoE summary v3 needs review</span><span class="bar mid"><i style="width:61%"></i></span><span class="pct">61%</span></div>
+  <div class="dl locked" data-s="D" data-n="beacon hill biotech"><span class="st">Diligence &middot; 5/16</span><span class="nm">Beacon Hill Biotech &#128274;</span><span class="next">Status only &mdash; you are not on this deal team</span><span class="bar low"><i style="width:22%"></i></span><span class="pct">22%</span></div>
+  <div class="dl" data-s="O" data-n="mojave renewables"><span class="st">Origination &middot; 2/16</span><span class="nm">Mojave Renewables</span><span class="next">Screened &mdash; no diligence lane has started</span><span class="bar low"><i style="width:4%"></i></span><span class="pct">4%</span></div>
+  <div class="dl" data-s="O" data-n="cypress grove dental partners"><span class="st">Origination &middot; 2/16</span><span class="nm">Cypress Grove Dental Partners</span><span class="next">Screened &mdash; no diligence lane has started</span><span class="bar low"><i style="width:4%"></i></span><span class="pct">4%</span></div>
+  <div class="dl" data-s="O" data-n="riverbend specialty foods"><span class="st">Origination &middot; 2/16</span><span class="nm">Riverbend Specialty Foods</span><span class="next">Screened &mdash; no diligence lane has started</span><span class="bar low"><i style="width:4%"></i></span><span class="pct">4%</span></div>
+  <div class="dl" data-s="E" data-n="great lakes precision"><span class="st">Execution &middot; 10/16</span><span class="nm">Great Lakes Precision</span><span class="next">SPA out for comment</span><span class="bar high"><i style="width:84%"></i></span><span class="pct">84%</span></div>
+  <div class="dl" data-s="E" data-n="helvetia diagnostics"><span class="st">Execution &middot; 11/16</span><span class="nm">Helvetia Diagnostics</span><span class="next">Signed &middot; completion 14 Aug</span><span class="bar high"><i style="width:91%"></i></span><span class="pct">91%</span></div>
+  <div class="dl" data-s="E" data-n="project onyx"><span class="st">Execution &middot; 11/16</span><span class="nm">Project Onyx</span><span class="next">Carve-out TSA schedules in negotiation</span><span class="bar high"><i style="width:80%"></i></span><span class="pct">80%</span></div>
+  <div class="dl" data-s="V" data-n="meridian logistics"><span class="st">Value &amp; Exit &middot; 14/16</span><span class="nm">Meridian Logistics</span><span class="next">Value-creation plan on track</span><span class="bar high"><i style="width:78%"></i></span><span class="pct">78%</span></div>
+  <div class="dl" data-s="V" data-n="peachtree health partners"><span class="st">Value &amp; Exit &middot; 14/16</span><span class="nm">Peachtree Health Partners</span><span class="next">Bolt-on pipeline under review</span><span class="bar mid"><i style="width:66%"></i></span><span class="pct">66%</span></div>
+  <div class="dl" data-s="V" data-n="aurora software"><span class="st">Value &amp; Exit &middot; 15/16</span><span class="nm">Aurora Software</span><span class="next">Exit readiness &mdash; vendor DD commissioned</span><span class="bar high"><i style="width:73%"></i></span><span class="pct">73%</span></div>
+
+  <div class="empty" id="dealsempty" style="display:none">
+    No deal matches that. <button class="btn sm link" id="clearsearch">Clear the search</button>
+  </div>
+
+  <div class="note">
+    One progress number per row, and the stage spelled out with its position on the sixteen-step spine.
+    Rev 1 used a bare <code>D2</code>; nothing in the product maps those codes to a label, and <code>D2</code> alone
+    doesn't tell a partner whether that is early or late in diligence.
+    <div style="margin-top:5px">The counts on the filter are the real ones from <code>/api/deals</code>; 15 of the 19 rows are drawn here.</div>
+  </div>
+</div>
+
+<div class="card" id="stagetools" style="display:none">
+  <div class="hd"><h3 id="stagetoolsh">Stage tools</h3><span class="tag live">live</span><span class="spacer"></span><span class="sub">the old stage tab, revealed in context</span></div>
+  <div class="bd sub" id="stagetoolsb"></div>
+</div>
+
+</div>
+
+<!-- ============================== FUND ============================== -->
+<div class="page" id="p-fund">
+  <div class="card">
+    <div class="hd"><h3>Fund &amp; Portfolio</h3><span class="tag live">live</span></div>
+    <div class="bd sub" style="line-height:1.7">
+      Fund-level roll-up: owned companies, value-creation plans, KPIs, MOIC and status.
+      <div style="margin-top:9px">
+        <b>Open question, flagged rather than assumed away.</b> This serves the same owned-company population that the
+        <b>Value&nbsp;&amp;&nbsp;Exit</b> filter on Deals lists. Collapsing four stage tabs on a duplication argument while
+        leaving two surfaces that both roster owned companies is inconsistent. The likely answer is that Deals stays
+        deal-level (one company, one transaction) and Fund stays fund-level (the whole portfolio, aggregated), with the
+        Value&nbsp;&amp;&nbsp;Exit rows linking into it &mdash; but that needs deciding, not asserting.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function show(p){
+  document.querySelectorAll('.maintab').forEach(function (x) { x.classList.toggle('on', x.dataset.p === p); });
+  document.querySelectorAll('.page').forEach(function (x) { x.classList.remove('on'); });
+  document.getElementById('p-' + p).classList.add('on');
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('.maintab').forEach(function (b) {
+  b.addEventListener('click', function () { show(b.dataset.p); });
+});
+document.querySelectorAll('[data-go]').forEach(function (b) {
+  b.addEventListener('click', function () { show(b.dataset.go); });
+});
+
+// Stage filter — the point of the proposal: stage narrows a list rather than changing where you are.
+// Stage 1 is deliberately absent from this map; it is its own tab.
+var STAGE_TOOLS = {
+  D: ['Diligence', 'The seven diligence lanes, the IC readiness board, the findings register and the model — everything that was on Stage 2, revealed under the list it applies to.'],
+  E: ['Execution', 'SPA tracker, conditions precedent, completion checklist and the closing timetable — everything that was on Stage 3.'],
+  V: ['Value & Exit', 'Value-creation plan, 100-day tracker, bolt-on pipeline and exit readiness — everything that was on Stage 4.']
+};
+var stage = 'all';
+function applyFilters(){
+  var q = document.getElementById('dealsearch').value.trim().toLowerCase();
+  var shown = 0;
+  document.querySelectorAll('#p-deals .dl').forEach(function (row) {
+    var ok = (stage === 'all' || row.dataset.s === stage) && (!q || row.dataset.n.indexOf(q) !== -1);
+    row.style.display = ok ? '' : 'none';
+    if (ok) shown++;
+  });
+  document.getElementById('dealsempty').style.display = shown ? 'none' : '';
+
+  var tools = document.getElementById('stagetools');
+  if (STAGE_TOOLS[stage]) {
+    tools.style.display = '';
+    document.getElementById('stagetoolsh').textContent = STAGE_TOOLS[stage][0] + ' tools';
+    document.getElementById('stagetoolsb').textContent = STAGE_TOOLS[stage][1];
+  } else {
+    tools.style.display = 'none';
+  }
+  document.getElementById('orignote').style.display = stage === 'O' ? '' : 'none';
+}
+document.querySelectorAll('#stageseg button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    document.querySelectorAll('#stageseg button').forEach(function (x) { x.classList.remove('on'); });
+    b.classList.add('on');
+    stage = b.dataset.s;
+    applyFilters();
+  });
+});
+document.getElementById('dealsearch').addEventListener('input', applyFilters);
+document.getElementById('clearsearch').addEventListener('click', function () {
+  document.getElementById('dealsearch').value = '';
+  applyFilters();
+});
+
+// Sourcing sub-tabs are illustrative only.
+document.querySelectorAll('.subtab').forEach(function (b) {
+  b.addEventListener('click', function () {
+    document.querySelectorAll('.subtab').forEach(function (x) { x.classList.remove('on'); });
+    b.classList.add('on');
+  });
+});
+
+// Theme toggle, matching the app's token switch.
+document.getElementById('themebtn').addEventListener('click', function () {
+  var dark = document.documentElement.dataset.theme === 'dark';
+  document.documentElement.dataset.theme = dark ? 'default' : 'dark';
+  this.innerHTML = dark ? '\u{1F319} Dark' : '\u2600\uFE0F Light';
+});
+</script>
+
+</body>
+</html>
