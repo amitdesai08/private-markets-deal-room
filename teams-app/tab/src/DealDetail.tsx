@@ -93,7 +93,7 @@ type Tab = 'cockpit' | 'workflow' | 'threads' | 'docdesk' | 'stages' | 'overview
 type ResolveTarget = { tab: Tab; step?: string };
 type ActivityEntry = { actor?: string; action?: string; when?: string; via?: string | null };
 
-export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, onClose }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void }) {
+export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, onClose, backLabel }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
   const [ic, setIc] = useState<ICReadiness | null>(null);
   const [flow, setFlow] = useState<Flow | null>(null);
@@ -401,10 +401,15 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   const RYG_DOT: Record<string, string> = { red: 'var(--bad)', amber: 'var(--warn)', green: 'var(--good)' };
 
   return (
-    <div className="drawer-scrim" onClick={onClose}>
-      <aside className="drawer" onClick={(e) => e.stopPropagation()}>
+    // A deal is a PLACE, not a dialog. It takes the whole workspace so the desks
+    // have room to breathe, and it keeps the .drawer* class names so the existing
+    // layout rules (head / body / the chat sub-panel) apply unchanged.
+    <div className="dealpage">
+      <aside className="drawer">
         <div className="drawer-head">
-          <button className="iconbtn" onClick={onClose} aria-label="Close">✕</button>
+          <button className="backbtn" onClick={onClose}>
+            <span aria-hidden="true">←</span> {backLabel || 'Back'}
+          </button>
           <div className="drawer-title">{deal?.company || 'Loading…'}</div>
           {deal ? <button className="chbtn" onClick={dealChannel} disabled={busy === 'channel'} title="Create or open a Teams channel to converse about this deal">{deal.workspace?.teamsProvisioned ? '# Open channel ↗' : busy === 'channel' ? 'Creating…' : '# Deal channel'}</button> : null}
           {deal ? <button className="chbtn spo" onClick={openDataRoom} disabled={busy === 'dataroom'} title="Open the deal's SharePoint data room (VDR)">{deal.workspace?.sharePointProvisioned ? '📁 Data room ↗' : busy === 'dataroom' ? 'Opening…' : '📁 Data room'}</button> : null}

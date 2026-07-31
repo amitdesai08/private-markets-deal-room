@@ -267,6 +267,48 @@ app.use('/api/admin', async (req, res) => {
 // Deal list / detail / subresources — inject the resolved requesting identity (SSO or
 // demo "view as USER") so the orchestrator can enforce two-tier access + deal-team
 // need-to-know. Registered before the generic proxy so it wins for /api/deals/*.
+//
+// PER-USER WORK IQ: the deal desks read Microsoft 365 work data (Teams channel, files,
+// mail). Those reads must run as the SIGNED-IN USER, not as the application, so M365
+// enforces that person's own permissions on top of our deal need-to-know model —
+// otherwise an app-only read is tenant-wide and the Deal Room could surface a document
+// the viewer has no right to open. We exchange the Teams SSO token On-Behalf-Of for a
+// Graph token here (the only place that holds the user's assertion) and forward it to
+// the orchestrator over the trusted bot-key channel.
+const GRAPH_WORKIQ_SCOPES = [
+  'https://graph.microsoft.com/Files.Read.All',
+  'https://graph.microsoft.com/Sites.Read.All',
+  'https://graph.microsoft.com/ChannelMessage.Read.All',
+  'https://graph.microsoft.com/Mail.Read',
+];
+
+// The OBO exchange is a network round-trip to Entra; doing it on every deal request
+// would add latency to each tab interaction. Cache per user until shortly before the
+// token expires. Keyed by oid so one user's token can never be handed to another.
+const _oboCache = new Map();
+const OBO_SKEW_MS = 120000;
+async function workIqUserToken(ssoToken, identity) {
+  if (!ssoToken || !identity?.oid || !isSsoConfigured()) return null;
+  const hit = _oboCache.get(identity.oid);
+  if (hit && hit.exp > Date.now() + OBO_SKEW_MS) return hit.token;
+  try {
+    const token = await exchangeOnBehalfOf(ssoToken, GRAPH_WORKIQ_SCOPES);
+    if (!token) return null;
+    // Trust the token's own expiry rather than guessing; fall back to 30 minutes.
+    let exp = Date.now() + 1800000;
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+      if (payload?.exp) exp = payload.exp * 1000;
+    } catch { /* keep the conservative default */ }
+    _oboCache.set(identity.oid, { token, exp });
+    return token;
+  } catch {
+    // Consent not granted, or the user has no M365 licence. Work IQ degrades to the
+    // app-only/demo path rather than failing the whole request.
+    return null;
+  }
+}
+
 app.use('/api/deals', async (req, res) => {
   if (!isBackendLive()) return proxyToBackend(req, res);
   const ssoToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.ssoToken || '';
@@ -280,6 +322,14 @@ app.use('/api/deals', async (req, res) => {
   if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
   if (requestingUser) headers['x-dr-user'] = JSON.stringify(requestingUser);
   if (viewAsRole) headers['x-dr-view-as'] = viewAsRole;
+  // Only attach the delegated token when the caller is genuinely that user. Under a
+  // demo "view as USER" override the seat on screen is NOT the signed-in person, so
+  // handing over their Graph token would read one person's mail while presenting as
+  // another — exactly the confusion the seat lens must never create.
+  if (!asOverride) {
+    const graphToken = await workIqUserToken(ssoToken, identity);
+    if (graphToken) headers['x-dr-graph-token'] = graphToken;
+  }
   const hasBody = !['GET', 'HEAD'].includes(req.method);
   const body = hasBody
     ? JSON.stringify({ ...(req.body || {}), requestingUser, viewAsRole: viewAsRole || undefined })

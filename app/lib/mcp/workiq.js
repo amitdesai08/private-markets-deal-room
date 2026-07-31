@@ -13,8 +13,9 @@
 //
 // GOVERNANCE: all four tools below are INTERNAL-DATA (registered in
 // lib/agentSovereignty.js INTERNAL_TOOLS). The external-web news scout can never call
-// them (the sovereignty guard refuses it). Reads should run as the SIGNED-IN USER so
-// results honour that user's M365 permissions + the deal need-to-know model.
+// them (the sovereignty guard refuses it). Reads run as the SIGNED-IN USER whenever an
+// On-Behalf-Of token is supplied (see dispatchWorkiq), so results honour that user's
+// M365 permissions as well as the deal need-to-know model.
 
 import { McpSession } from './morningstar.js';
 import { hasLogin } from './oauth.js';
@@ -77,10 +78,15 @@ export async function callWorkiqTool(mcpToolName, args = {}) {
 
 // ---- Agent-facing dispatch (the seam the tool loop calls) -------------------
 // Maps a GOVERNED tool name (workiq_*) to its backend. Prefers the Microsoft Graph
-// backend (app-only, live) when the M365 app is configured; otherwise falls back to an
-// external WorkIQ MCP endpoint. Returns a structured error (never throws) so the agent
-// conversation continues if Work IQ is unavailable. Reads run tenant-wide app-only today;
-// thread the requesting user's OBO token here when per-user Work IQ reads are wired.
+// backend (live) when the M365 app is configured; otherwise falls back to an external
+// WorkIQ MCP endpoint. Returns a structured error (never throws) so the agent
+// conversation continues if Work IQ is unavailable.
+//
+// PER-USER READS: pass `userToken` — a delegated Graph token obtained by the Teams
+// server via the On-Behalf-Of flow — and the Graph backend runs the read AS THAT USER,
+// so Microsoft 365 enforces their own permissions on top of our deal need-to-know
+// model. Without it the read is app-only and therefore tenant-wide; the result carries
+// `asUser` so callers can state which actually happened instead of assuming.
 export async function dispatchWorkiq(governedName, args = {}) {
   const graphFn = GRAPH_BACKEND[governedName];
   if (!graphFn) return { error: 'unknown-workiq-tool', name: governedName };
@@ -89,9 +95,12 @@ export async function dispatchWorkiq(governedName, args = {}) {
     try { result = await graphFn(args); }
     catch (e) { result = { error: 'workiq-call-failed', tool: governedName, detail: String(e?.message || e).slice(0, 200) }; }
   } else {
-    // Fallback: external WorkIQ MCP endpoint (delegated sign-in).
+    // Fallback: external WorkIQ MCP endpoint (delegated sign-in). The OBO token is a
+    // Graph credential and has no meaning to a third-party MCP server — never send it.
+    const { userToken, ...mcpArgs } = args;
+    void userToken;
     const mcpTool = WORKIQ_TOOLS[governedName];
-    try { result = await callWorkiqTool(mcpTool, args); }
+    try { result = await callWorkiqTool(mcpTool, mcpArgs); }
     catch (e) { result = { error: 'workiq-call-failed', tool: governedName, detail: String(e?.message || e).slice(0, 200) }; }
   }
   // Demo corpus fallback: when live Work IQ is unavailable, not signed in, or returns

@@ -50,7 +50,7 @@ const CHANNELS = [
     { from: 'Dr. Priya Nair', created: '2026-07-22T09:16:00Z', preview: 'Uploaded the AI-readiness scorecard to the data room. Headline: LIMS fragmentation is the gating item for the digital-margin thesis — see /Diligence/Tech.' },
     { from: 'Diego Marquez', created: '2026-07-24T14:41:00Z', preview: 'Vendor B second-source qualified (+6% unit cost, 8-wk lead). Sending the supply-risk memo + tariff exposure model to the channel now.' },
     { from: 'David Osei', created: '2026-07-26T11:06:00Z', preview: 'Financing package confirmed with the lead bank — €384m senior at ~4.2x. Reminder: phase the digital uplift in the entry model, do not bank 100%.' },
-    { from: 'Eleanor Shellstrop', created: '2026-07-26T18:02:00Z', preview: 'Good progress. For IC I want the base case with 0% AI uplift and a clearly labelled conditional case. Marcus to own the memo spine.' },
+    { from: 'Eleanor Bishop', created: '2026-07-26T18:02:00Z', preview: 'Good progress. For IC I want the base case with 0% AI uplift and a clearly labelled conditional case. Marcus to own the memo spine.' },
   ] },
   { deal: 'screened-1-cand-new-2', channel: 'Sound United — Deal Room', messages: [
     { from: 'Marcus Feld', created: '2026-07-28T08:46:00Z', preview: 'Readiness 21 and IC in ~19 days. Tax, QoE and commercial DD not started — we need lane owners to commit dates today or we slip the IC.' },

@@ -23,6 +23,12 @@ type Thread = {
 };
 type Desk = {
   company: string; connected: boolean; channelUrl?: string | null; canWrite?: boolean;
+  // How this content was actually read. `asUser` means the Graph call ran with the
+  // signed-in person's own delegated token, so Microsoft 365 applied their
+  // permissions; without it a live read is application-wide. `origin` distinguishes
+  // authored demo content from content derived from the deal record.
+  asUser?: boolean; obo?: boolean;
+  origin?: { channel?: string; files?: string; mail?: string };
   threads: Thread[];
   catchUp: { count: number; window: string; keyPoint?: string | null; openQuestion?: string | null; decision: string; basis: string } | null;
   commitments: { id: string; author: string; headline: string; quote: string; owner?: string | null; due?: string | null; dueText?: string | null; laneLabel?: string | null; basis: string }[];
@@ -121,9 +127,13 @@ export default function ThreadsDesk({
               })}
             </div>
             <div className="note">
-              {data.connected
-                ? 'Live Microsoft Teams messages, read with the consented Work IQ permission.'
-                : 'Showing the Work IQ demo corpus — no Teams channel is linked to this deal yet.'}
+              {data.connected && data.asUser
+                ? 'Live Microsoft Teams messages, read as you — you are seeing exactly what your own Microsoft 365 permissions allow, nothing more.'
+                : data.connected
+                  ? 'Live Microsoft Teams messages, read with the application’s consented Work IQ permission rather than your own — the deal team gate is what is limiting this view.'
+                  : data.origin?.channel === 'derived'
+                    ? 'No Teams channel is linked to this deal yet, so this conversation is composed from the deal record — the lanes, owners and dates it already holds.'
+                    : 'Showing the Work IQ demo corpus — no Teams channel is linked to this deal yet.'}
             </div>
           </div>
         </div>

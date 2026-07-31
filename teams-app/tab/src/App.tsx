@@ -55,6 +55,8 @@ export default function App() {
   // dashboard isn't crowded on first load.
   const [chatOpen, setChatOpen] = useState(false);
   const [chatFocusDealId, setChatFocusDealId] = useState('');
+  const [chatSeed, setChatSeed] = useState('');
+  const [chatSeedNonce, setChatSeedNonce] = useState(0);
   const [openDealId, setOpenDealId] = useState('');
   const [canViewStage2, setCanViewStage2] = useState(true);
   const [canWrite, setCanWrite] = useState(true);
@@ -95,6 +97,12 @@ export default function App() {
     ['stage3', 'Stage 3 — Execution'], ['stage4', 'Stage 4 — Value & Exit'], ['fund', 'Fund & Portfolio'],
     ['report', 'Report'],
   ];
+
+  // The breadcrumb names the exact view you came from, so going back is a known
+  // destination rather than a guess. `mainTab` is never cleared when a deal opens,
+  // which is what makes that promise true.
+  const backLabel = mainTabs.find(([k]) => k === mainTab)?.[1] || 'Deals Overview';
+  const openDealName = deals.find((d) => d.id === openDealId)?.company || '';
 
   function applyAccess(ctx: any) {
     if (!ctx) return;
@@ -190,6 +198,16 @@ export default function App() {
     setChatOpen(true);
   }
 
+  // A suggested question from the portfolio briefing. It seeds the composer rather
+  // than sending: the user still reads and edits before anything is asked on their
+  // behalf, which is the same rule the deal cockpit follows.
+  function askQuestion(q: string) {
+    setChatFocusDealId('');
+    setChatSeed(q);
+    setChatSeedNonce((n) => n + 1);
+    setChatOpen(true);
+  }
+
   async function extendLease() {
     try {
       const s: PlatformStatus = await fetch('/api/platform/wake', {
@@ -260,11 +278,25 @@ export default function App() {
         </>
       ) : null}
 
-      <nav className="maintabs">
-        {mainTabs.map(([k, label]) => (
-          <button key={k} className={`maintab${!settingsOpen && mainTab === k ? ' on' : ''}`} onClick={() => { setSettingsOpen(false); setMainTab(k); }}>{label}</button>
-        ))}
-      </nav>
+      {/* Opening a deal REPLACES the workspace rather than floating a modal over it.
+          A deal is the main thing you work on, not an interruption to something else —
+          so it gets the whole canvas, the tab bar it came from is preserved, and the
+          way back is an explicit breadcrumb rather than a dismiss. */}
+      {openDealId ? (
+        <nav className="crumbs" aria-label="Breadcrumb">
+          <button className="crumb-back" onClick={() => setOpenDealId('')}>
+            <span aria-hidden="true">←</span> {backLabel}
+          </button>
+          <span className="crumb-sep" aria-hidden="true">/</span>
+          <span className="crumb-now" aria-current="page">{openDealName || 'Deal'}</span>
+        </nav>
+      ) : (
+        <nav className="maintabs">
+          {mainTabs.map(([k, label]) => (
+            <button key={k} className={`maintab${!settingsOpen && mainTab === k ? ' on' : ''}`} onClick={() => { setSettingsOpen(false); setMainTab(k); }}>{label}</button>
+          ))}
+        </nav>
+      )}
 
       {dealsError ? (
         <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 12px', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--bad-br)', background: 'var(--bad-bg)', fontSize: 13 }}>
@@ -274,13 +306,16 @@ export default function App() {
       ) : null}
 
       <div className="layout">
-        <main className="main">
+        {openDealId ? (
+          <DealDetail dealId={openDealId} canViewStage2={canViewStage2} canWrite={canWrite} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} backLabel={backLabel} />
+        ) : (
+          <main className="main">
           {settingsOpen ? (
             <Settings isAdmin={isAdmin} ssoToken={ssoToken} viewAs={viewAs} onClose={() => setSettingsOpen(false)} />
           ) : mainTab === 'overview' ? (
             <>
               <AgentGuide roleLabel={roleLabel} canViewStage2={canViewStage2} canWrite={canWrite} onAsk={() => setChatOpen(true)} />
-              <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onOpen={setOpenDealId} />
+              <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} />
             </>
           ) : mainTab === 'stage1' ? (
             <Stage1 deals={deals} onChanged={refreshData} onOpenDeal={setOpenDealId} />
@@ -295,11 +330,11 @@ export default function App() {
           ) : (
             <Stage2 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           )}
-        </main>
-        {chatOpen ? <ChatPanel agents={visibleAgents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} viewAsRole={viewAsRole} canWrite={canWrite} /> : null}
+          </main>
+        )}
+        {chatOpen ? <ChatPanel agents={visibleAgents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} viewAsRole={viewAsRole} canWrite={canWrite} seed={chatSeed} seedNonce={chatSeedNonce} /> : null}
       </div>
 
-      {openDealId ? <DealDetail dealId={openDealId} canViewStage2={canViewStage2} canWrite={canWrite} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} /> : null}
       {intakeOpen ? <IntakeWizard isAdmin={isAdmin} onClose={() => setIntakeOpen(false)} onCreated={(id) => { setIntakeOpen(false); refreshData(); setOpenDealId(id); }} /> : null}
       {adminGroupsOpen ? <AdminGroups deals={deals} onClose={() => setAdminGroupsOpen(false)} /> : null}
     </div>
@@ -471,6 +506,21 @@ details[open] > summary:before { content: "\\25BE "; }
 .layout { flex: 1; display: flex; min-height: 0; }
 .main { flex: 1; overflow-y: auto; min-width: 0; }
 .maintabs { display: flex; gap: 4px; padding: 8px 16px 0; background: var(--surface); border-bottom: 1px solid var(--border); flex: 0 0 auto; }
+
+/* Breadcrumb — replaces the tab bar while a deal is open. It occupies the same
+   slot and height so the canvas below does not jump when you open or leave a deal. */
+.crumbs { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--border); flex: 0 0 auto; font-size: 13px; min-height: 41px; }
+.crumb-back { display: inline-flex; align-items: center; gap: 6px; background: none; border: 1px solid transparent; border-radius: 6px; padding: 4px 8px; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+.crumb-back:hover { background: var(--hover); border-color: var(--border); }
+.crumb-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.crumb-sep { color: var(--muted); }
+.crumb-now { font-weight: 600; color: var(--fg); }
+
+/* The same affordance inside the deal header, for when the breadcrumb has scrolled
+   out of view on a small screen. Labelled with the destination, never a bare arrow. */
+.backbtn { display: inline-flex; align-items: center; gap: 6px; background: var(--chip); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; color: var(--fg); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.backbtn:hover { border-color: var(--accent); color: var(--accent); }
+.backbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .maintab { border: none; background: none; color: var(--muted); padding: 9px 14px; cursor: pointer; font: inherit; font-weight: 600; font-size: 13px; border-bottom: 2px solid transparent; }
 .maintab:hover { color: var(--fg); }
 .maintab.on { color: var(--accent); border-bottom-color: var(--accent); }
@@ -660,8 +710,12 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .searchrow input { min-width: 0; }
 }
 
-/* Deal detail — opens as the MAIN FOCUS window (not a narrow drawer); the agent
-   chat opens as a right-side sub-drawer OVER it so the deal stays in focus. */
+/* Deal detail — the deal REPLACES the workspace and fills the remaining canvas.
+   .drawer-scrim is retained below because the admin and intake wizards are still
+   genuine modals; only the deal graduated to being a place of its own.
+   The agent chat opens as a right-side sub-panel OVER the deal so it stays in focus. */
+.dealpage { flex: 1; min-height: 0; display: flex; }
+.dealpage > .drawer { width: 100%; border-left: none; border-right: none; box-shadow: none; }
 .drawer-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; display: flex; justify-content: center; }
 .drawer { width: min(1180px, 100vw); height: 100%; position: relative; background: var(--bg); border-left: 1px solid var(--border); border-right: 1px solid var(--border); display: flex; flex-direction: column; box-shadow: 0 0 44px rgba(0,0,0,.38); }
 .drawer-chat { position: absolute; top: 0; right: 0; bottom: 0; left: auto; width: min(460px, 92%); z-index: 6; display: flex; background: var(--bg); border-left: 1px solid var(--border); box-shadow: -8px 0 26px rgba(0,0,0,.30); }

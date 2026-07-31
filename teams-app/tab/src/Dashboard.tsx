@@ -1,10 +1,39 @@
-// The "Deals Overview" tab: deal KPIs (live deals, pipeline value, IC readiness, next
-// to committee), a "Needs attention" priority list, the deals-by-stage capital view, the
-// Stage-1 origination funnel (/api/pipeline), the deal cards (/api/deals) and the
-// market-intel panel (/api/market-intel). Read-only; onAsk opens the agents panel and
-// onOpen drills into a deal's DealDetail overlay.
-import { useState } from 'react';
+// The "Deals Overview" tab — the portfolio cockpit.
+//
+// It answers the same three questions the DEAL cockpit answers, one level up, in the
+// same visual language, so moving from the portfolio into a deal feels like zooming
+// rather than switching applications:
+//   1. What changed?      -> Portfolio briefing (narrative, cited, AI-labelled)
+//   2. What needs me?     -> Ranked attention queue across every visible deal
+//   3. Where are we?      -> KPIs, capital by phase, funnel, deal cards, market intel
+//
+// The briefing and the queue come from GET /api/home-desk, which composes them from
+// records the platform already owns and scopes them to the deals THIS caller can see.
+// Everything below the hero is the existing operational detail, unchanged in behaviour.
+import { useEffect, useState } from 'react';
+import { af } from './authFetch';
+import { Narrative, SourceList, Tag, clock, type Para } from './deskUi';
 import type { Analytics, Pipeline, Deal, MarketIntel, BackendConfig } from './types';
+
+type HomeAttention = {
+  id: string; rank: number; dealId: string; company: string; stageName?: string | null;
+  readiness: number; icInDays?: number | null;
+  tag: string; tone: 'bad' | 'warn' | 'good'; why: string; impact?: string | null; basis?: string;
+};
+type HomeCommitment = {
+  dealId: string; company: string; author: string; headline: string; quote?: string;
+  dueText?: string | null; laneLabel?: string | null; confidence?: string; basis?: string;
+};
+type HomeDesk = {
+  generatedAt: string;
+  roleLabel?: string | null;
+  briefing: { generatedAt: string; paragraphs: Para[]; sources: string[]; suggestions: string[] };
+  attention: HomeAttention[];
+  phases: { key: string; label: string; count: number; capital: number }[];
+  workiq: { total: number; deals: number; items: HomeCommitment[] };
+  kpis: { key: string; label: string; value: string; sub: string }[];
+  counts: { deals: number; attention: number; icReady: number; commitments: number };
+};
 
 function money(n?: number): string {
   if (n == null) return '—';
@@ -13,14 +42,35 @@ function money(n?: number): string {
   return `$${Math.round(n)}`;
 }
 
-export default function Dashboard({ analytics, pipeline, deals, market, config, onAsk, onOpen }: {
+export default function Dashboard({ analytics, pipeline, deals, market, config, onAsk, onAskQuestion, onOpen, canWrite, roleLabel }: {
   analytics: Analytics | null; pipeline: Pipeline | null; deals: Deal[]; market: MarketIntel | null;
-  config: BackendConfig | null; onAsk: (dealId: string) => void; onOpen: (dealId: string) => void;
+  config: BackendConfig | null; onAsk: (dealId: string) => void; onAskQuestion?: (q: string) => void;
+  onOpen: (dealId: string) => void; canWrite?: boolean; roleLabel?: string | null;
 }) {
   const fabric = config?.fabric || market?.info;
   const comps = market?.comparableDeals || [];
   const precedents = market?.icPrecedents || [];
   const benchmarks = market?.benchmarkFindings || [];
+
+  // The portfolio briefing. It is additive: if the call fails, everything below still
+  // renders from the deal list, so a briefing outage never takes the home page down.
+  const [home, setHome] = useState<HomeDesk | null>(null);
+  const [homeLoading, setHomeLoading] = useState(true);
+  const [evidence, setEvidence] = useState(false);
+  const [briefOpen, setBriefOpen] = useState(true);
+  const [showWorkiq, setShowWorkiq] = useState(false);
+
+  function loadHome() {
+    setHomeLoading(true);
+    af('/api/home-desk')
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setHome)
+      .catch(() => setHome(null))
+      .finally(() => setHomeLoading(false));
+  }
+  // Re-derive when the visible deal list changes — switching persona or view-as role
+  // changes which deals are in scope, and the briefing must never lag behind them.
+  useEffect(loadHome, [deals.length]);
 
   // Derive the headline counts from the deals THIS caller can actually see, so the
   // totals always match the deal cards below (and change when the persona changes).
@@ -66,6 +116,26 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
     .sort((a, b) => a.p.rank - b.p.rank || ((a.d.daysToIC ?? 999) - (b.d.daysToIC ?? 999)))
     .slice(0, 6);
 
+  // Prefer the server's queue — it reasons over the full deal record (lane owners,
+  // step position) that the list summary doesn't carry. The local derivation stays
+  // as the fallback so the page is never empty just because one call failed.
+  const attentionRows: HomeAttention[] = home?.attention?.length
+    ? home.attention
+    : attention.map(({ d, p }, i) => ({
+      id: `local-${d.id}`,
+      rank: i + 1,
+      dealId: d.id,
+      company: d.company,
+      stageName: d.stageName || d.stage || null,
+      readiness: d.readiness ?? 0,
+      icInDays: typeof d.daysToIC === 'number' ? d.daysToIC : null,
+      tag: p.tag,
+      tone: p.cls === 'ok' ? 'good' : (p.cls as 'bad' | 'warn'),
+      why: p.why,
+      impact: null,
+      basis: 'IC readiness board',
+    }));
+
   // Where the live capital sits in the deal process.
   const PHASES = [
     { key: 'diligence', label: 'Diligence & Approval', re: /diligence|approval/i },
@@ -97,42 +167,165 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
     navigator.clipboard?.writeText([header, ...rows].join('\n')).catch(() => {});
   };
 
+  const kpiRow = home?.kpis?.length ? home.kpis : kpis.map((k) => ({ key: k.label, ...k }));
+
   return (
     <div className="dash">
-      {/* KPI row */}
-      <div className="kpis">
-        {kpis.map((k) => (
-          <div key={k.label} className="kpi">
-            <div className="kpi-v">{k.value}</div>
-            <div className="kpi-l">{k.label}</div>
-            <div className="kpi-s">{k.sub}</div>
+      {/* ================= Portfolio cockpit =================
+          Same shape as the deal cockpit: an AI-labelled briefing on the left, the
+          ranked queue of what needs a person on the right. */}
+      <div className="grid g2">
+        <div style={{ minWidth: 0 }}>
+          <div className="card aicard">
+            <div className="hd">
+              <span className="aibadge">✦ AI</span>
+              <h3>Portfolio briefing</h3>
+              <Tag kind="new" />
+              <span className="spacer" />
+              <button className="btn link compact" onClick={loadHome}>↻ Refresh</button>
+              <button className="btn link compact" onClick={() => setEvidence((v) => !v)}>🔍 Evidence</button>
+              <button className="btn link compact" onClick={() => setBriefOpen((v) => !v)}>{briefOpen ? 'Hide' : 'Show'}</button>
+            </div>
+            {briefOpen ? (
+              <div className="bd">
+                {homeLoading && !home ? (
+                  <div className="muted">Building your briefing…</div>
+                ) : !home ? (
+                  <div className="muted">
+                    The portfolio briefing is unavailable right now — the deal detail below is still live.
+                    <button className="btn link compact" onClick={loadHome}>Retry</button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="sub" style={{ marginBottom: 8 }}>
+                      Generated {clock(home.briefing.generatedAt)}
+                      {home.roleLabel || roleLabel ? ` · scoped to what a ${home.roleLabel || roleLabel} can see` : ' · scoped to the deals you can see'}
+                    </div>
+                    <Narrative paragraphs={home.briefing.paragraphs} sources={home.briefing.sources} onCite={() => setEvidence(true)} />
+                    {evidence ? <SourceList sources={home.briefing.sources} /> : null}
+                    {home.briefing.suggestions.length && onAskQuestion ? (
+                      <div className="suggest">
+                        <span className="sub" style={{ fontWeight: 600 }}>Ask next</span>
+                        {home.briefing.suggestions.map((s, i) => (
+                          <button key={i} className="sgchip" onClick={() => onAskQuestion(s)}>{s}</button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            ) : null}
+            <div className="note">
+              Composed from the deal record, the IC readiness board and Work IQ — no model is called to build it,
+              and it never changes a deal's recorded status. Every claim carries the source it came from.
+            </div>
           </div>
-        ))}
-      </div>
 
-      {/* What needs action before it slips */}
-      <section className="panel">
-        <div className="panel-h"><span>Needs attention</span><span className="muted">move these before they slip</span></div>
-        {attention.length ? (
-          <div className="attn">
-            {attention.map(({ d, p }) => (
-              <div key={d.id} className="attn-row" role="button" tabIndex={0} onClick={() => onOpen(d.id)}>
-                <div className="attn-main">
-                  <span className="attn-co">{d.company} <span className="attn-sub">· {d.stageName || d.stage || '—'}</span></span>
-                  <span className="attn-why">{p.why}</span>
+          {/* Work IQ across the portfolio: promises made in deal channels that are
+              not tracked anywhere. Proposed only — a task is created on the deal
+              that owns it, by a named person. */}
+          {home?.workiq?.total ? (
+            <div className="card aicard">
+              <div className="hd">
+                <span className="aibadge">✦ AI</span>
+                <h3>Untracked commitments</h3>
+                <Tag kind="new" />
+                <span className="spacer" />
+                <span className="chip">{home.workiq.total} across {home.workiq.deals} deal{home.workiq.deals === 1 ? '' : 's'}</span>
+                <button className="btn link compact" onClick={() => setShowWorkiq((v) => !v)}>{showWorkiq ? 'Hide' : 'Show'}</button>
+              </div>
+              {showWorkiq ? (
+                <div className="bd">
+                  {home.workiq.items.map((c, i) => (
+                    <div className="commit" key={`${c.dealId}-${i}`}>
+                      <div className="att-t">
+                        <span className="name">{c.author}</span>
+                        <span className="chip">{c.company}</span>
+                        {c.laneLabel ? <span className="sub">{c.laneLabel}</span> : null}
+                        {c.dueText ? <span className="chip warn">📅 {c.dueText}</span> : null}
+                      </div>
+                      <div className="quote">“{c.quote || c.headline}”</div>
+                      <div className="sub">Basis: {c.basis || 'detected in the deal channel'} · not recorded as a task</div>
+                      <div className="acts">
+                        <button className="btn" onClick={() => onOpen(c.dealId)}>Open {c.company} ▸</button>
+                        {onAskQuestion ? (
+                          <button className="btn link" onClick={() => onAskQuestion(`On ${c.company}, is this commitment tracked: "${c.headline}"?`)}>Ask about it</button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="sub">
+                    Detected, not decided. Turning one of these into a tracked task happens on the deal itself,
+                    where the audit trail records who did it.
+                  </div>
                 </div>
-                <span className={`pill ${p.cls}`}>{p.tag}</span>
-                <span className="attn-acts">
-                  <button className="askbtn" onClick={(e) => { e.stopPropagation(); onOpen(d.id); }}>Open ▸</button>
-                  <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
-                </span>
+              ) : (
+                <div className="note">
+                  Work IQ read {home.workiq.total} promise{home.workiq.total === 1 ? '' : 's'} out of deal channels that
+                  nobody has turned into a task. Show them to see who owes what, and when.
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        {/* ---------------- Attention queue ---------------- */}
+        <div style={{ minWidth: 0 }}>
+          <div className="card">
+            <div className="hd">
+              <h3>What needs my attention</h3>
+              <Tag kind="ext" />
+              <span className="spacer" />
+              <span className="chip">{attentionRows.length} deal{attentionRows.length === 1 ? '' : 's'}</span>
+            </div>
+            <div className="legend">
+              <span>
+                Ranked worst-first across every deal you can see
+                {home?.roleLabel || roleLabel ? <> · weighted for <b>{home?.roleLabel || roleLabel}</b></> : null}
+                {canWrite === false ? <> · <b>read-only seat</b></> : null}
+              </span>
+            </div>
+            {attentionRows.length === 0 ? (
+              <div className="bd"><div className="muted">Nothing needs action right now — every deal you can see is on track or IC-ready.</div></div>
+            ) : attentionRows.map((a) => (
+              <div className="att" key={a.id}>
+                <div className="att-t">
+                  <span className="rank">#{a.rank}</span>
+                  <span className={`chip ${a.tone}`}>{a.tag}</span>
+                  <span className="name">{a.company}</span>
+                </div>
+                <div className="att-l">⏰ {a.why}</div>
+                <div className="att-l">
+                  {a.stageName ? <span>📍 {a.stageName}</span> : null}
+                  <span>📊 {a.readiness}% IC-ready</span>
+                  {typeof a.icInDays === 'number' ? <span>📅 IC in {a.icInDays}d</span> : null}
+                </div>
+                {a.impact ? <div className="impact">⚡ {a.impact}</div> : null}
+                {a.basis ? <div className="sub" style={{ marginTop: 6 }}>Basis: {a.basis}</div> : null}
+                <div className="acts">
+                  <button className="btn primary" onClick={() => onOpen(a.dealId)}>Open deal ▸</button>
+                  <button className="btn link" onClick={() => onAsk(a.dealId)}>Ask agents</button>
+                </div>
+              </div>
+            ))}
+            <div className="note">
+              Opening a deal takes you into its own cockpit. Nothing here changes a deal — it only tells you where to look first.
+            </div>
+          </div>
+
+          {/* KPI row sits beside the queue so the headline numbers and the work to be
+              done are read together rather than on separate screens. */}
+          <div className="kpis">
+            {kpiRow.map((k) => (
+              <div key={k.key || k.label} className="kpi">
+                <div className="kpi-v">{k.value}</div>
+                <div className="kpi-l">{k.label}</div>
+                <div className="kpi-s">{k.sub}</div>
               </div>
             ))}
           </div>
-        ) : (
-          <div className="empty-panel">Nothing needs action right now — every live deal is on track or IC-ready.</div>
-        )}
-      </section>
+        </div>
+      </div>
 
       {/* Where the live capital sits in the process */}
       <section className="panel">

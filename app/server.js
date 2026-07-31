@@ -117,7 +117,7 @@ import { chatPersonaAgent, personaAgentsInfo } from './lib/personaAgent.js';
 import { lensBlock } from './lib/personaLens.js';
 import { demoProfileById } from './data/demoProfiles.js';
 import { addWorkiqNote, listWorkiqNotes, hydrateWorkiqNotes, deleteWorkiqNote } from './lib/workiqMemory.js';
-import { workiqCorpusForDeal } from './data/workiqSeed.js';
+import { corpusForDeal } from './lib/workiqCorpus.js';
 // Real Teams channel reads, brought INTO the app. Governed by the same Work IQ
 // dispatcher the agent tools use, so channel access is consented + audited once.
 import { readChannelMessages } from './lib/mcp/workiq.js';
@@ -141,6 +141,7 @@ import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent,
 import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
 import { buildCockpit } from './lib/cockpit.js';
 import { buildWorkflowDesk, buildThreads, buildDocumentDesk, detectCommitments } from './lib/dealDesk.js';
+import { buildHomeDesk } from './lib/homeDesk.js';
 import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments, setDemoMode, getDocTemplate, setDocTemplate, DOC_TEMPLATE_DEFAULTS } from './lib/accessConfig.js';
 
 validateConfig({ strict: false });
@@ -185,6 +186,19 @@ function requestingIdentity(req) {
 // The role the caller is previewing as (demo "view as"), from body or trusted header.
 function requestingViewAs(req) {
   return req.body?.viewAsRole || req.headers['x-dr-view-as'] || null;
+}
+
+// A DELEGATED Microsoft Graph token for the signed-in user, obtained by the Teams
+// server via the On-Behalf-Of flow and forwarded over the trusted bot-key channel.
+// When present, Work IQ reads run as that user so Microsoft 365 enforces their own
+// file/channel/mailbox permissions on top of our deal need-to-know model.
+//
+// Gated on the SAME bot-key proof as the identity itself: without it any client could
+// post an arbitrary bearer token and have the server use it against Graph.
+function requestingGraphToken(req) {
+  if (BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY) return null;
+  const t = req.headers['x-dr-graph-token'];
+  return typeof t === 'string' && t.split('.').length === 3 ? t : null;
 }
 // The human actor to attribute an action to in the audit trail: the verified SSO
 // user's name, else the acting demo persona's real name. The Teams proxy resolves a
@@ -265,6 +279,21 @@ api.get('/flow', (_req, res) => res.json(getFlow()));
 // artifacts). Additive to /flow; powers the Lifecycle view.
 api.get('/lifecycle', (_req, res) => res.json({ phases: lifecycleByPhase(), stages: LIFECYCLE, gates: LIFECYCLE_GATES }));
 api.get('/deals', (req, res) => res.json(listDeals(requestingIdentity(req), requestingViewAs(req))));
+
+// Portfolio cockpit for the home page: the same grounded, cited briefing the deal
+// cockpit gives, one level up. Deliberately scoped to listDeals() for THIS caller so
+// the summary can never describe a deal the reader is not cleared to open.
+api.get('/home-desk', (req, res) => {
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  const visible = listDeals(identity, viewAs);
+  const access = accessFor(identity, viewAs);
+  res.json(buildHomeDesk(visible, {
+    role: access?.role || null,
+    roleLabel: access?.roleLabel || null,
+    rawFor: (d) => getDealRaw(d.id),
+  }));
+});
 api.get('/analytics', (_req, res) => res.json(portfolioStats()));
 
 // Fund / portfolio lens (post-IC). Owned-portfolio monitoring, fund/LP
@@ -637,7 +666,7 @@ function deskGate(req, res) {
 api.get('/deals/:id/workflow-desk', (req, res) => {
   const g = deskGate(req, res);
   if (!g) return;
-  const corpus = workiqCorpusForDeal(req.params.id);
+  const corpus = corpusForDeal(g.raw);
   const commitments = detectCommitments(corpus.channel?.messages || [], { source: 'Teams' });
   const out = buildWorkflowDesk(g.deal, getICReadiness(req.params.id), {
     role: g.access?.role || g.viewAs || null,
@@ -650,35 +679,48 @@ api.get('/deals/:id/workflow-desk', (req, res) => {
 // Work IQ Graph app is configured we read the real thread; otherwise we fall back
 // to the seeded corpus and say so (`connected: false`), because a demo surface
 // that pretends to be live is worse than one that admits it isn't.
+//
+// The live read runs DELEGATED whenever the caller brought an On-Behalf-Of token, so
+// a user only ever sees channel content Microsoft 365 would show them directly. We
+// report which mode was used (`asUser`) rather than letting the UI assume.
 api.get('/deals/:id/threads', async (req, res) => {
   const g = deskGate(req, res);
   if (!g) return;
+  const userToken = requestingGraphToken(req);
   let liveChannel = null;
+  let asUser = false;
   const link = g.raw.teamsChannel;
   if (link?.teamId && link?.channelId) {
     try {
-      const r = await readChannelMessages({ team_id: link.teamId, channel_id: link.channelId, top: 30 });
-      if (r && Array.isArray(r.results) && r.results.length) liveChannel = r;
+      const r = await readChannelMessages({ team_id: link.teamId, channel_id: link.channelId, top: 30, userToken });
+      if (r && Array.isArray(r.results) && r.results.length) { liveChannel = r; asUser = !!r.asUser; }
     } catch { /* fall through to the seeded corpus */ }
   }
-  const corpus = workiqCorpusForDeal(req.params.id);
+  const corpus = corpusForDeal(g.raw);
   const out = buildThreads(g.deal, {
     channel: corpus.channel,
     notes: listWorkiqNotes(req.params.id),
     liveChannel,
   });
-  res.json({ ...out, canWrite: !!g.access?.canWrite, roleLabel: g.access?.roleLabel || null });
+  res.json({
+    ...out,
+    asUser,
+    obo: !!userToken,
+    origin: corpus.origin,
+    canWrite: !!g.access?.canWrite,
+    roleLabel: g.access?.roleLabel || null,
+  });
 });
 
 api.get('/deals/:id/doc-desk', (req, res) => {
   const g = deskGate(req, res);
   if (!g) return;
-  const corpus = workiqCorpusForDeal(req.params.id);
+  const corpus = corpusForDeal(g.raw);
   const out = buildDocumentDesk(g.deal, {
     files: corpus.files || [],
     since: String(req.query.since || '') || null,
   });
-  res.json({ ...out, canWrite: !!g.access?.canWrite, roleLabel: g.access?.roleLabel || null });
+  res.json({ ...out, origin: corpus.origin, canWrite: !!g.access?.canWrite, roleLabel: g.access?.roleLabel || null });
 });
 
 // Lifecycle-stage decision artifacts derived from the live deal record:
@@ -844,7 +886,7 @@ api.get('/deals/:id/workiq-corpus', (req, res) => {
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
   if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
-  res.json(workiqCorpusForDeal(req.params.id));
+  res.json(corpusForDeal(deal));
 });
 
 // Deal activity / audit trail — actor, action, timestamp and provenance (via='assistant').
