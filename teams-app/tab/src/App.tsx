@@ -617,22 +617,27 @@ details[open] > summary:before { content: "\\25BE "; }
 .mi-bench { margin-top: 10px; }
 
 /* Chat panel */
-.chatpanel { flex: 0 0 380px; max-width: 380px; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--surface); min-height: 0; }
+/* min-width:0 matters: without it this flex child refuses to shrink below the
+   intrinsic width of its widest content, which is how a single long token ends up
+   widening the whole panel instead of wrapping inside it. */
+.chatpanel { flex: 0 0 380px; max-width: 380px; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--surface); min-height: 0; }
 .chat-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); }
 .chat-title { font-weight: 700; }
 .iconbtn { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 15px; }
-.rail-v { display: flex; gap: 6px; padding: 10px 12px; overflow-x: auto; border-bottom: 1px solid var(--border); }
-.agent { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--border); background: var(--card); border-radius: 10px; cursor: pointer; color: var(--fg); white-space: nowrap; }
+/* Agent picker. In a 380px rail a horizontal scroller hides agents off the edge and
+   gives no hint they exist, so the chips wrap onto as many lines as they need. */
+.rail-v { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.agent { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--border); background: var(--card); border-radius: 10px; cursor: pointer; color: var(--fg); min-width: 0; text-align: left; }
 .agent:hover { background: var(--hover); }
 .agent.on { border-color: var(--accent); outline: 2px solid var(--accent); }
-.agent .av { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-size: 11px; font-weight: 700; }
-.agent .al { display: flex; flex-direction: column; text-align: left; }
+.agent .av { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-size: 11px; font-weight: 700; flex: 0 0 auto; }
+.agent .al { display: flex; flex-direction: column; text-align: left; min-width: 0; }
 .agent .an { font-weight: 600; font-size: 12px; }
-.agent .as { color: var(--muted); font-size: 10px; }
+.agent .as { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
 .scopebar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
 .scope-l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
 .scope { background: var(--input-bg); color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12px; flex: 1; min-width: 0; }
-.thread { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.thread { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .empty { margin: auto; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .empty-t { font-size: 15px; font-weight: 700; }
 .empty-s { color: var(--muted); font-size: 12px; }
@@ -640,10 +645,13 @@ details[open] > summary:before { content: "\\25BE "; }
 .starter { text-align: left; padding: 10px 12px; border: 1px solid var(--border); background: var(--card); color: var(--fg); border-radius: 10px; cursor: pointer; font: inherit; font-size: 13px; }
 .starter:hover { background: var(--hover); border-color: var(--accent); }
 .av-lg { width: 46px; height: 46px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-size: 18px; font-weight: 700; }
-.row { display: flex; gap: 8px; align-items: flex-end; }
+.row { display: flex; gap: 8px; align-items: flex-end; min-width: 0; }
 .row.user { justify-content: flex-end; }
 .msg-av { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-size: 10px; font-weight: 700; flex: 0 0 auto; }
-.bubble { max-width: 82%; padding: 9px 12px; border-radius: 14px; }
+/* overflow-wrap:anywhere rather than break-word: agent replies routinely contain
+   things with no break opportunity at all — a URL, a revision name, an ISIN — and in
+   a narrow rail those must break mid-token or they push the panel sideways. */
+.bubble { max-width: 82%; min-width: 0; padding: 9px 12px; border-radius: 14px; overflow-wrap: anywhere; }
 .bubble.user { background: var(--bubble-user); border-bottom-right-radius: 4px; }
 .bubble.agent { background: var(--bubble-agent); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
 .bubble .tools { margin-top: 6px; color: var(--muted); font-size: 11px; border-top: 1px dashed var(--border); padding-top: 5px; }
@@ -651,17 +659,22 @@ details[open] > summary:before { content: "\\25BE "; }
 .proposed-h { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
 .proposed-row { display: flex; align-items: center; gap: 8px; }
 .proposed-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.proposed-label { font-size: 12.5px; font-weight: 600; }
-.proposed-sum { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.proposed-src { font-size: 10.5px; color: var(--muted); opacity: .8; }
+.proposed-label { font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+/* Wraps to at most two lines. It used to be a single ellipsised line, which meant the
+   summary you are being asked to approve was the part you could not read. */
+.proposed-sum { font-size: 11.5px; color: var(--muted); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.proposed-src { font-size: 10.5px; color: var(--muted); opacity: .8; overflow-wrap: anywhere; }
 .proposed-apply { flex: 0 0 auto; border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 .proposed-apply:disabled { opacity: .5; cursor: default; }
 .md > *:first-child { margin-top: 0; } .md > *:last-child { margin-bottom: 0; }
+.md { overflow-wrap: anywhere; }
 .md p { margin: 7px 0; } .md h3, .md h4, .md h5 { margin: 10px 0 5px; font-size: 13px; }
 .md ul, .md ol { margin: 5px 0; padding-left: 18px; } .md li { margin: 3px 0; }
 .md code { background: var(--chip); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
-.md pre { background: var(--chip); padding: 10px; border-radius: 8px; overflow-x: auto; } .md pre code { background: none; padding: 0; }
-.md a { color: var(--accent); }
+/* Code is the one thing that must NOT be re-wrapped — breaking a line changes what it
+   says — so it keeps its own scroller instead of widening the panel. */
+.md pre { background: var(--chip); padding: 10px; border-radius: 8px; overflow-x: auto; max-width: 100%; } .md pre code { background: none; padding: 0; }
+.md a { color: var(--accent); overflow-wrap: anywhere; }
 .typing { display: inline-flex; gap: 4px; }
 .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: b 1.2s infinite ease-in-out; }
 .typing span:nth-child(2) { animation-delay: .2s; } .typing span:nth-child(3) { animation-delay: .4s; }

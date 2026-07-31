@@ -277,9 +277,12 @@ const CHAT_EXTRA_CSS = `
 .chatpanel .save-wiq { font: inherit; font-size: 11px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--muted); cursor: pointer; }
 .chatpanel .save-wiq:hover:not(:disabled) { border-color: var(--accent, #6ea8fe); color: var(--accent, #6ea8fe); }
 .chatpanel .saved-tag { font-size: 11px; color: var(--good); }
-.chatpanel .cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+/* min(220px, 100%) not a bare 220px: inside a 380px rail the bubble can be narrower
+   than the track floor, and a bare minimum makes the column overflow its own grid
+   rather than shrink. */
+.chatpanel .cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 10px; }
 .chatpanel .cmp-col { border: 1px solid var(--border, #2a2a35); border-radius: 10px; background: var(--bg, #131318); padding: 8px 10px; min-width: 0; }
-.chatpanel .cmp-seat { font-weight: 700; font-size: 12px; color: var(--fg); display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.chatpanel .cmp-seat { font-weight: 700; font-size: 12px; color: var(--fg); display: flex; align-items: center; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
 .chatpanel .cmp-role { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; }
 .chatpanel .cmp-col .md { font-size: 12px; }
 .chatpanel .cmpbar { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
