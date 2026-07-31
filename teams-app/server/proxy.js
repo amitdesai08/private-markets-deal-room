@@ -19,6 +19,19 @@ const HOP_BY_HOP = new Set([
   'host',
 ]);
 
+// Headers the backend TRUSTS to name the caller and the seat they are wearing.
+// They are meaningful only when the sender has already proved it is the Teams
+// server (x-bot-key), so a browser must never be able to supply them: forwarding
+// a client-set x-dr-user verbatim would let anyone with the tab URL assert
+// `{"upn":"admin"}` and be treated as an administrator. Today the backend's
+// bot-key gate happens to reject that, but "safe because a second control is
+// configured" is not the same as safe — if BOT_BACKEND_KEY is ever blank the
+// gate short-circuits and this becomes a one-header privilege escalation.
+// The proxy is the trust boundary, so the stripping belongs here: identity is
+// something the server DERIVES from a validated SSO token (see index.js), never
+// something the client states about itself.
+const CLIENT_MUST_NOT_SET = new Set(['x-bot-key', 'x-dr-user', 'x-dr-as', 'x-dr-graph-token']);
+
 export async function proxyToBackend(req, res) {
   if (!isBackendLive()) {
     return res.status(502).json({
@@ -30,7 +43,9 @@ export async function proxyToBackend(req, res) {
   const target = `${config.backend.url}${req.originalUrl}`;
   const headers = {};
   for (const [k, v] of Object.entries(req.headers)) {
-    if (!HOP_BY_HOP.has(k.toLowerCase())) headers[k] = v;
+    const key = k.toLowerCase();
+    if (HOP_BY_HOP.has(key) || CLIENT_MUST_NOT_SET.has(key)) continue;
+    headers[k] = v;
   }
 
   const init = { method: req.method, headers };
