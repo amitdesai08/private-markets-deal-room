@@ -11,6 +11,14 @@
 // it read NOT-READY and the distribution was 12 NOT-READY / 7 CONDITIONAL / 0 READY. READY
 // was unreachable in the entire demo and every check we had passed anyway, because they all
 // asked the seed. These tests ask listDeals().
+//
+// KNOW WHAT THIS DOES NOT CERTIFY. There is no datastore configured under the test runner,
+// so hydrate() takes the memory branch and listDeals() serves the fixture. A DEPLOYED
+// environment has Cosmos, where hydrate() inserts a seeded deal only if its id is absent
+// and otherwise leaves the persisted record untouched — so a deployed instance can serve
+// something these tests never see. That is not hypothetical: beta served Atlas as NOT-READY
+// after this file was green, because its Cosmos record predated the fixture fix. The
+// closing move is POST /admin/reseed-demo-deals, covered in demoReseed.test.mjs.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { hydrate, listDeals } from '../lib/store.js';

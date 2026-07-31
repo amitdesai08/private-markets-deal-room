@@ -97,6 +97,7 @@ import {
   regressDealStage,
   runStep,
   portfolioStats,
+  resyncSeededDeals,
   hydrate
 } from './lib/store.js';
 import { listDealGroups, createDealGroup, removeDealGroup, reconcileDealGroups } from './lib/dealGroups.js';
@@ -1489,6 +1490,31 @@ api.post('/admin/demo-mode', async (req, res) => {
   if (!demoProfilesEnabled) return res.status(409).json({ error: 'demo mode is disabled for this deployment (DEMO_PROFILES is off)' });
   await setDemoMode(!!req.body?.on);
   res.json({ demoMode: demoModeActive(), demoModeConfigurable: demoProfilesEnabled });
+});
+// Re-apply the demo fixture over the persisted showcase deals.
+//
+// hydrate() only inserts a seeded deal when its id is absent, so on any environment that
+// has booted once the fixture is a one-time initialiser and later edits to data/deals.js
+// never arrive. That is the correct rule for work in flight and the wrong outcome for a
+// demo, and the gap is only closable deliberately — never on boot.
+//
+// DESTRUCTIVE: it discards whatever was recorded against those deals. Gated on
+// `demoProfilesEnabled` as well as admin, so a deployment that is not a demo cannot reach
+// it at all: overwriting a real deal record with fabricated fixture content is precisely
+// the failure this codebase has spent three revisions closing. Requires an explicit
+// `{ confirm: 'replace-demo-deals' }` body so it cannot be triggered by a stray POST.
+api.post('/admin/reseed-demo-deals', (req, res) => {
+  const access = requireAdmin(req, res);
+  if (!access) return;
+  if (!demoProfilesEnabled) return res.status(409).json({ error: 'this deployment is not a demo (DEMO_PROFILES is off) — refusing to overwrite deal records with fixture content' });
+  if (req.body?.confirm !== 'replace-demo-deals') {
+    return res.status(400).json({
+      error: 'confirmation required',
+      detail: 'This replaces every showcase deal record with the demo fixture and discards anything recorded against them. Re-send with { "confirm": "replace-demo-deals" }.',
+    });
+  }
+  const out = resyncSeededDeals({ persona: access.role || null });
+  res.json(out);
 });
 // Document templates / white-label branding (persisted). The generators (officeRich.js)
 // read this so a firm can brand & tweak every IC memo, deck and model without a code

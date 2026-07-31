@@ -583,6 +583,45 @@ export function getDealRaw(id) {
   return deals.find((d) => d.id === id);
 }
 
+// Re-apply the demo FIXTURE (app/data/deals.js) over the persisted showcase deals.
+//
+// hydrate() inserts a seeded deal only when its id is absent, and leaves anything already
+// persisted exactly as it is. That rule is right — a redeploy must never reset work in
+// flight — but it has a consequence nobody had written down: on any environment that has
+// booted once, the fixture is a one-time initialiser, not a fixture. Every subsequent
+// change to data/deals.js is invisible there. Beta ran for weeks on a seed several
+// revisions old, and the whole test suite certified a distribution of verdicts that no
+// deployed environment actually exhibited.
+//
+// This is deliberately NOT called on boot. It is destructive by design: it overwrites the
+// deal record. Three limits make that safe to expose:
+//   1. It only touches ids that exist in the fixture. A deal created through intake, or any
+//      other real record, is never in seededDeals and is never touched.
+//   2. The caller must be an administrator AND the deployment must have demo profiles on,
+//      so a production tenant cannot overwrite a real deal with fabricated demo content.
+//   3. It writes an activity entry naming the operator. This release was spent making the
+//      log say who did what; an operator replacing a deal record with fixture content is
+//      exactly the event that must leave a trace.
+export function resyncSeededDeals({ persona = null } = {}) {
+  const when = new Date().toISOString();
+  const who = persona ? `Administrator (${persona})` : 'Administrator';
+  const applied = [];
+  for (const demo of seededDeals) {
+    const i = deals.findIndex((d) => d.id === demo.id);
+    const dd = clone(demo);
+    attachWorkspaces([dd]);
+    dd.activity = [
+      { actor: who, action: 'Deal record replaced with the demo fixture (app/data/deals.js). Any state recorded against this deal before now was discarded.', when },
+      ...(Array.isArray(dd.activity) ? dd.activity : []),
+    ];
+    if (i >= 0) deals[i] = dd; else deals.push(dd);
+    persistDeal(dd);
+    applied.push(dd.id);
+  }
+  reseedSequences();
+  return { applied: applied.length, ids: applied, mode: repoMode() };
+}
+
 export function getDeal(id) {
   const d = getDealRaw(id);
   return d ? derive(d) : null;
