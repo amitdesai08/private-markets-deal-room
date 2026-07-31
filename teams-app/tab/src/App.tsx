@@ -560,7 +560,12 @@ details[open] > summary:before { content: "\\25BE "; }
 /* The reason wraps. It is the most important column on the row and truncating it to one
    line is how "2 required items outstanding: Findings / red-flag report, KYC…" became a
    tooltip nobody opened. */
-.dv-why { color: var(--muted); line-height: 1.35; overflow-wrap: anywhere; }
+.dv-why { color: var(--muted); line-height: 1.35; overflow-wrap: anywhere; display: flex; flex-direction: column; gap: 2px; }
+.dv-head { color: var(--fg); }
+/* Clamped, not truncated: the itemised list is still there and still selectable, it just
+   does not turn a 19-row list into six screens. Two lines is enough to see the shape of
+   what is outstanding; the deal page has all of it. */
+.dv-items { font-size: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .dv-size { text-align: right; }
 .linkbtn { border: none; background: none; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; padding: 0; }
 .cand-list { display: flex; flex-direction: column; }

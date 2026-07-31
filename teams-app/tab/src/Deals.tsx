@@ -127,11 +127,19 @@ export default function Deals({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen:
                   <span className="dv-name">{d.company}{d.locked ? ' 🔒' : ''}</span>
                   <span className="dv-stage">{stepLabel(d)}</span>
                   <span className="dv-why">
-                    {d.locked
-                      ? 'You are not on this deal team'
-                      : v?.gating?.length
-                        ? v.gating.join(' · ')
-                        : v?.headline || '—'}
+                    {d.locked ? (
+                      'You are not on this deal team'
+                    ) : (
+                      <>
+                        {/* The headline first. It is the engine's own one-sentence summary,
+                            written for exactly this position. The itemised gating goes
+                            underneath: on a D1 deal it runs to thirteen entries, and putting
+                            that in the primary line made every row a paragraph and the list
+                            unscannable — which is the failure mode the stage tabs already had. */}
+                        <span className="dv-head">{v?.headline || '—'}</span>
+                        {v?.gating?.length ? <span className="dv-items">{v.gating.join(' · ')}</span> : null}
+                      </>
+                    )}
                   </span>
                   <span className="dv-size">{d.locked ? '' : money(d.dealSize)}</span>
                   <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
