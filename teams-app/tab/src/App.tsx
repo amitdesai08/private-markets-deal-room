@@ -675,6 +675,13 @@ details[open] > summary:before { content: "\\25BE "; }
    says — so it keeps its own scroller instead of widening the panel. */
 .md pre { background: var(--chip); padding: 10px; border-radius: 8px; overflow-x: auto; max-width: 100%; } .md pre code { background: none; padding: 0; }
 .md a { color: var(--accent); overflow-wrap: anywhere; }
+/* A wide table scrolls inside its own wrapper rather than widening the column it
+   sits in. Cells use break-word, not anywhere: a figure should only be split when
+   it genuinely cannot fit, never mid-number for the sake of a tidier edge. */
+.md .mdtable { overflow-x: auto; max-width: 100%; margin: 8px 0; }
+.md table { border-collapse: collapse; font-size: 12px; min-width: 100%; }
+.md th, .md td { border: 1px solid var(--border); padding: 5px 8px; text-align: left; vertical-align: top; overflow-wrap: break-word; }
+.md th { background: var(--chip); font-weight: 700; }
 .typing { display: inline-flex; gap: 4px; }
 .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: b 1.2s infinite ease-in-out; }
 .typing span:nth-child(2) { animation-delay: .2s; } .typing span:nth-child(3) { animation-delay: .4s; }
