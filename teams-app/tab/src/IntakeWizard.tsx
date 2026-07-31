@@ -103,7 +103,7 @@ export default function IntakeWizard({ isAdmin, onClose, onCreated }: { isAdmin:
                 <label style={label}>Deal groups (tags)</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
                   {tags.map((t) => (
-                    <span key={t} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'rgba(3,105,161,.16)', color: '#6cb6ea', display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                    <span key={t} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'var(--chip)', color: 'var(--accent)', display: 'inline-flex', gap: 4, alignItems: 'center' }}>
                       #{tagLabel(t)}<button onClick={() => setTags((x) => x.filter((y) => y !== t))} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>×</button>
                     </span>
                   ))}
@@ -129,7 +129,7 @@ export default function IntakeWizard({ isAdmin, onClose, onCreated }: { isAdmin:
               <Row k="Territory" v={region ? lbl(region) : `auto (from HQ)`} />
               <Row k="Deal groups" v={tags.length ? tags.map(tagLabel).map((t) => `#${t}`).join('  ') : '—'} />
               <Row k="Confidential" v={confidential ? 'Yes' : 'No'} />
-              {err ? <div style={{ color: '#f99', fontSize: 12.5 }}>⚠ {err}</div> : null}
+              {err ? <div style={{ color: 'var(--bad)', fontSize: 12.5 }}>⚠ {err}</div> : null}
             </div>
           )}
 

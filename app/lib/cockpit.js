@@ -30,7 +30,7 @@ const LANE_LABEL = {
   hr: 'HR / Management DD',
   esg: 'ESG / Environmental',
 };
-const laneLabel = (lane) => LANE_LABEL[lane] || lane || 'Deal team';
+export const laneLabel = (lane) => LANE_LABEL[lane] || lane || 'Deal team';
 
 // "Owner" for display: the person's name where we can resolve one, else a readable
 // version of the role slug the deal record carries (e.g. "tax-md" -> "Tax MD"),
@@ -43,7 +43,7 @@ const humanise = (slug) =>
     .map((w) => (ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(' ');
 
-function ownerLabel(id, lane) {
+export function ownerLabel(id, lane) {
   const name = personaName(id);
   if (name) return name;
   if (id && !LANE_LABEL[id]) return /[-_]/.test(String(id)) ? humanise(id) : String(id);
@@ -56,7 +56,7 @@ const sevRank = (s) => SEV_RANK[String(s || '').toLowerCase()] ?? 2;
 // The IC decision happens at step D4. Past that the stored targetICDate is a
 // historical artefact, so the countdown is meaningless and must not be shown.
 const IC_STEP_INDEX = stepIndex('D4');
-function icPending(deal) {
+export function icPending(deal) {
   // currentStep is only present on derived records; fall back to the stage code,
   // and to the date itself when neither resolves to a known step.
   const idx = stepIndex(deal?.currentStep || deal?.stage);
@@ -73,14 +73,14 @@ function verdictLine(board) {
   return v.headline || v.state || null;
 }
 
-function daysUntil(iso) {
+export function daysUntil(iso) {
   if (!iso) return null;
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return null;
   return Math.round((then - Date.now()) / 86400000);
 }
 
-function dueLabel(iso) {
+export function dueLabel(iso) {
   const d = daysUntil(iso);
   if (d == null) return null;
   if (d < 0) return `${Math.abs(d)} day${Math.abs(d) === 1 ? '' : 's'} overdue`;
@@ -284,7 +284,23 @@ function buildAttention(deal, board, role) {
 // ---------------------------------------------------------------------------
 function buildBriefing(deal, board, attention, sinceIso) {
   const paras = [];
-  const sources = new Set();
+  // Sources are an ordered list so each claim can carry a numbered citation that
+  // points at the evidence behind it. A narrative without traceable provenance is
+  // not usable in an investment process, so every sentence we generate registers
+  // the record it was derived from.
+  const sourceOrder = [];
+  const sourceIndex = (name) => {
+    const label = String(name || '').trim();
+    if (!label) return 0;
+    const at = sourceOrder.indexOf(label);
+    if (at >= 0) return at + 1;
+    sourceOrder.push(label);
+    return sourceOrder.length;
+  };
+  const add = (text, ...srcNames) => {
+    const cites = srcNames.map(sourceIndex).filter(Boolean);
+    paras.push({ text, cites: [...new Set(cites)] });
+  };
   const since = sinceIso ? new Date(sinceIso) : null;
 
   // What moved, from the audit trail.
@@ -295,10 +311,9 @@ function buildBriefing(deal, board, attention, sinceIso) {
   });
   if (recent.length) {
     const top = recent.slice(0, 3).map((a) => `${a.actor || 'Someone'} ${a.action || 'updated the deal'}`);
-    paras.push(`Since your last visit there ${recent.length === 1 ? 'has been 1 update' : `have been ${recent.length} updates`} on this deal — ${top.join('; ')}.`);
-    sources.add('Deal audit trail');
+    add(`Since your last visit there ${recent.length === 1 ? 'has been 1 update' : `have been ${recent.length} updates`} on this deal — ${top.join('; ')}.`, 'Deal audit trail');
   } else {
-    paras.push(`Nothing new has been recorded on ${deal.company} since your last visit. The position below is unchanged.`);
+    add(`Nothing new has been recorded on ${deal.company} since your last visit. The position below is unchanged.`, 'Deal audit trail');
   }
 
   // Where it stands. Only lanes with real movement are worth naming; the rest are
@@ -309,20 +324,18 @@ function buildBriefing(deal, board, attention, sinceIso) {
     const idle = lanes.length - moving.length;
     const laneTxt = moving.map((w) => `${laneLabel(w.lane)} ${w.progress}%`).join(' · ');
     if (moving.length) {
-      paras.push(`Diligence stands at ${laneTxt}${idle ? `, with ${idle} further lane${idle === 1 ? '' : 's'} not yet started` : ''}.`);
+      add(`Diligence stands at ${laneTxt}${idle ? `, with ${idle} further lane${idle === 1 ? '' : 's'} not yet started` : ''}.`, 'Workstream progress');
     } else {
-      paras.push(lanes.length === 1
+      add(lanes.length === 1
         ? `The ${laneLabel(lanes[0].lane)} lane has not recorded any progress yet.`
-        : `None of the ${lanes.length} diligence lanes has recorded progress yet.`);
+        : `None of the ${lanes.length} diligence lanes has recorded progress yet.`, 'Workstream progress');
     }
-    sources.add('Workstream progress');
   }
 
   // The single most important thing.
   const top = attention[0];
   if (top) {
-    paras.push(`Your most pressing item is ${top.title.charAt(0).toLowerCase()}${top.title.slice(1)}. ${top.why}${top.impact ? ` ${top.impact}` : ''}`);
-    if (top.basis) sources.add(top.basis);
+    add(`Your most pressing item is ${top.title.charAt(0).toLowerCase()}${top.title.slice(1)}. ${top.why}${top.impact ? ` ${top.impact}` : ''}`, top.basis);
   }
 
   // Findings worth knowing about, positive and negative.
@@ -330,22 +343,21 @@ function buildBriefing(deal, board, attention, sinceIso) {
   const caution = findings.filter((f) => f.severity === 'caution' || f.severity === 'negative');
   const positive = findings.filter((f) => f.severity === 'positive');
   if (caution.length) {
-    paras.push(`Diligence has raised ${caution.length} point${caution.length === 1 ? '' : 's'} of caution — ${caution.slice(0, 2).map((f) => `${laneLabel(f.lane)}: ${f.text}`).join(' ')}`);
-    caution.forEach((f) => f.source && sources.add(f.source));
+    add(`Diligence has raised ${caution.length} point${caution.length === 1 ? '' : 's'} of caution — ${caution.slice(0, 2).map((f) => `${laneLabel(f.lane)}: ${f.text}`).join(' ')}`,
+      ...caution.slice(0, 2).map((f) => f.source).filter(Boolean));
   }
   if (positive.length) {
-    paras.push(`On the supportive side, ${positive.slice(0, 2).map((f) => f.text).join(' ')}`);
-    positive.forEach((f) => f.source && sources.add(f.source));
+    add(`On the supportive side, ${positive.slice(0, 2).map((f) => f.text).join(' ')}`,
+      ...positive.slice(0, 2).map((f) => f.source).filter(Boolean));
   }
 
   // The clock.
   const icDays = icPending(deal) ? daysUntil(deal.targetICDate) : null;
   if (icDays != null) {
     const verdict = verdictLine(board);
-    paras.push(icDays < 0
+    add(icDays < 0
       ? `The target IC date passed ${Math.abs(icDays)} days ago.${verdict ? ` ${verdict}` : ''}`
-      : `IC is ${icDays} days out.${verdict ? ` ${verdict}` : ''}`);
-    sources.add('IC readiness board');
+      : `IC is ${icDays} days out.${verdict ? ` ${verdict}` : ''}`, 'IC readiness board');
   }
 
   // Suggested next questions — seeded into the existing deal agent.
@@ -361,7 +373,7 @@ function buildBriefing(deal, board, attention, sinceIso) {
     generatedAt: new Date().toISOString(),
     since: sinceIso || null,
     paragraphs: paras,
-    sources: [...sources],
+    sources: sourceOrder,
     suggestions: suggestions.slice(0, 5),
   };
 }

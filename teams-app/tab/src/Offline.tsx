@@ -130,9 +130,9 @@ export function OnlineLeaseBanner({ status, onExtend }: { status: PlatformStatus
 }
 
 const BANNER_CSS = `
-.lease-bar { display: flex; align-items: center; gap: 8px; padding: 6px 16px; font-size: 12.5px; background: #b8860b1a; color: var(--fg); border-bottom: 1px solid #b8860b55; }
-.lease-dot { width: 8px; height: 8px; border-radius: 50%; background: #b8860b; flex: 0 0 auto; animation: leasepulse 2s infinite ease-in-out; }
-.lease-ext { margin-left: auto; border: 1px solid #b8860b; background: transparent; color: #b8860b; font: inherit; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 6px; cursor: pointer; }
+.lease-bar { display: flex; align-items: center; gap: 8px; padding: 6px 16px; font-size: 12.5px; background: var(--warn-bg); color: var(--fg); border-bottom: 1px solid var(--warn-br); }
+.lease-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: 0 0 auto; animation: leasepulse 2s infinite ease-in-out; }
+.lease-ext { margin-left: auto; border: 1px solid var(--warn-br); background: transparent; color: var(--warn); font: inherit; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 6px; cursor: pointer; }
 .lease-ext:hover { background: #b8860b; color: #fff; }
 @keyframes leasepulse { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
 `;

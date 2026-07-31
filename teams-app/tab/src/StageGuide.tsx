@@ -42,9 +42,9 @@ const CSS = `
 .sg-count { font-size: 11px; font-weight: 400; background: rgba(140,140,150,.16); border-radius: 999px; padding: 0 7px; }
 .sg-list { margin: 0; padding: 0 16px 12px 34px; display: flex; flex-direction: column; gap: 10px; }
 .sg-item { font-size: 12px; }
-.sg-item.gate .sg-t { color: #34d399; }
+.sg-item.gate .sg-t { color: var(--good); }
 .sg-t { font-weight: 600; font-size: 12.5px; color: var(--fg); display: flex; align-items: center; gap: 8px; }
-.sg-gate { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #34d399; border: 1px solid rgba(52,211,153,.4); border-radius: 4px; padding: 0 5px; }
+.sg-gate { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--good); border: 1px solid var(--good-br); border-radius: 4px; padding: 0 5px; }
 .sg-w { color: var(--muted); line-height: 1.45; margin: 2px 0; }
 .sg-m { color: var(--muted); font-size: 11.5px; opacity: .85; }
 `;

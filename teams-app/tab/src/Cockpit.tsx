@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
+import { Narrative, SourceList, Tag, ago, clock, type Para } from './deskUi';
 
 // Deal Cockpit — the "everything front and centre" surface.
 //
@@ -27,10 +28,18 @@ type Milestone = {
 type CockpitData = {
   company: string; stageName?: string | null; currentStep?: string | null;
   confidential?: boolean; icInDays?: number | null; canWrite?: boolean; roleLabel?: string | null;
-  briefing: { generatedAt: string; paragraphs: string[]; sources: string[]; suggestions: string[] };
+  briefing: { generatedAt: string; paragraphs: Para[]; sources: string[]; suggestions: string[] };
   attention: AttentionItem[];
   milestones: Milestone[];
   counts: { attention: number; openIssues: number; blockingWorkstreams: number };
+};
+type Signal = {
+  connected: boolean;
+  threads: {
+    id: string; group: string; title: string; anchor: string; anchorKind: string; source: string;
+    webUrl?: string | null; messages: { from: string; at?: string | null; text: string }[];
+  }[];
+  commitments: { author: string; headline: string; dueText?: string | null }[];
 };
 
 const KIND_TONE: Record<string, string> = {
@@ -41,12 +50,15 @@ export default function Cockpit({
   dealId, onGoTab, onAsk,
 }: { dealId: string; onGoTab?: (tab: string) => void; onAsk?: (q: string) => void }) {
   const [data, setData] = useState<CockpitData | null>(null);
+  const [signal, setSignal] = useState<Signal | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [note, setNote] = useState('');
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
   const [briefOpen, setBriefOpen] = useState(true);
+  const [evidence, setEvidence] = useState(false);
   const [vote, setVote] = useState<'up' | 'down' | null>(null);
+  const [ask, setAsk] = useState('');
 
   // "Since" is per-user, per-deal and local — the briefing is about what changed
   // for YOU, so it must not be a shared server-side watermark.
@@ -63,8 +75,11 @@ export default function Cockpit({
   }
 
   useEffect(() => {
-    setDismissed(new Set()); setVote(null); setBriefOpen(true); setNote('');
+    setDismissed(new Set()); setVote(null); setBriefOpen(true); setNote(''); setEvidence(false);
     load();
+    // The live-signal rail is a separate, slower call — the briefing must not wait
+    // on a Graph round-trip to render.
+    af(`/api/deals/${dealId}/threads`).then((r) => (r.ok ? r.json() : null)).then(setSignal).catch(() => setSignal(null));
     // Mark this visit only after the briefing has been served, so the next visit
     // reports the delta against this moment.
     return () => { try { localStorage.setItem(seenKey, new Date().toISOString()); } catch { /* ignore */ } };
@@ -90,142 +105,166 @@ export default function Cockpit({
     } finally { setBusy(''); }
   }
 
-  if (loading) return <div className="dd-panel" style={{ padding: 18 }}><div className="muted">Building your briefing…</div></div>;
-  if (!data) return <div className="dd-panel" style={{ padding: 18 }}><div className="muted">The cockpit is unavailable for this deal.</div></div>;
+  if (loading) return <div className="card"><div className="bd muted">Building your briefing…</div></div>;
+  if (!data) return <div className="card"><div className="bd muted">The cockpit is unavailable for this deal.</div></div>;
 
   const attention = data.attention.filter((a) => !dismissed.has(a.rank));
   const canWrite = !!data.canWrite;
+  const warRoom = signal?.threads.find((t) => t.group === 'Deal team');
+  const latest = warRoom?.messages[warRoom.messages.length - 1];
+  const done = data.milestones.filter((m) => m.state === 'done').length;
 
   return (
-    <div className="ck">
-      <style>{CK_CSS}</style>
+    <div>
+      {note ? <div className="callout ai" style={{ marginBottom: 12 }}>{note}</div> : null}
 
-      {note ? <div className="ck-note">{note}</div> : null}
-
-      <div className="ck-grid">
-        <div className="ck-col">
+      <div className="grid g2">
+        <div style={{ minWidth: 0 }}>
 
           {/* ---------------- Deal briefing ---------------- */}
-          <div className="ck-card ai">
-            <div className="ck-hd">
-              <span className="ck-ai">✦ AI</span>
+          <div className="card aicard">
+            <div className="hd">
+              <span className="aibadge">✦ AI</span>
               <h3>Deal briefing</h3>
-              <span className="ck-spacer" />
-              <button className="ck-link" onClick={load}>↻ Refresh</button>
-              <button className="ck-link" onClick={() => setBriefOpen((v) => !v)}>{briefOpen ? 'Hide' : 'Show'}</button>
+              <Tag kind="new" />
+              <span className="spacer" />
+              <button className="btn link compact" onClick={load}>↻ Refresh</button>
+              <button className="btn link compact" onClick={() => setEvidence((v) => !v)}>🔍 Evidence</button>
+              <button className="btn link compact" onClick={() => setBriefOpen((v) => !v)}>{briefOpen ? 'Hide' : 'Show'}</button>
             </div>
             {briefOpen ? (
-              <div className="ck-bd">
-                <div className="ck-sub">
-                  Generated {new Date(data.briefing.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  {data.briefing.sources.length ? ` · Sources: ${data.briefing.sources.join(', ')}` : ''}
-                </div>
-                <div className="ck-narr">
-                  {data.briefing.paragraphs.map((p, i) => <p key={i}>{p}</p>)}
-                </div>
-                {data.briefing.suggestions.length ? (
-                  <div className="ck-suggest">
-                    <span className="ck-sub" style={{ fontWeight: 600 }}>Ask next</span>
-                    {data.briefing.suggestions.map((s, i) => (
-                      <button key={i} className="ck-chipbtn" onClick={() => onAsk?.(s)}>{s}</button>
-                    ))}
+              <>
+                <div className="bd">
+                  <div className="sub" style={{ marginBottom: 8 }}>
+                    Generated {clock(data.briefing.generatedAt)}
+                    {data.briefing.sources.length ? ` · Sources: ${data.briefing.sources.join(', ')}` : ''}
                   </div>
-                ) : null}
-                <div className="ck-vote">
-                  Was this useful?
-                  <button className={vote === 'up' ? 'on' : ''} onClick={() => setVote('up')}>👍</button>
-                  <button className={vote === 'down' ? 'on' : ''} onClick={() => setVote('down')}>👎</button>
-                  <span className="ck-spacer" />
-                  <span className="ck-sub">{vote ? 'Noted — this tunes what surfaces next visit.' : 'Feedback tunes what surfaces next visit'}</span>
+                  <Narrative paragraphs={data.briefing.paragraphs} sources={data.briefing.sources} onCite={() => setEvidence(true)} />
+                  {evidence ? <SourceList sources={data.briefing.sources} /> : null}
+                  {data.briefing.suggestions.length ? (
+                    <div className="suggest">
+                      <span className="sub" style={{ fontWeight: 600 }}>Ask next</span>
+                      {data.briefing.suggestions.map((s, i) => (
+                        <button key={i} className="sgchip" onClick={() => onAsk?.(s)}>{s}</button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-              </div>
+                <div className="vote">
+                  Was this briefing useful?
+                  <button className={vote === 'up' ? 'on' : ''} aria-label="Useful" onClick={() => setVote('up')}>👍</button>
+                  <button className={vote === 'down' ? 'on' : ''} aria-label="Not useful" onClick={() => setVote('down')}>👎</button>
+                  <span className="spacer" />
+                  <span>{vote ? 'Noted — this tunes what surfaces next visit.' : 'Feedback tunes what surfaces next visit'}</span>
+                </div>
+              </>
             ) : null}
           </div>
 
           {/* ---------------- Attention queue ---------------- */}
-          <div className="ck-card">
-            <div className="ck-hd">
+          <div className="card">
+            <div className="hd">
               <h3>What needs my attention</h3>
-              <span className="ck-spacer" />
-              <span className="ck-chip">{attention.length} item{attention.length === 1 ? '' : 's'}</span>
+              <Tag kind="ext" />
+              <span className="spacer" />
+              <span className="chip">{attention.length} item{attention.length === 1 ? '' : 's'}</span>
             </div>
-            <div className="ck-legend">
-              Ranked by urgency{data.roleLabel ? <> · weighted for <b>{data.roleLabel}</b></> : null}
-              {canWrite ? null : <> · <b>read-only seat</b> — actions hidden</>}
+            <div className="legend">
+              <span>
+                Ranked by urgency{data.roleLabel ? <> · weighted for <b>{data.roleLabel}</b></> : null}
+                {canWrite ? ' · AI-detected items are labelled' : <> · <b>read-only seat</b> — actions hidden</>}
+              </span>
             </div>
 
             {attention.length === 0 ? (
-              <div className="ck-bd"><div className="muted">Nothing is competing for your attention on this deal right now.</div></div>
+              <div className="bd"><div className="muted">Nothing is competing for your attention on this deal right now.</div></div>
             ) : attention.map((a) => (
-              <div className={`ck-att ${KIND_TONE[a.kind] || ''}`} key={a.rank}>
-                <div className="ck-att-t">
-                  <span className="ck-rank">#{a.rank}</span>
-                  <span className={`ck-chip ${KIND_TONE[a.kind] || ''}`}>{a.kindLabel}</span>
-                  <span className="ck-att-name">{a.title}</span>
+              <div className="att" key={a.rank}>
+                <div className="att-t">
+                  <span className="rank">#{a.rank}</span>
+                  <span className={`chip ${KIND_TONE[a.kind] || ''}`}>{a.kindLabel}</span>
+                  <span className="name">{a.title}</span>
                 </div>
-                <div className="ck-att-l">⏰ {a.why}</div>
-                <div className="ck-att-l">
-                  {a.owner ? <>👤 {a.owner}</> : null}
-                  {a.dueLabel ? <> &nbsp; 📅 {a.dueLabel}</> : null}
+                <div className="att-l">⏰ {a.why}</div>
+                <div className="att-l">
+                  {a.owner ? <span>👤 {a.owner}</span> : null}
+                  {a.dueLabel ? <span>📅 {a.dueLabel}</span> : null}
                 </div>
-                {a.impact ? <div className="ck-impact">⚡ {a.impact}</div> : null}
-                {a.basis ? <div className="ck-sub" style={{ marginTop: 6 }}>Basis: {a.basis}</div> : null}
+                {a.impact ? <div className="impact">⚡ {a.impact}</div> : null}
+                {a.basis ? <div className="sub" style={{ marginTop: 6 }}>Basis: {a.basis}</div> : null}
                 {canWrite ? (
-                  <div className="ck-acts">
+                  <div className="acts">
                     {(a.actions || []).map((act, i) => (
-                      <button key={i} className={`ck-btn${i === 0 ? ' primary' : ''}`}
+                      <button key={i} className={`btn${i === 0 ? ' primary' : ''}`}
                         disabled={busy === `${a.rank}:${act.kind}`}
                         onClick={() => apply(a, act)}>
                         {busy === `${a.rank}:${act.kind}` ? 'Applying…' : act.label}
                       </button>
                     ))}
-                    <button className="ck-link" onClick={() => setDismissed((s) => new Set([...s, a.rank]))}>Dismiss</button>
+                    <button className="btn link" onClick={() => setDismissed((s) => new Set([...s, a.rank]))}>Dismiss</button>
                   </div>
                 ) : null}
               </div>
             ))}
             {canWrite ? (
-              <div className="ck-foot">Every action here routes through the existing approve-then-apply path — the agent proposes, a named person commits, and the audit trail records who and when.</div>
+              <div className="note">Every action here routes through the existing approve-then-apply path — the agent proposes, a named person commits, and the audit trail records who and when.</div>
             ) : null}
+          </div>
+
+          {/* ---------------- Ask ---------------- */}
+          <div className="card">
+            <div className="hd"><h3>Ask the deal agent</h3><Tag kind="live" /></div>
+            <div className="bd">
+              <div className="askchips">
+                {['What changed this week?', 'What is still missing for IC?', 'Who owns the critical path?', 'Summarise the open risks', 'Draft the IC memo skeleton'].map((q) => (
+                  <button key={q} className="sgchip" onClick={() => onAsk?.(q)}>{q}</button>
+                ))}
+              </div>
+              <form className="askbox" onSubmit={(e) => { e.preventDefault(); if (ask.trim()) { onAsk?.(ask.trim()); setAsk(''); } }}>
+                <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={`Ask anything about ${data.company}…`} aria-label="Ask the deal agent" />
+                <button className="btn primary" type="submit" disabled={!ask.trim()}>Ask</button>
+              </form>
+            </div>
           </div>
         </div>
 
         {/* ---------------- Right rail ---------------- */}
-        <div className="ck-col">
-          <div className="ck-card">
-            <div className="ck-hd">
+        <div style={{ minWidth: 0 }}>
+          <div className="card">
+            <div className="hd">
               <h3>Milestones &amp; dependencies</h3>
-              <span className="ck-spacer" />
-              <span className="ck-chip">{data.milestones.filter((m) => m.state === 'done').length} of {data.milestones.length}</span>
+              <Tag kind="ext" />
+              <span className="spacer" />
+              <span className="chip">{done} of {data.milestones.length} steps</span>
             </div>
-            <div className="ck-legend">
-              <span className="ck-key"><i style={{ background: 'var(--accent)' }} />Authoritative — deal record</span>
-              <span className="ck-key"><i style={{ background: '#7c3aed' }} />✦ AI overlay — never changes status</span>
+            <div className="legend">
+              <span><i style={{ background: 'var(--accent)' }} />Authoritative — deal record</span>
+              <span><i style={{ background: 'var(--ai)' }} />✦ AI risk overlay — never auto-updates status</span>
             </div>
-            <div className="ck-ms-wrap">
+            <div>
               {data.milestones.map((m) => (
-                <div className="ck-ms" key={m.key}>
-                  <span className={`ck-dot ${m.state}${m.aiRisk ? ' risk' : ''}`} />
+                <div className="ms" key={m.key}>
+                  <span className={`dot ${m.state === 'done' ? 'done' : m.aiRisk ? 'risk' : m.state === 'current' ? 'now' : ''}`} />
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div className="ck-ms-k">
+                    <div className="k">
                       {m.key} · {m.title}
-                      {m.aiRisk ? <span className="ck-ai sm">✦ AI</span> : null}
+                      {m.aiRisk ? <span className="aibadge" style={{ marginLeft: 6 }}>✦ AI</span> : null}
                     </div>
-                    {m.owner ? <div className="ck-sub">{m.owner}</div> : null}
-                    {m.waitingOn ? <div className="ck-sub">Waiting on: {m.waitingOn}</div> : null}
+                    {m.owner ? <div className="m">{m.owner}</div> : null}
+                    {m.waitingOn ? <div className="m">Waiting on: {m.waitingOn}</div> : null}
                     {m.aiRisk ? (
-                      <details className="ck-risk">
+                      <details>
                         <summary>Show AI risk detail</summary>
-                        <div className="ck-riskbody">
+                        <div className="riskdetail">
                           <b>{m.aiRisk.headline}</b>
                           <div style={{ marginTop: 4 }}>{m.aiRisk.detail}</div>
-                          {m.aiRisk.impact ? <div className="ck-impact" style={{ marginTop: 6 }}>⚡ {m.aiRisk.impact}</div> : null}
-                          {m.aiRisk.basis ? <div className="ck-sub" style={{ marginTop: 6 }}>Basis: {m.aiRisk.basis}</div> : null}
+                          {m.aiRisk.impact ? <div className="impact">⚡ {m.aiRisk.impact}</div> : null}
+                          {m.aiRisk.basis ? <div className="sub" style={{ marginTop: 6 }}>Basis: {m.aiRisk.basis}</div> : null}
                         </div>
                       </details>
                     ) : null}
                   </div>
-                  <span className={`ck-chip ${m.state === 'done' ? 'good' : m.aiRisk ? 'warn' : ''}`}>
+                  <span className={`chip ${m.state === 'done' ? 'good' : m.aiRisk ? 'warn' : ''}`}>
                     {m.state === 'done' ? 'Completed' : m.state === 'current' ? (m.aiRisk ? 'At risk' : 'In progress') : 'Pending'}
                   </span>
                 </div>
@@ -233,9 +272,39 @@ export default function Cockpit({
             </div>
           </div>
 
-          <div className="ck-card">
-            <div className="ck-hd"><h3>Your access</h3></div>
-            <div className="ck-bd ck-sub">
+          {/* Work IQ live signal — what is happening around the deal in Teams,
+              brought INTO the deal instead of left behind in the channel. */}
+          <div className="card">
+            <div className="hd">
+              <h3>Work IQ · live signal</h3>
+              <Tag kind={signal?.connected ? 'live' : 'new'} />
+              <span className="spacer" />
+              {warRoom?.webUrl ? <a className="dashlink" href={warRoom.webUrl} target="_blank" rel="noreferrer">Open channel ↗</a> : null}
+            </div>
+            {warRoom && latest ? (
+              <>
+                <div className="dl">
+                  <div className="sub">TEAMS · {warRoom.anchor}</div>
+                  <div style={{ fontSize: 13 }}>{latest.text.slice(0, 160)}</div>
+                  <div className="sub">{latest.from} · {ago(latest.at)}</div>
+                </div>
+                {signal?.commitments.length ? (
+                  <div className="dl">
+                    <div className="sub">UNTRACKED COMMITMENT</div>
+                    <div style={{ fontSize: 13 }}>{signal.commitments[0].headline.slice(0, 160)}</div>
+                    <div className="sub">{signal.commitments[0].author} · no task exists for this</div>
+                  </div>
+                ) : null}
+                <div className="note">{warRoom.source}. Reading the channel uses the same consented Work IQ permission the agent tools use.</div>
+              </>
+            ) : (
+              <div className="bd muted">No Teams channel is linked to this deal yet.</div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="hd"><h3>Your access</h3><Tag kind="live" /></div>
+            <div className="bd sub">
               {data.roleLabel || 'Deal team'} · {canWrite ? 'can act (writes attributed to you)' : 'read-only — actions withheld'}
               {data.confidential ? ' · 🔒 confidential deal, deal team only' : ''}
             </div>
@@ -245,62 +314,3 @@ export default function Cockpit({
     </div>
   );
 }
-
-const CK_CSS = `
-.ck { --ck-ai:#7c3aed; }
-.ck-grid { display:grid; grid-template-columns: minmax(0,1.55fr) minmax(0,1fr); gap:14px; align-items:start; }
-@media (max-width: 1000px) { .ck-grid { grid-template-columns: minmax(0,1fr); } }
-.ck-col { display:flex; flex-direction:column; gap:14px; min-width:0; }
-.ck-card { border:1px solid var(--border); border-radius:12px; background:var(--card); overflow:hidden; }
-.ck-card.ai { border-color:color-mix(in srgb, var(--ck-ai) 45%, var(--border)); }
-.ck-hd { display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--border); }
-.ck-hd h3 { margin:0; font-size:13.5px; font-weight:700; }
-.ck-spacer { flex:1; }
-.ck-bd { padding:12px 14px; }
-.ck-sub { color:var(--muted); font-size:12px; }
-.ck-ai { font-size:11px; font-weight:700; color:#fff; background:var(--ck-ai); padding:2px 8px; border-radius:999px; }
-.ck-ai.sm { margin-left:6px; padding:1px 6px; font-size:10px; }
-.ck-chip { background:var(--chip); padding:3px 9px; border-radius:999px; font-size:11.5px; font-weight:600; white-space:nowrap; }
-.ck-chip.bad { background:rgba(178,59,59,.16); color:#f09a9a; }
-.ck-chip.warn { background:rgba(184,134,11,.18); color:#e0b354; }
-.ck-chip.good { background:rgba(27,127,55,.16); color:#7fc98f; }
-.ck-chip.ai { background:color-mix(in srgb, var(--ck-ai) 22%, transparent); color:#b79bf5; }
-.ck-narr p { margin:0 0 9px; font-size:13px; line-height:1.55; }
-.ck-narr p:last-child { margin-bottom:0; }
-.ck-suggest { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:12px; }
-.ck-chipbtn { border:1px solid var(--border); background:var(--chip); color:inherit; border-radius:999px; padding:4px 10px; font:inherit; font-size:12px; cursor:pointer; }
-.ck-chipbtn:hover { background:var(--hover); }
-.ck-vote { display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:10px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); }
-.ck-vote button { border:1px solid var(--border); background:var(--card); color:inherit; border-radius:7px; padding:3px 9px; cursor:pointer; font:inherit; }
-.ck-vote button.on { border-color:var(--accent); background:var(--chip); }
-.ck-legend { display:flex; flex-wrap:wrap; gap:12px; padding:9px 14px; color:var(--muted); font-size:12px; border-bottom:1px solid var(--border); }
-.ck-key { display:inline-flex; align-items:center; gap:6px; }
-.ck-key i { width:9px; height:9px; border-radius:3px; display:inline-block; }
-.ck-att { padding:12px 14px; border-bottom:1px solid var(--border); border-left:3px solid transparent; }
-.ck-att.bad { border-left-color:#b23b3b; }
-.ck-att.warn { border-left-color:#b8860b; }
-.ck-att.ai { border-left-color:var(--ck-ai); }
-.ck-att-t { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.ck-rank { font-weight:800; color:var(--muted); font-size:12px; }
-.ck-att-name { font-weight:700; font-size:13px; }
-.ck-att-l { color:var(--muted); font-size:12.5px; margin-top:5px; }
-.ck-impact { margin-top:7px; font-size:12.5px; padding:6px 9px; border-radius:8px; background:var(--chip); }
-.ck-acts { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; align-items:center; }
-.ck-btn { border:1px solid var(--border); background:var(--card); color:var(--fg); border-radius:8px; padding:6px 11px; cursor:pointer; font:inherit; font-size:12.5px; font-weight:600; }
-.ck-btn.primary { background:var(--accent); border-color:var(--accent); color:var(--accent-fg,#fff); }
-.ck-btn:disabled { opacity:.55; cursor:default; }
-.ck-link { border:none; background:none; color:var(--accent); cursor:pointer; font:inherit; font-size:12.5px; font-weight:600; padding:4px 6px; }
-.ck-foot { padding:10px 14px; color:var(--muted); font-size:11.5px; }
-.ck-note { border:1px solid var(--border); background:var(--chip); border-radius:9px; padding:9px 12px; font-size:12.5px; margin-bottom:12px; }
-.ck-ms-wrap { padding:4px 0; }
-.ck-ms { display:flex; gap:10px; align-items:flex-start; padding:9px 14px; border-bottom:1px solid var(--border); }
-.ck-ms:last-child { border-bottom:none; }
-.ck-ms-k { font-weight:650; font-size:12.5px; }
-.ck-dot { width:10px; height:10px; border-radius:50%; margin-top:4px; flex:0 0 auto; background:var(--border); }
-.ck-dot.done { background:#1b7f37; }
-.ck-dot.current { background:var(--accent); }
-.ck-dot.risk { background:#b8860b; }
-.ck-risk { margin-top:6px; }
-.ck-risk summary { cursor:pointer; color:var(--ck-ai); font-size:12px; font-weight:600; }
-.ck-riskbody { margin-top:7px; padding:9px 11px; border-radius:9px; border:1px solid color-mix(in srgb, var(--ck-ai) 40%, var(--border)); background:color-mix(in srgb, var(--ck-ai) 8%, transparent); font-size:12.5px; }
-`;

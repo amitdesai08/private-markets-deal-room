@@ -73,8 +73,8 @@ const CSS = `
 .dealcard.rich { display: flex; flex-direction: column; gap: 7px; }
 .dc-tags { display: flex; align-items: center; gap: 8px; }
 .dc-pill { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 9px; }
-.dc-pill.exec { color: #34d399; background: rgba(5,150,105,.14); }
-.dc-pill.own { color: #a78bfa; background: rgba(124,58,237,.14); }
+.dc-pill.exec { color: var(--good); background: var(--good-bg); }
+.dc-pill.own { color: var(--ai); background: var(--ai-bg); }
 .dc-st { font-size: 11.5px; color: var(--muted); }
 .dc-figs { display: flex; flex-wrap: wrap; gap: 14px; }
 .dc-fig { font-size: 11.5px; color: var(--muted); }

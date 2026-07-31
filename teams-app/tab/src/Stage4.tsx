@@ -72,7 +72,7 @@ const CSS = `
 .stage4 .dealcard.rich { display: flex; flex-direction: column; gap: 7px; }
 .stage4 .dc-tags { display: flex; align-items: center; gap: 8px; }
 .stage4 .dc-pill { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 9px; }
-.stage4 .dc-pill.own { color: #a78bfa; background: rgba(124,58,237,.14); }
+.stage4 .dc-pill.own { color: var(--ai); background: var(--ai-bg); }
 .stage4 .dc-st { font-size: 11.5px; color: var(--muted); }
 .stage4 .dc-figs { display: flex; flex-wrap: wrap; gap: 14px; }
 .stage4 .dc-fig { font-size: 11.5px; color: var(--muted); }

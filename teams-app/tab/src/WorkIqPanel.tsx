@@ -160,7 +160,7 @@ const CSS = `
 .wiq-note { border: 1px solid var(--border, #2a2a35); border-radius: 10px; background: var(--bg, #131318); padding: 9px 12px; }
 .wiq-meta { display: flex; align-items: center; gap: 8px; font-size: 11.5px; }
 .wiq-who { font-weight: 700; color: var(--fg); }
-.wiq-seat { font-size: 10.5px; color: #6cb6ea; border: 1px solid rgba(108,182,234,.4); border-radius: 4px; padding: 0 5px; }
+.wiq-seat { font-size: 10.5px; color: var(--accent); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; }
 .wiq-time { color: var(--muted); margin-left: auto; }
 .wiq-text { font-size: 12.5px; line-height: 1.45; color: var(--fg); margin-top: 4px; white-space: pre-wrap; }
 .wiq-shared { font-size: 11px; color: var(--muted); margin-top: 5px; }
@@ -171,7 +171,7 @@ const CSS = `
 .wiq-chip { font: inherit; font-size: 11px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--muted); cursor: pointer; }
 .wiq-chip.on { border-color: var(--accent, #6ea8fe); color: var(--accent, #6ea8fe); }
 .wiq-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.wiq-err { color: #f99; font-size: 12px; }
+.wiq-err { color: var(--bad); font-size: 12px; }
 .wiq-corpus { padding: 6px 14px 14px; display: flex; flex-direction: column; gap: 12px; }
 .wiq-cgroup { display: flex; flex-direction: column; gap: 6px; }
 .wiq-ch { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; }

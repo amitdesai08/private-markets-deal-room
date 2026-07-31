@@ -27,6 +27,22 @@ export function applyTheme(theme: string) {
   root.style.setProperty('--input-bg', t('#ffffff', '#1f1f1f', '#000000'));
   root.style.setProperty('--chip', t('#eeeef7', '#33344a', '#0f0f00'));
   root.style.setProperty('--shadow', dark || contrast ? 'none' : '0 1px 2px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.06)');
+
+  // Semantic status families. Every surface states meaning through these rather than
+  // one-off hex, so "AI overlay" vs "authoritative status" reads the same everywhere
+  // and stays legible in dark / high-contrast. Each family is a text colour plus a
+  // tinted fill and a border, so a chip, a callout and a card share one vocabulary.
+  const family = (name: string, light: string, darkV: string, contrastV: string, rgb: string) => {
+    root.style.setProperty(`--${name}`, t(light, darkV, contrastV));
+    root.style.setProperty(`--${name}-bg`, contrast ? 'transparent' : `rgba(${rgb}, ${dark ? 0.14 : 0.09})`);
+    root.style.setProperty(`--${name}-br`, contrast ? t(light, darkV, contrastV) : `rgba(${rgb}, ${dark ? 0.38 : 0.3})`);
+  };
+  // AI / machine-generated. Deliberately a different hue from --accent so an AI
+  // surface is never mistaken for an authoritative one.
+  family('ai', '#7c3aed', '#b79cff', '#ffff01', dark ? '140,110,255' : '124,58,237');
+  family('warn', '#b8860b', '#e0b341', '#ffff01', dark ? '224,179,65' : '184,134,11');
+  family('bad', '#b23b3b', '#ff9d9d', '#ffff01', dark ? '255,120,120' : '178,59,59');
+  family('good', '#1b7f37', '#5fd68a', '#ffff01', dark ? '95,214,138' : '27,127,55');
 }
 
 // User theme choice (light/dark) persists across sessions and, when set, overrides

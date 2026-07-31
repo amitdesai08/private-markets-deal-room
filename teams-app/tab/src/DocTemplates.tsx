@@ -18,7 +18,7 @@ const SECTION_LABELS: { key: keyof Sections; label: string }[] = [
 
 export default function DocTemplates({ ssoToken, viewAs }: { ssoToken?: string; viewAs?: string }) {
   const [tpl, setTpl] = useState<Template | null>(null);
-  const [defaults, setDefaults] = useState<Template | null>(null);
+  const [, setDefaults] = useState<Template | null>(null);
   const [busy, setBusy] = useState('');
   const [note, setNote] = useState('');
 

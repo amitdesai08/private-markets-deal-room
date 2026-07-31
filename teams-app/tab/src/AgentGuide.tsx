@@ -75,7 +75,7 @@ const CSS = `
 .ag-card { text-align: left; border: 1px solid var(--border, #2a2a35); border-radius: 10px; background: var(--bg, #131318); padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; font: inherit; color: inherit; }
 .ag-card:hover { border-color: var(--accent, #6ea8fe); }
 .ag-stage { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-.ag-badge { text-transform: none; letter-spacing: 0; font-size: 10px; color: #d9a441; border: 1px solid rgba(217,164,65,.4); border-radius: 4px; padding: 0 5px; }
+.ag-badge { text-transform: none; letter-spacing: 0; font-size: 10px; color: var(--warn); border: 1px solid var(--warn-br); border-radius: 4px; padding: 0 5px; }
 .ag-agent { font-weight: 700; font-size: 13px; color: var(--fg); }
 .ag-purpose { font-size: 12px; color: var(--muted); line-height: 1.4; }
 .ag-ask { font-size: 12px; color: var(--accent, #6ea8fe); margin-top: 2px; }

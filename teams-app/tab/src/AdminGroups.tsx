@@ -73,7 +73,7 @@ export default function AdminGroups({ deals, onClose }: { deals: Deal[]; onClose
                 {dealGroups.map((g) => (
                   <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderTop: '1px solid var(--border)' }}>
                     <span style={{ fontWeight: 600, fontSize: 13 }}>#{g.label}</span>
-                    <span style={{ fontSize: 11.5, fontWeight: 600, padding: '1px 8px', borderRadius: 999, background: g.groupPending ? 'rgba(216,128,0,.16)' : 'rgba(0,170,102,.14)', color: g.groupPending ? '#d80' : '#0a6' }}>{g.groupPending ? '⏳ Access group pending' : '✓ Access group'}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, padding: '1px 8px', borderRadius: 999, background: g.groupPending ? 'var(--warn-bg)' : 'var(--good-bg)', color: g.groupPending ? 'var(--warn)' : 'var(--good)' }}>{g.groupPending ? '⏳ Access group pending' : '✓ Access group'}</span>
                     <span style={{ fontSize: 12, color: 'var(--muted)' }}>{groupDealCount(g.id)} deal(s)</span>
                     <button className="chbtn" style={{ marginLeft: 'auto' }} disabled={busy === g.id} onClick={() => del(g.id)}>Remove</button>
                   </div>

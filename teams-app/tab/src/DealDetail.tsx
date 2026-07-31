@@ -5,6 +5,9 @@ import DealArtifacts from './DealArtifacts';
 import WorkIqPanel from './WorkIqPanel';
 import ChatPanel from './ChatPanel';
 import Cockpit from './Cockpit';
+import WorkflowDesk from './WorkflowDesk';
+import ThreadsDesk from './ThreadsDesk';
+import DocumentDesk from './DocumentDesk';
 import { renderMarkdown } from './md';
 import type { Agent, Deal } from './types';
 
@@ -86,7 +89,7 @@ const bigMoney = (n?: number) => (n == null ? '—' : n >= 1e9 ? `$${(n / 1e9).t
 
 const REGION_LABEL: Record<string, string> = { northeast: 'Northeast', southeast: 'Southeast', midwest: 'Midwest', southcentral: 'South Central', northwest: 'Northwest', southwest: 'Southwest', international: 'International' };
 
-type Tab = 'cockpit' | 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'artifacts' | 'documents' | 'activity';
+type Tab = 'cockpit' | 'workflow' | 'threads' | 'docdesk' | 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'artifacts' | 'documents' | 'activity';
 type ResolveTarget = { tab: Tab; step?: string };
 type ActivityEntry = { actor?: string; action?: string; when?: string; via?: string | null };
 
@@ -395,7 +398,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     .map((w) => ({ w, ...ryg(w) }))
     .sort((a, b) => RYG_RANK[a.state] - RYG_RANK[b.state] || (a.w.progress || 0) - (b.w.progress || 0));
   const atRisk = workbench.filter((r) => r.state !== 'green').length;
-  const RYG_DOT: Record<string, string> = { red: '#e5484d', amber: '#d88000', green: '#0a6' };
+  const RYG_DOT: Record<string, string> = { red: 'var(--bad)', amber: 'var(--warn)', green: 'var(--good)' };
 
   return (
     <div className="drawer-scrim" onClick={onClose}>
@@ -431,7 +434,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                 {(((deal as any).tags) || []).map((t: string) => {
                   const g = dealGroups.find((x) => x.id === t);
                   return (
-                    <span key={t} title={g?.groupPending ? 'Access group being set up' : 'Deal group — members get access to this deal'} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'rgba(3,105,161,.16)', color: '#6cb6ea', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span key={t} title={g?.groupPending ? 'Access group being set up' : 'Deal group — members get access to this deal'} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'var(--chip)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       #{g?.label || t}{g?.groupPending ? ' · ⏳' : ''}
                       {canViewStage2 ? <button onClick={() => saveTags((((deal as any).tags) || []).filter((x: string) => x !== t))} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, fontSize: 13, lineHeight: 1 }}>×</button> : null}
                     </span>
@@ -448,11 +451,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
             </div>
 
             {nba ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 10px', padding: '11px 14px', borderRadius: 10, border: `1px solid ${nba.urgency === 'High' ? '#b23b3b' : 'var(--border, #2a2a35)'}`, background: 'var(--card, #1b1b22)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 10px', padding: '11px 14px', borderRadius: 10, border: `1px solid ${nba.urgency === 'High' ? 'var(--bad-br)' : 'var(--border)'}`, background: 'var(--card)' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span>Next best action · {nba.title}</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 999, color: nba.urgency === 'High' ? '#f99' : 'var(--muted)', background: nba.urgency === 'High' ? 'rgba(178,59,59,.16)' : 'rgba(140,140,150,.14)' }}>{nba.urgency} urgency{nbaEvent ? ` · ${nbaEvent}` : ''}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 999, color: nba.urgency === 'High' ? 'var(--bad)' : 'var(--muted)', background: nba.urgency === 'High' ? 'var(--bad-bg)' : 'var(--chip)' }}>{nba.urgency} urgency{nbaEvent ? ` · ${nbaEvent}` : ''}</span>
                   </div>
                   <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 2 }}>{nba.reason}</div>
                 </div>
@@ -465,9 +468,9 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
             {!statusOnly && (
             <div className="dd-tabs">
-              {([...(cockpitOn ? ['cockpit'] as Tab[] : []), 'overview', 'stages', 'workspace', 'research', 'artifacts', 'documents', 'ic', 'activity'] as Tab[]).map((t) => (
+              {([...(cockpitOn ? ['cockpit', 'workflow', 'threads', 'docdesk'] as Tab[] : []), 'overview', 'stages', 'workspace', 'research', 'artifacts', 'documents', 'ic', 'activity'] as Tab[]).map((t) => (
                 <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>
-                  {t === 'cockpit' ? 'Cockpit' : t === 'stages' ? 'Deal workflow' : t === 'overview' ? 'Overview' : t === 'workspace' ? 'Workspace' : t === 'research' ? 'Market research' : t === 'artifacts' ? 'Decision artifacts' : t === 'documents' ? 'Documents' : t === 'activity' ? 'Activity' : 'IC readiness'}
+                  {t === 'cockpit' ? 'Cockpit' : t === 'workflow' ? 'Workflow & blockers' : t === 'threads' ? 'Work IQ threads' : t === 'docdesk' ? 'Documents' : t === 'stages' ? 'Deal workflow' : t === 'overview' ? 'Overview' : t === 'workspace' ? 'Workspace' : t === 'research' ? 'Market research' : t === 'artifacts' ? 'Decision artifacts' : t === 'documents' ? (cockpitOn ? 'Generate & export' : 'Documents') : t === 'activity' ? 'Activity' : 'IC readiness'}
                 </button>
               ))}
             </div>
@@ -500,6 +503,27 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                 <Cockpit
                   dealId={dealId}
                   onGoTab={(t) => setTab(t as Tab)}
+                  onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}
+                />
+              )}
+
+              {tab === 'workflow' && (
+                <WorkflowDesk
+                  dealId={dealId}
+                  onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}
+                />
+              )}
+
+              {tab === 'threads' && (
+                <ThreadsDesk
+                  dealId={dealId}
+                  onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}
+                />
+              )}
+
+              {tab === 'docdesk' && (
+                <DocumentDesk
+                  dealId={dealId}
                   onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}
                 />
               )}
@@ -582,7 +606,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                         <div style={{ fontWeight: 700, fontSize: 14 }}>Work the deal · {STEP_LABEL[deal.currentStep || ''] || deal.currentStep || 'Not launched'}</div>
                         <div className="muted" style={{ fontSize: 12 }}>Step {deal.stepNumber ?? 0} of {deal.totalSteps ?? 0}{deal.stageName ? ` · ${deal.stageName}` : ''}</div>
                       </div>
-                      <div style={{ height: 6, borderRadius: 999, background: 'rgba(140,140,150,.2)', overflow: 'hidden', margin: '8px 0 10px' }}>
+                      <div style={{ height: 6, borderRadius: 999, background: 'var(--chip)', overflow: 'hidden', margin: '8px 0 10px' }}>
                         <div style={{ width: `${Math.min(100, Math.round(((deal.stepNumber || 0) / (deal.totalSteps || 1)) * 100))}%`, height: '100%', background: 'var(--accent, #2E74B5)' }} />
                       </div>
                       <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
@@ -688,7 +712,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                     </div>
                     <div style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        {verdict?.state ? <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: verdict.state === 'READY' ? '#0a6' : verdict.state === 'NOT-READY' ? '#f99' : '#d80', background: verdict.state === 'READY' ? 'rgba(0,170,102,.14)' : verdict.state === 'NOT-READY' ? 'rgba(178,59,59,.16)' : 'rgba(221,136,0,.16)' }}>{verdict.state}</span> : null}
+                        {verdict?.state ? <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: verdict.state === 'READY' ? 'var(--good)' : verdict.state === 'NOT-READY' ? 'var(--bad)' : 'var(--warn)', background: verdict.state === 'READY' ? 'var(--good-bg)' : verdict.state === 'NOT-READY' ? 'var(--bad-bg)' : 'var(--warn-bg)' }}>{verdict.state}</span> : null}
                         <span style={{ fontWeight: 700 }}>{deal.readiness ?? 0}% ready</span>
                         {typeof deal.daysToIC === 'number' && deal.daysToIC >= 0 ? <span className="muted">· IC in {deal.daysToIC}d</span> : null}
                         {verdict?.headline ? <span className="muted" style={{ fontSize: 12 }}>· {verdict.headline}</span> : null}
@@ -698,7 +722,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           <div className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700, marginBottom: 4 }}>Top blockers</div>
                           {blockers.slice(0, 3).map((b, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
-                              <span style={{ color: '#f99' }}>○</span>
+                              <span style={{ color: 'var(--bad)' }}>○</span>
                               <span style={{ flex: 1, minWidth: 0 }}>{b.label}{b.detail ? <span className="muted"> · {b.detail}</span> : null}</span>
                               <button className="chbtn" onClick={() => resolveBlocker(b.target)}>Resolve ▸</button>
                             </div>
@@ -715,16 +739,16 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           ) : (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                               {typeof delta.pctChange === 'number' && delta.pctChange !== 0 ? (
-                                <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: delta.pctChange > 0 ? '#0a6' : '#f99', background: delta.pctChange > 0 ? 'rgba(0,170,102,.14)' : 'rgba(178,59,59,.16)' }}>{delta.pctChange > 0 ? '▲' : '▼'} {Math.abs(delta.pctChange)}% readiness</span>
+                                <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: delta.pctChange > 0 ? 'var(--good)' : 'var(--bad)', background: delta.pctChange > 0 ? 'var(--good-bg)' : 'var(--bad-bg)' }}>{delta.pctChange > 0 ? '▲' : '▼'} {Math.abs(delta.pctChange)}% readiness</span>
                               ) : null}
                               {delta.verdictChanged && delta.prevState && delta.state ? (
-                                <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: delta.state === 'READY' ? '#0a6' : delta.state === 'NOT-READY' ? '#f99' : '#d80', background: 'rgba(140,140,150,.14)' }}>Verdict {delta.prevState} → {delta.state}</span>
+                                <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: delta.state === 'READY' ? 'var(--good)' : delta.state === 'NOT-READY' ? 'var(--bad)' : 'var(--warn)', background: 'var(--chip)' }}>Verdict {delta.prevState} → {delta.state}</span>
                               ) : null}
                               {(delta.resolved || []).map((r, i) => (
-                                <span key={`r${i}`} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: '#0a6', background: 'rgba(0,170,102,.14)' }}>✓ Resolved: {r.label}</span>
+                                <span key={`r${i}`} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: 'var(--good)', background: 'var(--good-bg)' }}>✓ Resolved: {r.label}</span>
                               ))}
                               {(delta.newlyBlocking || []).map((b, i) => (
-                                <span key={`b${i}`} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: '#f99', background: 'rgba(178,59,59,.16)' }}>○ Newly blocking: {b.label}</span>
+                                <span key={`b${i}`} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: 'var(--bad)', background: 'var(--bad-bg)' }}>○ Newly blocking: {b.label}</span>
                               ))}
                             </div>
                           )}
@@ -772,7 +796,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                     <section className="dd-panel">
                       <div className="dd-panel-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span>Diligence workbench</span>
-                        <span style={{ fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: atRisk ? '#f99' : 'var(--muted)', background: atRisk ? 'rgba(178,59,59,.16)' : 'rgba(140,140,150,.14)' }}>{atRisk ? `${atRisk} at risk` : 'All on track'}</span>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: atRisk ? 'var(--bad)' : 'var(--muted)', background: atRisk ? 'var(--bad-bg)' : 'var(--chip)' }}>{atRisk ? `${atRisk} at risk` : 'All on track'}</span>
                       </div>
                       <div style={{ padding: '4px 14px 14px' }}>
                         {workbench.map(({ w, state, reason }, i) => (
@@ -783,7 +807,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                               {reason ? <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>{state === 'red' ? '⚠ ' : ''}{reason}</div> : null}
                             </div>
                             <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div style={{ width: 64, height: 5, borderRadius: 999, background: 'rgba(140,140,150,.2)', overflow: 'hidden' }}><div style={{ width: `${Math.min(100, w.progress || 0)}%`, height: '100%', background: RYG_DOT[state] }} /></div>
+                              <div style={{ width: 64, height: 5, borderRadius: 999, background: 'var(--chip)', overflow: 'hidden' }}><div style={{ width: `${Math.min(100, w.progress || 0)}%`, height: '100%', background: RYG_DOT[state] }} /></div>
                               <span className="muted" style={{ fontSize: 11.5, width: 30, textAlign: 'right' }}>{w.progress || 0}%</span>
                               {state === 'red' ? <button className="chbtn" onClick={() => { setSelStep('D2'); setTab('stages'); }}>Resolve ▸</button> : null}
                             </div>
@@ -979,7 +1003,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                             <div style={{ fontSize: 12.5 }}>{a.action}</div>
                             <div className="muted" style={{ fontSize: 11, marginTop: 1 }}>
                               {a.actor || 'System'}{a.when ? ` · ${relTime(a.when) || new Date(a.when).toLocaleString()}` : ''}
-                              {a.via === 'assistant' ? <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999, color: 'var(--accent, #6264A7)', background: 'rgba(98,100,167,.16)' }}>via assistant · you approved</span> : null}
+                              {a.via === 'assistant' ? <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999, color: 'var(--accent)', background: 'var(--chip)' }}>via assistant · you approved</span> : null}
                             </div>
                           </div>
                         </div>

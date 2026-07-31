@@ -118,6 +118,9 @@ import { lensBlock } from './lib/personaLens.js';
 import { demoProfileById } from './data/demoProfiles.js';
 import { addWorkiqNote, listWorkiqNotes, hydrateWorkiqNotes, deleteWorkiqNote } from './lib/workiqMemory.js';
 import { workiqCorpusForDeal } from './data/workiqSeed.js';
+// Real Teams channel reads, brought INTO the app. Governed by the same Work IQ
+// dispatcher the agent tools use, so channel access is consented + audited once.
+import { readChannelMessages } from './lib/mcp/workiq.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
@@ -137,6 +140,7 @@ import { config, validateConfig } from './lib/config.js';
 import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent, dealAccessLevel, describeAccess, describeDemoProfiles, demoModeActive, demoProfilesEnabled, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
 import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
 import { buildCockpit } from './lib/cockpit.js';
+import { buildWorkflowDesk, buildThreads, buildDocumentDesk, detectCommitments } from './lib/dealDesk.js';
 import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments, setDemoMode, getDocTemplate, setDocTemplate, DOC_TEMPLATE_DEFAULTS } from './lib/accessConfig.js';
 
 validateConfig({ strict: false });
@@ -609,6 +613,72 @@ api.get('/deals/:id/cockpit', (req, res) => {
     role: access?.role || viewAs || null,
   });
   res.json({ ...out, canWrite: !!access?.canWrite, roleLabel: access?.roleLabel || null });
+});
+
+// ---------------------------------------------------------------------------
+// Deal desk — the three surfaces beside the cockpit. Same access contract: the
+// deal team sees them, status-only callers do not. Each is composed server-side
+// from records the platform already owns, so the client renders one payload.
+// ---------------------------------------------------------------------------
+// Resolve the caller against a deal once, so every desk route enforces exactly
+// the same rule instead of three near-copies drifting apart.
+function deskGate(req, res) {
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  const raw = getDealRaw(req.params.id);
+  if (!raw) { res.status(404).json({ error: 'not-found' }); return null; }
+  const level = dealAccessLevel(identity, raw, viewAs);
+  if (level === 'none') { res.status(404).json({ error: 'not-found' }); return null; }
+  if (level === 'status') { res.status(403).json({ error: 'forbidden', detail: 'Status-only access — the deal desk is deal-team only.' }); return null; }
+  const access = accessFor(identity, viewAs);
+  return { raw, deal: getDeal(req.params.id) || raw, access, viewAs };
+}
+
+api.get('/deals/:id/workflow-desk', (req, res) => {
+  const g = deskGate(req, res);
+  if (!g) return;
+  const corpus = workiqCorpusForDeal(req.params.id);
+  const commitments = detectCommitments(corpus.channel?.messages || [], { source: 'Teams' });
+  const out = buildWorkflowDesk(g.deal, getICReadiness(req.params.id), {
+    role: g.access?.role || g.viewAs || null,
+    commitments,
+  });
+  res.json({ ...out, canWrite: !!g.access?.canWrite, roleLabel: g.access?.roleLabel || null });
+});
+
+// Teams channel INSIDE the app. When the deal has a provisioned channel and the
+// Work IQ Graph app is configured we read the real thread; otherwise we fall back
+// to the seeded corpus and say so (`connected: false`), because a demo surface
+// that pretends to be live is worse than one that admits it isn't.
+api.get('/deals/:id/threads', async (req, res) => {
+  const g = deskGate(req, res);
+  if (!g) return;
+  let liveChannel = null;
+  const link = g.raw.teamsChannel;
+  if (link?.teamId && link?.channelId) {
+    try {
+      const r = await readChannelMessages({ team_id: link.teamId, channel_id: link.channelId, top: 30 });
+      if (r && Array.isArray(r.results) && r.results.length) liveChannel = r;
+    } catch { /* fall through to the seeded corpus */ }
+  }
+  const corpus = workiqCorpusForDeal(req.params.id);
+  const out = buildThreads(g.deal, {
+    channel: corpus.channel,
+    notes: listWorkiqNotes(req.params.id),
+    liveChannel,
+  });
+  res.json({ ...out, canWrite: !!g.access?.canWrite, roleLabel: g.access?.roleLabel || null });
+});
+
+api.get('/deals/:id/doc-desk', (req, res) => {
+  const g = deskGate(req, res);
+  if (!g) return;
+  const corpus = workiqCorpusForDeal(req.params.id);
+  const out = buildDocumentDesk(g.deal, {
+    files: corpus.files || [],
+    since: String(req.query.since || '') || null,
+  });
+  res.json({ ...out, canWrite: !!g.access?.canWrite, roleLabel: g.access?.roleLabel || null });
 });
 
 // Lifecycle-stage decision artifacts derived from the live deal record:
