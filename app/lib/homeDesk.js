@@ -272,92 +272,136 @@ function assessLane(deal, raw, lanes, laneLabels) {
   const icDays = typeof deal.daysToIC === 'number' ? deal.daysToIC : (pre ? daysUntil(deal.targetICDate) : null);
   const soon = pre && typeof icDays === 'number' && icDays >= 0 && icDays <= 21;
   const late = pre && typeof icDays === 'number' && icDays < 0;
-  // A seat can own MORE THAN ONE lane — the Fund CFO owns Financial / QoE and Tax &
-  // structuring. Reading ws[0] meant tax was invisible on all 19 deals (its progress is
-  // zero on every one) while tax blocking reasons still rendered underneath a row
-  // labelled "Financial / QoE not started": the label describing something other than
-  // its own contents. Report the lane in the worst state and name THAT lane, so the row
-  // is about the work that is actually behind.
-  const w = ws.slice().sort((a, b) => num(a.progress) - num(b.progress))[0];
-  const label = laneLabels[lanes.indexOf(w.lane)] || laneLabels[0] || lanes[0];
-  const progress = num(w.progress);
-  const started = progress > 0 && w.status !== 'not_started';
-  const findings = Array.isArray(w.findings) ? w.findings.length : 0;
-  const base = { lane: w.lane, laneLabel: label, laneProgress: progress, laneStatus: w.status || 'not_started', basis: 'Workstream record — your lane' };
   const when = late
     ? `the target committee date passed ${Math.abs(icDays)} days ago`
     : soon ? `committee is ${icDays} day${icDays === 1 ? '' : 's'} out` : null;
+  // A seat can own MORE THAN ONE lane — the Fund CFO owns Financial / QoE and Tax &
+  // structuring. Two earlier versions of this were wrong in the same direction. Reading
+  // ws[0] made tax invisible on every deal. Reading the single worst lane fixed the
+  // label but still judged the seat on one lane, so a high-severity finding in the
+  // CFO's QoE lane rendered under a row tagged "Tax & structuring" — the label
+  // describing something other than its own contents, again.
+  //
+  // So each owned lane is assessed on its own terms and the most severe result leads
+  // the row. The lane that produced the row is the lane the row is named after, and the
+  // others are reported alongside it rather than silently dropped.
+  const assessOne = (w) => {
+    const label = laneLabels[lanes.indexOf(w.lane)] || w.lane;
+    const progress = num(w.progress);
+    const started = progress > 0 && w.status !== 'not_started';
+    const findings = Array.isArray(w.findings) ? w.findings.length : 0;
+    const blocking = blockingHere.filter((b) => b.lane === w.lane);
+    // Issues AND findings. `bundle.issues` is a separate risk register; the findings are
+    // the record of the lane's own work, and a finding written up as high-severity is
+    // the single thing this seat would be asked about first. Reading only the register
+    // meant the CFO's page said "Financial / QoE 70% complete" on a deal nine days from
+    // committee whose QoE lane records EUR 3.2M of EBITDA that may not exist.
+    const highFindings = (Array.isArray(w.findings) ? w.findings : [])
+      .filter((f) => /high|critical/i.test(String(f.severity || '')))
+      .map((f) => ({ title: f.text, lane: w.lane }));
+    const high = [...highIssues.filter((i) => i.lane === w.lane), ...highFindings];
+    const base = { lane: w.lane, laneLabel: label, laneProgress: progress, laneStatus: w.status || 'not_started', basis: 'Workstream record — your lane' };
 
-  if (!started) {
-    return {
-      ...base,
-      rank: when ? 0 : 1,
-      tag: `${label} not started`,
-      tone: when ? 'bad' : 'warn',
-      why: when
-        ? `Your ${label} lane has no work recorded against it and ${when}.`
-        : `Your ${label} lane has no work recorded against it.`,
-      impact: 'A lane that has never opened blocks the committee gate on its own, whatever the rest of the deal looks like.',
-      verdict: bundle?.verdict?.state || null,
-      gating: blockingHere.map((b) => `${b.label} — ${b.reasons.join(', ')}`),
-    };
-  }
-  if (highIssues.length) {
-    return {
-      ...base,
-      rank: 2,
-      tag: `${highIssues.length} open in ${label}`,
-      tone: 'bad',
-      why: `${highIssues.length} high-severity finding${highIssues.length === 1 ? '' : 's'} in your lane ${highIssues.length === 1 ? 'is' : 'are'} still open — ${highIssues.slice(0, 2).map((i) => i.title).join('; ')}.`,
-      impact: 'An unresolved high-severity finding blocks the gate and, left open, becomes a condition or a price adjustment.',
-      verdict: bundle?.verdict?.state || null,
-      gating: highIssues.map((i) => i.title),
-    };
-  }
-  if (blockingHere.length) {
-    return {
-      ...base,
-      rank: 3,
-      tag: `${label} blocking`,
-      tone: 'warn',
-      why: `Your lane is one of the reasons this deal cannot be tabled — ${blockingHere.map((b) => b.reasons.join(', ')).join('; ')}.`,
-      impact: 'Until this lane clears, the deal cannot go to committee on the record as it stands.',
-      verdict: bundle?.verdict?.state || null,
-      gating: blockingHere.map((b) => `${b.label} — ${b.reasons.join(', ')}`),
-    };
-  }
-  if (progress >= 100 && findings === 0) {
-    return {
-      ...base,
-      rank: 4,
-      tag: `${label} complete, nothing recorded`,
-      tone: 'warn',
-      // This is the same rule the readiness engine applies, said in the first person.
-      // A lane marked done with no findings is either work that was never written up
-      // or a lane that was closed to clear the board; the record cannot tell which,
-      // and neither can this sentence, so it does not guess.
-      why: `Your lane is marked complete but carries no findings, so there is nothing on the record showing what the work concluded.`,
-      impact: 'At committee this reads as an unevidenced lane, which is the same as an open one.',
-      verdict: bundle?.verdict?.state || null,
-      gating: [],
-    };
-  }
-  if (soon && progress < 100) {
-    return {
-      ...base,
-      rank: 5,
-      tag: `${label} ${progress}%`,
-      tone: 'warn',
-      why: `Your lane is ${progress}% complete and ${when}.`,
-      impact: 'Finishing after the papers go out means the committee reads a lane that changed underneath it.',
-      verdict: bundle?.verdict?.state || null,
-      gating: [],
-    };
-  }
-  if (progress >= 100) {
-    return { ...base, rank: 8, tag: `${label} complete`, tone: 'good', why: `Your lane is complete with ${findings} finding${findings === 1 ? '' : 's'} on the record.`, impact: null, verdict: bundle?.verdict?.state || null, gating: [] };
-  }
-  return { ...base, rank: 7, tag: `${label} ${progress}%`, tone: 'good', why: `Your lane is ${progress}% complete with ${findings} finding${findings === 1 ? '' : 's'} recorded.`, impact: null, verdict: bundle?.verdict?.state || null, gating: [] };
+    if (!started) {
+      return {
+        ...base,
+        short: 'not started',
+        rank: when ? 0 : 1,
+        tag: `${label} not started`,
+        tone: when ? 'bad' : 'warn',
+        why: when
+          ? `Your ${label} lane has no work recorded against it and ${when}.`
+          : `Your ${label} lane has no work recorded against it.`,
+        impact: 'A lane that has never opened blocks the committee gate on its own, whatever the rest of the deal looks like.',
+        verdict: bundle?.verdict?.state || null,
+        gating: blocking.map((b) => `${b.label} — ${b.reasons.join(', ')}`),
+      };
+    }
+    if (high.length) {
+      return {
+        ...base,
+        short: `carrying ${high.length} open high-severity finding${high.length === 1 ? '' : 's'}`,
+        rank: 2,
+        tag: `${high.length} open in ${label}`,
+        tone: 'bad',
+        why: `${high.length} high-severity finding${high.length === 1 ? '' : 's'} in your ${label} lane ${high.length === 1 ? 'is' : 'are'} still open — ${high.slice(0, 2).map((i) => String(i.title || '').replace(/\s*\.\s*$/, '')).join('; ')}.`,
+        impact: 'An unresolved high-severity finding blocks the gate and, left open, becomes a condition or a price adjustment.',
+        verdict: bundle?.verdict?.state || null,
+        gating: high.map((i) => i.title),
+      };
+    }
+    if (blocking.length) {
+      return {
+        ...base,
+        short: 'blocking the gate',
+        rank: 3,
+        tag: `${label} blocking`,
+        tone: 'warn',
+        why: `Your ${label} lane is one of the reasons this deal cannot be tabled — ${blocking.map((b) => b.reasons.join(', ')).join('; ')}.`,
+        impact: 'Until this lane clears, the deal cannot go to committee on the record as it stands.',
+        verdict: bundle?.verdict?.state || null,
+        gating: blocking.map((b) => `${b.label} — ${b.reasons.join(', ')}`),
+      };
+    }
+    if (progress >= 100 && findings === 0) {
+      return {
+        ...base,
+        short: 'marked complete but carrying nothing on the record',
+        rank: 4,
+        tag: `${label} complete, nothing recorded`,
+        tone: 'warn',
+        // This is the same rule the readiness engine applies, said in the first person.
+        // A lane marked done with no findings is either work that was never written up
+        // or a lane that was closed to clear the board; the record cannot tell which,
+        // and neither can this sentence, so it does not guess.
+        why: `Your ${label} lane is marked complete but carries no findings, so there is nothing on the record showing what the work concluded.`,
+        impact: 'At committee this reads as an unevidenced lane, which is the same as an open one.',
+        verdict: bundle?.verdict?.state || null,
+        gating: [],
+      };
+    }
+    if (soon && progress < 100) {
+      return {
+        ...base,
+        short: `${progress}% complete`,
+        rank: 5,
+        tag: `${label} ${progress}%`,
+        tone: 'warn',
+        why: `Your ${label} lane is ${progress}% complete and ${when}.`,
+        impact: 'Finishing after the papers go out means the committee reads a lane that changed underneath it.',
+        verdict: bundle?.verdict?.state || null,
+        gating: [],
+      };
+    }
+    if (progress >= 100) {
+      return { ...base, short: `complete with ${findings} finding${findings === 1 ? '' : 's'}`, rank: 8, tag: `${label} complete`, tone: 'good', why: `Your ${label} lane is complete with ${findings} finding${findings === 1 ? '' : 's'} on the record.`, impact: null, verdict: bundle?.verdict?.state || null, gating: [] };
+    }
+    return { ...base, short: `${progress}% complete`, rank: 7, tag: `${label} ${progress}%`, tone: 'good', why: `Your ${label} lane is ${progress}% complete with ${findings} finding${findings === 1 ? '' : 's'} recorded.`, impact: null, verdict: bundle?.verdict?.state || null, gating: [] };
+  };
+
+  const candidates = ws.map(assessOne).sort((a, b) => a.rank - b.rank || a.laneProgress - b.laneProgress);
+  const row = candidates[0];
+  const others = candidates.slice(1);
+  // A lane nobody opened on a deal that is already through the gate is a records gap,
+  // not work standing between this seat and a committee. Left at the same rank as live
+  // diligence it filled the CFO's page with four post-close deals and pushed the deal
+  // with an open high-severity finding in his own lane, nine days from committee, off
+  // the bottom. Same correction as the chair's queue: past the gate ranks below in
+  // front of it.
+  const postGate = phase === 'post-committee';
+  return {
+    ...row,
+    rank: postGate ? row.rank + 4 : row.rank,
+    // What the seat's OTHER lanes on this deal are doing. Without this the CFO's page
+    // reported tax on thirteen deals and never once said what had happened to the QoE
+    // work — which is the half of his job the firm actually chases him about.
+    laneStates: candidates.map((c) => ({ lane: c.lane, label: c.laneLabel, progress: c.laneProgress, status: c.laneStatus, state: c.short })),
+    why: others.length
+      ? `${row.why} Your ${others.map((o) => `${o.laneLabel} lane is ${o.short}`).join(', and your ')}.`
+      : row.why,
+    // Every owned lane that is holding this deal, not just the one the row is named for.
+    gating: [...new Set(candidates.flatMap((c) => c.gating || []))],
+  };
 }
 
 // Seats whose job is a PHASE rather than a lane care about a different slice of the
@@ -654,6 +698,17 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   const laneDueBeforeIC = laneRows.filter((r) => num(r.a.laneProgress) < 100
     && typeof r.deal.daysToIC === 'number' && r.deal.daysToIC >= 0 && r.deal.daysToIC <= 21).length;
   const laneNextIC = upcoming.find((d) => laneRows.some((r) => r.deal.id === d.id && num(r.a.laneProgress) < 100)) || null;
+  // A seat that owns two lanes has two jobs, and one aggregate number cannot tell it
+  // which one is behind. The Fund CFO's "Not started: 9" was true and useless: it did
+  // not say whether the gap was QoE work or tax structuring, which are different people
+  // and different weeks. Only computed when there is more than one lane to split.
+  const laneSplit = seat.laneLabels.length > 1
+    ? (seat.lanes || []).map((ln, i) => ({
+      label: seat.laneLabels[i] || ln,
+      notStarted: laneRows.filter((r) => (r.a.laneStates || []).some((s) => s.lane === ln && !num(s.progress))).length,
+      open: laneRows.filter((r) => (r.a.laneStates || []).some((s) => s.lane === ln && num(s.progress) < 100)).length,
+    }))
+    : [];
 
   // Facts an observer CAN be told. Stage, status and target date survive the metadata
   // tier, so a seat with no workstream access is not a seat with nothing to say —
@@ -893,8 +948,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     kpis = [
       { key: 'lane-blocking', label: 'Blocking the gate', value: String(laneBlocking), sub: laneBlocking ? `${lane} is why ${laneBlocking === 1 ? 'it' : 'they'} cannot be tabled` : 'not blocking anything' },
       { key: 'lane-due', label: 'Needed before a committee', value: String(laneDueBeforeIC), sub: laneNextIC ? `soonest ${laneNextIC.company}, ${laneNextIC.daysToIC}d` : 'none inside three weeks' },
-      { key: 'lane-idle', label: 'Not started', value: String(laneNotStarted), sub: laneNotStarted ? 'no work recorded yet' : 'every lane has opened' },
-      { key: 'lane-open', label: `Deals with your ${seat.laneLabels.length > 1 ? 'lanes' : 'lane'} open`, value: String(laneOpen), sub: `${laneDone} complete · of ${laneRows.length} carrying it` },
+      { key: 'lane-idle', label: 'Not started', value: String(laneNotStarted), sub: laneSplit.length ? `nothing recorded in ${laneSplit.map((s) => `${s.label} on ${s.notStarted}`).join(' · ')}` : (laneNotStarted ? 'no work recorded yet' : 'every lane has opened') },
+      { key: 'lane-open', label: `Deals with your ${seat.laneLabels.length > 1 ? 'lanes' : 'lane'} open`, value: String(laneOpen), sub: laneSplit.length ? `open in ${laneSplit.map((s) => `${s.label} on ${s.open}`).join(' · ')}` : `${laneDone} complete · of ${laneRows.length} carrying it` },
     ];
   } else if (seat.kind === 'committee') {
     kpis = [

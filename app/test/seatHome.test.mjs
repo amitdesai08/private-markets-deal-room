@@ -596,3 +596,66 @@ test('the committee countdown ignores deals still in origination', () => {
   assert.notEqual(vFor(named).phase, 'origination', `${named.company} has not been launched into diligence and cannot be the next committee`);
   assert.equal(named.daysToIC, days);
 });
+
+// A seat can own more than one lane. The row must be named after the lane that
+// produced it: the CFO owns Financial / QoE and Tax & structuring, and the row for a
+// high-severity QoE finding was rendered under the tag "Tax & structuring" because the
+// tag came from the least-progressed lane while the contents came from all of them.
+test('a multi-lane seat row names the lane its own contents come from', () => {
+  for (const who of ['fund-cfo', 'legal-gc', 'supply-md']) {
+    const hd = build(who);
+    for (const a of hd.attention) {
+      if (!a.laneLabel) continue;
+      const m = /^\d+ open in (.+)$/.exec(a.tag || '') || /^(.+?)(?: not started| blocking| complete.*|\s\d+%)$/.exec(a.tag || '');
+      assert.ok(m, `${who}: unreadable tag "${a.tag}"`);
+      assert.equal(m[1], a.laneLabel, `${who}/${a.company}: tag says "${m[1]}" but the row is about ${a.laneLabel}`);
+      // The leading sentence of the reason must describe the same lane as the tag.
+      const first = String(a.why || '').split(/(?:\. )/)[0];
+      assert.ok(first.includes(a.laneLabel), `${who}/${a.company}: row tagged ${a.laneLabel} opens with "${first}"`);
+    }
+  }
+});
+
+// Every owned lane on the deal must be accounted for, not just the one that led.
+test('a multi-lane seat reports every lane it owns on the deal', () => {
+  const hd = build('fund-cfo');
+  let multi = 0;
+  for (const a of hd.attention) {
+    if (!Array.isArray(a.laneStates) || a.laneStates.length < 2) continue;
+    multi += 1;
+    for (const s of a.laneStates) {
+      assert.ok(s.state, `${a.company}: ${s.label} has no state`);
+      if (s.lane === a.lane) continue;
+      assert.ok(String(a.why).includes(s.label), `${a.company}: owns ${s.label} but the row never mentions it`);
+    }
+  }
+  assert.ok(multi > 0, 'the Fund CFO owns two lanes and should carry at least one deal with both');
+});
+
+// A lane nobody opened on a deal already through committee is a records gap. It must
+// not outrank live work in front of a gate.
+test('post-committee records gaps rank below live diligence for a lane seat', () => {
+  for (const who of ['fund-cfo', 'legal-gc']) {
+    const hd = build(who);
+    const phaseOf = (a) => vFor(deals.find((d) => d.id === a.dealId) || {})?.phase;
+    const rows = hd.attention.filter((a) => a.laneLabel);
+    const firstPost = rows.findIndex((a) => phaseOf(a) === 'post-committee');
+    if (firstPost === -1) continue;
+    const liveAfter = rows.slice(firstPost).filter((a) => phaseOf(a) === 'diligence');
+    assert.equal(liveAfter.length, 0, `${who}: ${liveAfter.map((a) => a.company).join(', ')} still needs work before a committee but ranks below a closed deal`);
+  }
+});
+
+// The per-lane breakdown on a two-lane seat is a set of overlapping deal counts, not a
+// partition of the headline. No lane may claim more deals than the headline itself.
+test('a per-lane tile breakdown never exceeds the number it breaks down', () => {
+  const hd = build('fund-cfo');
+  for (const key of ['lane-idle', 'lane-open']) {
+    const tile = hd.kpis.find((k) => k.key === key);
+    if (!tile || !/ on \d+/.test(tile.sub || '')) continue;
+    const parts = [...String(tile.sub).matchAll(/ on (\d+)/g)].map((m) => Number(m[1]));
+    assert.ok(parts.length > 1, `${key}: a two-lane seat must show both lanes`);
+    for (const p of parts) assert.ok(p <= Number(tile.value), `${key}: a lane claims ${p} deals but the tile totals ${tile.value}`);
+    assert.ok(Math.max(...parts) <= Number(tile.value), `${key}: breakdown exceeds the headline`);
+  }
+});

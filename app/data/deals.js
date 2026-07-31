@@ -68,6 +68,23 @@ export const seedDeals = [
         status: 'not_started',
         progress: 0,
         findings: []
+      },
+      {
+        lane: 'financial',
+        owner: 'fund-cfo',
+        status: 'in_progress',
+        progress: 45,
+        findings: [
+          { text: 'Supplier rebates of EUR 8.4M are recognised on invoice rather than on achievement; roughly EUR 2.9M of LTM EBITDA depends on volumes not yet earned.', severity: 'high', source: 'Financial / QoE' },
+          { text: 'Like-for-like growth is 1.8% once the 11 stores opened in the period are stripped out, against 3.1% presented.', severity: 'medium', source: 'Financial / QoE' }
+        ]
+      },
+      {
+        lane: 'tax',
+        owner: 'fund-cfo',
+        status: 'not_started',
+        progress: 0,
+        findings: []
       }
     ],
     documents: [
@@ -122,6 +139,7 @@ export const seedDeals = [
     ],
     workstreams: [
       { lane: 'commercial', owner: 'retail-md', status: 'not_started', progress: 0, findings: [] },
+      { lane: 'financial', owner: 'fund-cfo', status: 'complete', progress: 100, findings: [] },
       { lane: 'techai', owner: 'ai-md', status: 'not_started', progress: 0, findings: [] },
       { lane: 'operations', owner: 'supply-md', status: 'in_progress', progress: 25, findings: [
         { text: 'Pulp inputs 38% sourced from tariff-exposed regions; hedging and dual-sourcing are the swing factor on margin.', severity: 'caution', source: 'Ops DD (prelim)' }
@@ -178,6 +196,13 @@ export const seedDeals = [
       ] },
       { lane: 'techai', owner: 'ai-md', status: 'in_progress', progress: 80, findings: [
         { text: 'Proprietary training data (7yr labelled corpus) gives a real moat beyond the GPT layer.', severity: 'positive', source: 'Tech/AI DD' }
+      ] },
+      { lane: 'financial', owner: 'fund-cfo', status: 'in_progress', progress: 70, findings: [
+        { text: 'EUR 4.1M of ARR is invoiced annually in advance but recognised on signature; on a ratable basis LTM EBITDA is EUR 3.2M lower than the model carries.', severity: 'high', source: 'Financial / QoE' },
+        { text: 'Capitalised development costs of EUR 2.6M sit above peer practice; expensing them moves the entry multiple from 9.4x to 10.1x.', severity: 'medium', source: 'Financial / QoE' }
+      ] },
+      { lane: 'tax', owner: 'fund-cfo', status: 'in_progress', progress: 30, findings: [
+        { text: 'Irish IP box claimed on the data assets since 2021; the ruling has not been produced and the benefit is in the base case.', severity: 'caution', source: 'Tax DD' }
       ] },
       { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [{ text: 'Warehouse automation payback 3.1 years on the vendor quote; no capex gap to the model.', severity: 'positive', source: 'Operations DD' }] }
     ],
@@ -430,6 +455,10 @@ export const demoStageDeals = [
     workstreams: [
       { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 55, findings: [{ text: 'Housing-start exposure hedged by repair-&-remodel mix (48%).', severity: 'positive', source: 'Commercial DD' }] },
       { lane: 'operations', owner: 'supply-md', status: 'in_progress', progress: 40, findings: [] },
+      { lane: 'financial', owner: 'fund-cfo', status: 'in_progress', progress: 25, findings: [
+        { text: 'Standing timber is carried at historical cost; a fair-value reassessment is the single largest swing item in the model and is not yet complete.', severity: 'medium', source: 'Financial / QoE (prelim)' }
+      ] },
+      { lane: 'tax', owner: 'fund-cfo', status: 'in_progress', progress: 15, findings: [] },
       { lane: 'esg', owner: 'esg-md', status: 'not_started', progress: 0, findings: [] },
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'PNW forestry consolidation with automation-led margin gains.', citations: ['CIM'] }],
@@ -472,7 +501,12 @@ export const demoStageDeals = [
     ],
     workstreams: [
       { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 70, findings: [{ text: 'Backlog covers 1.8x forward-year revenue; utility framework agreements sticky.', severity: 'positive', source: 'Commercial DD' }] },
-      { lane: 'financial', owner: 'finance-md', status: 'in_progress', progress: 60, findings: [] },
+      { lane: 'financial', owner: 'fund-cfo', status: 'in_progress', progress: 60, findings: [
+        { text: 'Two acquisitions completed in the LTM are presented pro-forma for a full year of synergies that have not yet been actioned; USD 7M of the USD 96M is unearned.', severity: 'medium', source: 'Financial / QoE draft' }
+      ] },
+      { lane: 'tax', owner: 'fund-cfo', status: 'in_progress', progress: 35, findings: [
+        { text: 'Texas franchise-tax treatment of the 2022 reorganisation is unresolved with the state; exposure is capped but not quantified.', severity: 'caution', source: 'Tax DD' }
+      ] },
       { lane: 'legal', owner: 'legal-md', status: 'in_progress', progress: 40, findings: [] },
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'in_progress', content: 'Gulf-corridor electrification services with a sticky utility backlog.', citations: ['CIM', 'QoE draft'] }],
@@ -774,6 +808,9 @@ export const demoStageDeals = [
       ] },
       { lane: 'financial', owner: 'fund-cfo', status: 'in_progress', progress: 55, findings: [
         { text: 'Take-private financing pre-underwritten by two banks; covenant headroom modelled at 18%.', severity: 'positive', source: 'QoE draft' }
+      ] },
+      { lane: 'tax', owner: 'fund-cfo', status: 'complete', progress: 100, findings: [
+        { text: 'UK take-private structure confirmed: stamp duty at 0.5% on the scheme, and the interest-restriction limit binds from year two at the modelled leverage.', severity: 'medium', source: 'Tax DD' }
       ] },
       { lane: 'legal', owner: 'legal-gc', status: 'in_progress', progress: 40, findings: [
         { text: 'Takeover Code (rule 2.7) timetable and irrevocables are the critical path.', severity: 'caution', source: 'Legal DD' }
