@@ -495,6 +495,11 @@ export function applyStatusTier(s) {
   s.memoProgress = null;
   s.complianceCleared = null;
   s.complianceTotal = null;
+  // The verdict's gating sentence NAMES the outstanding items — "2 required items
+  // outstanding: Findings / red-flag report, KYC / compliance cleared" — which is the
+  // per-lane and per-check substance in prose. The state alone survives, because a
+  // metadata seat is entitled to know a deal is not ready without being told why.
+  if (s.icVerdict) s.icVerdict = { state: s.icVerdict.state, headline: null, gating: [], phase: s.icVerdict.phase, basis: null };
   s.locked = true;
   return s;
 }
@@ -537,6 +542,13 @@ function summarize(deal) {
     workspaceReady: d.workspaceReady,
     region: regionForDeal(deal),
     tags: Array.isArray(deal.tags) ? deal.tags : [],
+    // The verdict travels WITH the deal. Every list in the UI used to render its own
+    // interpretation of `readiness` (a percentage), which is how the same deal came to
+    // look different on three screens. This is the engine's own sentence, computed once.
+    icVerdict: (() => {
+      const b = computeICReadiness(deal);
+      return { state: b.verdict.state, headline: b.verdict.headline, gating: b.verdict.gating, phase: b.verdict.phase, basis: b.verdict.basis || null };
+    })(),
     workstreams: d.workstreams.map((w) => ({ lane: w.lane, status: w.status, progress: w.progress }))
   };
 }

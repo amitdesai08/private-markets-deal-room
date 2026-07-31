@@ -13,9 +13,7 @@ import AgentGuide from './AgentGuide';
 import ChatPanel from './ChatPanel';
 import DealDetail from './DealDetail';
 import Stage1 from './Stage1';
-import Stage2 from './Stage2';
-import Stage3 from './Stage3';
-import Stage4 from './Stage4';
+import Deals from './Deals';
 import Fund from './Fund';
 import PowerBI from './PowerBI';
 import Settings from './Settings';
@@ -71,9 +69,21 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   // A legacy channel tab pinned with ?view=report opens straight to the in-app
   // Report tab (the standalone Power BI report tab is now folded into the app).
-  const [mainTab, setMainTab] = useState<'overview' | 'stage1' | 'stage2' | 'stage3' | 'stage4' | 'fund' | 'report'>(
-    new URLSearchParams(window.location.search).get('view') === 'report' ? 'report' : 'overview',
-  );
+  //
+  // The nav was seven tabs, four of which (Stage 1-4) were the SAME list of deals
+  // filtered by a stage prefix. A stage is a property of a deal, not a place in the
+  // product, and a partner had to know which tab a deal lived in before they could look
+  // for it. `stage1`-`stage4` are kept as accepted values so a pinned Teams tab or a
+  // bookmarked URL still resolves rather than 404-ing into an empty screen.
+  type MainTab = 'overview' | 'sourcing' | 'deals' | 'fund' | 'report';
+  const legacyTab = (v: string | null): MainTab => {
+    if (v === 'report') return 'report';
+    if (v === 'stage1' || v === 'sourcing') return 'sourcing';
+    if (v === 'stage2' || v === 'stage3' || v === 'stage4' || v === 'deals') return 'deals';
+    if (v === 'fund') return 'fund';
+    return 'overview';
+  };
+  const [mainTab, setMainTab] = useState<MainTab>(legacyTab(new URLSearchParams(window.location.search).get('view')));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [adminGroupsOpen, setAdminGroupsOpen] = useState(false);
@@ -93,15 +103,14 @@ export default function App() {
   });
 
   const mainTabs: [typeof mainTab, string][] = [
-    ['overview', 'Deals Overview'], ['stage1', 'Stage 1 — Origination'], ['stage2', 'Stage 2 — Diligence'],
-    ['stage3', 'Stage 3 — Execution'], ['stage4', 'Stage 4 — Value & Exit'], ['fund', 'Fund & Portfolio'],
+    ['overview', 'Home'], ['sourcing', 'Sourcing'], ['deals', 'Deals'], ['fund', 'Fund & Portfolio'],
     ['report', 'Report'],
   ];
 
   // The breadcrumb names the exact view you came from, so going back is a known
   // destination rather than a guess. `mainTab` is never cleared when a deal opens,
   // which is what makes that promise true.
-  const backLabel = mainTabs.find(([k]) => k === mainTab)?.[1] || 'Deals Overview';
+  const backLabel = mainTabs.find(([k]) => k === mainTab)?.[1] || 'Home';
   const openDealName = deals.find((d) => d.id === openDealId)?.company || '';
 
   function applyAccess(ctx: any) {
@@ -317,18 +326,14 @@ export default function App() {
               <AgentGuide roleLabel={roleLabel} canViewStage2={canViewStage2} canWrite={canWrite} onAsk={() => setChatOpen(true)} />
               <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} />
             </>
-          ) : mainTab === 'stage1' ? (
+          ) : mainTab === 'sourcing' ? (
             <Stage1 deals={deals} onChanged={refreshData} onOpenDeal={setOpenDealId} />
-          ) : mainTab === 'stage3' ? (
-            <Stage3 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
-          ) : mainTab === 'stage4' ? (
-            <Stage4 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           ) : mainTab === 'fund' ? (
             <Fund />
           ) : mainTab === 'report' ? (
             <PowerBI ssoToken={ssoToken} analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId="" />
           ) : (
-            <Stage2 deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
+            <Deals deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           )}
           </main>
         )}
@@ -531,6 +536,33 @@ details[open] > summary:before { content: "\\25BE "; }
 .stage1, .stage2 { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
 .stage1 .fstep { border: none; cursor: pointer; }
 .stage1 .fstep.on { outline: 2px solid var(--accent); }
+
+/* One deals list, filtered. Rows not cards: the question is "which of these needs me
+   today", which is a scanning task down a column, not a browsing task across a grid. */
+.dealsview { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.dv-controls { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.dv-filters { display: flex; gap: 4px; flex-wrap: wrap; }
+.dv-filter { border: 1px solid var(--border); background: none; color: var(--muted); border-radius: 14px; padding: 4px 10px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.dv-filter:hover { color: var(--fg); }
+.dv-filter.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+.dv-count { opacity: .7; font-weight: 500; }
+.dv-search { margin-left: auto; border: 1px solid var(--border); background: var(--bg); color: var(--fg); border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 13px; min-width: 180px; }
+.dv-rows { display: flex; flex-direction: column; }
+.dv-row { display: grid; grid-template-columns: 104px minmax(120px, 1.1fr) minmax(120px, 1fr) minmax(180px, 2.4fr) 74px auto; gap: 12px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+.dv-row:last-child { border-bottom: none; }
+.dv-row:hover { background: var(--surface-2, rgba(127,127,127,.07)); }
+.dv-chip { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 10px; text-align: center; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.dv-chip.good { color: #0e7c3f; border-color: #0e7c3f55; background: #0e7c3f14; }
+.dv-chip.warn { color: #9a6400; border-color: #9a640055; background: #9a640014; }
+.dv-chip.bad  { color: #b3261e; border-color: #b3261e55; background: #b3261e14; }
+.dv-name { font-weight: 600; }
+.dv-stage, .dv-size { color: var(--muted); }
+/* The reason wraps. It is the most important column on the row and truncating it to one
+   line is how "2 required items outstanding: Findings / red-flag report, KYC…" became a
+   tooltip nobody opened. */
+.dv-why { color: var(--muted); line-height: 1.35; overflow-wrap: anywhere; }
+.dv-size { text-align: right; }
+.linkbtn { border: none; background: none; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; padding: 0; }
 .cand-list { display: flex; flex-direction: column; }
 .cand { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-bottom: 1px solid var(--border); }
 .cand:last-child { border-bottom: none; }
@@ -721,6 +753,11 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .brand-s { display: none; }
   .maintabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .maintab { white-space: nowrap; }
+  /* Stack the row rather than let a six-column grid squeeze the reason to two words. */
+  .dv-row { grid-template-columns: auto 1fr auto; grid-template-areas: 'chip name size' 'stage stage stage' 'why why why' 'ask ask ask'; row-gap: 4px; }
+  .dv-chip { grid-area: chip; } .dv-name { grid-area: name; } .dv-size { grid-area: size; }
+  .dv-stage { grid-area: stage; } .dv-why { grid-area: why; } .dv-row .askbtn { grid-area: ask; justify-self: start; }
+  .dv-search { margin-left: 0; width: 100%; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .deals { grid-template-columns: 1fr; }
   .drawer { width: 100vw; }

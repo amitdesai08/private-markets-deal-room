@@ -231,15 +231,26 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
     // itself: `demo-peachtree` shipped `blockingWorkstreams: ['Tech / AI DD']` — reason,
     // no work recorded against it — under the headline "nothing outstanding on the record".
     // A lane nobody has evidenced is outstanding whatever stage the deal is at.
-    const outstanding = [
+    //
+    // But it is not the same KIND of thing, and the headline used to say it was. An open
+    // condition is an obligation the firm accepted at the committee; an unevidenced lane is
+    // work nobody recorded. Calling four never-opened lanes "obligations still outstanding"
+    // on a deal that has signed and been archived states a fact about a closed transaction
+    // that is not true. The state is unchanged — both still hold the deal off clean — but
+    // the sentence now names each for what it is.
+    const obligations = [
       ...openConditions.map((c) => c.text || c.id),
       ...openChecks.map((c) => `${c.check}${c.framework ? ` (${c.framework})` : ''} not cleared`),
-      ...blocking.map((b) => `${b.label} — ${b.reasons.join(', ')}`),
     ];
+    const unevidenced = blocking.map((b) => `${b.label} — ${b.reasons.join(', ')}`);
+    const outstanding = [...obligations, ...unevidenced];
     if (outstanding.length) {
+      const parts = [];
+      if (obligations.length) parts.push(`${obligations.length} obligation${obligations.length === 1 ? '' : 's'} still outstanding`);
+      if (unevidenced.length) parts.push(`${unevidenced.length} diligence lane${unevidenced.length === 1 ? '' : 's'} with no work recorded`);
       return {
         state: 'CONDITIONAL',
-        headline: `Past the committee gate — ${outstanding.length} obligation${outstanding.length === 1 ? '' : 's'} still outstanding.`,
+        headline: `Past the committee gate — ${parts.join(' and ')}.`,
         gating: outstanding,
         openConditions: openConditions.length,
         openComplianceChecks: openChecks.length,

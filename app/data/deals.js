@@ -229,12 +229,30 @@ export const seedDeals = [
       { label: 'EBITDA margin', value: '16.0%', source: 'QoE', confidence: 'high' }
     ],
     workstreams: [
+      // All SEVEN lanes, deliberately. `ensureFirstClassLanes` in store.js backfills any
+      // lane a deal omits as not_started/0, and a not-started lane blocks the IC gate — so
+      // a seed that lists three lanes is not a deal with three lanes, it is a deal with
+      // four silently un-started ones. Atlas is the one deal in the demo that is genuinely
+      // ready to table, and it cannot be that with lanes nobody opened.
       { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [
         { text: 'Utilisation resilient at 87% through the cycle; pricing power validated across pharma contracts.', severity: 'positive', source: 'Commercial DD' }
+      ] },
+      { lane: 'financial', owner: 'finance-md', status: 'complete', progress: 100, findings: [
+        { text: 'QoE supports €46M LTM EBITDA; €2.1M of add-backs disallowed, reflected in the 9.2x entry.', severity: 'medium', source: 'Financial / QoE' },
+        { text: 'Working-capital seasonality is real but self-funding across the year; no incremental facility required.', severity: 'positive', source: 'Financial / QoE' }
+      ] },
+      { lane: 'legal', owner: 'legal-md', status: 'complete', progress: 100, findings: [
+        { text: 'Change-of-control consents required on two of the top-five pharma contracts; both counterparties have indicated no objection in writing.', severity: 'medium', source: 'Legal DD' }
+      ] },
+      { lane: 'tax', owner: 'tax-md', status: 'complete', progress: 100, findings: [
+        { text: 'German/Dutch structure reviewed; no material historical exposure identified. Interest limitation modelled at the target leverage.', severity: 'positive', source: 'Tax DD' }
       ] },
       { lane: 'techai', owner: 'ai-md', status: 'complete', progress: 100, findings: [{ text: 'Cold-chain telemetry stack is vendor-hosted; no material in-house tech debt found.', severity: 'positive', source: 'Tech / AI DD' }] },
       { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [
         { text: 'Energy-cost exposure hedged via long-dated PPAs; margin downside contained.', severity: 'positive', source: 'Ops DD' }
+      ] },
+      { lane: 'esg', owner: 'esg-md', status: 'complete', progress: 100, findings: [
+        { text: 'Refrigerant transition to low-GWP units is capex-planned through FY27; costed into the model.', severity: 'medium', source: 'ESG / Environmental' }
       ] }
     ],
     documents: [
@@ -287,11 +305,26 @@ export const seedDeals = [
       { label: 'Entry multiple', value: '7.1x EV/EBITDA', source: 'Deal model', confidence: 'high' }
     ],
     workstreams: [
+      // Seven lanes, for the same reason as Atlas: this deal has SIGNED. A seed listing
+      // three lanes leaves four backfilled as not-started, and the engine — correctly —
+      // then reports work with nothing recorded against it on a closed transaction.
       { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [
         { text: 'Reshoring driving dual-sourcing wins; order book +22% YoY.', severity: 'positive', source: 'Commercial DD' }
       ] },
+      { lane: 'financial', owner: 'finance-md', status: 'complete', progress: 100, findings: [
+        { text: 'QoE clean; normalised EBITDA agreed with the vendor and locked in the SPA completion mechanism.', severity: 'positive', source: 'Financial / QoE' }
+      ] },
+      { lane: 'legal', owner: 'legal-md', status: 'complete', progress: 100, findings: [
+        { text: 'W&I policy bound at signing; two specific indemnities carved out for the historical customs matter.', severity: 'medium', source: 'Legal DD' }
+      ] },
+      { lane: 'tax', owner: 'tax-md', status: 'complete', progress: 100, findings: [
+        { text: 'Baltic/Polish structure reviewed pre-signing; no material historical exposure identified.', severity: 'positive', source: 'Tax DD' }
+      ] },
       { lane: 'techai', owner: 'ai-md', status: 'complete', progress: 100, findings: [{ text: 'ERP is a supported SAP release; no end-of-life exposure inside the hold period.', severity: 'positive', source: 'Tech / AI DD' }] },
-      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [{ text: 'Two of four plants are near capacity; the reshoring case needs a third line by year two.', severity: 'watch', source: 'Operations DD' }] }
+      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [{ text: 'Two of four plants are near capacity; the reshoring case needs a third line by year two.', severity: 'watch', source: 'Operations DD' }] },
+      { lane: 'esg', owner: 'esg-md', status: 'complete', progress: 100, findings: [
+        { text: 'Scope 1/2 baseline established across all four plants; no remediation liabilities identified at the owned sites.', severity: 'positive', source: 'ESG / Environmental' }
+      ] }
     ],
     documents: [
       { name: 'IC Memo (Approved).docx', type: 'Memo', pages: 24, status: 'parsed' },

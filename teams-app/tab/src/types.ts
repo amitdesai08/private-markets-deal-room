@@ -4,10 +4,25 @@
 // build; components tolerate missing fields.
 export type Persona = { id: string; name?: string; title?: string } | null;
 
+// The IC-readiness verdict, computed once in app/lib/icReadiness.js and carried on every
+// deal summary. The UI renders this sentence; it does not compute its own. `gating` names
+// the outstanding items. At the status access tier the backend strips headline/gating and
+// leaves only `state`, so both are optional here by design, not by laziness.
+export type ICVerdict = {
+  state?: 'READY' | 'CONDITIONAL' | 'NOT-READY';
+  headline?: string | null;
+  gating?: string[];
+  phase?: 'origination' | 'diligence' | 'post-committee';
+  basis?: string | null;
+};
+
 export type Deal = {
   id: string; company: string; sector?: string; stage?: string; stageName?: string;
   status?: string; readiness?: number; daysToIC?: number; dealSize?: number; currency?: string;
   region?: string; tags?: string[];
+  stageStepNumber?: number | null; stageStepTotal?: number | null;
+  accessLevel?: 'full' | 'status' | 'none'; locked?: boolean;
+  icVerdict?: ICVerdict;
 };
 
 export type DealGroup = { id: string; label: string; groupId?: string | null; groupPending?: boolean };
