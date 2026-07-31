@@ -23,7 +23,7 @@
 import { corpusForDeal } from './workiqCorpus.js';
 import { detectCommitments } from './dealDesk.js';
 import { icPending, daysUntil } from './cockpit.js';
-import { computeICReadiness } from './icReadiness.js';
+import { computeICReadiness, dealPhase } from './icReadiness.js';
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 
@@ -98,12 +98,16 @@ function assess(deal, raw) {
   try { ic = computeICReadiness(raw); } catch { ic = null; }
   const v = ic?.verdict || null;
   const gating = v?.gating || [];
+  const phase = ic?.phase || dealPhase(deal);
+  const state = phase === 'origination' ? null : (v?.state || null);
+
   // A deal that has not entered diligence has not failed to reach committee — it has
-  // not been asked to. Reporting "not IC-ready, diligence plan outstanding" against an
-  // origination-stage target is technically true and completely useless, and it would
-  // bury the eight deals where the same words mean something.
-  const preDiligence = /^o/i.test(String(deal.stage || '')) || deal.stageId === 'screened' || deal.status === 'screened';
-  const state = preDiligence ? null : (v?.state || null);
+  // not been asked to. This is tested FIRST, ahead of the lapsed-IC-date branch: an
+  // origination target carrying a stale target date is not an emergency, and ranking it
+  // 0 would put it above eight diligence deals where the same words mean something.
+  if (phase === 'origination') {
+    return { rank: 9, tag: 'In origination', tone: 'muted', why: 'Screened, not yet launched into diligence.', impact: null, basis: 'Deal record — current step', verdict: null, gating: [] };
+  }
 
   // Ranked worst-first. The wording states the mechanism, not just the label —
   // "IC in 9 days, diligence plan and findings report outstanding" is actionable;
@@ -126,9 +130,6 @@ function assess(deal, raw) {
       verdict: state, gating,
     };
   }
-  if (preDiligence) {
-    return { rank: 9, tag: 'In origination', tone: 'muted', why: 'Screened, not yet launched into diligence.', impact: null, basis: 'Deal record — current step', verdict: null, gating: [] };
-  }
   const lanes = raw.workstreams || deal.workstreams || [];
   const idle = lanes.filter((w) => (w.progress ?? 0) === 0);
   if (idle.length && idle.length === lanes.length && lanes.length) {
@@ -140,31 +141,38 @@ function assess(deal, raw) {
       verdict: state, gating,
     };
   }
+  // Conditions rank ABOVE a generic not-ready deal, not below it. A condition is a dated
+  // obligation somebody already committed to at committee; an unfinished memo section is
+  // work that has not started slipping yet. Ranked the other way round — as it was — the
+  // conditional deals sat behind every not-ready deal and never surfaced at all.
+  if (state === 'CONDITIONAL') {
+    const n = v.openConditions;
+    const post = phase === 'post-committee';
+    return {
+      rank: 3, tag: 'Conditional', tone: 'warn',
+      why: post
+        ? `Approved at committee, with ${n} condition${n === 1 ? '' : 's'} still to close before completion.`
+        : `Ready to table, subject to ${n} condition${n === 1 ? '' : 's'} still to close.`,
+      impact: post ? 'An unclosed condition holds completion, and every one of them has an owner waiting on someone else.' : 'Conditions left open at the meeting come back as post-completion obligations.',
+      basis: 'IC readiness board — committee conditions',
+      verdict: state, gating,
+    };
+  }
   if (state === 'NOT-READY') {
     return {
-      rank: 3, tag: 'Not IC-ready', tone: 'warn',
+      rank: 4, tag: 'Not IC-ready', tone: 'warn',
       why: `Not ready for committee — ${gating.join('; ')}.`,
       impact: 'Each of these has to close before the deal can be tabled.',
       basis: 'IC readiness board',
       verdict: state, gating,
     };
   }
-  if (state === 'CONDITIONAL') {
-    const n = v.openConditions;
-    return {
-      rank: 4, tag: 'Conditional', tone: 'warn',
-      why: `Ready to table, subject to ${n} condition${n === 1 ? '' : 's'} still to close.`,
-      impact: 'Conditions left open at the meeting come back as post-completion obligations.',
-      basis: 'IC readiness board — committee conditions',
-      verdict: state, gating,
-    };
-  }
   if (state === 'READY') {
-    return {
-      rank: 8, tag: 'IC-ready', tone: 'good', why: 'Papers on record, no blocking lanes, no unresolved risk findings.', impact: null, basis: 'IC readiness board', verdict: state, gating,
-    };
+    return phase === 'post-committee'
+      ? { rank: 8, tag: 'Approved', tone: 'good', why: 'Approved at committee with no conditions outstanding.', impact: null, basis: 'IC readiness board', verdict: state, gating }
+      : { rank: 8, tag: 'IC-ready', tone: 'good', why: 'Papers on record, no blocking lanes, no unresolved risk findings.', impact: null, basis: 'IC readiness board', verdict: state, gating };
   }
-  return { rank: 6, tag: 'On track', tone: 'good', why: `Progressing on plan at ${readiness}% completion.`, impact: null, basis: 'IC readiness board', verdict: state, gating };
+  return { rank: 6, tag: 'On track', tone: 'good', why: `Progressing on plan at ${readiness}% completion.`, impact: null, basis: 'IC readiness board', verdict: state, gating, phase };
 }
 
 // ---------------------------------------------------------------------------
@@ -264,9 +272,14 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, rawFo
   const capital = list.reduce((s, d) => s + num(d.dealSize), 0) * 1e6;
   // Counted from the verdict, not from a percentage bar. "3 not IC-ready" is a number
   // a partner can act on; "62% average readiness" is a number nobody has ever acted on.
+  //
+  // "Ready to table" counts only deals that have NOT yet been to committee. A signed
+  // Execution deal and an owned Value company both compute READY, and reporting them as
+  // ready to table is the same error as reporting an origination target as failing to
+  // reach one — the tile would have read 5 when the true answer was 1.
   const notReady = ranked.filter((r) => r.a.verdict === 'NOT-READY').length;
   const conditional = ranked.filter((r) => r.a.verdict === 'CONDITIONAL').length;
-  const icReady = ranked.filter((r) => r.a.verdict === 'READY').length;
+  const icReady = ranked.filter((r) => r.a.verdict === 'READY' && dealPhase(r.deal) === 'diligence').length;
   const sectors = new Set(list.map((d) => d.sector).filter(Boolean)).size;
   const upcoming = list
     .filter((d) => icPending(d) && typeof d.daysToIC === 'number' && d.daysToIC >= 0)

@@ -251,7 +251,7 @@ function generatedChannel(deal) {
         : `IC is ${d} days out.`
     } Lane owners, please post status here rather than by email so the record stays in one place.`,
     `Kicking off the week on ${deal.company}. Current step is ${deal.currentStep || deal.stage}${
-      typeof deal.readiness === 'number' ? ` and IC readiness sits at ${deal.readiness}%` : ''
+      typeof deal.readiness === 'number' ? ` and diligence progress sits at ${deal.readiness}%` : ''
     }. Post blockers in the channel — I would rather hear them early.`,
   ];
   messages.push({ from: lead.name, personaId: lead.id, created: at(4, 8, 40), preview: pick(rand, openLines) });

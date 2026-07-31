@@ -848,9 +848,15 @@ const seedICState = (d) => {
     return Object.keys(diligencePapers).length ? { ...d, icPapers: { ...diligencePapers, ...(d.icPapers || {}) } } : d;
   }
   if (!PAST_COMMITTEE.test(stage)) return d;
-  const memo = (d.memoSections || []).map((m) => ({ ...m, status: 'approved' }));
-  // Committee cannot approve a deal without a recommendation in front of it, so a deal
-  // that is past the gate necessarily has one.
+  // A deal in Execution or Value has been to committee, so its committee papers exist and
+  // it had a recommendation in front of it. That is ALL committee approval implies. It does
+  // not mean every compliance check has passed: the EU merger-control filing on an Execution
+  // deal is genuinely still running, and that is precisely the substance the record exists
+  // to track. An earlier pass forced `compliance` to `passed` and every memo section to
+  // `approved` so that these deals would clear the readiness gate — which is clearing a gate
+  // by deleting the evidence. The gate no longer applies to a deal past committee
+  // (see `dealPhase` in lib/icReadiness.js), so the evidence stays as it stands.
+  const memo = (d.memoSections || []).slice();
   if (!memo.some((m) => m.key === 'recommendation')) {
     memo.push({ key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'Approved at committee.', citations: [] });
   }
@@ -859,7 +865,6 @@ const seedICState = (d) => {
     ...d,
     icPapers: { D1: true, D2: true, D3: true, ...(d.icPapers || {}) },
     memoSections: memo,
-    compliance: (d.compliance || []).map((c) => ({ ...c, status: 'passed' })),
     ...(conditions ? { conditions } : {})
   };
 };

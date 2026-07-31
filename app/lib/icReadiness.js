@@ -178,11 +178,38 @@ function icAsk(deal) {
 }
 
 // ---- verdict ---------------------------------------------------------------
+// Which question is worth asking of this deal.
+//   origination     — it has not been asked to committee, so it cannot have failed to reach one
+//   diligence       — the IC-readiness gate applies: are the papers on record and the lanes clear
+//   post-committee  — it has BEEN to committee. "Is it ready to table" is answered and past.
+//                     The only live question is whether its conditions are closed.
+// Running the readiness gate over an Execution or Value deal produces a confident
+// falsehood in both directions: it reports a signed deal as "not ready to table", and if
+// you force the inputs to clear it, it reports a signed deal as "ready to table".
+export function dealPhase(deal) {
+  if (deal.status === 'screened' || deal.stageId === 'screened') return 'origination';
+  const stage = String(deal.stage || '');
+  if (/^o/i.test(stage)) return 'origination';
+  if (/^[ev]/i.test(stage)) return 'post-committee';
+  return 'diligence';
+}
+
 // Gating strings NAME what is outstanding. A bare count ("3 required artifacts
 // incomplete") tells a partner there is a problem without telling them which one, so
 // the first thing they do is open the deal to find out — which is the click the whole
 // surface exists to save.
-function verdict({ required, blocking, unresolvedRisks, conditions }) {
+function verdict({ required, blocking, unresolvedRisks, conditions, phase }) {
+  const openConditions = conditions.filter((c) => c.status !== 'satisfied');
+
+  // Past committee: the papers and the lanes are history. Do not re-litigate them, and
+  // do not hold a signed deal open because a post-close compliance item is still running —
+  // that item is not a reason the deal cannot go to committee, because it already has.
+  if (phase === 'post-committee') {
+    return openConditions.length
+      ? { state: 'CONDITIONAL', headline: `Approved at committee — ${openConditions.length} condition${openConditions.length === 1 ? '' : 's'} still to close.`, gating: [], openConditions: openConditions.length, phase }
+      : { state: 'READY', headline: 'Approved at committee — no conditions outstanding.', gating: [], openConditions: 0, phase };
+  }
+
   const gating = [];
   if (!required.allComplete) {
     const missing = required.items.filter((i) => !i.complete).map((i) => i.label);
@@ -191,7 +218,6 @@ function verdict({ required, blocking, unresolvedRisks, conditions }) {
   if (blocking.length) gating.push(`${blocking.length} workstream${blocking.length === 1 ? '' : 's'} blocking: ${blocking.map((b) => b.label).join(', ')}`);
   const hardRisks = unresolvedRisks.filter((i) => i.severity === 'risk');
   if (hardRisks.length) gating.push(`${hardRisks.length} unresolved risk-level issue${hardRisks.length === 1 ? '' : 's'}`);
-  const openConditions = conditions.filter((c) => c.status !== 'satisfied');
 
   let state, headline;
   if (gating.length) {
@@ -204,7 +230,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions }) {
     state = 'READY';
     headline = 'IC-ready — required artifacts complete, no blocking workstreams or unresolved risks.';
   }
-  return { state, headline, gating, openConditions: openConditions.length };
+  return { state, headline, gating, openConditions: openConditions.length, phase };
 }
 
 // ---- public: the decision board --------------------------------------------
@@ -223,12 +249,13 @@ export function computeICReadiness(deal) {
   const ask = icAsk(deal);
   const conditions = (deal.conditions || []).map((c) => ({ id: c.id, text: c.text, owner: c.owner || null, status: c.status || 'proposed' }));
 
-  const v = verdict({ required, blocking, unresolvedRisks, conditions });
+  const v = verdict({ required, blocking, unresolvedRisks, conditions, phase: dealPhase(deal) });
 
   return {
     dealId: deal.id,
     company: deal.company,
     stage: deal.stage,
+    phase: dealPhase(deal),
     verdict: v,
     // legacy completion % kept for continuity, clearly labelled as progress-only
     progressReadiness: deal.readiness ?? null,

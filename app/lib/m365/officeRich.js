@@ -133,7 +133,7 @@ function summaryRows(deal, evStr) {
     ['Enterprise value', evStr || money(deal)],
     ['Stage', [deal.stage, deal.stageName].filter(Boolean).join(' — ') || '—'],
     ['Status', deal.status || '—'],
-    ['IC readiness', pct(deal.readiness)],
+    ['Diligence progress', pct(deal.readiness)],
     ['Target IC date', dateStr(deal.targetICDate || deal.projectedICDate)],
     ['Days to IC', dash(deal.daysToIC)],
     ['Deal lead', prettyRole(deal.leadAnalyst)],
@@ -287,7 +287,7 @@ export async function buildIcMemoDocx(deal, extras = {}) {
     base.irr != null
       ? `The base case underwrites ${base.moic}x MOIC / ${base.irr}% IRR over a ${dash(e.holdYears)}-year hold${hurdle.irr ? `, ${R.meetsHurdle ? 'clearing' : 'falling short of'} the fund's ${hurdle.moic}x / ${hurdle.irr}% hurdle` : ''}. The downside case holds at ${down.moic != null ? `${down.moic}x / ${down.irr}%` : '—'} and the upside reaches ${up.moic != null ? `${up.moic}x / ${up.irr}%` : '—'}.`
       : 'Returns are being modelled; entry economics and the financing structure will be confirmed ahead of committee.',
-    `Diligence is ${pct(deal.diligenceProgress)} complete across ${workstreams.length || 'the'} workstreams, compliance is ${dash(deal.complianceCleared)}/${dash(deal.complianceTotal)} cleared, and IC readiness stands at ${pct(deal.readiness)}. On the evidence to date the recommendation is to ${recWord}${Number.isFinite(Number(deal.daysToIC)) ? `, targeting committee in ${deal.daysToIC} days` : ''}.`,
+    `Diligence is ${pct(deal.diligenceProgress)} complete across ${workstreams.length || 'the'} workstreams, compliance is ${dash(deal.complianceCleared)}/${dash(deal.complianceTotal)} cleared, and overall diligence progress stands at ${pct(deal.readiness)}. On the evidence to date the recommendation is to ${recWord}${Number.isFinite(Number(deal.daysToIC)) ? `, targeting committee in ${deal.daysToIC} days` : ''}.`,
   ];
 
   const decisionRows = [
@@ -297,7 +297,7 @@ export async function buildIcMemoDocx(deal, extras = {}) {
     ['Leverage', e.leverage || '—'],
     ['Base case', base.irr != null ? `${base.moic}x MOIC / ${base.irr}% IRR` : '—'],
     ['Hurdle', hurdle.irr ? `${hurdle.moic}x / ${hurdle.irr}% — ${R.meetsHurdle ? 'cleared' : 'not cleared'}` : '—'],
-    ['IC readiness', `${pct(deal.readiness)}${verdict.state ? ` · ${verdict.state}` : ''}`],
+    ['IC verdict', verdict.state ? `${verdict.state} · ${pct(deal.readiness)} diligence progress` : pct(deal.readiness)],
     ['Target IC date', `${dateStr(deal.targetICDate || deal.projectedICDate)}${Number.isFinite(Number(deal.daysToIC)) ? ` (in ${deal.daysToIC}d)` : ''}`],
   ];
 
@@ -341,7 +341,7 @@ export async function buildIcMemoDocx(deal, extras = {}) {
     new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: EYEBROW, bold: true, color: ACCENT, size: 16, characterSpacing: 20 })] }),
     new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: company, bold: true, color: INK, size: 44 })] }),
     subtitle ? new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: subtitle, color: MUTE, size: 20 })] }) : new Paragraph({ text: '' }),
-    new Paragraph({ children: [new TextRun({ text: `Prepared ${dateStr(new Date())}  ·  Enterprise value ${evStr}  ·  IC readiness ${pct(deal.readiness)}  ·  ${verdict.state || 'IN DILIGENCE'}`, color: MUTE, italics: true, size: 18 })] }),
+    new Paragraph({ children: [new TextRun({ text: `Prepared ${dateStr(new Date())}  ·  Enterprise value ${evStr}  ·  ${verdict.state || 'IN DILIGENCE'}  ·  ${pct(deal.readiness)} diligence progress`, color: MUTE, italics: true, size: 18 })] }),
     (verdict.state !== 'READY') ? new Paragraph({ spacing: { before: 30, after: 20 }, children: [new TextRun({ text: 'DRAFT — FOR COMMITTEE DISCUSSION. Generated from the live deal record; figures and diligence findings are indicative and pending confirmatory, independently-sourced evidence.', bold: true, color: AMBER, size: 15 })] }) : new Paragraph({ spacing: { after: 0 }, text: '' }),
     rule(ACCENT, 10),
 
@@ -399,7 +399,7 @@ export async function buildIcMemoDocx(deal, extras = {}) {
 
     sectionHeading('10. IC readiness'),
     body('This memorandum, together with the accompanying returns and value-creation models, constitutes the draft IC paper and recommendation for this transaction. The checklist below tracks the items still outstanding to reach a formal IC-ready status.'),
-    callout(verdict.state || 'PENDING', verdict.headline || `IC readiness ${pct(deal.readiness)}.`, verdict.state === 'READY' ? GREEN : verdict.state === 'NOT-READY' ? AMBER : ACCENT),
+    callout(verdict.state || 'PENDING', verdict.headline || `Diligence progress ${pct(deal.readiness)}.`, verdict.state === 'READY' ? GREEN : verdict.state === 'NOT-READY' ? AMBER : ACCENT),
     ...(outstandingArt.length ? [subHead('Outstanding to reach IC-ready'), dataTable(['Item', 'Status', 'Detail'], outstandingArt.map((a) => [a.label, 'Open', a.detail || '']), [40, 18, 42])] : [body('All required artifacts complete — ready for committee.')]),
     ...(blocking.length ? [subHead('Blocking workstreams'), ...bullets(blocking.map((b) => `${b.label || b.lane || b.name || 'Workstream'}${b.reason ? ` — ${b.reason}` : ''}`))] : []),
 
@@ -530,7 +530,7 @@ function composeRichModel(deal, extras = {}) {
     ['Entry EV/EBITDA', x$(e.evEbitda)],
     ['Base MOIC / IRR', base.irr != null ? `${base.moic}x / ${base.irr}%` : '—'],
     ['Clears hurdle', R.meetsHurdle == null ? '—' : (R.meetsHurdle ? 'Yes' : 'No')],
-    ['IC readiness', `${pct(deal.readiness)}${verdict.state ? ` · ${verdict.state}` : ''}`],
+    ['IC verdict', verdict.state ? `${verdict.state} · ${pct(deal.readiness)} diligence progress` : pct(deal.readiness)],
   ];
   let tr = 6;
   s.getCell(tr, 5).value = 'HEADLINE METRICS'; s.getCell(tr, 5).font = { size: 9, bold: true, color: { argb: XACC } }; tr++;
@@ -838,7 +838,7 @@ export async function buildIcDeckPptx(deal, extras = {}) {
       { label: 'IC VERDICT', value: verdict.state || 'IN DILIGENCE', color: vColor },
     ]),
     { kind: 'text', x: 0.68, y: 5.1, w: 12, h: 1.3, paras: [{ text: verdict.headline || deal.thesis || '', size: 14, color: '2B2B2B', italic: true }] },
-    { kind: 'text', x: 0.68, y: 6.6, w: 12, h: 0.5, paras: [{ text: [`Prepared ${dateStr(new Date())}`, deal.leadAnalyst ? `Lead: ${prettyRole(deal.leadAnalyst)}` : '', deal.sponsorPersona ? `Sponsor: ${prettyRole(deal.sponsorPersona)}` : '', typeof deal.readiness === 'number' ? `IC readiness ${pct(deal.readiness)}` : ''].filter(Boolean).join('    ·    '), size: 11, color: P_MUTE }] },
+    { kind: 'text', x: 0.68, y: 6.6, w: 12, h: 0.5, paras: [{ text: [`Prepared ${dateStr(new Date())}`, deal.leadAnalyst ? `Lead: ${prettyRole(deal.leadAnalyst)}` : '', deal.sponsorPersona ? `Sponsor: ${prettyRole(deal.sponsorPersona)}` : '', typeof deal.readiness === 'number' ? `${pct(deal.readiness)} diligence progress` : ''].filter(Boolean).join('    ·    '), size: 11, color: P_MUTE }] },
   ]);
 
   // 2) Agenda & the ask

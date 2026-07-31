@@ -458,6 +458,33 @@ function derive(deal) {
   };
 }
 
+// The information barrier for the `status` access tier, mutating a summary in place.
+//
+// Status tier is "this deal exists and roughly where it is" — NOT diligence substance.
+// `summarize` ships per-lane status/progress for every deal, which is how the team
+// assesses the deal, so it has to come off here or a metadata-only seat can read the
+// lane board of a deal it cannot open.
+//
+// Removing the lane ARRAY is not enough on its own: every field below is an aggregate OF
+// that array, and "2 of 9 memo sections approved, 3 of 4 compliance gates cleared" is the
+// same diligence substance at one remove.
+//
+// `readiness` survives deliberately — it is the single overall progress figure this tier
+// is entitled to, and the UI says so in as many words. It is exported so the barrier can
+// be tested against the real function rather than against a restatement of it.
+export function applyStatusTier(s) {
+  s.thesis = undefined;
+  s.workstreams = [];
+  s.diligenceProgress = null;
+  s.memoApproved = null;
+  s.memoTotal = null;
+  s.memoProgress = null;
+  s.complianceCleared = null;
+  s.complianceTotal = null;
+  s.locked = true;
+  return s;
+}
+
 function summarize(deal) {
   const d = derive(deal);
   return {
@@ -508,26 +535,7 @@ export function listDeals(identity, viewAsRole = null) {
     if (level === 'none') continue;               // confidential deal you can't see
     const s = summarize(d);
     s.accessLevel = level;
-    if (level === 'status') {
-      // Status tier is "this deal exists and roughly where it is" — NOT diligence
-      // substance. `summarize` ships per-lane status/progress for every deal, which
-      // is how the team assesses the deal, so it has to come off here or a
-      // metadata-only seat can read the lane board of a deal it cannot open.
-      s.thesis = undefined;
-      s.workstreams = [];
-      // Removing the lane ARRAY is not enough on its own: every one of these is an
-      // aggregate OF that array, and "2 of 9 memo sections approved, 3 of 4
-      // compliance gates cleared" is the same diligence substance at one remove.
-      // `readiness` survives deliberately — it is the single overall progress figure
-      // this tier is entitled to, and the UI says so in as many words.
-      s.diligenceProgress = null;
-      s.memoApproved = null;
-      s.memoTotal = null;
-      s.memoProgress = null;
-      s.complianceCleared = null;
-      s.complianceTotal = null;
-      s.locked = true;
-    }
+    if (level === 'status') applyStatusTier(s);
     out.push(s);
   }
   return out;

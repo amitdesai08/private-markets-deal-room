@@ -131,13 +131,18 @@ export function buildDiligencePlan(deal, memoRisks = []) {
       exclusivityBasis,
       irlItems: '200–300',
       phases: [
-        { name: 'Kickoff & IRL', window: 'Week 1', detail: 'Engage advisers, distribute the information-request list, open the VDR.' },
-        { name: 'Fieldwork', window: `Weeks 2–${exclusivityWeeks - 2}`, detail: 'Parallel workstreams; QoE on-site, management sessions, voice-of-customer calls.' },
-        { name: 'Findings & synthesis', window: `Weeks ${exclusivityWeeks - 1}–${exclusivityWeeks}`, detail: 'Red-flag reports land, issues log finalized, IC memo drafted.' }
+        // Windows are relative to kickoff, NOT calendar weeks. Rendered as "Weeks 2-7"
+        // beside real dated milestones they read as a schedule somebody agreed to.
+        { name: 'Kickoff & IRL', window: 'Week 1 from kickoff', detail: 'Engage advisers, distribute the information-request list, open the VDR.' },
+        { name: 'Fieldwork', window: `Weeks 2–${exclusivityWeeks - 2} from kickoff`, detail: 'Parallel workstreams; QoE on-site, management sessions, voice-of-customer calls.' },
+        { name: 'Findings & synthesis', window: `Weeks ${exclusivityWeeks - 1}–${exclusivityWeeks} from kickoff`, detail: 'Red-flag reports land, issues log finalized, IC memo drafted.' }
       ]
     },
     dataRoom: { platform: 'Datasite / Ansarada VDR', sections: 13, note: 'Q&A centralized in the VDR (can consume up to 70% of deal time).' },
-    headline: `${workstreams.filter((w) => w.tier === 'critical').length} critical workstream(s) · ${money(budgetTotal)} DD budget · planned against an assumed ${exclusivityWeeks}-week exclusivity window.`
+    // The caveat is carried in the headline as well as in `timeline.exclusivityBasis`,
+    // because a consumer that renders only the headline would otherwise print the
+    // assumption without it.
+    headline: `${workstreams.filter((w) => w.tier === 'critical').length} critical workstream(s) · ${money(budgetTotal)} DD budget · planned against an assumed ${exclusivityWeeks}-week exclusivity window (sized from deal size — the LOI date is not on the record).`
   };
 }
 

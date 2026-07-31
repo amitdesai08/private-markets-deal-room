@@ -205,7 +205,7 @@ details.fold>summary+*{border-top:1px solid var(--border)}
 <div id="home-deal">
 
 <div class="kpis">
-  <div class="kpi"><div class="kpi-v bad" style="color:var(--bad)">8</div><div class="kpi-l">Not IC-ready</div><div class="kpi-s">2 conditional &middot; 5 ready to table</div></div>
+  <div class="kpi"><div class="kpi-v bad" style="color:var(--bad)">8</div><div class="kpi-l">Not IC-ready</div><div class="kpi-s">2 conditional &middot; 1 ready to table</div></div>
   <div class="kpi"><div class="kpi-v">4</div><div class="kpi-l">Blocking workstreams</div><div class="kpi-s">across 3 deals</div></div>
   <div class="kpi"><div class="kpi-v">12</div><div class="kpi-l">Promises due this week</div><div class="kpi-s">of 39 untracked</div></div>
   <div class="kpi"><div class="kpi-v">9d</div><div class="kpi-l">Next committee</div><div class="kpi-s">Lumen Analytics</div></div>
@@ -249,6 +249,26 @@ details.fold>summary+*{border-top:1px solid var(--border)}
       </div>
 
       <div class="att">
+        <div class="att-t"><span class="chip warn">Conditional</span><span class="name">Great Lakes Precision</span><span class="chip step">Execution &middot; step 1 of 4</span></div>
+        <div class="att-l">Approved at committee, with 2 conditions still to close before completion.</div>
+        <ul class="gating">
+          <li>Confirm change-of-control consents on the top-10 customer contracts &mdash; Legal DD</li>
+          <li>Working-capital bridge agreed with the vendor before completion &mdash; Finance MD</li>
+        </ul>
+        <div class="impact">&#9889; An unclosed condition holds completion, and every one of them has an owner waiting on someone else.</div>
+        <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn link">Ask agents</button></div>
+      </div>
+
+      <div class="att">
+        <div class="att-t"><span class="chip warn">Conditional</span><span class="name">Helvetia Diagnostics</span><span class="chip step">Execution &middot; step 2 of 4</span></div>
+        <div class="att-l">Approved at committee, with 1 condition still to close before completion.</div>
+        <ul class="gating">
+          <li>Regulatory clearance filed and acknowledged in both jurisdictions &mdash; Compliance</li>
+        </ul>
+        <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn link">Ask agents</button></div>
+      </div>
+
+      <div class="att">
         <div class="att-t"><span class="chip warn">Not IC-ready</span><span class="name">HelioPack Sustainable Packaging</span><span class="chip step">Diligence &middot; step 1 of 5</span></div>
         <ul class="gating">
           <li>6 required items outstanding: Diligence plan, Findings / red-flag report, Final IC memo, IC memo sections approved, Recommendation drafted, KYC / compliance cleared</li>
@@ -266,7 +286,16 @@ details.fold>summary+*{border-top:1px solid var(--border)}
         <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn link">Ask agents</button></div>
       </div>
 
-      <div class="note">Six shown, worst first. Every sentence above is the literal <code>verdict.gating</code> output of <code>computeICReadiness</code> against the seeded record &mdash; nothing on this card is written by hand. Two deals (Great Lakes, Helvetia) sit below at <em>Conditional</em>. Nothing here changes a deal; it tells you where to look first.</div>
+      <div class="note">
+        Seven shown, worst first. Every sentence above is the literal <code>verdict.gating</code> output of
+        <code>computeICReadiness</code> against the seeded record &mdash; nothing on this card is written by hand.
+        <p style="margin:8px 0 0">
+          The two <em>Conditional</em> deals rank <b>above</b> the deals that are merely not ready, which is a change
+          from rev 4a. A condition is a dated obligation somebody already committed to in front of a committee; an
+          unfinished memo section is work that has not started slipping yet. Ranked the other way round they sat
+          behind eight not-ready deals and never surfaced at all &mdash; the state existed and was unreachable on screen.
+        </p>
+      </div>
     </div>
 
     <div class="card">
@@ -277,7 +306,7 @@ details.fold>summary+*{border-top:1px solid var(--border)}
       </div>
       <div class="ev"><div class="ic">&#8599;</div><div class="tx"><b>Great Lakes Precision</b> advanced to Execution &middot; Signing.<div class="mt">Eleanor Shellstrop &middot; yesterday 16:20</div></div></div>
       <div class="ev"><div class="ic">&#128196;</div><div class="tx"><b>Project Sterling</b> &mdash; QoE summary v3 published to the data room.<div class="mt">Finance MD &middot; yesterday 11:04 &middot; supersedes v2</div></div></div>
-      <div class="ev"><div class="ic">&#9888;</div><div class="tx"><b>Beacon Hill Biotech</b> &mdash; environmental lane recorded a new red finding.<div class="mt">Diligence lanes &middot; yesterday 15:02</div></div></div>
+      <div class="ev"><div class="ic">&#9888;</div><div class="tx"><b>Beacon Hill Biotech</b> &mdash; the Tech / AI DD lane has still not opened.<div class="mt">Diligence lanes &middot; yesterday 15:02</div></div></div>
       <div class="ev"><div class="ic">&#10003;</div><div class="tx"><b>Nordic Grocery Group</b> &mdash; tax gate closed by the deal team.<div class="mt">Tahani Al-Jamil &middot; Wed 18:55</div></div></div>
       <div class="note">
         Drawn from the deal activity log and data-room changes since your last visit. Readiness movements,
@@ -330,7 +359,7 @@ details.fold>summary+*{border-top:1px solid var(--border)}
       <div class="bd narr">
         <p>You have 19 deals in view carrying $8.1B of enterprise value across 7 sectors.<cite>1</cite></p>
         <p>2 deals need attention before they slip &mdash; starting with Nordic Grocery Group: IC is 12 days out and the deal is not ready, on five required items and one blocking workstream.<cite>2</cite></p>
-        <p>5 deals are ready to table &mdash; papers on record, no blocking lanes, no unresolved risk findings. 2 carry committee conditions that are still open.<cite>2</cite></p>
+        <p>1 deal is ready to table &mdash; papers on record, no blocking lanes, no unresolved risk findings. 2 more have been approved at committee and carry conditions that are still open.<cite>2</cite></p>
         <p>Work IQ found 39 commitments in deal channels that are not tracked as tasks; 12 fall due this week.<cite>3</cite></p>
       </div>
     </details>
@@ -470,16 +499,16 @@ details.fold>summary+*{border-top:1px solid var(--border)}
   <div class="dl" data-s="D" data-n="lumen analytics"><span class="chip bad">Not IC-ready</span><span class="nm">Lumen Analytics</span><span class="st">Diligence &middot; step 3 of 5</span><span class="why">4 required items outstanding &middot; IC in 9 days</span></div>
   <div class="dl" data-s="D" data-n="lone star energy services"><span class="chip bad">Not IC-ready</span><span class="nm">Lone Star Energy Services</span><span class="st">Diligence &middot; step 3 of 5</span><span class="why">3 required items outstanding</span></div>
   <div class="dl" data-s="D" data-n="heliopack sustainable packaging"><span class="chip warn">Not IC-ready</span><span class="nm">HelioPack Sustainable Packaging</span><span class="st">Diligence &middot; step 1 of 5</span><span class="why">6 required items outstanding &middot; 2 lanes blocking</span></div>
-  <div class="dl" data-s="D" data-n="beacon hill biotech"><span class="chip warn">Not IC-ready</span><span class="nm">Beacon Hill Biotech</span><span class="st">Diligence &middot; step 1 of 5</span><span class="why">6 required items outstanding &middot; environmental finding open</span></div>
+  <div class="dl" data-s="D" data-n="beacon hill biotech"><span class="chip warn">Not IC-ready</span><span class="nm">Beacon Hill Biotech</span><span class="st">Diligence &middot; step 1 of 5</span><span class="why">6 required items outstanding &middot; Tech / AI DD not started</span></div>
   <div class="dl" data-s="D" data-n="cascadia timber partners"><span class="chip warn">Not IC-ready</span><span class="nm">Cascadia Timber Partners</span><span class="st">Diligence &middot; step 2 of 5</span><span class="why">4 required items outstanding &middot; ESG / Environmental blocking</span></div>
   <div class="dl" data-s="D" data-n="project sterling"><span class="chip warn">Not IC-ready</span><span class="nm">Project Sterling</span><span class="st">Diligence &middot; step 2 of 5</span><span class="why">5 required items outstanding &middot; QoE v3 awaiting review</span></div>
   <div class="dl" data-s="D" data-n="baltic precision components"><span class="chip good">IC-ready</span><span class="nm">Baltic Precision Components</span><span class="st">Diligence &middot; step 5 of 5</span><span class="why">Papers on record &middot; no blocking lanes</span></div>
   <div class="dl locked" data-s="D" data-n="atlas cold chain logistics"><span class="chip">Status only</span><span class="nm">Atlas Cold Chain Logistics &#128274;</span><span class="st">Diligence</span><span class="why">You are not on this deal team</span></div>
-  <div class="dl" data-s="E" data-n="great lakes precision"><span class="chip warn">Conditional</span><span class="nm">Great Lakes Precision</span><span class="st">Execution &middot; step 1 of 4</span><span class="why">2 open committee conditions &middot; SPA out for comment</span></div>
-  <div class="dl" data-s="E" data-n="helvetia diagnostics"><span class="chip warn">Conditional</span><span class="nm">Helvetia Diagnostics</span><span class="st">Execution &middot; step 2 of 4</span><span class="why">1 open condition &mdash; regulatory clearance</span></div>
-  <div class="dl" data-s="E" data-n="project onyx"><span class="chip good">IC-ready</span><span class="nm">Project Onyx</span><span class="st">Execution &middot; step 2 of 4</span><span class="why">Carve-out TSA schedules in negotiation</span></div>
-  <div class="dl" data-s="V" data-n="meridian logistics"><span class="chip good">Owned</span><span class="nm">Meridian Logistics</span><span class="st">Value &amp; Exit &middot; step 2 of 3</span><span class="why">Value-creation plan on track</span></div>
-  <div class="dl" data-s="V" data-n="peachtree health partners"><span class="chip good">Owned</span><span class="nm">Peachtree Health Partners</span><span class="st">Value &amp; Exit &middot; step 2 of 3</span><span class="why">Bolt-on pipeline under review</span></div>
+  <div class="dl" data-s="E" data-n="great lakes precision"><span class="chip warn">Conditional</span><span class="nm">Great Lakes Precision</span><span class="st">Execution &middot; step 1 of 4</span><span class="why">Approved at committee &middot; 2 conditions still to close</span></div>
+  <div class="dl" data-s="E" data-n="helvetia diagnostics"><span class="chip warn">Conditional</span><span class="nm">Helvetia Diagnostics</span><span class="st">Execution &middot; step 2 of 4</span><span class="why">Approved at committee &middot; regulatory clearance outstanding</span></div>
+  <div class="dl" data-s="E" data-n="project onyx"><span class="chip good">Approved</span><span class="nm">Project Onyx</span><span class="st">Execution &middot; step 2 of 4</span><span class="why">No conditions outstanding &middot; carve-out TSA schedules in negotiation</span></div>
+  <div class="dl" data-s="V" data-n="meridian logistics"><span class="chip good">Owned</span><span class="nm">Meridian Logistics</span><span class="st">Value &amp; Exit &middot; step 2 of 3</span><span class="why">No conditions outstanding</span></div>
+  <div class="dl" data-s="V" data-n="peachtree health partners"><span class="chip good">Owned</span><span class="nm">Peachtree Health Partners</span><span class="st">Value &amp; Exit &middot; step 2 of 3</span><span class="why">No conditions outstanding &middot; bolt-on pipeline under review</span></div>
   <div class="dl" data-s="V" data-n="aurora software"><span class="chip good">Owned</span><span class="nm">Aurora Software</span><span class="st">Value &amp; Exit &middot; step 3 of 3</span><span class="why">Exit readiness &mdash; vendor DD commissioned</span></div>
 
   <div class="empty" id="dealsempty" style="display:none">
@@ -561,6 +590,22 @@ details.fold>summary+*{border-top:1px solid var(--border)}
       <li>Result against the seeded record: <b>NOT-READY 13, READY 4, CONDITIONAL 2</b>, with gating that differs by step rather than one sentence repeated 19 times.</li>
       <li>Progress bars come off the rows. A bar invites comparison between two numbers that were typed by different analysts.</li>
       <li>Honest cost note: this was <em>not</em> &ldquo;no new scoring, no new data&rdquo;, as rev 3 claimed. The verdict needs the unredacted record, so the queue, the KPI row and three briefing sentences all had to route through the access-checked resolver.</li>
+      <li><b>The one thing this does not yet do, and it matters.</b> <code>icPapers</code> is written by the seed pass and by nothing else &mdash; no upload, no action, no route sets it. On a live tenant it is empty, the check falls back to <code>deal.artifacts</code> (the AI generator&rsquo;s cache), and the all-red wall returns. It is also a bare boolean: <code>D2: true</code> asserts a red-flag report exists with no document, no date and no author behind it, so a partner cannot click it and therefore should not trust it. The next change is to make it a <em>reference</em> written when a document is filed against the deal. Until then this fix is true of the demo and absent from the product, and the appendix should say so rather than the release notes discovering it.</li>
+    </ul>
+
+    <h4>Conditions</h4>
+    <ul>
+      <li>Two deals past committee now carry open conditions, which is the right place for them &mdash; post-approval, pre-completion.</li>
+      <li>Incomplete as a model, and named here rather than discovered later. A condition you can actually chase needs a <b>due date</b> (before signing, or before completion &mdash; they are different), the <b>evidence that satisfies it</b>, and <b>who signed it off</b>. Today the status is <code>proposed</code> or <code>satisfied</code> with no path between them, so they cannot be sorted by urgency and cannot be closed with a record of why.</li>
+    </ul>
+
+    <h4>Which question is worth asking of this deal</h4>
+    <ul>
+      <li>The IC-readiness gate is only fair to ask of a deal that has not yet been to committee. Asked of anything else it returns a confident falsehood in one of two directions, and rev 4a shipped both of them.</li>
+      <li><b>Before diligence:</b> &ldquo;not IC-ready, diligence plan outstanding&rdquo; about a target nobody has asked to take to committee. True, useless, and it buries the deals where the same sentence means something. Fixed in 4a.</li>
+      <li><b>After committee:</b> the mirror image, and 4a got it wrong twice over. The gate reported a <em>signed</em> deal as not ready to be tabled &mdash; so the seed pass forced <code>compliance</code> to <code>passed</code> and every memo section to <code>approved</code> on those deals to clear it. That cleared a gate by deleting the evidence: the EU merger-control filing on an Execution deal is genuinely still running, and that is exactly the substance the record exists to hold. Having cleared it, the KPI then reported <b>five deals &ldquo;ready to table&rdquo;, four of which were past close.</b></li>
+      <li>So <code>dealPhase</code> decides which question is asked: <b>origination</b> (not asked to committee), <b>diligence</b> (the readiness gate applies), <b>post-committee</b> (it has been &mdash; the only live question is whether its conditions are closed). Both seed overwrites are deleted, and &ldquo;ready to table&rdquo; counts diligence-phase deals only. It reads <b>1</b>, not 5.</li>
+      <li>Conditions rank above generic not-ready deals. A condition is a dated obligation somebody committed to in front of a committee. Ranked below, as they were, the two conditional deals sat behind eight not-ready ones and never appeared &mdash; a state that existed in the engine and was unreachable on screen.</li>
     </ul>
 
     <h4>Step position</h4>

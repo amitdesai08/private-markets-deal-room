@@ -18,20 +18,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildHomeDesk } from '../lib/homeDesk.js';
+import { applyStatusTier } from '../lib/store.js';
 
 const LANES = [
   { lane: 'financial', status: 'in_progress', progress: 60, owner: 'Priya Raman' },
   { lane: 'legal', status: 'not_started', progress: 0, owner: 'Tom Blake' },
 ];
 
-// A row as `listDeals` emits it at the status tier, next to the same deal unredacted.
-const statusRow = {
-  id: 'unseen', company: 'Unseen Holdings', accessLevel: 'status', locked: true,
-  stage: 'D2', stageName: 'Diligence', readiness: 55, dealSize: 400,
-  thesis: undefined, workstreams: [],
-  diligenceProgress: null, memoApproved: null, memoTotal: null,
-  memoProgress: null, complianceCleared: null, complianceTotal: null,
-};
+// A summary as `summarize` emits it BEFORE the barrier is applied — i.e. carrying every
+// field the leak shipped. The test then runs the production strip over it. Asserting
+// against a hand-written "already stripped" literal would only prove the literal.
+const unstrippedSummary = () => ({
+  id: 'unseen', company: 'Unseen Holdings', stage: 'D2', stageName: 'Diligence',
+  readiness: 55, dealSize: 400, locked: false,
+  thesis: 'Consolidate a fragmented regional installed base and re-price the service book.',
+  workstreams: LANES.map((w) => ({ ...w })),
+  diligenceProgress: 30, memoApproved: 2, memoTotal: 9, memoProgress: 22,
+  complianceCleared: 3, complianceTotal: 4,
+});
+
+const statusRow = Object.assign(applyStatusTier(unstrippedSummary()), { accessLevel: 'status' });
 const statusRaw = {
   id: 'unseen', company: 'Unseen Holdings', stage: 'D2', readiness: 55,
   workstreams: LANES,
@@ -40,12 +46,23 @@ const statusRaw = {
   channel: { messages: [{ author: 'Priya Raman', text: "I'll have the QoE bridge to you by Friday.", at: new Date().toISOString() }] },
 };
 
-test('a status-tier row carries no lane detail, and none of the aggregates of it', () => {
+test('the production strip removes the lane board and every aggregate of it', () => {
+  const before = unstrippedSummary();
+  // Guard the fixture itself: if `summarize` stops emitting these, this test would pass
+  // vacuously and the barrier would be untested.
   for (const field of ['diligenceProgress', 'memoApproved', 'memoTotal', 'memoProgress', 'complianceCleared', 'complianceTotal']) {
-    assert.equal(statusRow[field], null, `${field} is an aggregate of the withheld lane board and must not ship`);
+    assert.notEqual(before[field], null, `fixture must carry ${field} for the strip to be worth testing`);
   }
-  assert.deepEqual(statusRow.workstreams, [], 'the lane board itself must be empty');
-  assert.equal(statusRow.thesis, undefined, 'the thesis is deal-team content');
+  assert.ok(before.workstreams.length > 0 && before.thesis);
+
+  const after = applyStatusTier(before);
+  for (const field of ['diligenceProgress', 'memoApproved', 'memoTotal', 'memoProgress', 'complianceCleared', 'complianceTotal']) {
+    assert.equal(after[field], null, `${field} is an aggregate of the withheld lane board and must not ship`);
+  }
+  assert.deepEqual(after.workstreams, [], 'the lane board itself must be empty');
+  assert.equal(after.thesis, undefined, 'the thesis is deal-team content');
+  assert.equal(after.locked, true);
+  assert.equal(after.readiness, 55, 'the single overall progress figure survives on purpose, and the UI says so');
 });
 
 test('a status-tier deal contributes no commitments, even though it is in the list', () => {
@@ -75,17 +92,27 @@ test('a full-access deal is still assessed and still mined', () => {
   let resolved = 0;
   const desk = buildHomeDesk([fullRow], { rawFor: () => { resolved += 1; return { ...statusRaw, id: 'seen', company: 'Seen Industries' }; } });
   assert.ok(resolved > 0, 'a deal the reader is on must still resolve to the full record');
-  assert.equal(desk.attention.length > 0 || desk.counts.deals === 1, true);
+  assert.ok(desk.workiq.total > 0, 'commitments in the deal channel must still be mined');
+  // The point of the barrier is what these items contain: a named individual and their
+  // verbatim words out of a private deal channel.
+  assert.ok(
+    desk.workiq.items.every((i) => i.author && i.quote),
+    'each mined item names a person and quotes them \u2014 which is exactly why a status-tier deal must never reach this code path',
+  );
+  assert.equal(desk.counts.deals, 1);
 });
 
 test('a status-tier deal is never described as healthy', () => {
   // Regression guard: with the lane array emptied, the queue used to fall through every
   // lane-based branch and land on "On track" — a health claim about a deal whose health
-  // data the reader was just refused.
+  // data the reader was just refused. `assess` now returns rank 7 for it, which the
+  // attention filter drops — so the assertion is that it is absent, not that it is
+  // present and merely worded differently. Wrapping this in `if (row)` would make it
+  // pass whether or not the barrier held.
   const desk = buildHomeDesk([statusRow], { rawFor: () => statusRaw });
   const row = desk.attention.find((a) => a.dealId === 'unseen');
-  if (row) {
-    assert.notEqual(row.tag, 'On track', 'the queue must not assert health it cannot see');
-    assert.notEqual(row.tone, 'good');
+  assert.equal(row, undefined, 'a deal whose health data was withheld must not appear in the health queue at all');
+  for (const a of desk.attention) {
+    assert.notEqual(a.tag, 'On track', 'the queue must not assert health it cannot see');
   }
 });
