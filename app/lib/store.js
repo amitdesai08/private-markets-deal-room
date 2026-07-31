@@ -2590,7 +2590,16 @@ export function companyFinancials(ticker) {
 // approval itself (D4 → D5). Both are blocked when the readiness verdict is
 // NOT-READY, unless the PARTNER overrides with a written reason (logged as an
 // audit event). Other transitions are ungated.
-const IC_GATED = { D3: 'ic-entry', D4: 'ic-approval' };
+//
+// `E2 -> E3 (Closing)` is gated too. Naming an outstanding obligation on the board and
+// then letting the deal walk into Closing is decoration: an IC chair moved a deal with an
+// open EU merger-control filing straight through, as an analyst, with no reason recorded.
+// The obligation has to stop something or it is a badge.
+const IC_GATED = { D3: 'ic-entry', D4: 'ic-approval', E2: 'completion' };
+
+// A verdict that HOLDS the gate. CONDITIONAL is included: "we will proceed once these two
+// things are closed" is precisely the state in which somebody proceeds without closing them.
+const GATE_HOLDS = new Set(['NOT-READY', 'CONDITIONAL']);
 
 export async function advanceDeal(id, { persona, overrideReason } = {}) {
   const r = await mutateDeal(id, (deal) => {
@@ -2600,10 +2609,18 @@ export async function advanceDeal(id, { persona, overrideReason } = {}) {
     const gate = IC_GATED[deal.stage];
     if (gate) {
       const board = computeICReadiness(deal);
-      if (board.verdict.state === 'NOT-READY') {
+      if (GATE_HOLDS.has(board.verdict.state)) {
+        const conditional = board.verdict.state === 'CONDITIONAL';
         const reason = String(overrideReason || '').trim();
         if (!reason) {
-          return { error: 'ic-not-ready', gate, verdict: board.verdict, detail: `Deal is NOT IC-ready — ${board.verdict.headline} A partner override with a written reason is required to proceed.` };
+          return {
+            error: conditional ? 'obligations-outstanding' : 'ic-not-ready',
+            gate,
+            verdict: board.verdict,
+            detail: conditional
+              ? `${board.verdict.headline} A partner override with a written reason is required to proceed before they are closed.`
+              : `Deal is NOT IC-ready — ${board.verdict.headline} A partner override with a written reason is required to proceed.`,
+          };
         }
         // Fail SHUT. This read `if (persona && persona !== 'partner')`, which granted the
         // override to any caller that did not identify itself — and the HTTP route did not
@@ -2623,13 +2640,19 @@ export async function advanceDeal(id, { persona, overrideReason } = {}) {
     const crossedGate = deal.stage === GATE.afterStep;
     deal.stage = STEP_KEYS[idx + 1];
     const next = stepByKey(deal.stage);
-    const isICApproval = gate === 'ic-approval';
+    // The actor is whoever pressed the button. This used to read `'Investment Committee'`
+    // with an action of `IC APPROVED`, so one person clicking one control wrote a minute
+    // for a meeting that never convened, into the only log an LP or a regulator would ask
+    // to see. The stage moved; that is the whole of what happened, and it is what the line
+    // now says. Recording a committee decision requires a committee decision record, which
+    // this system does not have.
+    const who = persona ? `Deal team (${persona})` : 'Deal team';
     deal.activity.unshift({
-      actor: crossedGate ? 'Power Automate' : isICApproval ? 'Investment Committee' : 'Deal Orchestrator',
-      action: crossedGate ? `PURSUE — ${GATE.detail}` : isICApproval ? `IC APPROVED — advanced to ${next.code} · ${next.title}` : `Advanced to ${next.code} · ${next.title}`,
+      actor: crossedGate ? 'Power Automate' : who,
+      action: crossedGate ? `PURSUE — ${GATE.detail}` : `Advanced to ${next.code} · ${next.title}`,
       when: new Date().toISOString()
     });
-    return { event: isICApproval ? 'ic-approved' : 'deal-advanced', detail: { stage: deal.stage, by: persona || null } };
+    return { event: 'deal-advanced', detail: { stage: deal.stage, by: persona || null } };
   });
   if (r.error) return r;
   return r.deal;

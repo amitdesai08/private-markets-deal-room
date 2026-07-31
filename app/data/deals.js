@@ -179,7 +179,7 @@ export const seedDeals = [
       { lane: 'techai', owner: 'ai-md', status: 'in_progress', progress: 80, findings: [
         { text: 'Proprietary training data (7yr labelled corpus) gives a real moat beyond the GPT layer.', severity: 'positive', source: 'Tech/AI DD' }
       ] },
-      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [] }
+      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [{ text: 'Warehouse automation payback 3.1 years on the vendor quote; no capex gap to the model.', severity: 'positive', source: 'Operations DD' }] }
     ],
     documents: [
       { name: 'Investment Screen.pdf', type: 'Screen', pages: 6, status: 'parsed' },
@@ -232,7 +232,7 @@ export const seedDeals = [
       { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [
         { text: 'Utilisation resilient at 87% through the cycle; pricing power validated across pharma contracts.', severity: 'positive', source: 'Commercial DD' }
       ] },
-      { lane: 'techai', owner: 'ai-md', status: 'complete', progress: 100, findings: [] },
+      { lane: 'techai', owner: 'ai-md', status: 'complete', progress: 100, findings: [{ text: 'Cold-chain telemetry stack is vendor-hosted; no material in-house tech debt found.', severity: 'positive', source: 'Tech / AI DD' }] },
       { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [
         { text: 'Energy-cost exposure hedged via long-dated PPAs; margin downside contained.', severity: 'positive', source: 'Ops DD' }
       ] }
@@ -290,8 +290,8 @@ export const seedDeals = [
       { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [
         { text: 'Reshoring driving dual-sourcing wins; order book +22% YoY.', severity: 'positive', source: 'Commercial DD' }
       ] },
-      { lane: 'techai', owner: 'ai-md', status: 'complete', progress: 100, findings: [] },
-      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [] }
+      { lane: 'techai', owner: 'ai-md', status: 'complete', progress: 100, findings: [{ text: 'ERP is a supported SAP release; no end-of-life exposure inside the hold period.', severity: 'positive', source: 'Tech / AI DD' }] },
+      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [{ text: 'Two of four plants are near capacity; the reshoring case needs a third line by year two.', severity: 'watch', source: 'Operations DD' }] }
     ],
     documents: [
       { name: 'IC Memo (Approved).docx', type: 'Memo', pages: 24, status: 'parsed' },
@@ -302,7 +302,7 @@ export const seedDeals = [
       { key: 'market', title: 'Market & commercial', status: 'approved', content: 'Order book +22% YoY.', citations: ['Commercial DD'] },
       { key: 'value-creation', title: 'Value creation plan', status: 'approved', content: 'Buy-and-build; footprint optimisation.', citations: ['Ops DD'] },
       { key: 'risks', title: 'Key risks & mitigants', status: 'approved', content: 'Customer concentration mitigated by contract terms.', citations: ['Commercial DD'] },
-      { key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'Approved at IC; proceed to signing.', citations: ['IC minutes'] }
+      { key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'Approved at IC; proceed to signing.', citations: ['IC minutes — not on file in this system'] }
     ],
     compliance: [
       { check: 'Sanctions / UBO screening', framework: 'KYC', status: 'passed' },
@@ -469,10 +469,10 @@ export const demoStageDeals = [
       { label: 'Entry multiple', value: '8.1x EV/EBITDA', source: 'Signed structure', confidence: 'high' },
     ],
     workstreams: [
-      { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [] },
-      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [] },
+      { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [{ text: 'Top-10 customers are 47% of revenue and all on rolling 12-month terms.', severity: 'watch', source: 'Commercial DD' }] },
+      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [{ text: 'Single-site manufacturing; business-interruption cover reviewed and adequate.', severity: 'watch', source: 'Operations DD' }] },
     ],
-    memoSections: [{ key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'IC approved; reshoring backlog underwrites the base case.', citations: ['IC minutes'] }],
+    memoSections: [{ key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'IC approved; reshoring backlog underwrites the base case.', citations: ['IC minutes — not on file in this system'] }],
     compliance: [{ check: 'Financing conditions precedent', framework: 'Legal', status: 'in_progress' }, { check: 'Sanctions / UBO screening', framework: 'KYC', status: 'passed' }],
     activity: [{ actor: 'Financing-Structuring Agent', action: 'Locked the debt package; funds-flow drafted', when: hoursAgo(26) }], hoursSaved: 28,
   },
@@ -591,7 +591,7 @@ export const demoStageDeals = [
     ],
     memoSections: [
       { key: 'thesis', title: 'Investment thesis', status: 'approved', content: 'Approved at IC 14 days ago. Consolidation of a fragmented lab network with a costed AI/LIMS margin programme.', citations: ['IC memo v5', 'QoE final'] },
-      { key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'IC approved with conditions: dual-source reagents (met) and leverage ≤ 4.25x (met at 4.1x).', citations: ['IC minutes'] }
+      { key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'IC approved with conditions: dual-source reagents (met) and leverage ≤ 4.25x (met at 4.1x).', citations: ['IC minutes — not on file in this system'] }
     ],
     compliance: [
       { check: 'Antitrust / merger clearance (CH + EU)', framework: 'Regulatory', status: 'in_progress' },
@@ -687,7 +687,7 @@ export const demoStageDeals = [
       { lane: 'techai', owner: 'ai-md', status: 'complete', progress: 100, findings: [
         { text: 'Platform re-architecture complete; AI features now 22% of new bookings — a clear equity story.', severity: 'positive', source: 'Vendor DD' }
       ] },
-      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [] }
+      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [{ text: 'Support org scaled with ARR; no operational drag identified ahead of an exit process.', severity: 'positive', source: 'Operations DD' }] }
     ],
     memoSections: [
       { key: 'recommendation', title: 'Exit recommendation', status: 'draft', content: 'Dual-track trade sale / secondary; readiness score 86/100; target close within two quarters at ~2.8x MOIC.', citations: ['Exit model v2', 'Readiness assessment'] }
@@ -856,15 +856,19 @@ const seedICState = (d) => {
   // `approved` so that these deals would clear the readiness gate — which is clearing a gate
   // by deleting the evidence. The gate no longer applies to a deal past committee
   // (see `dealPhase` in lib/icReadiness.js), so the evidence stays as it stands.
-  const memo = (d.memoSections || []).slice();
-  if (!memo.some((m) => m.key === 'recommendation')) {
-    memo.push({ key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'Approved at committee.', citations: [] });
-  }
+  //
+  // An earlier pass ALSO pushed a synthetic memo section here — title "Recommendation",
+  // status `approved`, body "Approved at committee.", no citations — on any past-committee
+  // deal that lacked one. Deleted. It was written to satisfy the readiness gate, which no
+  // longer asks these deals anything; it asserted in a deal document the exact claim this
+  // release exists to stop making; and having written it, the system then graded itself
+  // against it, because that section satisfies "Recommendation drafted" and counts toward
+  // "IC memo sections approved". Manufacturing your own evidence and then marking it is
+  // worse than any gap it was covering.
   const conditions = OPEN_CONDITIONS[d.id];
   return {
     ...d,
     icPapers: { D1: true, D2: true, D3: true, ...(d.icPapers || {}) },
-    memoSections: memo,
     ...(conditions ? { conditions } : {})
   };
 };

@@ -58,10 +58,57 @@ test('an uncleared compliance check on a post-committee deal is not reported as 
 test('the board never claims a committee decision it cannot produce', () => {
   // The phase is read from the deal's STAGE. Nothing on the record is a committee decision
   // — no date, no attendees, no outcome — so no surface may word it as though a minute exists.
+  //
+  // An earlier version of this test asserted only against `verdict.headline`, which is the
+  // one field that had just been fixed. Meanwhile the seed pass was still WRITING a memo
+  // section reading "Approved at committee." into every past-committee deal that lacked
+  // one — and then grading itself against it, because that section satisfies
+  // "Recommendation drafted". A test scoped to precisely the field you fixed is a test
+  // written to pass. This one walks the whole record.
+  const BANNED = /approved at committee/i;
+  const walk = (node, path, dealId) => {
+    if (typeof node === 'string') {
+      assert.ok(!BANNED.test(node), `${dealId} ${path}: "${node}" asserts a committee decision the system cannot produce`);
+      return;
+    }
+    if (Array.isArray(node)) return node.forEach((v, i) => walk(v, `${path}[${i}]`, dealId));
+    if (node && typeof node === 'object') return Object.entries(node).forEach(([k, v]) => walk(v, `${path}.${k}`, dealId));
+  };
+
   for (const d of seededDeals.filter((x) => dealPhase(x) === 'post-committee')) {
     const v = computeICReadiness(d).verdict;
-    assert.ok(!/approved at committee/i.test(v.headline), `"${v.headline}" asserts a decision record that does not exist`);
     assert.match(v.basis, /No committee decision record/i);
+    walk(d, 'deal', d.id);
+    walk(v, 'verdict', d.id);
+  }
+});
+
+test('the seed does not write its own evidence into a deal', () => {
+  // `seedICState` used to push { key: 'recommendation', status: 'approved',
+  // content: 'Approved at committee.', citations: [] } onto any past-committee deal that
+  // had no recommendation section — manufacturing the artifact and then counting it.
+  for (const d of seededDeals) {
+    for (const m of d.memoSections || []) {
+      // An unwritten section is fine — that is an honest empty. What is not fine is a
+      // section marked APPROVED with nothing behind it.
+      if (m.status !== 'approved') continue;
+      assert.ok((m.content || '').trim().length > 0, `${d.id} ${m.key}: approved with no content`);
+      assert.ok((m.citations || []).length > 0, `${d.id} ${m.key}: an approved section with no citation is an unsourced assertion`);
+    }
+  }
+});
+
+test('nothing cites a document the system cannot produce without saying so', () => {
+  // 'IC minutes' was cited on three deals. There are no IC minutes. A citation a partner
+  // can click and land on nothing is worse than no citation, because it reads as sourced.
+  for (const d of seededDeals) {
+    for (const m of d.memoSections || []) {
+      for (const c of m.citations || []) {
+        if (/^ic minutes$/i.test(String(c).trim())) {
+          assert.fail(`${d.id} ${m.key}: cites "IC minutes", which does not exist on the record`);
+        }
+      }
+    }
   }
 });
 

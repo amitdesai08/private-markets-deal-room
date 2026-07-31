@@ -84,10 +84,12 @@ function blockingWorkstreams(deal, openIssues) {
     const laneIssues = openIssues.filter((i) => i.lane === w.lane);
     const blockingIssues = laneIssues.filter((i) => BLOCKING_SEVERITIES.has(i.severity));
     const noEvidence = !(w.findings || []).length && !(w.contributions || []).length;
-    const notOpened = w.status === 'not_started' || ((w.progress || 0) === 0 && noEvidence) || (noEvidence && w.status !== 'complete');
+    // `status === 'complete'` is NOT an exemption. It is a value somebody types, and
+    // exempting it reopened by one word the same door the progress field used to be.
+    const notOpened = w.status === 'not_started' || noEvidence;
     const halted = w.status === 'blocked' || w.status === 'on_hold';
     const reasons = [];
-    if (notOpened) reasons.push(noEvidence && (w.progress || 0) > 0 ? 'no work recorded against it' : 'not started');
+    if (notOpened) reasons.push(w.status === 'not_started' ? 'not started' : 'no work recorded against it');
     else if (halted) reasons.push(`lane ${w.status.replace('_', ' ')}`);
     if (blockingIssues.length) reasons.push(`${blockingIssues.length} open high-severity issue(s)`);
     if (reasons.length) {

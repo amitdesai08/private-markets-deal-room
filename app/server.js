@@ -600,13 +600,22 @@ api.get('/deals/:id/model.csv', (req, res) => {
 });
 // Record an MD contribution (guidance | value_add | diligence) into a lane. This
 // is the dashboard-side entrypoint mirroring the MCP record_contribution tool.
-// `md` is the contributing MD's persona id (defaults to the lane's assigned MD);
-// the display name is resolved from the MD options.
+// `md` selects the LANE ROLE the note is filed under. It does NOT set the author:
+// this route used to resolve `by` from the client-supplied `md` field alone, so any
+// caller could file a diligence finding attributed by name to any MD, and that finding
+// lands in the D2 red-flag report and clears a readiness blocker. Forging a partner's
+// signature on the diligence record was a POST body. The author is now the caller.
 api.post('/deals/:id/contributions', async (req, res) => {
   const { lane, kind, text, severity, source, md } = req.body || {};
   if (!lane || !text) return res.status(422).json({ error: 'lane-and-text-required' });
+  const identity = requestingIdentity(req);
+  const access = accessFor(identity, requestingViewAs(req));
+  if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'This seat cannot write to the diligence record.' });
+  // An unidentified caller writes as an unidentified caller. It does not get to pick a name.
+  const authored = identity?.name || identity?.upn || null;
   const mdName = (getMdOptions().find((m) => m.id === md) || {}).name || null;
-  const r = await recordContribution(req.params.id, lane, { kind, text, severity, source, by: mdName, persona: md });
+  const by = authored || (mdName ? `${mdName} (unverified)` : 'Unattributed');
+  const r = await recordContribution(req.params.id, lane, { kind, text, severity, source, by, persona: md });
   if (r.error) {
     const code = r.error === 'not-found' || r.error === 'lane-not-found' ? 404 : 422;
     return res.status(code).json(r);

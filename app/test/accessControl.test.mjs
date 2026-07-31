@@ -73,3 +73,41 @@ test('a non-partner cannot override an IC gate', async () => {
   }
   assert.equal(getDeal(GATED).stage, 'D3');
 });
+
+// ---------------------------------------------------------------------------
+// 3. An outstanding obligation stops something.
+//
+// An IC chair moved Project Onyx from E2 straight into E3 (Closing) as an analyst, with
+// its EU merger-control filing open, no reason recorded and no error returned. The board
+// had already named that filing as an outstanding obligation. Naming it and then letting
+// the deal walk into Closing makes the obligation a badge.
+// ---------------------------------------------------------------------------
+test('a deal with outstanding obligations cannot walk into Closing', async () => {
+  const onyx = getDeal('demo-onyx');
+  assert.equal(onyx.stage, 'E2', 'if this deal moves, the test below stops testing anything');
+  assert.ok((onyx.compliance || []).some((c) => c.status !== 'passed'), 'fixture must carry an uncleared check');
+
+  const r = await advanceDeal('demo-onyx', { persona: 'analyst' });
+  assert.equal(r.error, 'obligations-outstanding');
+  assert.match(r.detail, /outstanding/i);
+  assert.equal(getDeal('demo-onyx').stage, 'E2', 'and the deal must not have moved');
+
+  const forged = await advanceDeal('demo-onyx', { persona: 'analyst', overrideReason: 'the MD said it was fine' });
+  assert.equal(forged.error, 'override-forbidden', 'a written reason from a non-partner is not an override');
+  assert.equal(getDeal('demo-onyx').stage, 'E2');
+});
+
+test('a partner CAN proceed, and the override is written down', async () => {
+  // The gate is not a wall. It is a signature. This asserts the signature is recorded,
+  // because an override with no record is the same as no gate.
+  const before = getDeal('demo-onyx').stage;
+  const r = await advanceDeal('demo-onyx', { persona: 'partner', overrideReason: 'Filing acknowledged verbally by counsel; proceeding at risk.' });
+  assert.ok(!r.error, `partner override should proceed, got ${r && r.error}`);
+  const after = getDeal('demo-onyx');
+  assert.notEqual(after.stage, before);
+  const ov = (after.icOverrides || []).at(-1);
+  assert.equal(ov.by, 'partner');
+  assert.match(ov.reason, /proceeding at risk/);
+  assert.ok(ov.gating.length, 'the override records WHAT was overridden, not just that it was');
+  assert.ok(!after.activity.some((a) => a.actor === 'Investment Committee'), 'no activity line may be attributed to a body that never sat');
+});
