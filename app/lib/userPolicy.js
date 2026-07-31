@@ -151,6 +151,49 @@ function groupGrantsDeal(identity, deal) {
   return gids.some((g) => dealGids.has(g));
 }
 
+// ---- persona binding -------------------------------------------------------------
+// WHICH SEAT a verified user occupies. This is deliberately separate from role: role is
+// clearance (what you may see), persona is job (what you are here to do). Two people
+// with identical clearance can want completely different home pages.
+//
+// Bound the same three ways a role is, so the feature is real in a tenant rather than
+// a demo-only trick:
+//   1. PERSONA_GROUP_IDS  — {"<entra-group-oid>": "supply-md"} — the tenant-managed path.
+//   2. PERSONA_ASSIGNMENTS — {"supply-md": ["oid", "upn", "alias"]} — explicit list.
+//   3. demo showcase profiles, and ONLY while demo mode is active.
+// Highest-confidence source wins: an explicit assignment beats a group, and a real
+// binding always beats a demo one.
+const PERSONA_GROUP_ENV = parseJsonEnv('PERSONA_GROUP_IDS');
+const PERSONA_ASSIGN_ENV = parseJsonEnv('PERSONA_ASSIGNMENTS');
+
+export function personaForIdentity(identity = {}) {
+  if (!identity || !(identity.oid || identity.upn || identity.name)) return null;
+  const valid = (p) => (ALL_PERSONAS.includes(String(p)) ? String(p) : null);
+  const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn)].filter(Boolean);
+
+  // 1. explicit per-user assignment
+  for (const [persona, ids] of Object.entries(PERSONA_ASSIGN_ENV)) {
+    const list = (Array.isArray(ids) ? ids : []).map(norm);
+    if (keys.some((k) => list.includes(k))) { const v = valid(persona); if (v) return v; }
+  }
+  // 2. Entra group membership
+  const groups = (Array.isArray(identity.groups) ? identity.groups : []).map(norm);
+  if (groups.length) {
+    for (const [gid, persona] of Object.entries(PERSONA_GROUP_ENV)) {
+      if (groups.includes(norm(gid))) { const v = valid(persona); if (v) return v; }
+    }
+  }
+  // 3. demo showcase profile. Gated on demo mode because the lookup keys include
+  // identity.name, which is attacker-influenced on the demo "view as" path. The seat is
+  // only a lens and never widens access, but a production deploy should not let a
+  // caller select a seat by naming it.
+  if (demoModeActive()) {
+    const dkeys = [...keys, norm(identity.name)].filter(Boolean);
+    for (const k of dkeys) { const p = demoProfileById[k]; if (p && p.personaId) { const v = valid(p.personaId); if (v) return v; } }
+  }
+  return null;
+}
+
 // Resolve a VERIFIED identity to a role. `identity` = { oid, upn, name, roles?, groups? }.
 export function roleForUser(identity = {}) {
   const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn), norm(identity.name)].filter(Boolean);
@@ -190,22 +233,42 @@ export function accessFor(identity, viewAsRole = null) {
   let role = actualRole;
   if (viewAsRole && roleSpec(viewAsRole) && rankOf(viewAsRole) <= rankOf(actualRole)) role = viewAsRole;
   const spec = roleSpec(role) || roleSpec('member') || BUILTIN_ROLE.member;
+  // View-as may only ever NARROW, and that is enforced here rather than left to the
+  // rank comparison above.
+  //
+  // Rank ordering is data: getRoleOverrides() lets an administrator author a role with
+  // any rank and any capabilities. A role defined with a low rank but stage2/write true
+  // would pass the rank test for every caller and hand out capabilities their real role
+  // does not have — the escalation would be a configuration mistake rather than a code
+  // change, which is the kind that ships quietly. Intersecting with the ACTUAL role's
+  // spec makes "view-as cannot elevate" structural: previewing a seat can only ever
+  // subtract.
+  const actualSpec = roleSpec(actualRole) || roleSpec('member') || BUILTIN_ROLE.member;
+  const narrowed = (key) => !!spec[key] && !!actualSpec[key];
+  const previewing = role !== actualRole;
   return {
     role,
     actualRole,
-    viewingAs: role !== actualRole ? role : null,
+    viewingAs: previewing ? role : null,
     roleLabel: labelOf(role),
     actualRoleLabel: labelOf(actualRole),
     isAdmin: !!(roleSpec(actualRole)?.all),
-    allowedPersonas: spec.personas || [],
-    canWrite: !!spec.write,
-    canViewStage2: !!spec.stage2,
+    allowedPersonas: previewing
+      ? (spec.personas || []).filter((p) => (actualSpec.all ? true : (actualSpec.personas || []).includes(p)))
+      : (spec.personas || []),
+    canWrite: previewing ? narrowed('write') : !!spec.write,
+    canViewStage2: previewing ? narrowed('stage2') : !!spec.stage2,
+
     // Data sovereignty: allowed deal regions / jurisdictions (empty = all). Sourced
     // from the role spec AND the caller's Entra region-group memberships (need-to-know).
     regions: [...new Set([...(spec.regions || []).map((x) => norm(x)), ...regionsForIdentity(identity)])],
     // Workflow management: may advance the pipeline, and the stages this role may act
     // in (empty = all). advanceWorkflow defaults to the role's write capability.
-    advanceWorkflow: spec.advanceWorkflow === undefined ? !!spec.write : !!spec.advanceWorkflow,
+    advanceWorkflow: previewing
+      ? (spec.advanceWorkflow === undefined ? narrowed('write') : !!spec.advanceWorkflow)
+        && (actualSpec.advanceWorkflow === undefined ? !!actualSpec.write : !!actualSpec.advanceWorkflow)
+      : (spec.advanceWorkflow === undefined ? !!spec.write : !!spec.advanceWorkflow),
+
     allowedStages: spec.allowedStages || [],
   };
 }

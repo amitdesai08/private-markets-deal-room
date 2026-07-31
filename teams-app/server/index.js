@@ -95,7 +95,7 @@ app.get('/api/teams/config', (_req, res) =>
 app.post('/api/teams/context', async (req, res) => {
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const identity = identityFromSsoToken(ssoToken);
-  const asOverride = String(req.body?.as || '').trim();               // demo "view as USER"
+  const asOverride = await resolveDemoOverride(req);                       // demo "view as USER", roster-checked
   const viewAsRole = String(req.body?.viewAsRole || '').trim() || null; // hierarchy "view as ROLE"
   const persona = await personaForUser(identity || {});
   // Authoritative access profile from the orchestrator (single policy source): which
@@ -213,7 +213,7 @@ async function forwardChat(path, req, res) {
   if (!isBackendLive()) return res.status(502).json({ error: 'shared-backend-not-configured' });
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const identity = identityFromSsoToken(ssoToken);
-  const asOverride = String(req.headers['x-dr-as'] || req.body?.as || '').trim();          // demo "view as USER"
+  const asOverride = await resolveDemoOverride(req);                                          // demo "view as USER", roster-checked
   const viewAsRole = String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim() || null;
   const requestingUser = asOverride
     ? { name: asOverride }
@@ -243,7 +243,7 @@ app.use('/api/admin', async (req, res) => {
   if (!isBackendLive()) return res.status(502).json({ error: 'shared-backend-not-configured' });
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const identity = identityFromSsoToken(ssoToken);
-  const asOverride = String(req.body?.as || '').trim();
+  const asOverride = await resolveDemoOverride(req);
   const requestingUser = asOverride
     ? { name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
@@ -320,12 +320,47 @@ async function workIqUserToken(ssoToken, identity, scopes = GRAPH_WORKIQ_SCOPES)
   }
 }
 
-app.use('/api/deals', async (req, res) => {
+// The demo "view as USER" switcher, validated instead of trusted.
+//
+// This override replaces the signed-in identity outright, so whatever it names is who
+// the orchestrator answers as. Accepting it unchecked made it an impersonation
+// primitive: `?as=admin` on any request from anyone who could load the tab returned the
+// administrator's view. It was also readable from a URL, which means it survives in
+// browser history, referrer headers and access logs.
+//
+// So: the roster is the authority, not the caller. `/api/demo-profiles` returns [] when
+// demo mode is off, which makes this fail closed in production by construction rather
+// than by a second flag someone has to remember to set. And the value must arrive in a
+// header or a body — never a query string.
+async function resolveDemoOverride(req) {
+  const raw = String(req.headers['x-dr-as'] || req.body?.as || '').trim();
+  if (!raw) return '';
+  const roster = await getDemoProfiles();
+  if (!Array.isArray(roster) || !roster.length) return '';
+  const hit = roster.find((p) => String(p.id || p.upn || '').toLowerCase() === raw.toLowerCase());
+  return hit ? String(hit.id || hit.upn) : '';
+}
+
+// ROUTES THAT MUST KNOW WHO IS ASKING.
+//
+// This forwarder resolves the caller into a trusted identity and hands it to the
+// orchestrator over the bot-key channel. Everything NOT registered against it falls
+// through to the blind proxy, which attaches no bot key — so the orchestrator ignores
+// any identity on those requests and answers as the default role.
+//
+// That default was silently wrong for the home page. /api/home-desk was blind-proxied,
+// so the portfolio briefing was composed for a default deal-team seat no matter who was
+// signed in: an analyst cleared for 4 deals was reading a briefing that named companies
+// from all 19, with their combined enterprise value. The deal list beside it was
+// correctly scoped, so the same screen disagreed with itself. Identity is not a
+// nice-to-have on this route; it is what makes the answer legal to show.
+async function forwardWithIdentity(req, res) {
   if (!isBackendLive()) return proxyToBackend(req, res);
   const ssoToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.ssoToken || '';
   const identity = identityFromSsoToken(ssoToken);
-  const asOverride = String(req.headers['x-dr-as'] || req.body?.as || req.query.as || '').trim();
-  const viewAsRole = String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || req.query.viewAsRole || '').trim();
+  const asOverride = await resolveDemoOverride(req);
+  const viewAsRole = String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim();
+
   const requestingUser = asOverride
     ? { name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
@@ -356,7 +391,20 @@ app.use('/api/deals', async (req, res) => {
   } catch (e) {
     res.status(502).json({ error: 'backend-unreachable', detail: String(e?.message || e) });
   }
-});
+}
+
+// Deal list / detail / subresources — two-tier access + deal-team need-to-know.
+app.use('/api/deals', forwardWithIdentity);
+// The home page briefing, attention queue and tiles. Same identity, same reason.
+app.use('/api/home-desk', forwardWithIdentity);
+// Everything below composes an answer FROM the caller's identity. Each of these was
+// blind-proxied, which meant the orchestrator threw the identity away and answered as
+// the default deal-team role — so /me/access and /capabilities, the two endpoints whose
+// entire job is to report what THIS person may do, were reporting somebody else's
+// permissions, and /analytics was reporting the whole book to every seat.
+app.use('/api/me/access', forwardWithIdentity);
+app.use('/api/capabilities', forwardWithIdentity);
+app.use('/api/analytics', forwardWithIdentity);
 
 // Everything else under /api forwards to the shared backend (single data source).
 app.use('/api', proxyToBackend);

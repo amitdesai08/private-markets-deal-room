@@ -13,24 +13,31 @@
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
 import { Narrative, SourceList, Tag, clock, type Para } from './deskUi';
-import type { Analytics, Pipeline, Deal, MarketIntel, BackendConfig } from './types';
+import type { Pipeline, Deal, MarketIntel, BackendConfig } from './types';
 
 type HomeAttention = {
   id: string; rank: number; dealId: string; company: string; stageName?: string | null;
   readiness: number; icInDays?: number | null;
-  tag: string; tone: 'bad' | 'warn' | 'good'; why: string; impact?: string | null; basis?: string;
+  tag: string; tone: 'bad' | 'warn' | 'good' | 'muted'; why: string; impact?: string | null; basis?: string;
+  laneLabel?: string | null; laneProgress?: number | null; placedBy?: string | null; gating?: string[];
 };
 type HomeCommitment = {
   dealId: string; company: string; author: string; headline: string; quote?: string;
-  dueText?: string | null; laneLabel?: string | null; confidence?: string; basis?: string;
+  dueText?: string | null; laneLabel?: string | null; confidence?: string; basis?: string; yours?: boolean;
+};
+type HomeSeat = {
+  personaId: string | null; label: string | null; focus: string | null;
+  kind: string | null; lanes: string[]; laneLabels: string[]; tailored: boolean;
 };
 type HomeDesk = {
   generatedAt: string;
   roleLabel?: string | null;
+  seat?: HomeSeat | null;
   briefing: { generatedAt: string; paragraphs: Para[]; sources: string[]; suggestions: string[] };
   attention: HomeAttention[];
+  attentionEmpty?: string | null;
   phases: { key: string; label: string; count: number; capital: number }[];
-  workiq: { total: number; deals: number; items: HomeCommitment[] };
+  workiq: { total: number; deals: number; yours?: number; items: HomeCommitment[] };
   kpis: { key: string; label: string; value: string; sub: string }[];
   counts: { deals: number; attention: number; icReady: number; commitments: number };
 };
@@ -42,10 +49,13 @@ function money(n?: number): string {
   return `$${Math.round(n)}`;
 }
 
-export default function Dashboard({ analytics, pipeline, deals, market, config, onAsk, onAskQuestion, onOpen, canWrite, roleLabel }: {
-  analytics: Analytics | null; pipeline: Pipeline | null; deals: Deal[]; market: MarketIntel | null;
+export default function Dashboard({ pipeline, deals, market, config, onAsk, onAskQuestion, onOpen, canWrite, roleLabel, viewerKey }: {
+  pipeline: Pipeline | null; deals: Deal[]; market: MarketIntel | null;
   config: BackendConfig | null; onAsk: (dealId: string) => void; onAskQuestion?: (q: string) => void;
   onOpen: (dealId: string) => void; canWrite?: boolean; roleLabel?: string | null;
+  // Identifies WHO the page is currently being rendered for, so the briefing can be
+  // re-fetched on an identity switch rather than only on a change in deal count.
+  viewerKey?: string;
 }) {
   const fabric = config?.fabric || market?.info;
   const comps = market?.comparableDeals || [];
@@ -74,19 +84,28 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
   }
   // Re-derive when the visible deal list changes — switching persona or view-as role
   // changes which deals are in scope, and the briefing must never lag behind them.
-  useEffect(loadHome, [deals.length]);
+  // Reload when the deal set OR the viewer changes.
+  //
+  // Keying on deals.length alone was survivable when every seat got the same page. It
+  // is not now: switching between two seats that can see the same nineteen deals leaves
+  // the count unchanged, so the effect would not re-fire and the previous person's desk
+  // would stay on screen — lane tiles, queue and all — under the new person's name.
+  useEffect(loadHome, [deals.length, viewerKey]);
 
   // Derive the headline counts from the deals THIS caller can actually see, so the
   // totals always match the deal cards below (and change when the persona changes).
-  // Falls back to the system analytics only when the deal list hasn't loaded yet.
+  //
+  // There is deliberately NO fallback to /api/analytics. That endpoint takes no
+  // identity and returns platform-wide totals, so using it when the deal list is empty
+  // meant the one viewer who could see nothing — an observer, or someone out of
+  // territory — was shown the count and value of every deal in the firm. An empty list
+  // is an answer; it is not a reason to reach for an unscoped number.
   const inDiligenceRe = /diligence|approval/i;
-  const liveDeals = deals.length || analytics?.deals || 0;
-  const inDiligence = deals.length
-    ? deals.filter((d) => inDiligenceRe.test(`${d.stage || ''} ${d.stageName || ''}`)).length
-    : (analytics?.inDiligence ?? 0);
+  const liveDeals = deals.length;
+  const inDiligence = deals.filter((d) => inDiligenceRe.test(`${d.stage || ''} ${d.stageName || ''}`)).length;
   const avgReadiness = deals.length
     ? Math.round(deals.reduce((s, d) => s + (d.readiness || 0), 0) / deals.length)
-    : (analytics?.avgReadiness ?? 0);
+    : 0;
 
   // Day-to-day PE headline data, derived from the deals THIS caller can see.
   const pipelineValue = deals.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6; // total EV in flight
@@ -172,6 +191,22 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
   };
 
   const kpiRow = home?.kpis?.length ? home.kpis : kpis.map((k) => ({ key: k.label, ...k }));
+  const seat = home?.seat || null;
+  // What this page is, in the viewer's own terms. Four distinct states, because they
+  // are four different truths and running them together is how the old legend came to
+  // claim the queue was "weighted for Deal Team" when nothing weighted it at all:
+  //   a lane owner   -> which desk, and which lane it owns
+  //   a wider seat   -> which desk (IC chair, sourcing, value creation)
+  //   admin/observer -> why the page is deliberately NOT weighted to a desk
+  //   no seat at all -> say so; do not let the generic view pass as a tailored one
+  const seatLine = !seat ? null
+    : seat.kind === 'oversight'
+      ? <>Administrator view — every deal in the platform, ranked by deal health rather than weighted to a desk</>
+      : seat.kind === 'observer'
+        ? <>Observer seat — deal status only, without the workstream detail underneath</>
+        : seat.tailored
+          ? <>Built for the <b>{seat.label}</b> desk{seat.laneLabels.length ? <> — you own the <b>{seat.laneLabels.join(' and ')}</b> lane</> : null}</>
+          : <>No specialist desk is assigned to you, so this is the general portfolio view</>;
 
   return (
     <div className="dash">
@@ -203,8 +238,15 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
                   <>
                     <div className="sub" style={{ marginBottom: 8 }}>
                       Generated {clock(home.briefing.generatedAt)}
-                      {home.roleLabel || roleLabel ? ` · scoped to what a ${home.roleLabel || roleLabel} can see` : ' · scoped to the deals you can see'}
+                      {/* The old role-scoped legend is only shown when there is no seat
+                          line. With both, the card said "scoped to what a Deal Team can
+                          see" and then, one line below, described the seat properly —
+                          two answers to one question, the weaker one first. */}
+                      {seatLine ? null
+                        : (home.roleLabel || roleLabel) ? ` · scoped to what a ${home.roleLabel || roleLabel} can see`
+                        : ' · scoped to the deals you can see'}
                     </div>
+                    {seatLine ? <div className="seatline">{seatLine}</div> : null}
                     <Narrative paragraphs={home.briefing.paragraphs} sources={home.briefing.sources} onCite={() => setEvidence(true)} />
                     {evidence ? <SourceList sources={home.briefing.sources} /> : null}
                     {home.briefing.suggestions.length && onAskQuestion ? (
@@ -236,6 +278,7 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
                 <Tag kind="new" />
                 <span className="spacer" />
                 <span className="chip">{home.workiq.total} across {home.workiq.deals} deal{home.workiq.deals === 1 ? '' : 's'}</span>
+                {home.workiq.yours ? <span className="chip warn">{home.workiq.yours} in your lane</span> : null}
                 <button className="btn link compact" onClick={() => setShowWorkiq((v) => !v)}>{showWorkiq ? 'Hide' : 'Show'}</button>
               </div>
               {showWorkiq ? (
@@ -246,6 +289,7 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
                         <span className="name">{c.author}</span>
                         <span className="chip">{c.company}</span>
                         {c.laneLabel ? <span className="sub">{c.laneLabel}</span> : null}
+                        {c.yours ? <span className="chip warn">your lane</span> : null}
                         {c.dueText ? <span className="chip warn">📅 {c.dueText}</span> : null}
                       </div>
                       <div className="quote">“{c.quote || c.headline}”</div>
@@ -277,20 +321,26 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
         <div style={{ minWidth: 0 }}>
           <div className="card">
             <div className="hd">
-              <h3>What needs my attention</h3>
+              <h3>{seat?.tailored && seat.laneLabels.length ? `What needs me in ${seat.laneLabels[0]}` : 'What needs my attention'}</h3>
               <Tag kind="ext" />
               <span className="spacer" />
               <span className="chip">{attentionRows.length} deal{attentionRows.length === 1 ? '' : 's'}</span>
             </div>
             <div className="legend">
               <span>
-                Ranked worst-first across every deal you can see
-                {home?.roleLabel || roleLabel ? <> · weighted for <b>{home?.roleLabel || roleLabel}</b></> : null}
+                {seat?.tailored && seat.laneLabels.length
+                  ? <>Ranked by the state of <b>your {seat.laneLabels[0]} lane</b> on each deal you can see</>
+                  : <>Ranked worst-first across every deal you can see</>}
                 {canWrite === false ? <> · <b>read-only seat</b></> : null}
               </span>
             </div>
             {attentionRows.length === 0 ? (
-              <div className="bd"><div className="muted">Nothing needs action right now — every deal you can see is on track or IC-ready.</div></div>
+              // The reason comes from the server, which knows whether the queue is
+              // empty because the deals are healthy, because this seat cannot see the
+              // records that would rank them, or because there are no deals at all.
+              // Guessing "all healthy" here once told an observer everything was on
+              // track while their own tiles showed four deals not IC-ready.
+              <div className="bd"><div className="muted">{home?.attentionEmpty || 'Nothing is flagged right now.'}</div></div>
             ) : attentionRows.map((a) => (
               <div className="att" key={a.id}>
                 <div className="att-t">
@@ -305,7 +355,10 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
                   {typeof a.icInDays === 'number' ? <span>📅 IC in {a.icInDays}d</span> : null}
                 </div>
                 {a.impact ? <div className="impact">⚡ {a.impact}</div> : null}
-                {a.basis ? <div className="sub" style={{ marginTop: 6 }}>Basis: {a.basis}</div> : null}
+                {/* Why this row is where it is. A ranked list that cannot answer
+                    "why is this above that?" does not survive its first partner. */}
+                {a.placedBy ? <div className="sub" style={{ marginTop: 6 }}>Placed here by: {a.placedBy}</div> : null}
+                {a.basis ? <div className="sub" style={{ marginTop: 2 }}>Basis: {a.basis}</div> : null}
                 <div className="acts">
                   <button className="btn primary" onClick={() => onOpen(a.dealId)}>Open deal ▸</button>
                   <button className="btn link" onClick={() => onAsk(a.dealId)}>Ask agents</button>

@@ -2773,8 +2773,16 @@ export async function runStep(id, stepKey) {
   return { result, deal: getDeal(id) };
 }
 
-export function portfolioStats() {
-  const list = deals.map(derive);
+// Portfolio counters.
+//
+// `visible` is the caller's own deal list. Called with no argument this still reports
+// the whole book, which is correct for internal callers (fund-level valuation, agent
+// tooling) that have already established their own scope — but it is NOT safe to hand
+// to a user-facing route unscoped. Doing exactly that is how the home page came to
+// show an analyst cleared for 4 deals a headline count of 19 and $8.1B: the tiles fell
+// back to these numbers whenever the scoped list was empty or still loading.
+export function portfolioStats(visible = null) {
+  const list = Array.isArray(visible) ? visible.map((d) => (d.stage ? d : derive(d))) : deals.map(derive);
   const n = list.length;
   const totalHours = list.reduce((s, d) => s + (d.hoursSaved || 0), 0);
   const avgReadiness = n ? Math.round(list.reduce((s, d) => s + d.readiness, 0) / n) : 0;

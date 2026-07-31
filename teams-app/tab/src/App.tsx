@@ -134,7 +134,10 @@ export default function App() {
       fetch('/api/platform/status', tok ? { headers: { authorization: `Bearer ${tok}` } } : undefined)
         .then((r) => r.json()).then(setPlatform).catch(() => setPlatform(null));
       fetch('/api/teams/config').then((r) => r.json()).then(setCfg).catch(() => {});
-      fetch('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
+      // af(), not fetch(): /api/analytics is now scoped to the caller, so it has to be
+      // asked as somebody. A bare fetch would carry no identity and the numbers would
+      // silently revert to the whole book — which is the leak these counters started as.
+      af('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
       fetch('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
       fetch('/api/market-intel').then((r) => r.json()).then(setMarket).catch(() => {});
       loadDeals();
@@ -198,7 +201,7 @@ export default function App() {
 
   async function refreshData() {
     loadDeals();
-    fetch('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
+    af('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
     fetch('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
   }
 
@@ -324,7 +327,7 @@ export default function App() {
           ) : mainTab === 'overview' ? (
             <>
               <AgentGuide roleLabel={roleLabel} canViewStage2={canViewStage2} canWrite={canWrite} onAsk={() => setChatOpen(true)} />
-              <Dashboard analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} />
+              <Dashboard pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} viewerKey={`${viewAs}|${viewAsRole}`} />
             </>
           ) : mainTab === 'sourcing' ? (
             <Stage1 deals={deals} onChanged={refreshData} onOpenDeal={setOpenDealId} />
@@ -407,6 +410,13 @@ cite:has(button):hover, cite:focus-within { background: var(--ai); color: var(--
 .acts { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 9px; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 11.5px; padding: 0 14px 10px; }
 .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+
+/* Whose desk this page was built for. Sits directly above the briefing because it
+   is the precondition for reading it: the same records say different things to a
+   lane owner and to an IC chair, and the reader is entitled to know which one the
+   page assumed they were. */
+.seatline { margin: 0 0 10px; padding: 7px 10px; border-left: 3px solid var(--accent); background: var(--accent-bg, rgba(99,102,241,.08)); border-radius: 0 6px 6px 0; font-size: 12px; color: var(--text); }
+.seatline b { font-weight: 650; }
 
 /* --- milestones --- */
 .ms { display: flex; align-items: flex-start; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--border); }

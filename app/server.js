@@ -148,6 +148,7 @@ import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy
 import { buildCockpit } from './lib/cockpit.js';
 import { buildWorkflowDesk, buildThreads, buildDocumentDesk, detectCommitments } from './lib/dealDesk.js';
 import { buildHomeDesk } from './lib/homeDesk.js';
+import { personaForIdentity } from './lib/userPolicy.js';
 import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments, setDemoMode, getDocTemplate, setDocTemplate, DOC_TEMPLATE_DEFAULTS } from './lib/accessConfig.js';
 
 validateConfig({ strict: false });
@@ -294,13 +295,23 @@ api.get('/home-desk', (req, res) => {
   const viewAs = requestingViewAs(req);
   const visible = listDeals(identity, viewAs);
   const access = accessFor(identity, viewAs);
+  // The SEAT, not just the clearance. `role` says what this person may open; the
+  // persona says what they are accountable for, and the home page is built around the
+  // second. Resolved from the identity rather than taken from the request, so a caller
+  // cannot ask to be composed as somebody else's desk.
   res.json(buildHomeDesk(visible, {
     role: access?.role || null,
     roleLabel: access?.roleLabel || null,
+    persona: personaForIdentity(identity),
     rawFor: (d) => getDealRaw(d.id),
   }));
 });
-api.get('/analytics', (_req, res) => res.json(portfolioStats()));
+// Portfolio counters, scoped to the caller. These are the numbers that head the
+// analytics surfaces, and an unscoped version of them is precisely what leaked: the
+// route used to ignore the request entirely (`_req`) and report the whole book to
+// anybody who asked, including an observer seat.
+api.get('/analytics', (req, res) => res.json(portfolioStats(listDeals(requestingIdentity(req), requestingViewAs(req)))));
+
 
 // Fund / portfolio lens (post-IC). Owned-portfolio monitoring, fund/LP
 // performance and the executive value/ROI dashboard — all derived from the

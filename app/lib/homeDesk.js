@@ -19,13 +19,29 @@
 // need-to-know get different portfolio narratives, because they are looking at
 // different portfolios — the summary can never leak a deal the reader could not
 // open for themselves.
+//
+// AND IT IS COMPOSED FOR THE SEAT. Scoping and tailoring are different things: two
+// people with identical clearance can still have entirely different jobs, and until
+// now they opened the app to a byte-identical briefing. `seatFor` (lib/seat.js) turns
+// the viewer's persona into the diligence lanes they actually own, and this module
+// asks a different question of the same records depending on the answer. Where no
+// seat can be resolved, the page says so rather than passing the generic view off as
+// a personalised one.
 
 import { corpusForDeal } from './workiqCorpus.js';
 import { detectCommitments } from './dealDesk.js';
-import { icPending, daysUntil } from './cockpit.js';
+import { daysUntil } from './cockpit.js';
 import { computeICReadiness, dealPhase } from './icReadiness.js';
+import { seatFor } from './seat.js';
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+
+// How to name the lanes a seat owns. A seat can own more than one, and telling a Fund
+// CFO "you own the Financial / QoE lane" while the code also assesses their Tax &
+// structuring lane is a page describing a different job from the one it is doing.
+const laneName = (labels = []) => (labels.length > 1
+  ? `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`
+  : (labels[0] || 'your'));
 
 // Deal sizes are carried in millions on the deal record.
 function money(n) {
@@ -80,7 +96,10 @@ const phaseOf = (d) => PHASES.find((p) => p.re.test(`${d.stage || ''} ${d.stageN
 // a health claim about a deal the reader cannot open.
 function assess(deal, raw) {
   const readiness = num(deal.readiness);
-  const pre = icPending(deal);
+  // Not `icPending`: that is false once a deal reaches D4, the committee step itself,
+  // which is exactly when its date matters most. Anything not yet past the gate is
+  // still heading for one.
+  const pre = dealPhase(deal) !== 'post-committee';
   const days = pre ? daysUntil(deal.targetICDate) : null;
   const icDays = typeof deal.daysToIC === 'number' ? deal.daysToIC : days;
 
@@ -147,19 +166,34 @@ function assess(deal, raw) {
   // conditional deals sat behind every not-ready deal and never surfaced at all.
   if (state === 'CONDITIONAL') {
     const post = phase === 'post-committee';
-    // Count the OBLIGATIONS, not just the `conditions` array. Post-committee, an
-    // uncleared compliance check is an obligation exactly as much as a condition is, and
-    // counting only the array produced "with 0 conditions still to close" on a deal that
-    // had two uncleared regulatory checks.
-    const n = post ? (gating.length || v.openConditions) : v.openConditions;
+    // icReadiness ALREADY separates these two things and says why (icReadiness.js#L236):
+    // an open condition is an obligation the firm accepted at committee; an unevidenced
+    // lane is work nobody recorded. `gating` is the concatenation of both, so counting
+    // gating.length re-merged them one file later and printed "6 obligations still
+    // outstanding" on a signed deal that carries none — the six were never-opened lanes.
+    const obligations = num(v.openConditions) + num(v.openComplianceChecks);
+    const unevidenced = post ? Math.max(0, gating.length - obligations) : 0;
+    const n = post ? obligations : v.openConditions;
+    const parts = [];
+    if (n) parts.push(`${n} obligation${n === 1 ? '' : 's'} still outstanding`);
+    if (unevidenced) parts.push(`${unevidenced} diligence lane${unevidenced === 1 ? '' : 's'} with no work recorded`);
     return {
-      rank: 3, tag: 'Conditional', tone: 'warn',
+      // A deal already through the gate ranks BELOW a live deal that cannot be tabled.
+      // At rank 3 for both, half the IC chair's queue was deals he had already approved
+      // — tagged "no committee date set", because there isn't one — while four live
+      // NOT-READY diligence deals were pushed off the page. A pre-committee condition
+      // still outranks a generic not-ready deal; a post-close obligation does not.
+      rank: post ? 5 : 3,
+      tag: post ? (n ? 'Post-gate obligation' : 'Record incomplete') : 'Conditional', tone: 'warn',
       // Not "approved at committee" — nothing on the record is a committee decision. The
       // stage is where the deal sits, which is all this can honestly claim.
       why: post
-        ? `Past the committee gate, with ${n} obligation${n === 1 ? '' : 's'} still outstanding — ${gating.join('; ')}.`
+        ? `Past the committee gate — ${parts.join(' and ')}: ${gating.join('; ')}.`
         : `Ready to table, subject to ${n} condition${n === 1 ? '' : 's'} still to close.`,
-      impact: post ? 'An unclosed obligation holds completion, and every one of them has an owner waiting on someone else.' : 'Conditions left open at the meeting come back as post-completion obligations.',
+      impact: post
+        ? (n ? 'An unclosed obligation holds completion, and every one of them has an owner waiting on someone else.'
+             : 'Nothing is outstanding on this deal; the diligence record behind it was simply never written up.')
+        : 'Conditions left open at the meeting come back as post-completion obligations.',
       basis: post ? 'Deal record — open conditions and uncleared compliance checks' : 'IC readiness board — committee conditions',
       verdict: state, gating,
     };
@@ -174,12 +208,164 @@ function assess(deal, raw) {
     };
   }
   if (state === 'READY') {
-    return phase === 'post-committee'
-      ? { rank: 8, tag: 'In execution', tone: 'good', why: 'Past the committee gate with nothing outstanding on the record.', impact: null, basis: 'Deal record — open conditions and compliance checks', verdict: state, gating }
+    if (phase === 'post-committee') {
+      return { rank: 8, tag: 'In execution', tone: 'good', why: 'Past the committee gate with nothing outstanding on the record.', impact: null, basis: 'Deal record — open conditions and compliance checks', verdict: state, gating };
+    }
+    // A deal that is READY with a committee date inside a fortnight is the most
+    // actionable row on a chair's page, and at rank 8 it fell off the bottom of a
+    // six-row queue: the tile said "Ready to table: 1" and the deal itself was named
+    // nowhere. Something ready to be tabled is not "nothing to see here".
+    const imminent = typeof icDays === 'number' && icDays >= 0 && icDays <= 14;
+    return imminent
+      ? {
+        // Rank 1 puts this in the same urgency band as a deal that cannot be tabled,
+        // where the committee date decides the order — so the deal whose committee is
+        // soonest leads the page whether the answer is "table it" or "it is not ready".
+        // At rank 8 it was cut before the six-row queue even filled: the tile said
+        // "Ready to table: 1" and the page never said which deal, while the chair read a
+        // countdown pointing at a different company nine days out.
+        rank: 1, tag: 'Ready — table it', tone: 'good',
+        why: `Papers on record and no blocking lanes, with committee ${icDays === 0 ? 'today' : `in ${icDays} day${icDays === 1 ? '' : 's'}`}.`,
+        impact: 'This one needs an agenda slot, not more work.',
+        basis: 'IC readiness board', verdict: state, gating,
+      }
       : { rank: 8, tag: 'IC-ready', tone: 'good', why: 'Papers on record, no blocking lanes, no unresolved risk findings.', impact: null, basis: 'IC readiness board', verdict: state, gating };
   }
   return { rank: 6, tag: 'On track', tone: 'good', why: `Progressing on plan at ${readiness}% completion.`, impact: null, basis: 'IC readiness board', verdict: state, gating, phase };
 }
+
+// ---------------------------------------------------------------------------
+//  The same deal, seen from the seat that has to do something about it
+// ---------------------------------------------------------------------------
+// `assess` above answers "how is this DEAL doing" — the right question for an IC chair
+// or a deal lead, and the wrong one for the five seats that own a single diligence
+// lane. A Supply Chain Partner does not need to be told that Nordic Grocery is held up
+// by legal; that is somebody else's lane and there is nothing they can do about it. It
+// needs telling that the operations lane on Atlas has not opened and the committee is
+// nine days away.
+//
+// So a lane-owning seat gets its rows built from ITS lane on each deal. Same records,
+// same verdict engine, different question. Everything here is read from the workstream
+// on the unredacted record and from the readiness bundle's structured blocking list —
+// no string-matching on prose, and nothing is invented when a lane has no state.
+function assessLane(deal, raw, lanes, laneLabels) {
+  const ws = (raw.workstreams || []).filter((w) => lanes.includes(w.lane));
+  // The deal does not carry this seat's lane at all. That is not a problem to report,
+  // it is an absence of one — returning a row here would put every seat on every deal.
+  if (!ws.length) return null;
+
+  const phase = dealPhase(deal);
+  if (phase === 'origination') return null; // diligence lanes have not opened yet
+
+  let bundle = null;
+  try { bundle = computeICReadiness(raw); } catch { bundle = null; }
+  const blockingHere = (bundle?.blockingWorkstreams || []).filter((b) => lanes.includes(b.lane));
+  const openIssues = (bundle?.issues || []).filter((i) => lanes.includes(i.lane) && i.status !== 'resolved');
+  const highIssues = openIssues.filter((i) => /high|critical/i.test(String(i.severity || '')));
+
+  // Same correction as in assess(): `icPending` is false the moment a deal reaches D4,
+  // the committee step itself, so a lane owner with open work on a deal sitting at the
+  // gate would lose "and committee is 4 days out" from their row and drop a rank on the
+  // day it matters most. This is inert on today's seed only because the one D4 deal has
+  // no open lane; it is not inert in general.
+  const pre = dealPhase(deal) !== 'post-committee';
+  const icDays = typeof deal.daysToIC === 'number' ? deal.daysToIC : (pre ? daysUntil(deal.targetICDate) : null);
+  const soon = pre && typeof icDays === 'number' && icDays >= 0 && icDays <= 21;
+  const late = pre && typeof icDays === 'number' && icDays < 0;
+  // A seat can own MORE THAN ONE lane — the Fund CFO owns Financial / QoE and Tax &
+  // structuring. Reading ws[0] meant tax was invisible on all 19 deals (its progress is
+  // zero on every one) while tax blocking reasons still rendered underneath a row
+  // labelled "Financial / QoE not started": the label describing something other than
+  // its own contents. Report the lane in the worst state and name THAT lane, so the row
+  // is about the work that is actually behind.
+  const w = ws.slice().sort((a, b) => num(a.progress) - num(b.progress))[0];
+  const label = laneLabels[lanes.indexOf(w.lane)] || laneLabels[0] || lanes[0];
+  const progress = num(w.progress);
+  const started = progress > 0 && w.status !== 'not_started';
+  const findings = Array.isArray(w.findings) ? w.findings.length : 0;
+  const base = { lane: w.lane, laneLabel: label, laneProgress: progress, laneStatus: w.status || 'not_started', basis: 'Workstream record — your lane' };
+  const when = late
+    ? `the target committee date passed ${Math.abs(icDays)} days ago`
+    : soon ? `committee is ${icDays} day${icDays === 1 ? '' : 's'} out` : null;
+
+  if (!started) {
+    return {
+      ...base,
+      rank: when ? 0 : 1,
+      tag: `${label} not started`,
+      tone: when ? 'bad' : 'warn',
+      why: when
+        ? `Your ${label} lane has no work recorded against it and ${when}.`
+        : `Your ${label} lane has no work recorded against it.`,
+      impact: 'A lane that has never opened blocks the committee gate on its own, whatever the rest of the deal looks like.',
+      verdict: bundle?.verdict?.state || null,
+      gating: blockingHere.map((b) => `${b.label} — ${b.reasons.join(', ')}`),
+    };
+  }
+  if (highIssues.length) {
+    return {
+      ...base,
+      rank: 2,
+      tag: `${highIssues.length} open in ${label}`,
+      tone: 'bad',
+      why: `${highIssues.length} high-severity finding${highIssues.length === 1 ? '' : 's'} in your lane ${highIssues.length === 1 ? 'is' : 'are'} still open — ${highIssues.slice(0, 2).map((i) => i.title).join('; ')}.`,
+      impact: 'An unresolved high-severity finding blocks the gate and, left open, becomes a condition or a price adjustment.',
+      verdict: bundle?.verdict?.state || null,
+      gating: highIssues.map((i) => i.title),
+    };
+  }
+  if (blockingHere.length) {
+    return {
+      ...base,
+      rank: 3,
+      tag: `${label} blocking`,
+      tone: 'warn',
+      why: `Your lane is one of the reasons this deal cannot be tabled — ${blockingHere.map((b) => b.reasons.join(', ')).join('; ')}.`,
+      impact: 'Until this lane clears, the deal cannot go to committee on the record as it stands.',
+      verdict: bundle?.verdict?.state || null,
+      gating: blockingHere.map((b) => `${b.label} — ${b.reasons.join(', ')}`),
+    };
+  }
+  if (progress >= 100 && findings === 0) {
+    return {
+      ...base,
+      rank: 4,
+      tag: `${label} complete, nothing recorded`,
+      tone: 'warn',
+      // This is the same rule the readiness engine applies, said in the first person.
+      // A lane marked done with no findings is either work that was never written up
+      // or a lane that was closed to clear the board; the record cannot tell which,
+      // and neither can this sentence, so it does not guess.
+      why: `Your lane is marked complete but carries no findings, so there is nothing on the record showing what the work concluded.`,
+      impact: 'At committee this reads as an unevidenced lane, which is the same as an open one.',
+      verdict: bundle?.verdict?.state || null,
+      gating: [],
+    };
+  }
+  if (soon && progress < 100) {
+    return {
+      ...base,
+      rank: 5,
+      tag: `${label} ${progress}%`,
+      tone: 'warn',
+      why: `Your lane is ${progress}% complete and ${when}.`,
+      impact: 'Finishing after the papers go out means the committee reads a lane that changed underneath it.',
+      verdict: bundle?.verdict?.state || null,
+      gating: [],
+    };
+  }
+  if (progress >= 100) {
+    return { ...base, rank: 8, tag: `${label} complete`, tone: 'good', why: `Your lane is complete with ${findings} finding${findings === 1 ? '' : 's'} on the record.`, impact: null, verdict: bundle?.verdict?.state || null, gating: [] };
+  }
+  return { ...base, rank: 7, tag: `${label} ${progress}%`, tone: 'good', why: `Your lane is ${progress}% complete with ${findings} finding${findings === 1 ? '' : 's'} recorded.`, impact: null, verdict: bundle?.verdict?.state || null, gating: [] };
+}
+
+// Seats whose job is a PHASE rather than a lane care about a different slice of the
+// same queue. An analyst sources and screens, so an origination target that needs work
+// is their day — ranked 9 by the portfolio assessment, i.e. off the bottom of the page.
+// An operating partner owns the companies the firm already bought. Rather than write a
+// second assessment for each, the phase they own is promoted within the existing one.
+const SEAT_PHASE = { screening: 'origination', value: 'value' };
 
 // ---------------------------------------------------------------------------
 //  Work IQ signal across the portfolio
@@ -187,7 +373,7 @@ function assess(deal, raw) {
 // The single most useful cross-deal Work IQ read: promises people made in the
 // deal channels that nobody has turned into a tracked task. Proposed only —
 // creating a task still routes through the deal that owns it.
-function portfolioCommitments(deals, rawFor, limit = 6) {
+function portfolioCommitments(deals, rawFor, limit = 6, laneLabels = []) {
   const out = [];
   for (const d of deals) {
     // A commitment quotes a named person out of a deal's private channel, so it is
@@ -223,22 +409,34 @@ function portfolioCommitments(deals, rawFor, limit = 6) {
       });
     }
   }
-  // Nearest deadline first — a promise due tomorrow matters more than one due
-  // next month, regardless of which deal it sits on.
+  // A commitment already carries the lane it was made against. When the reader owns a
+  // lane, theirs come first — a promise somebody made about supplier audits is that
+  // person's to chase, and it should not be six rows below a legal one just because
+  // the legal one is due sooner. Nothing is hidden: the ordering changes, the list
+  // does not, and the count in the narrative is still the full count.
+  const mine = new Set(laneLabels);
+  const isMine = (c) => (c.laneLabel ? mine.has(c.laneLabel) : false);
   out.sort((a, b) => {
+    if (mine.size && isMine(a) !== isMine(b)) return isMine(a) ? -1 : 1;
     const ta = a.due ? new Date(a.due).getTime() : Infinity;
     const tb = b.due ? new Date(b.due).getTime() : Infinity;
     return ta - tb;
   });
-  return { total: out.length, deals: new Set(out.map((c) => c.dealId)).size, items: out.slice(0, limit) };
+  return {
+    total: out.length,
+    deals: new Set(out.map((c) => c.dealId)).size,
+    yours: mine.size ? out.filter(isMine).length : 0,
+    items: out.slice(0, limit).map((c) => ({ ...c, yours: isMine(c) })),
+  };
 }
 
 // ---------------------------------------------------------------------------
 // `rawFor` resolves a list summary back to its full deal record, which the Work IQ
 // corpus needs (lane owners and sponsors are stripped from summaries). It defaults to
 // the identity function so the builder stays testable with plain objects.
-export function buildHomeDesk(deals = [], { role = null, roleLabel = null, rawFor = (d) => d } = {}) {
+export function buildHomeDesk(deals = [], { role = null, roleLabel = null, persona = null, rawFor = (d) => d } = {}) {
   const list = Array.isArray(deals) ? deals.filter(Boolean) : [];
+  const seat = seatFor({ role, persona });
 
   // The verdict is computed from the unredacted record and names lanes and findings,
   // so it is only ever computed for a deal this reader can open. Metadata-tier deals
@@ -248,12 +446,49 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, rawFo
     try { return rawFor(d) || d; } catch { return null; }
   };
 
-  const ranked = list
-    .map((d) => ({ deal: d, a: assess(d, rawIfPermitted(d)) }))
-    .sort((x, y) => x.a.rank - y.a.rank || num(x.deal.readiness) - num(y.deal.readiness));
+  // ---- the queue, built for THIS seat ---------------------------------------
+  // A lane-owning seat is asked about its lane on each deal; every other seat is asked
+  // about the deal. Deals where a lane seat has no lane drop out of the queue entirely
+  // rather than being reported as fine — "nothing here for you" is a true statement,
+  // "on track" would not be.
+  const isLaneSeat = seat.kind === 'lane';
+  const promoted = SEAT_PHASE[seat.kind] || null;
+  const scored = [];
+  for (const d of list) {
+    const raw = rawIfPermitted(d);
+    let a = null;
+    if (isLaneSeat && raw) a = assessLane(d, raw, seat.lanes, seat.laneLabels);
+    if (!a && !isLaneSeat) a = assess(d, raw);
+    if (!a) continue;
+    // The phase this seat owns comes forward. It is a re-ordering, not a re-wording:
+    // the row still says exactly what the record says about that deal.
+    //
+    // Only rows built from evidence are promoted. Without `raw`, assess() correctly
+    // degrades to "you hold this deal at metadata level" at rank 7 — below the cut. If
+    // the promotion applied to that too, a sourcing seat's queue would surface deals it
+    // cannot read, under a row that says there is nothing to say about them, displacing
+    // origination targets the analyst can actually work on. Bringing forward the phase
+    // someone owns must not bring forward the deals they do not.
+    const rank = raw && promoted && phaseOf(d)?.key === promoted ? Math.min(a.rank, 2) : a.rank;
+    scored.push({ deal: d, a: { ...a, rank } });
+  }
+  // Order: severity band first, then how close the committee is.
+  //
+  // The tie-break used to be `readiness`, which is wrong twice over. It is the slider
+  // number this file's own header says must never be the reason for a row's position —
+  // and it is absent on every seeded deal, so num() returned 0 for both sides of every
+  // comparison and the sort collapsed to the order of the array in data/deals.js. The
+  // true answer to "why is this deal top of my list?" was "because it is first in a
+  // seed file". Days-to-committee is a date somebody agreed to, it is the axis the
+  // reader is actually managing against, and it can be said out loud.
+  const urgency = (d) => (typeof d.daysToIC === 'number' && d.daysToIC >= 0 ? d.daysToIC : 9999);
+  const ranked = scored.sort((x, y) => x.a.rank - y.a.rank
+    || urgency(x.deal) - urgency(y.deal)
+    || String(x.deal.company || '').localeCompare(String(y.deal.company || '')));
+
 
   const attention = ranked
-    .filter((r) => r.a.rank <= 4)
+    .filter((r) => r.a.rank <= 5)
     .slice(0, 6)
     .map((r, i) => ({
       ...r.a,
@@ -261,6 +496,17 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, rawFo
       // Display order, 1-based. Set AFTER the spread so it is the queue position
       // the user sees, not the internal severity score used to sort.
       rank: i + 1,
+      // Why THIS row sits where it sits. A partner's first question about any ranked
+      // list is "why is this one above that one?", and until the sort had a defensible
+      // second axis the honest answer was "because of its position in a seed file".
+      // Now the two things that decide it — the severity band and the committee date —
+      // are stated on the row that they placed.
+      placedBy: (() => {
+        const d = typeof r.deal.daysToIC === 'number' && r.deal.daysToIC >= 0 ? r.deal.daysToIC : null;
+        if (d === null) return `${r.a.tag} · no committee date set`;
+        return `${r.a.tag} · committee in ${d} day${d === 1 ? '' : 's'}`;
+      })(),
+
       dealId: r.deal.id,
       company: r.deal.company,
       stageName: r.deal.stageName || r.deal.stage || null,
@@ -283,31 +529,296 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, rawFo
   // Execution deal and an owned Value company both compute READY, and reporting them as
   // ready to table is the same error as reporting an origination target as failing to
   // reach one — the tile would have read 5 when the true answer was 1.
-  const notReady = ranked.filter((r) => r.a.verdict === 'NOT-READY').length;
-  const conditional = ranked.filter((r) => r.a.verdict === 'CONDITIONAL').length;
-  const icReady = ranked.filter((r) => r.a.verdict === 'READY' && dealPhase(r.deal) === 'diligence').length;
+  //
+  // These are portfolio facts and are computed for every seat, because a lane owner is
+  // still entitled to the state of the deals they work on. What changes per seat is
+  // which of them is put on the front page.
+  const verdicts = list.map((d) => {
+    const raw = rawIfPermitted(d);
+    if (!raw) return null;
+    try { return computeICReadiness(raw); } catch { return null; }
+  });
+  const stateOf = (i) => verdicts[i]?.verdict?.state || null;
+  // The number of conditions the committee ACTUALLY attached. The CONDITIONAL state is
+  // not evidence of one: icReadiness folds "this lane has nothing written against it"
+  // into the same state as "the committee attached a condition". Counting the state
+  // produced a tile reading "Conditions outstanding: 6" where four of the six deals
+  // carried no condition at all — a specific, checkable claim that was wrong two thirds
+  // of the time. Count the conditions, not the label.
+  // ONE definition of an obligation, used by the queue rows (assess, above), the tiles,
+  // the prose and the unevidenced-lane counter alike. An uncleared compliance check is
+  // owed exactly as much as a condition is; counting only `conditions` here while the
+  // row beneath counted both is how the operating partner's tile could omit a deal that
+  // the row directly below it said owed two.
+  const condsOf = (i) => num(verdicts[i]?.verdict?.openConditions) + num(verdicts[i]?.verdict?.openComplianceChecks);
+  // All three verdict counters are restricted to deals actually IN diligence.
+  //
+  // A deal in origination has not failed to reach committee; it has not been asked to.
+  // computeICReadiness has no origination branch, so an O2 screen with no CIM and no
+  // model returns NOT-READY — and counting those made the chair's "Not IC-ready" tile
+  // read 11 when the honest number was 7. The queue already knew better: assess() tags
+  // exactly those deals "In origination — screened, not yet launched into diligence".
+  // The tile and the queue were describing the same four deals in contradictory terms,
+  // and a chair who cross-checks one against the other finds it in under a minute.
+  const inDiligence = (d) => dealPhase(d) === 'diligence';
+  // ONE definition of "in diligence" on the page. The tiles used to take the
+  // denominator from `phaseOf` (a stage-code regex) while the numerator came from
+  // `dealPhase`. They disagree by one deal, so the chair's tile read "7 of 9" directly
+  // above a sentence whose numbers added to 8.
+  const diligenceCount = list.filter(inDiligence).length;
+  const notReady = list.filter((d, i) => stateOf(i) === 'NOT-READY' && inDiligence(d)).length;
+  const conditional = list.filter((d, i) => stateOf(i) === 'CONDITIONAL' && inDiligence(d)).length;
+  const icReady = list.filter((d, i) => stateOf(i) === 'READY' && inDiligence(d)).length;
+  // Deals already through committee that still carry unmet obligations. This is a
+  // different management problem from a live deal that is not ready to be tabled, and
+  // it belongs to a different person — so it is counted separately rather than folded
+  // into "Conditional", where it previously made a chair's second tile report six
+  // signed companies as though they were awaiting his approval.
+  const openObligations = list.filter((d, i) => !inDiligence(d) && condsOf(i) > 0).length;
+  // Post-close deals whose CONDITIONAL state comes from lanes with nothing written
+  // against them rather than from any condition the committee attached. This is a
+  // records problem, not an obligations problem, and it gets its own counter and its
+  // own sentence instead of being added to the number above.
+  const unevidencedPostClose = list.filter((d, i) => !inDiligence(d) && stateOf(i) === 'CONDITIONAL' && condsOf(i) === 0).length;
+  // The tile counts DEALS; this counts the conditions on them. Labelling a deal count
+  // "Conditions outstanding" meant the tile said 2 while the sentence beside it said
+  // "2 deals still carry conditions" — the same digit standing for two different things,
+  // and the true number of conditions (3) appeared nowhere.
+  const openConditionCount = list.reduce((s, d, i) => s + (!inDiligence(d) ? condsOf(i) : 0), 0);
   const sectors = new Set(list.map((d) => d.sector).filter(Boolean)).size;
+  // "The next committee" must include the deal that is AT committee.
+  //
+  // `icPending` is `stepIndex < IC_STEP_INDEX`, and IC_STEP_INDEX is D4 — the committee
+  // step itself — so a deal sitting on D4 with a date four days out was excluded from
+  // its own countdown. Atlas Cold Chain was exactly that: READY, daysToIC 4, and the
+  // only deal in "Ready to table = 1". The chair's tile said "next committee: 9 days"
+  // and named a different company. He would have read nine days and nothing ready, and
+  // walked into a committee in four with a deal ready to table. Everything before the
+  // gate counts, which is every deal `dealPhase` has not yet called post-committee.
+  // ...but a target date on a deal still in origination is an aspiration, not a booked
+  // committee. All four O-stage deals in the book carry dates 48-70 days out; without
+  // this a region-scoped seat holding only origination deals would be told "next
+  // committee in 48 days" above a queue row saying that deal has not been launched into
+  // diligence yet. Only a deal that has actually entered diligence is heading for a gate.
+  const awaitingCommittee = (d) => {
+    const p = dealPhase(d);
+    return p !== 'post-committee' && p !== 'origination';
+  };
   const upcoming = list
-    .filter((d) => icPending(d) && typeof d.daysToIC === 'number' && d.daysToIC >= 0)
+    .filter((d) => awaitingCommittee(d) && typeof d.daysToIC === 'number' && d.daysToIC >= 0)
     .sort((a, b) => a.daysToIC - b.daysToIC);
   const nearest = upcoming[0] || null;
 
+  // The phase strip is built from the SAME authority as every verdict counter on the
+  // page. It used to use `phaseOf` alone — a regex over the stage code — which
+  // classified one D5 deal as diligence while `dealPhase` called it post-committee, so
+  // the strip said 9 in diligence while the tile beside it said 7 of 8.
+  //
+  // `dealPhase` is authoritative on the only question that matters here (has this deal
+  // been to committee?), but it is coarser: it has no execution/value split. So it
+  // decides pre/in/post, and `phaseOf` is used ONLY to divide post-committee into
+  // "Execution & Closing" and "Value & Exit". One deal, one phase, on every surface.
+  const stripPhase = (d) => {
+    const p = dealPhase(d);
+    if (p === 'origination' || p === 'diligence') return p;
+    return phaseOf(d)?.key === 'value' ? 'value' : 'execution';
+  };
   const phases = PHASES.map((p) => {
-    const ds = list.filter((d) => phaseOf(d)?.key === p.key);
+    const ds = list.filter((d) => stripPhase(d) === p.key);
     return { key: p.key, label: p.label, count: ds.length, capital: ds.reduce((s, d) => s + num(d.dealSize), 0) * 1e6 };
   }).filter((p) => p.count > 0);
 
-  const workiq = portfolioCommitments(list, rawFor);
+  const workiq = portfolioCommitments(list, rawFor, 6, seat.laneLabels);
+
+  // ---- what this seat owns, counted ----------------------------------------
+  // Only meaningful for a lane seat; computed once and reused by the tiles and the
+  // narrative so the two can never disagree.
+  //
+  // "Open" means open. An earlier version counted every row the lane appeared on,
+  // completed ones included, which inflated the headline roughly twofold and was
+  // contradicted by the sentence directly beneath it: "open on 15 of the 19 deals you
+  // can see: 5 not started, 7 complete". A finished lane is not a task.
+  const laneRows = isLaneSeat ? ranked : [];
+  const laneDone = laneRows.filter((r) => num(r.a.laneProgress) >= 100).length;
+  const laneOpen = laneRows.filter((r) => num(r.a.laneProgress) < 100).length;
+  const laneNotStarted = laneRows.filter((r) => !num(r.a.laneProgress)).length;
+  // "Blocking the gate" can only mean a deal that has not yet BEEN through the gate.
+  // Without this filter the Fund CFO read "your lane is one of the reasons 13 deals
+  // cannot be tabled at committee" two paragraphs above "19 deals, 7 not yet IC-ready"
+  // — thirteen deals that cannot be tabled, out of seven that are not ready. Five of
+  // the eleven on the GC's page were already signed. A reader with a calculator stops
+  // the demo there.
+  const laneBlocking = laneRows.filter((r) => (r.a.gating || []).length && r.a.rank <= 3 && inDiligence(r.deal)).length;
+  // The lanes this seat owns that stand between a deal and a committee date. This is
+  // the only number on the page a partner will chase them about, so it leads the tiles.
+  const laneDueBeforeIC = laneRows.filter((r) => num(r.a.laneProgress) < 100
+    && typeof r.deal.daysToIC === 'number' && r.deal.daysToIC >= 0 && r.deal.daysToIC <= 21).length;
+  const laneNextIC = upcoming.find((d) => laneRows.some((r) => r.deal.id === d.id && num(r.a.laneProgress) < 100)) || null;
+
+  // Facts an observer CAN be told. Stage, status and target date survive the metadata
+  // tier, so a seat with no workstream access is not a seat with nothing to say —
+  // building an empty box and apologising for it is worse than reporting what is there.
+  const observerNearCommittee = list.filter((d) => awaitingCommittee(d) && typeof d.daysToIC === 'number' && d.daysToIC >= 0 && d.daysToIC <= 14).length;
+  const observerOverdue = list.filter((d) => awaitingCommittee(d) && typeof d.daysToIC === 'number' && d.daysToIC < 0).length;
 
   // ---- the narrative -------------------------------------------------------
   const c = citer();
   if (!list.length) {
     c.add('You do not have any live deals in view. Sourced candidates appear here once they clear the screening gate.', 'Deal list');
+  } else if (isLaneSeat) {
+    // A lane seat is told about its lane FIRST and the portfolio second. The order is
+    // the point: the previous version opened every seat with the same sentence about
+    // total enterprise value, which is a fact for the fund's CFO and noise for the
+    // person who owns supplier concentration.
+    // Lane labels are proper nouns and are NOT lowercased. "Financial / QoE" became
+    // "financial / qoe" and "ESG" became "esg", which is the sort of thing the person
+    // who owns that lane notices before they read anything else on the page.
+    const lane = laneName(seat.laneLabels);
+    const laneWord = seat.laneLabels.length > 1 ? 'lanes' : 'lane';
+    // The denominator is the number of deals this lane was actually ASSESSED on, not
+    // every deal in view. assessLane returns null for origination deals (the lanes have
+    // not opened yet), so counting against list.length produced "open on 8 of the 19 —
+    // 5 not started, 7 complete": 5 + 7 = 12, 8 + 7 = 15, and neither is 19.
+    const laneTotal = laneRows.length;
+    if (!laneOpen) {
+      c.add(`None of the ${laneTotal} deal${laneTotal === 1 ? '' : 's'} carrying your ${laneWord} ${laneTotal === 1 ? 'has' : 'have'} it open, so there is nothing on your desk today.`, 'Workstream record — your lane');
+    } else {
+      const many = seat.laneLabels.length > 1;
+      c.add(`You own the ${lane} ${laneWord}. Of the ${laneTotal} deal${laneTotal === 1 ? '' : 's'} in diligence or beyond that you can see, ${laneOpen} still ha${laneOpen === 1 ? 's' : 've'} ${many ? 'one of them' : 'it'} open — ${laneNotStarted} not started — and ${laneDone} ${laneDone === 1 ? 'is' : 'are'} complete.`, 'Workstream record — your lane');
+      const worst = attention[0];
+      if (worst && (worst.tone === 'bad' || worst.tone === 'warn')) {
+        c.add(`Start with ${worst.company} — ${worst.why}`, worst.basis);
+      }
+      if (laneBlocking) {
+        c.add(`Your ${seat.laneLabels.length > 1 ? 'lanes are' : 'lane is'} currently one of the reasons ${laneBlocking} deal${laneBlocking === 1 ? '' : 's'} cannot be tabled at committee.`, 'IC readiness board — blocking workstreams');
+      } else {
+        c.add('Your lane is not blocking any deal from going to committee.', 'IC readiness board — blocking workstreams');
+      }
+      if (laneNextIC) {
+        c.add(`The next committee date that still needs your lane is ${laneNextIC.company}, in ${laneNextIC.daysToIC} day${laneNextIC.daysToIC === 1 ? '' : 's'}.`, 'Deal record — target IC date');
+      }
+    }
+    c.add(`Across everything you can see: ${list.length} deal${list.length === 1 ? '' : 's'} carrying ${money(capital)} of enterprise value, ${notReady} not yet IC-ready.`, 'Deal list');
   } else {
+    if (seat.kind === 'oversight') {
+      c.add(`You are seeing the administrator's view — every deal in the platform, ranked by deal health rather than weighted to any one desk.`, 'Access model — administrator');
+    } else if (seat.kind === 'observer') {
+      c.add('You hold an observer seat, so this page reports deal status and nothing behind it.', 'Access model — observer');
+    } else if (seat.unbound) {
+      // Say it, rather than let a generic page pass for a tailored one.
+      c.add('No specialist seat is assigned to you yet, so this is the general portfolio view rather than a desk built around your lane.', 'Access model — no persona assigned');
+    }
+    // The seat's OWN opening sentence, ahead of the portfolio statistic.
+    //
+    // Enterprise value across sectors is a fundraising slide, not a Monday morning. It
+    // used to open the page for the IC chair, the deal lead, the analyst and the head
+    // of IR alike — so the supporting cast had job-specific openings while the person
+    // the product is sold to read a fund-size number. Whoever has a job here is told
+    // about the job first; the portfolio line follows as context.
+    const jobOpener = () => {
+      if (seat.kind === 'committee') {
+        // A chair's first sentence is the agenda: what can be tabled, what cannot, and
+        // who is holding it up.
+        const when = nearest ? `The next committee is in ${nearest.daysToIC} day${nearest.daysToIC === 1 ? '' : 's'}.` : 'No committee date is set on any deal in view.';
+        c.add(
+          icReady
+            ? `${when} ${icReady} deal${icReady === 1 ? ' is' : 's are'} ready to table; ${notReady} in diligence ${notReady === 1 ? 'is' : 'are'} not.`
+            : `${when} Nothing in view is ready to table yet — ${notReady} deal${notReady === 1 ? ' is' : 's are'} still short of the gate.`,
+          'IC readiness board — verdicts',
+        );
+        const blockers = attention.filter((a) => (a.gating || []).length).slice(0, 3);
+        if (blockers.length) {
+          c.add(`Holding up the next ones: ${blockers.map((b) => `${b.company} (${(b.gating || [])[0]})`).join(', ')}.`, 'IC readiness board — blocking workstreams');
+        }
+        if (openObligations) {
+          c.add(`Separately, ${openObligations} deal${openObligations === 1 ? '' : 's'} already through committee still carr${openObligations === 1 ? 'ies' : 'y'} ${openConditionCount} obligation${openConditionCount === 1 ? '' : 's'} — conditions attached at approval and compliance checks not yet cleared.`, 'IC readiness board — post-committee obligations');
+        }
+        if (unevidencedPostClose) {
+          // A records gap, not an obligation. Reported separately and named for what it
+          // is, so nobody chases an owner for a condition that was never attached.
+          c.add(`A further ${unevidencedPostClose} deal${unevidencedPostClose === 1 ? '' : 's'} past the gate ${unevidencedPostClose === 1 ? 'has' : 'have'} no obligation recorded but diligence lanes that were never written up — a records gap rather than something owed.`, 'IC readiness board — unevidenced lanes');
+        }
+        return true;
+      }
+      if (seat.kind === 'deal-lead') {
+        // The deal lead is accountable for getting deals TO the gate, so their sentence
+        // is about the gap between now and the next date, not the size of the book.
+        const soon = list.filter((d) => typeof d.daysToIC === 'number' && d.daysToIC >= 0 && d.daysToIC <= 21 && awaitingCommittee(d)).length;
+        c.add(
+          soon
+            ? `You are running ${soon} deal${soon === 1 ? '' : 's'} with a committee date inside three weeks, and ${notReady} of the deals in view ${notReady === 1 ? 'is' : 'are'} not yet ready to be tabled.`
+            : `No deal in view has a committee date inside three weeks. ${notReady} ${notReady === 1 ? 'is' : 'are'} still short of the gate.`,
+          'Deal record — target IC date',
+        );
+        if (workiq.total) {
+          c.add(`${workiq.total} commitment${workiq.total === 1 ? '' : 's'} made in the deal channels ${workiq.total === 1 ? 'has' : 'have'} not been turned into a tracked task — those land on you before they land on anyone else.`, 'Work IQ — deal channels');
+        }
+        return true;
+      }
+      if (seat.kind === 'lp') {
+        // Investor relations answers to LPs, so the frame is committed capital and what
+        // has completed, not which diligence lane is late.
+        const closed = phases.find((p) => p.key === 'value');
+        c.add(
+          `Across the book you can see, ${money(capital)} of enterprise value in ${list.length} deal${list.length === 1 ? '' : 's'}${closed ? `, of which ${closed.count} ${closed.count === 1 ? 'company has' : 'companies have'} completed and moved into value creation carrying ${money(closed.capital)}` : ''}.`,
+          'Deal list',
+        );
+        if (openObligations) {
+          c.add(`${openObligations} completed deal${openObligations === 1 ? '' : 's'} still carr${openObligations === 1 ? 'ies' : 'y'} conditions attached at approval — the ones most likely to be asked about in an LP update.`, 'IC readiness board — post-committee obligations');
+        }
+        return true;
+      }
+      if (seat.kind === 'value') {
+        // An operating partner's job starts at close. Opening them on the whole book's
+        // enterprise value — which is mostly deals that may never complete — put the
+        // one number they cannot act on at the top of their page, while their own tiles
+        // below counted owned companies.
+        const owned = phases.find((p) => p.key === 'value');
+        // "Closing soon" must mean ONE thing on this page. The tile counts the
+        // execution phase — signed, not yet closed — so the sentence counts the same
+        // deals rather than inventing a second definition (approved with a date inside
+        // 30 days) that produced 1 next to a tile reading 3.
+        const soonClosing = phases.find((p) => p.key === 'execution')?.count || 0;
+        c.add(
+          owned && owned.count
+            ? `You own ${owned.count} ${owned.count === 1 ? 'company' : 'companies'} post-close carrying ${money(owned.capital)}${soonClosing ? `, with ${soonClosing} more signed and about to become yours` : ''}.`
+            : `No company in your view has completed yet${soonClosing ? `, though ${soonClosing} ${soonClosing === 1 ? 'is' : 'are'} signed and about to close` : ''}.`,
+          'Deal list — post-close portfolio',
+        );
+        if (openObligations) {
+          c.add(`${openObligations} deal${openObligations === 1 ? '' : 's'} past the committee gate still carr${openObligations === 1 ? 'ies' : 'y'} a condition attached at approval, which lands on the value-creation plan before anything else does.`, 'IC readiness board — post-committee obligations');
+        }
+        return true;
+      }
+      return false;
+    };
+    const openedWithJob = jobOpener();
+
     c.add(
-      `You have ${list.length} deal${list.length === 1 ? '' : 's'} in view carrying ${money(capital)} of enterprise value across ${sectors || 1} sector${sectors === 1 ? '' : 's'}.`,
+      openedWithJob
+        ? `Across everything you can see: ${list.length} deal${list.length === 1 ? '' : 's'} carrying ${money(capital)} of enterprise value in ${sectors || 1} sector${sectors === 1 ? '' : 's'}.`
+        : `You have ${list.length} deal${list.length === 1 ? '' : 's'} in view carrying ${money(capital)} of enterprise value across ${sectors || 1} sector${sectors === 1 ? '' : 's'}.`,
       'Deal list',
     );
+
+    if (seat.kind === 'screening') {
+      const orig = phases.find((p) => p.key === 'origination');
+      c.add(
+        orig
+          ? `${orig.count} of them ${orig.count === 1 ? 'is' : 'are'} still in origination and screening, which is where your work starts.`
+          : 'Nothing is sitting in origination — every deal you can see has already been launched into diligence.',
+        'Deal record — current step',
+      );
+    }
+    if (seat.kind === 'value') {
+      const val = phases.find((p) => p.key === 'value');
+      c.add(
+        val
+          ? `${val.count} ${val.count === 1 ? 'company is' : 'companies are'} owned and in the value phase, carrying ${money(val.capital)}.`
+          : 'Nothing has reached the value phase yet, so the value-creation plan is still forward-looking on every deal here.',
+        'Deal record — current step',
+      );
+    }
 
     const urgent = attention.filter((a) => a.tone === 'bad');
     if (urgent.length) {
@@ -324,49 +835,201 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, rawFo
       c.add('Every deal in view is either on track or past the readiness bar. There is nothing competing for your attention today.', 'IC readiness board');
     }
 
-    if (nearest) {
+    // The committee seat's opener already leads with the date and the ready/not-ready
+    // split, so these would restate it two paragraphs later in different words.
+    if (nearest && seat.kind !== 'committee') {
       c.add(
         `The next committee date is ${nearest.company} in ${nearest.daysToIC} day${nearest.daysToIC === 1 ? '' : 's'}.`,
         'Deal record — target IC date',
       );
     }
 
-    if (icReady) {
+    if (icReady && seat.kind !== 'committee') {
       c.add(`${icReady} deal${icReady === 1 ? ' is' : 's are'} ready to table — papers on record, no blocking lanes, no unresolved risk findings.`, 'IC readiness board');
     }
-    if (conditional) {
-      c.add(`${conditional} deal${conditional === 1 ? ' carries' : 's carry'} committee conditions that are still open.`, 'IC readiness board — committee conditions');
-    }
-
-    if (workiq.total) {
-      c.add(
-        `Work IQ found ${workiq.total} commitment${workiq.total === 1 ? '' : 's'} made in deal channels across ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'} that ${workiq.total === 1 ? 'is' : 'are'} not tracked as tasks anywhere.`,
-        'Work IQ — Teams channels',
-      );
+    if (openObligations && !openedWithJob) {
+      // The seats that open with their own job sentence (committee, IR) already say
+      // this above; repeating it here would read as two different findings.
+      c.add(`${openObligations} deal${openObligations === 1 ? '' : 's'} already through committee still carr${openObligations === 1 ? 'ies' : 'y'} conditions that were attached at approval.`, 'IC readiness board — post-committee obligations');
     }
   }
 
+  if (workiq.total) {
+    c.add(
+      workiq.yours
+        ? `Work IQ found ${workiq.total} commitment${workiq.total === 1 ? '' : 's'} made in deal channels that ${workiq.total === 1 ? 'is' : 'are'} not tracked as tasks — ${workiq.yours} of them in your lane.`
+        : `Work IQ found ${workiq.total} commitment${workiq.total === 1 ? '' : 's'} made in deal channels across ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'} that ${workiq.total === 1 ? 'is' : 'are'} not tracked as tasks anywhere.`,
+      'Work IQ — Teams channels',
+    );
+  }
+
+  // ---- the tiles -----------------------------------------------------------
+  // A lane owner leads with their lane; a committee seat leads with the gate; a
+  // sourcing seat leads with what is early. Every tile is a count over the deals this
+  // caller can see, so no tile can describe a deal they cannot open.
+  const portfolioKpis = [
+    { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${diligenceCount} in diligence` },
+    { key: 'capital', label: 'Enterprise value', value: money(capital), sub: list.length ? `avg ${money(capital / list.length)} · ${sectors || 1} sector${sectors === 1 ? '' : 's'}` : '—' },
+    { key: 'readiness', label: 'Not IC-ready', value: String(notReady), sub: `${icReady} ready to table · ${openObligations} with conditions open` },
+    { key: 'ic', label: 'Next committee', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
+  ];
+  let kpis = portfolioKpis;
+  if (seat.kind === 'observer') {
+    // An observer cannot see the workstreams the verdict is computed from, so every
+    // deal came back "not not-ready" and the tile rendered a confident 0 — telling
+    // someone nothing is late, directly above prose admitting we cannot tell. A tile is
+    // a claim; this seat is only entitled to make claims about status and dates.
+    kpis = [
+      portfolioKpis[0], portfolioKpis[1],
+      { key: 'near', label: 'Committee inside 14 days', value: String(observerNearCommittee), sub: observerNearCommittee ? 'from the deal status only' : 'none in the next two weeks' },
+      { key: 'passed', label: 'Target date passed', value: String(observerOverdue), sub: observerOverdue ? 'still shown as pre-committee' : 'none overdue' },
+    ];
+  } else if (isLaneSeat) {
+    const lane = laneName(seat.laneLabels);
+    // Ordered by what somebody will be asked about, not by what is easy to count.
+    // "Lanes open" was the old headline: a denominator, inflated by counting completed
+    // lanes, and a number nobody has ever behaved differently because of. What this
+    // person is chased about is which committees they are holding up.
+    kpis = [
+      { key: 'lane-blocking', label: 'Blocking the gate', value: String(laneBlocking), sub: laneBlocking ? `${lane} is why ${laneBlocking === 1 ? 'it' : 'they'} cannot be tabled` : 'not blocking anything' },
+      { key: 'lane-due', label: 'Needed before a committee', value: String(laneDueBeforeIC), sub: laneNextIC ? `soonest ${laneNextIC.company}, ${laneNextIC.daysToIC}d` : 'none inside three weeks' },
+      { key: 'lane-idle', label: 'Not started', value: String(laneNotStarted), sub: laneNotStarted ? 'no work recorded yet' : 'every lane has opened' },
+      { key: 'lane-open', label: `Deals with your ${seat.laneLabels.length > 1 ? 'lanes' : 'lane'} open`, value: String(laneOpen), sub: `${laneDone} complete · of ${laneRows.length} carrying it` },
+    ];
+  } else if (seat.kind === 'committee') {
+    kpis = [
+      { key: 'ready', label: 'Ready to table', value: String(icReady), sub: 'papers on record, nothing blocking' },
+      { key: 'notready', label: 'Not IC-ready', value: String(notReady), sub: `of ${diligenceCount} in diligence` },
+      // Labelled for what it is. "Conditional" reads to a chair as a gate outcome —
+      // approved subject to conditions — and every deal in this bucket is already
+      // through committee. Six signed companies with an open obligation is a different
+      // management problem from a live deal awaiting approval.
+      { key: 'obligations', label: 'Deals with obligations open', value: String(openObligations), sub: `${openConditionCount} condition${openConditionCount === 1 ? '' : 's'} or compliance check${openConditionCount === 1 ? '' : 's'} not yet cleared` },
+      { key: 'ic', label: 'Next committee', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
+    ];
+  } else if (seat.kind === 'deal-lead') {
+    const soon = list.filter((d) => typeof d.daysToIC === 'number' && d.daysToIC >= 0 && d.daysToIC <= 21 && awaitingCommittee(d)).length;
+    kpis = [
+      { key: 'to-gate', label: 'Committee inside 3 weeks', value: String(soon), sub: nearest ? `soonest ${nearest.company}, ${nearest.daysToIC}d` : 'none scheduled' },
+      { key: 'notready', label: 'Not yet tabl-able', value: String(notReady), sub: `${icReady} ready to table` },
+      { key: 'commitments', label: 'Untracked commitments', value: String(workiq.total), sub: workiq.total ? `across ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'}` : 'nothing outstanding' },
+      { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
+    ];
+  } else if (seat.kind === 'lp') {
+    const val = phases.find((p) => p.key === 'value');
+    kpis = [
+      { key: 'capital', label: 'Enterprise value', value: money(capital), sub: `${list.length} deal${list.length === 1 ? '' : 's'} · ${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
+      { key: 'owned', label: 'Completed', value: String(val?.count || 0), sub: val ? `${money(val.capital)} now in value creation` : 'none completed yet' },
+      { key: 'obligations', label: 'Deals with obligations open', value: String(openObligations), sub: `${openConditionCount} outstanding on signed or completed deals` },
+      { key: 'ic', label: 'Next committee', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
+    ];
+  } else if (seat.kind === 'screening') {
+    const orig = phases.find((p) => p.key === 'origination')?.count || 0;
+    const dil = phases.find((p) => p.key === 'diligence')?.count || 0;
+    kpis = [
+      { key: 'origination', label: 'In origination', value: String(orig), sub: 'screened, not yet launched' },
+      { key: 'diligence', label: 'In diligence', value: String(dil), sub: 'live workstreams' },
+      { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
+      { key: 'ic', label: 'Next committee', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
+    ];
+  } else if (seat.kind === 'value') {
+    const val = phases.find((p) => p.key === 'value');
+    const exe = phases.find((p) => p.key === 'execution');
+    kpis = [
+      { key: 'owned', label: 'Owned companies', value: String(val?.count || 0), sub: val ? `${money(val.capital)} of enterprise value` : 'none in the value phase' },
+      { key: 'closing', label: 'Closing soon', value: String(exe?.count || 0), sub: 'about to become yours' },
+      { key: 'obligations', label: 'Deals with obligations open', value: String(openObligations), sub: `${openConditionCount} carried past the committee gate` },
+      { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
+    ];
+  }
+
+  // ---- what to ask next ----------------------------------------------------
+  // Phrased for the seat. A generic "which deals should I prioritise today?" is a
+  // question anyone could ask; "which deals is my lane holding up?" is one only this
+  // person would.
   const suggestions = [];
-  if (attention[0]) suggestions.push(`Why is ${attention[0].company} at risk?`);
-  suggestions.push('What changed across my deals this week?');
-  if (nearest) suggestions.push(`What is still missing for ${nearest.company}'s IC?`);
+  if (isLaneSeat) {
+    const lane = laneName(seat.laneLabels);
+    if (attention[0]) suggestions.push(`What is outstanding in my ${lane} lane on ${attention[0].company}?`);
+    suggestions.push(`Which deals is my ${lane} lane holding up?`);
+    if (laneNextIC) suggestions.push(`What does ${laneNextIC.company} need from me before committee?`);
+    suggestions.push(`Summarise my ${lane} findings across every deal`);
+  } else if (seat.kind === 'committee') {
+    if (icReady) suggestions.push('What is ready to table at the next committee?');
+    if (openObligations) suggestions.push('Which committee conditions are still open, and who owns them?');
+    if (attention[0]) suggestions.push(`Why is ${attention[0].company} not ready?`);
+    suggestions.push('What changed across my deals this week?');
+  } else if (seat.kind === 'deal-lead') {
+    if (nearest) suggestions.push(`What is still missing for ${nearest.company}'s committee papers?`);
+    suggestions.push('Which lanes are blocking my deals, and who owns them?');
+    if (workiq.total) suggestions.push('Show me commitments made in my deal channels that nobody is tracking');
+    suggestions.push('What changed across my deals this week?');
+  } else if (seat.kind === 'value') {
+    const ownedP = phases.find((p) => p.key === 'value');
+    if (ownedP && ownedP.count) suggestions.push('What is on the value-creation plan for the companies I own?');
+    if (openObligations) suggestions.push('Which approval conditions land on me post-close?');
+    suggestions.push('Which deals close soonest, and what should the 100-day plan cover?');
+    suggestions.push('What changed across my deals this week?');
+  } else if (seat.kind === 'lp') {
+    suggestions.push('Summarise portfolio performance for an LP update');
+    if (openObligations) suggestions.push('Which completed deals still have conditions outstanding?');
+    suggestions.push('What is our exposure by sector and region?');
+    suggestions.push('What completed since the last quarter?');
+  } else if (seat.kind === 'screening') {
+    if (attention[0]) suggestions.push(`What do we know about ${attention[0].company} so far?`);
+    suggestions.push('Which origination targets are ready to launch into diligence?');
+    suggestions.push('What changed across my deals this week?');
+  } else {
+    if (attention[0]) suggestions.push(`Why is ${attention[0].company} at risk?`);
+    suggestions.push('What changed across my deals this week?');
+    if (nearest) suggestions.push(`What is still missing for ${nearest.company}'s IC?`);
+    suggestions.push('Which deals should I prioritise today?');
+  }
   if (workiq.total) suggestions.push('Show me untracked commitments across all deals');
-  suggestions.push('Which deals should I prioritise today?');
 
   return {
     generatedAt: new Date().toISOString(),
     roleLabel: roleLabel || null,
     role: role || null,
+    // The seat is returned so the page can say whose desk it is, and admit when it
+    // could not work that out, instead of printing "weighted for Deal Team" over a
+    // queue that was not weighted for anything.
+    seat: {
+      personaId: seat.personaId,
+      label: seat.label,
+      focus: seat.focus,
+      kind: seat.kind,
+      lanes: seat.lanes,
+      laneLabels: seat.laneLabels,
+      tailored: !seat.unbound,
+    },
     briefing: { ...c.result(), suggestions: suggestions.slice(0, 5) },
     attention,
+    // WHY the queue is empty, decided here rather than guessed in the page.
+    //
+    // An empty queue has three quite different meanings and the page cannot tell them
+    // apart from the array alone. It previously assumed the happy one and printed
+    // "every deal you can see is on track" to an observer holding sixteen deals, four
+    // of which were not IC-ready — the reader's own tiles contradicted the sentence.
+    // An empty result is not the same as a clean result.
+    attentionEmpty: attention.length ? null
+      : !list.length ? 'There are no deals in your view yet.'
+      : seat.kind === 'observer'
+        // Not "ask an administrator for deal-team access". Access to a live deal comes
+        // from the deal lead or the sponsor, and in a firm with information barriers it
+        // is a wall-crossing that goes through compliance and gets logged — nobody rings
+        // IT for diligence content. An observer seat is also frequently the CORRECT
+        // seat: a junior, an LP-side observer, someone conflicted off a deal. The page
+        // should not be advising them to escalate their own permissions.
+        ? `Your seat shows deal status, not the workstreams underneath, so there is nothing here to rank. On what you can see: ${observerNearCommittee} committee${observerNearCommittee === 1 ? '' : 's'} inside 14 days and ${observerOverdue} target date${observerOverdue === 1 ? '' : 's'} already passed. Diligence detail is granted by the deal lead.`
+        : isLaneSeat && !laneOpen
+          ? `No deal in your view has an open ${seat.laneLabels.join(' or ').toLowerCase()} lane.`
+          : ranked.length === 0 && list.length
+            ? 'The deals in your view have no workstream records yet, so there is nothing to rank.'
+            : 'Nothing is flagged right now — every deal in your view is on track or IC-ready.',
     phases,
     workiq,
-    kpis: [
-      { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${phases.find((p) => p.key === 'diligence')?.count || 0} in diligence` },
-      { key: 'capital', label: 'Enterprise value', value: money(capital), sub: list.length ? `avg ${money(capital / list.length)} · ${sectors || 1} sector${sectors === 1 ? '' : 's'}` : '—' },
-      { key: 'readiness', label: 'Not IC-ready', value: String(notReady), sub: `${conditional} conditional · ${icReady} ready to table` },
-      { key: 'ic', label: 'Next committee', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
-    ],
-    counts: { deals: list.length, attention: attention.length, notReady, conditional, icReady, commitments: workiq.total },
+    kpis,
+    counts: { deals: list.length, attention: attention.length, notReady, conditional, openObligations, icReady, commitments: workiq.total, laneOpen, laneNotStarted, laneBlocking, laneDueBeforeIC },
   };
 }
