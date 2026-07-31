@@ -7,8 +7,12 @@
 // Each therefore carries the same governance/placement fields the demo-stage deals do:
 //   region    — territory for the Entra region-group access model (European HQs here,
 //               so they also exercise the 'international' scope)
-//   stageName — the human phase label the portfolio view buckets on; the `stage` code
-//               (D1..D5) is the diligence STEP, which is a different axis
+//   stage     — the flow STEP key (data/flow.js). This is what actually places a deal
+//               in a lifecycle phase: derive() looks the step up and overwrites
+//               stageName from the step's stage. Note D1..D5 are ALL diligence steps
+//               (D5 is Archive, the audit close-out) — execution starts at E1.
+//   stageName — mirrors the label derive() will produce. Kept for readability only;
+//               the step code above is authoritative.
 //   status    — lifecycle state used by the workspace/gating logic
 export const seedDeals = [
   {
@@ -267,9 +271,9 @@ export const seedDeals = [
     dealSize: 195,
     currency: 'EUR',
     stage: 'D5',
-    // Approved at IC and heading for signing — past diligence, so it sits in the
-    // Execution & Closing phase even though its diligence STEP code is D5 (close-out).
-    stageName: 'Execution & Closing',
+    // D5 is Archive — the audit-trail close-out of the DILIGENCE stage, which is exactly
+    // where this deal sits: IC approved, record archived, not yet through E1 financing.
+    stageName: 'Diligence & Approval',
     status: 'signing',
     sponsorPersona: 'partner',
     leadAnalyst: 'analyst',
