@@ -1,17 +1,29 @@
 // Seeded deal estate — realistic private-equity opportunities at different
 // lifecycle stages. The lead deal (Nordic Grocery Group) is richly populated so
 // the workspace is compelling on first open; the rest show the pipeline spread.
-
+//
+// These are SEEDED INTO THE DATASTORE at boot (see lib/store.js hydrate → seededDeals),
+// so they are live, mutable records like any other deal — not read-only fixtures.
+// Each therefore carries the same governance/placement fields the demo-stage deals do:
+//   region    — territory for the Entra region-group access model (European HQs here,
+//               so they also exercise the 'international' scope)
+//   stageName — the human phase label the portfolio view buckets on; the `stage` code
+//               (D1..D5) is the diligence STEP, which is a different axis
+//   status    — lifecycle state used by the workspace/gating logic
 export const seedDeals = [
   {
     id: 'nordic-grocery',
     company: 'Nordic Grocery Group',
+    region: 'international',
+    tags: [],
     sector: 'Consumer & Retail',
     subSector: 'Grocery / Convenience',
     hq: 'Stockholm, Sweden',
     dealSize: 820,
     currency: 'EUR',
     stage: 'D2',
+    stageName: 'Diligence & Approval',
+    status: 'in_diligence',
     sponsorPersona: 'partner',
     leadAnalyst: 'analyst',
     targetICDate: daysFromNow(12),
@@ -83,12 +95,16 @@ export const seedDeals = [
   {
     id: 'heliopack',
     company: 'HelioPack Sustainable Packaging',
+    region: 'international',
+    tags: [],
     sector: 'Industrials',
     subSector: 'Sustainable Packaging',
     hq: 'Rotterdam, Netherlands',
     dealSize: 410,
     currency: 'EUR',
     stage: 'D1',
+    stageName: 'Diligence & Approval',
+    status: 'in_diligence',
     sponsorPersona: 'partner',
     leadAnalyst: 'analyst',
     targetICDate: daysFromNow(26),
@@ -131,12 +147,16 @@ export const seedDeals = [
   {
     id: 'lumen-analytics',
     company: 'Lumen Analytics',
+    region: 'international',
+    tags: [],
     sector: 'Software',
     subSector: 'Vertical SaaS / Data',
     hq: 'Dublin, Ireland',
     dealSize: 240,
     currency: 'EUR',
     stage: 'D3',
+    stageName: 'Diligence & Approval',
+    status: 'in_diligence',
     sponsorPersona: 'ai-md',
     leadAnalyst: 'analyst',
     targetICDate: daysFromNow(9),
@@ -183,12 +203,16 @@ export const seedDeals = [
   {
     id: 'atlas-coldchain',
     company: 'Atlas Cold Chain Logistics',
+    region: 'international',
+    tags: [],
     sector: 'Logistics',
     subSector: 'Temperature-controlled 3PL',
     hq: 'Hamburg, Germany',
     dealSize: 360,
     currency: 'EUR',
     stage: 'D4',
+    stageName: 'Diligence & Approval',
+    status: 'in_diligence',
     sponsorPersona: 'partner',
     leadAnalyst: 'analyst',
     targetICDate: daysFromNow(4),
@@ -235,12 +259,18 @@ export const seedDeals = [
   {
     id: 'baltic-precision',
     company: 'Baltic Precision Components',
+    region: 'international',
+    tags: [],
     sector: 'Industrials',
     subSector: 'Precision Components',
     hq: 'Tallinn, Estonia',
     dealSize: 195,
     currency: 'EUR',
     stage: 'D5',
+    // Approved at IC and heading for signing — past diligence, so it sits in the
+    // Execution & Closing phase even though its diligence STEP code is D5 (close-out).
+    stageName: 'Execution & Closing',
+    status: 'signing',
     sponsorPersona: 'partner',
     leadAnalyst: 'analyst',
     targetICDate: daysFromNow(-6),
@@ -458,6 +488,63 @@ export const demoStageDeals = [
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Contracted solar-plus-storage backlog with IRA economics.', citations: ['Screen'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
     activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at the Screening Gate', when: hoursAgo(72) }], hoursSaved: 4,
+  },
+  // Top-of-funnel spread. Origination is mostly a CANDIDATE activity (see data/
+  // candidates.js) — only pursued candidates become deals — but the funnel reads as
+  // hollow if the first phase holds a single row, so each territory carries one
+  // freshly-screened deal that has not yet been launched into diligence.
+  {
+    id: 'demo-riverbend', company: 'Riverbend Specialty Foods', region: 'midwest', tags: [],
+    sector: 'Consumer & Retail', subSector: 'Specialty Food Manufacturing', hq: 'Milwaukee, Wisconsin, United States',
+    dealSize: 165, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
+    sponsorPersona: 'retail-md', leadAnalyst: 'analyst', targetICDate: daysFromNow(63), baselineDays: 45,
+    thesis: 'Founder-owned specialty food manufacturer supplying private-label premium lines to regional grocers; succession window and an under-used second plant.',
+    keyFigures: [
+      { label: 'Revenue (LTM)', value: '$188M', source: 'Screen', confidence: 'medium' },
+      { label: 'EBITDA margin', value: '13.2%', source: 'Screen', confidence: 'low' },
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'not_started', progress: 0, findings: [] },
+    ],
+    memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Private-label specialty manufacturer with spare capacity and a succession window.', citations: ['Screen'] }],
+    compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
+    activity: [{ actor: 'Sourcing Agent', action: 'Surfaced from founder-succession signals; PURSUE recorded at the Screening Gate', when: hoursAgo(30) }], hoursSaved: 3,
+  },
+  {
+    id: 'demo-harborlight', region: 'northeast', tags: [],
+    company: 'Harborlight Marine Services',
+    sector: 'Industrials', subSector: 'Marine Infrastructure Services', hq: 'Portland, Maine, United States',
+    dealSize: 225, currency: 'USD', stage: 'O3', stageName: 'Origination & Screening', status: 'screened',
+    sponsorPersona: 'supply-md', leadAnalyst: 'analyst', targetICDate: daysFromNow(55), baselineDays: 45,
+    thesis: 'Port and offshore-wind maintenance services platform along the Atlantic seaboard; contracted revenue from federal port modernisation and a fragmented competitor set.',
+    keyFigures: [
+      { label: 'Revenue (LTM)', value: '$142M', source: 'Screen', confidence: 'medium' },
+      { label: 'Contracted backlog', value: '$310M', source: 'Screen', confidence: 'medium' },
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'not_started', progress: 0, findings: [] },
+      { lane: 'operations', owner: 'supply-md', status: 'not_started', progress: 0, findings: [] },
+    ],
+    memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Fragmented marine services roll-up on contracted port and offshore-wind demand.', citations: ['Screen'] }],
+    compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'in_progress' }],
+    activity: [{ actor: 'Diego Marquez', action: 'Completed the screening triage; routed to the gate', when: hoursAgo(46) }], hoursSaved: 5,
+  },
+  {
+    id: 'demo-cypress', company: 'Cypress Grove Dental Partners', region: 'southeast', tags: [],
+    sector: 'Healthcare', subSector: 'Dental Services Organisation', hq: 'Tampa, Florida, United States',
+    dealSize: 280, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
+    sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(70), baselineDays: 45,
+    thesis: 'Sunbelt dental services organisation with 64 clinics; de-novo and tuck-in pipeline in demographically growing catchments, with reimbursement mix the central screening question.',
+    keyFigures: [
+      { label: 'Revenue (LTM)', value: '$246M', source: 'Screen', confidence: 'medium' },
+      { label: 'Clinics', value: '64', source: 'Screen', confidence: 'high' },
+    ],
+    workstreams: [
+      { lane: 'commercial', owner: 'retail-md', status: 'not_started', progress: 0, findings: [] },
+    ],
+    memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Sunbelt DSO consolidation with a de-novo pipeline; reimbursement mix to be tested.', citations: ['Screen'] }],
+    compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
+    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at the Screening Gate', when: hoursAgo(20) }], hoursSaved: 3,
   },
 
   {
@@ -717,3 +804,9 @@ export const demoStageDeals = [
     hoursSaved: 37
   }
 ];
+
+// Every deal the app seeds into the datastore at boot. lib/store.js inserts any of
+// these that the datastore does not already hold, BY ID, and never clobbers one that
+// is already there — so a seeded deal becomes a live, mutable record on first boot and
+// its subsequent progress survives every restart and redeploy.
+export const seededDeals = [...seedDeals, ...demoStageDeals];

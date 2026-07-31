@@ -4,7 +4,7 @@
 // themes / screens / flow / personas remain in-memory config. lib/repo falls
 // back to an in-memory Map when COSMOS_ENDPOINT is unset so local dev still runs.
 
-import { seedSourcing, demoStageDeals } from '../data/deals.js';
+import { seedSourcing, seededDeals } from '../data/deals.js';
 import { regionForDeal } from '../data/regions.js';
 import { personas } from '../data/personas.js';
 import { STAGES, STEPS, STEP_KEYS, FLOW, GATE, stepByKey, stepIndex, stageById, firstStepKeyOfStage, prevStageId } from '../data/flow.js';
@@ -50,7 +50,7 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 // the persisted Cosmos record predates these fields (the background sync reloads from
 // Cosmos every few seconds, so an in-memory-only patch would otherwise be wiped).
 const DEMO_GOVERNANCE = new Map(
-  demoStageDeals.map((d) => [d.id, { team: Array.isArray(d.team) ? d.team.slice() : [], confidential: !!d.confidential }]),
+  seededDeals.map((d) => [d.id, { team: Array.isArray(d.team) ? d.team.slice() : [], confidential: !!d.confidential }]),
 );
 
 // Backfill the first-class functional lanes (financial / legal / tax / ESG) onto
@@ -270,9 +270,11 @@ export async function hydrate() {
     deals = attachWorkspaces(ds);
     // Overlay of demo governance (deal team + confidential) is applied inside
     // attachWorkspaces above, so it survives the periodic Cosmos background sync.
-    // Seed any missing later-stage showcase deals (insert by id, never clobbering progress).
+    // Seed any missing showcase deals (insert by id, never clobbering progress). A deal
+    // that is already persisted is left exactly as it is, so this is safe on every boot
+    // and a redeploy never resets work in flight.
     const haveDealIds = new Set(deals.map((d) => d.id));
-    for (const demo of demoStageDeals) {
+    for (const demo of seededDeals) {
       if (haveDealIds.has(demo.id)) continue;
       const dd = clone(demo);
       attachWorkspaces([dd]);

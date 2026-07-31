@@ -58,7 +58,11 @@ export default function Dashboard({ analytics, pipeline, deals, market, config, 
   const [homeLoading, setHomeLoading] = useState(true);
   const [evidence, setEvidence] = useState(false);
   const [briefOpen, setBriefOpen] = useState(true);
-  const [showWorkiq, setShowWorkiq] = useState(false);
+  // Modules render OPEN. A collapsed card is a header floating above dead space,
+  // which reads as a layout bug rather than a choice — and it hides the very thing
+  // that justifies the card being on the page. Hiding stays available, it is just
+  // not the default.
+  const [showWorkiq, setShowWorkiq] = useState(true);
 
   function loadHome() {
     setHomeLoading(true);
