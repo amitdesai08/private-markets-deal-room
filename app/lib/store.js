@@ -503,7 +503,15 @@ export function listDeals(identity, viewAsRole = null) {
     if (level === 'none') continue;               // confidential deal you can't see
     const s = summarize(d);
     s.accessLevel = level;
-    if (level === 'status') { s.thesis = undefined; s.locked = true; } // status tier: metadata only
+    if (level === 'status') {
+      // Status tier is "this deal exists and roughly where it is" — NOT diligence
+      // substance. `summarize` ships per-lane status/progress for every deal, which
+      // is how the team assesses the deal, so it has to come off here or a
+      // metadata-only seat can read the lane board of a deal it cannot open.
+      s.thesis = undefined;
+      s.workstreams = [];
+      s.locked = true;
+    }
     out.push(s);
   }
   return out;

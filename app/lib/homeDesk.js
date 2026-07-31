@@ -130,6 +130,15 @@ function assess(deal) {
 function portfolioCommitments(deals, rawFor, limit = 6) {
   const out = [];
   for (const d of deals) {
+    // A commitment quotes a named person out of a deal's private channel, so it is
+    // deal-team content, not metadata. `listDeals` deliberately returns status-tier
+    // deals to people who are NOT on that team (metadata only, thesis stripped) —
+    // and `rawFor` below resolves to the UNREDACTED record. Reading a status-tier
+    // deal here would therefore promote a metadata-only seat to full channel
+    // content, which is the exact escalation the access model exists to prevent.
+    // Only full-access deals contribute. An absent accessLevel means the caller is
+    // the system/agent path, which is already scoped upstream.
+    if (d.accessLevel && d.accessLevel !== 'full') continue;
     let corpus;
     // The corpus is composed from the FULL deal record (lane owners, sponsor,
     // dates); a list summary has those stripped, which would leave every
