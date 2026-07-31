@@ -1647,9 +1647,17 @@ api.post('/deals/:id/steps/:stepKey/run', async (req, res) => {
 
 api.post('/deals/:id/advance', async (req, res) => {
   const { overrideReason } = req.body || {};
-  const r = await advanceDeal(req.params.id, { overrideReason });
+  // The caller's role, resolved server-side. Passing nothing here left the partner-only
+  // IC-gate override open to every caller. `access.role` is the EFFECTIVE role, so a
+  // partner who is viewing as an analyst cannot override either — view-as only narrows.
+  // An admin is a systems role, not a deal sponsor, and is deliberately not promoted here.
+  const access = accessFor(requestingIdentity(req), requestingViewAs(req));
+  const r = await advanceDeal(req.params.id, { persona: access.role || null, overrideReason });
   if (r && r.error === 'not-found') return res.status(404).json({ error: 'deal not found' });
-  if (r && r.error) return res.status(409).json(r); // ic-not-ready / override-forbidden
+  // A refused override is an authorization failure, not a conflict — it must not be
+  // indistinguishable from "the gate is closed" to a client deciding whether to retry.
+  if (r && r.error === 'override-forbidden') return res.status(403).json(r);
+  if (r && r.error) return res.status(409).json(r); // ic-not-ready
   res.json(r);
 });
 

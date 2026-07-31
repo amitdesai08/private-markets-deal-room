@@ -30,15 +30,39 @@ test('phase is derived from the stage, and screened deals are origination whatev
 });
 
 test('a deal past committee is not re-measured against the readiness gate', () => {
-  // Great Lakes is E1 and carries a genuinely in-progress compliance check. Under the
-  // gate that would read "1 required item outstanding: KYC / compliance cleared" — a deal
-  // that is already signed reported as not ready to be tabled.
+  // Great Lakes is E1. Under the diligence gate it would read "1 required item
+  // outstanding: KYC / compliance cleared" — a signed deal reported as not ready to table.
   const gl = byId('demo-greatlakes');
   assert.equal(dealPhase(gl), 'post-committee');
   const v = computeICReadiness(gl).verdict;
-  assert.deepEqual(v.gating, [], 'the readiness gate does not apply to a deal that has already been to committee');
-  assert.equal(v.state, 'CONDITIONAL', 'what remains live is whether its conditions are closed');
+  assert.equal(v.state, 'CONDITIONAL', 'what remains live is whether its obligations are closed');
   assert.equal(v.openConditions, 2);
+  assert.ok(v.gating.length >= 2, 'the outstanding obligations are named, not counted');
+  assert.ok(!v.gating.some((g) => /required item|workstream blocking/.test(g)), 'the diligence gate does not apply to a deal that has already been to committee');
+});
+
+test('an uncleared compliance check on a post-committee deal is not reported as clean', () => {
+  // The failure this guards: an earlier pass returned a clean READY for every deal past
+  // committee, so a signed deal with its EU merger-control filing still running read as
+  // "Approved at committee — no conditions outstanding". That switched off the only check
+  // on the deals closest to spending money.
+  const onyx = byId('demo-onyx');
+  assert.equal(dealPhase(onyx), 'post-committee');
+  assert.ok((onyx.compliance || []).some((c) => c.status !== 'passed'), 'fixture must carry an uncleared check');
+  const v = computeICReadiness(onyx).verdict;
+  assert.equal(v.state, 'CONDITIONAL');
+  assert.ok(v.gating.some((g) => /Merger control/i.test(g)), 'the uncleared check must be named on the board');
+  assert.equal(v.openComplianceChecks, 1);
+});
+
+test('the board never claims a committee decision it cannot produce', () => {
+  // The phase is read from the deal's STAGE. Nothing on the record is a committee decision
+  // — no date, no attendees, no outcome — so no surface may word it as though a minute exists.
+  for (const d of seededDeals.filter((x) => dealPhase(x) === 'post-committee')) {
+    const v = computeICReadiness(d).verdict;
+    assert.ok(!/approved at committee/i.test(v.headline), `"${v.headline}" asserts a decision record that does not exist`);
+    assert.match(v.basis, /No committee decision record/i);
+  }
 });
 
 test('the seed does not clear a post-committee gate by overwriting the evidence', () => {

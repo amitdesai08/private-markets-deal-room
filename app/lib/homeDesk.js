@@ -146,15 +146,21 @@ function assess(deal, raw) {
   // work that has not started slipping yet. Ranked the other way round — as it was — the
   // conditional deals sat behind every not-ready deal and never surfaced at all.
   if (state === 'CONDITIONAL') {
-    const n = v.openConditions;
     const post = phase === 'post-committee';
+    // Count the OBLIGATIONS, not just the `conditions` array. Post-committee, an
+    // uncleared compliance check is an obligation exactly as much as a condition is, and
+    // counting only the array produced "with 0 conditions still to close" on a deal that
+    // had two uncleared regulatory checks.
+    const n = post ? (gating.length || v.openConditions) : v.openConditions;
     return {
       rank: 3, tag: 'Conditional', tone: 'warn',
+      // Not "approved at committee" — nothing on the record is a committee decision. The
+      // stage is where the deal sits, which is all this can honestly claim.
       why: post
-        ? `Approved at committee, with ${n} condition${n === 1 ? '' : 's'} still to close before completion.`
+        ? `Past the committee gate, with ${n} obligation${n === 1 ? '' : 's'} still outstanding — ${gating.join('; ')}.`
         : `Ready to table, subject to ${n} condition${n === 1 ? '' : 's'} still to close.`,
-      impact: post ? 'An unclosed condition holds completion, and every one of them has an owner waiting on someone else.' : 'Conditions left open at the meeting come back as post-completion obligations.',
-      basis: 'IC readiness board — committee conditions',
+      impact: post ? 'An unclosed obligation holds completion, and every one of them has an owner waiting on someone else.' : 'Conditions left open at the meeting come back as post-completion obligations.',
+      basis: post ? 'Deal record — open conditions and uncleared compliance checks' : 'IC readiness board — committee conditions',
       verdict: state, gating,
     };
   }
@@ -169,7 +175,7 @@ function assess(deal, raw) {
   }
   if (state === 'READY') {
     return phase === 'post-committee'
-      ? { rank: 8, tag: 'Approved', tone: 'good', why: 'Approved at committee with no conditions outstanding.', impact: null, basis: 'IC readiness board', verdict: state, gating }
+      ? { rank: 8, tag: 'In execution', tone: 'good', why: 'Past the committee gate with nothing outstanding on the record.', impact: null, basis: 'Deal record — open conditions and compliance checks', verdict: state, gating }
       : { rank: 8, tag: 'IC-ready', tone: 'good', why: 'Papers on record, no blocking lanes, no unresolved risk findings.', impact: null, basis: 'IC readiness board', verdict: state, gating };
   }
   return { rank: 6, tag: 'On track', tone: 'good', why: `Progressing on plan at ${readiness}% completion.`, impact: null, basis: 'IC readiness board', verdict: state, gating, phase };

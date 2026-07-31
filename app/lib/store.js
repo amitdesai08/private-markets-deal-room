@@ -259,7 +259,21 @@ export async function hydrate() {
   const info = await initRepo();
   await initConnectorSettings().catch(() => {});
   await initAccessConfig().catch(() => {});
-  if (!repoReady()) return { mode: repoMode(), companies: 0, deals: 0 };
+  if (!repoReady()) {
+    // No datastore configured (local dev, and the test runner). Seed the showcase deals
+    // in memory so the app is usable and so the access-control tests can exercise the
+    // real `listDeals` / `advanceDeal` paths rather than a hand-built lookalike. Nothing
+    // is persisted, and production always has a repo, so this branch is unreachable there.
+    if (!deals.length) {
+      for (const demo of seededDeals) {
+        const dd = clone(demo);
+        attachWorkspaces([dd]);
+        deals.push(dd);
+      }
+      reseedSequences();
+    }
+    return { mode: repoMode(), companies: 0, deals: deals.length };
+  }
   await primeTokenCache().catch(() => {});
   await loadFabric().catch(() => {});
   try {
@@ -2591,7 +2605,11 @@ export async function advanceDeal(id, { persona, overrideReason } = {}) {
         if (!reason) {
           return { error: 'ic-not-ready', gate, verdict: board.verdict, detail: `Deal is NOT IC-ready — ${board.verdict.headline} A partner override with a written reason is required to proceed.` };
         }
-        if (persona && persona !== 'partner') {
+        // Fail SHUT. This read `if (persona && persona !== 'partner')`, which granted the
+        // override to any caller that did not identify itself — and the HTTP route did not
+        // pass a persona at all, so the partner-only restriction was unreachable over HTTP
+        // while looking enforced in the source. An unknown caller is not a partner.
+        if (persona !== 'partner') {
           return { error: 'override-forbidden', gate, verdict: board.verdict, detail: 'Only the Partner / Deal Sponsor may override an IC-readiness gate.' };
         }
         const at = new Date().toISOString();

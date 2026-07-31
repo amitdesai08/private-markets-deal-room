@@ -66,23 +66,28 @@ function requiredArtifacts(deal) {
 }
 
 // ---- 2. Blocking workstreams ----------------------------------------------
-// A lane BLOCKS the committee when it has not opened, has been explicitly blocked,
-// or is carrying an unresolved high-severity finding. A lane that is merely partway
-// through does NOT block — that is progress, and `progressReadiness` already carries
-// it. Treating "under 80%" as blocking made every mid-diligence deal NOT-READY, which
-// collapsed the verdict to a single reachable state and made it useless as a signal.
-// It also handed the analyst who types the progress number a switch that silently
-// flips the verdict.
+// A lane BLOCKS the committee when nothing has actually been done in it, when it has
+// been explicitly halted, or when it carries an unresolved high-severity finding. A lane
+// that is merely partway through does NOT block — that is progress, and
+// `progressReadiness` already carries it. Treating "under 80%" as blocking made every
+// mid-diligence deal NOT-READY, which collapsed the verdict to a single reachable state.
+//
+// "Nothing has been done" is tested against EVIDENCE, not against the typed percentage.
+// Any numeric threshold is a switch: at 80 an analyst types 80, and at 0 an analyst types
+// 1. A lane that has produced no finding and no contribution has not started, whatever
+// number is in the box — and unlike the number, that cannot be cleared without either
+// doing the work or fabricating a finding with an author against it.
 function blockingWorkstreams(deal, openIssues) {
   const lanes = deal.workstreams || [];
   const out = [];
   for (const w of lanes) {
     const laneIssues = openIssues.filter((i) => i.lane === w.lane);
     const blockingIssues = laneIssues.filter((i) => BLOCKING_SEVERITIES.has(i.severity));
-    const notOpened = w.status === 'not_started' || (w.progress || 0) === 0;
+    const noEvidence = !(w.findings || []).length && !(w.contributions || []).length;
+    const notOpened = w.status === 'not_started' || ((w.progress || 0) === 0 && noEvidence) || (noEvidence && w.status !== 'complete');
     const halted = w.status === 'blocked' || w.status === 'on_hold';
     const reasons = [];
-    if (notOpened) reasons.push('not started');
+    if (notOpened) reasons.push(noEvidence && (w.progress || 0) > 0 ? 'no work recorded against it' : 'not started');
     else if (halted) reasons.push(`lane ${w.status.replace('_', ' ')}`);
     if (blockingIssues.length) reasons.push(`${blockingIssues.length} open high-severity issue(s)`);
     if (reasons.length) {
@@ -198,16 +203,44 @@ export function dealPhase(deal) {
 // incomplete") tells a partner there is a problem without telling them which one, so
 // the first thing they do is open the deal to find out — which is the click the whole
 // surface exists to save.
-function verdict({ required, blocking, unresolvedRisks, conditions, phase }) {
+function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal }) {
   const openConditions = conditions.filter((c) => c.status !== 'satisfied');
 
-  // Past committee: the papers and the lanes are history. Do not re-litigate them, and
-  // do not hold a signed deal open because a post-close compliance item is still running —
-  // that item is not a reason the deal cannot go to committee, because it already has.
+  // Past committee: the papers and the lanes are history and are not re-litigated. But
+  // "the readiness question is closed" is NOT "there is nothing outstanding". An earlier
+  // pass returned a clean READY here, so a signed deal with its EU merger-control filing
+  // and its KYC screening still running read as "Approved at committee — no conditions
+  // outstanding". That switched off the only check on the deals closest to spending money.
+  //
+  // Note also what the phase is and is not. It is read from the deal's STAGE — the firm's
+  // system of record for where the deal sits. Nothing on the record is a committee decision
+  // (date, attendees, outcome, terms), so this must not be worded as though a minute exists.
   if (phase === 'post-committee') {
-    return openConditions.length
-      ? { state: 'CONDITIONAL', headline: `Approved at committee — ${openConditions.length} condition${openConditions.length === 1 ? '' : 's'} still to close.`, gating: [], openConditions: openConditions.length, phase }
-      : { state: 'READY', headline: 'Approved at committee — no conditions outstanding.', gating: [], openConditions: 0, phase };
+    const openChecks = (deal?.compliance || []).filter((c) => c.status !== 'passed');
+    const outstanding = [
+      ...openConditions.map((c) => c.text || c.id),
+      ...openChecks.map((c) => `${c.check}${c.framework ? ` (${c.framework})` : ''} not cleared`),
+    ];
+    if (outstanding.length) {
+      return {
+        state: 'CONDITIONAL',
+        headline: `Past the committee gate — ${outstanding.length} obligation${outstanding.length === 1 ? '' : 's'} still outstanding.`,
+        gating: outstanding,
+        openConditions: openConditions.length,
+        openComplianceChecks: openChecks.length,
+        phase,
+        basis: 'Stage on the deal record. No committee decision record exists to confirm the approval terms.',
+      };
+    }
+    return {
+      state: 'READY',
+      headline: 'Past the committee gate — nothing outstanding on the record.',
+      gating: [],
+      openConditions: 0,
+      openComplianceChecks: 0,
+      phase,
+      basis: 'Stage on the deal record. No committee decision record exists to confirm the approval terms.',
+    };
   }
 
   const gating = [];
@@ -249,7 +282,7 @@ export function computeICReadiness(deal) {
   const ask = icAsk(deal);
   const conditions = (deal.conditions || []).map((c) => ({ id: c.id, text: c.text, owner: c.owner || null, status: c.status || 'proposed' }));
 
-  const v = verdict({ required, blocking, unresolvedRisks, conditions, phase: dealPhase(deal) });
+  const v = verdict({ required, blocking, unresolvedRisks, conditions, phase: dealPhase(deal), deal });
 
   return {
     dealId: deal.id,
