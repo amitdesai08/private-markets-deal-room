@@ -264,6 +264,47 @@ app.use('/api/admin', async (req, res) => {
 // Deal list / detail / subresources — inject the resolved requesting identity (SSO or
 // demo "view as USER") so the orchestrator can enforce two-tier access + deal-team
 // need-to-know. Registered before the generic proxy so it wins for /api/deals/*.
+//
+// Two routes additionally act AS the signed-in person rather than as the application:
+// reading the deal's Teams channel, and posting into it. Those get a delegated
+// On-Behalf-Of Graph token. The scope sets are deliberately separate — reading happens
+// on every visit to a deal, sending only when someone presses send, and folding the
+// send scope into the read set would mean every routine read carried a token that could
+// post under the user's name.
+const GRAPH_CHANNEL_READ_SCOPES = ['https://graph.microsoft.com/ChannelMessage.Read.All'];
+const GRAPH_CHANNEL_SEND_SCOPES = ['https://graph.microsoft.com/ChannelMessage.Send'];
+function channelScopesFor(req) {
+  if (req.method === 'POST' && /\/channel\/message$/.test(req.path || '')) return GRAPH_CHANNEL_SEND_SCOPES;
+  if (req.method === 'GET' && /\/workiq-corpus$/.test(req.path || '')) return GRAPH_CHANNEL_READ_SCOPES;
+  return null;
+}
+// The OBO exchange is a round-trip to Entra, so cache it per user until shortly before
+// expiry. Keyed by oid AND scope set: one person's token can never be handed to another,
+// and a read token is never mistaken for a send token.
+const _oboCache = new Map();
+const OBO_SKEW_MS = 120000;
+async function channelUserToken(ssoToken, identity, scopes) {
+  if (!ssoToken || !identity?.oid || !scopes) return null;
+  const key = `${identity.oid}|${scopes.join(' ')}`;
+  const hit = _oboCache.get(key);
+  if (hit && hit.exp > Date.now() + OBO_SKEW_MS) return hit.token;
+  try {
+    const token = await exchangeOnBehalfOf(ssoToken, scopes);
+    if (!token) return null;
+    let exp = Date.now() + 1800000; // conservative default if the token has no exp
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+      if (payload?.exp) exp = payload.exp * 1000;
+    } catch { /* keep the default */ }
+    _oboCache.set(key, { token, exp });
+    return token;
+  } catch {
+    // Consent not granted, or no M365 licence. Reads fall back to the seeded corpus;
+    // the send route refuses outright, which the orchestrator enforces.
+    return null;
+  }
+}
+
 app.use('/api/deals', async (req, res) => {
   if (!isBackendLive()) return proxyToBackend(req, res);
   const ssoToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.ssoToken || '';
@@ -277,6 +318,16 @@ app.use('/api/deals', async (req, res) => {
   if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
   if (requestingUser) headers['x-dr-user'] = JSON.stringify(requestingUser);
   if (viewAsRole) headers['x-dr-view-as'] = viewAsRole;
+  // Never attach the delegated token under a demo "view as USER" override: the seat on
+  // screen is then NOT the signed-in person, and posting under their real name while
+  // wearing someone else's seat is exactly the confusion the seat lens must not create.
+  if (!asOverride) {
+    const scopes = channelScopesFor(req);
+    if (scopes) {
+      const userToken = await channelUserToken(ssoToken, identity, scopes);
+      if (userToken) headers['x-user-graph-token'] = userToken;
+    }
+  }
   const hasBody = !['GET', 'HEAD'].includes(req.method);
   const body = hasBody
     ? JSON.stringify({ ...(req.body || {}), requestingUser, viewAsRole: viewAsRole || undefined })

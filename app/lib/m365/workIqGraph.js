@@ -49,8 +49,13 @@ async function appToken() {
   return _tok.value;
 }
 
-async function graphApp(path, { method = 'GET', body, headers = {} } = {}) {
-  const token = await appToken();
+// Every Graph call here is app-only by default. Passing a userToken switches the call
+// to the signed-in person's own delegated token, so Microsoft 365 applies THEIR
+// permissions rather than the application's. That distinction is the whole point for
+// anything touching a Teams channel: reads should be limited to what the person can
+// already see, and writes must be attributable to them.
+async function graphApp(path, { method = 'GET', body, headers = {}, userToken = null } = {}) {
+  const token = userToken || await appToken();
   const resp = await fetch(`${GRAPH}${path}`, {
     method,
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...headers },
@@ -127,19 +132,65 @@ export async function wiSearchMail({ query, user, top } = {}) {
   } catch (e) { return graphErr('search_mail', e); }
 }
 
-// read_channel_messages — recent messages in a specific Teams channel (app-only).
-export async function wiReadChannel({ team_id, channel_id, top } = {}) {
+// read_channel_messages — recent messages in a specific Teams channel. App-only by
+// default; with a userToken the read runs as the signed-in person, so they see exactly
+// what their own Microsoft 365 permissions allow and nothing more.
+export async function wiReadChannel({ team_id, channel_id, top, userToken = null } = {}) {
   if (!team_id || !channel_id) return { error: 'bad-args', reason: 'team_id and channel_id are required.' };
   try {
-    const data = await graphApp(`/teams/${encodeURIComponent(team_id)}/channels/${encodeURIComponent(channel_id)}/messages?$top=${cap(top, 15, 30)}`);
+    const data = await graphApp(`/teams/${encodeURIComponent(team_id)}/channels/${encodeURIComponent(channel_id)}/messages?$top=${cap(top, 15, 30)}`, { userToken });
     const results = (data?.value || []).map((m) => ({
+      // The real Graph message id, carried through so a person can reply to a
+      // specific message rather than only start a new one.
+      id: m.id || null,
       from: m.from?.user?.displayName || m.from?.application?.displayName || 'unknown',
       created: m.createdDateTime,
       preview: clip((m.body?.content || '').replace(/<[^>]+>/g, ' '), 300),
       webUrl: m.webUrl,
     }));
-    return { source: 'graph.teams', entity: 'channel', team_id, channel_id, count: results.length, results };
-  } catch (e) { return graphErr('read_channel_messages', e); }
+    return { source: 'graph.teams', entity: 'channel', team_id, channel_id, count: results.length, results, asUser: !!userToken };
+  } catch (e) { return graphErr('read_channel_messages', e, userToken); }
+}
+
+// post_channel_message — say something in the deal's Teams channel.
+//
+// DELEGATED ONLY, deliberately. There is no app-only fallback and there must never be
+// one: a message sent with application credentials arrives in the channel attributed to
+// the Deal Room, and a deal channel is a record that ends up in front of an investment
+// committee. Anything written there has to be traceable to a person. Because we send
+// with the signed-in user's own On-Behalf-Of token, the message IS from them — same
+// author, same audit trail, same retention and eDiscovery treatment as if they had
+// typed it in Teams. The app is the surface; the user is the speaker.
+//
+// Body is sent as PLAIN TEXT (contentType 'text'), not HTML, so nothing a user types
+// can be interpreted as markup in anyone else's client.
+export async function wiPostChannelMessage({ team_id, channel_id, text, reply_to = null, userToken = null } = {}) {
+  if (!team_id || !channel_id) return { error: 'bad-args', reason: 'team_id and channel_id are required.' };
+  const content = String(text ?? '').trim();
+  if (!content) return { error: 'bad-args', reason: 'text is required.' };
+  if (content.length > 4000) return { error: 'bad-args', reason: 'Message is too long (4000 character limit).' };
+  if (!userToken) {
+    return {
+      error: 'delegated-required',
+      reason: 'Sending requires your own Microsoft 365 sign-in. The Deal Room will not post to a deal channel as the application, because a message in a deal channel must be attributable to a person.',
+    };
+  }
+  const base = `/teams/${encodeURIComponent(team_id)}/channels/${encodeURIComponent(channel_id)}/messages`;
+  const path = reply_to ? `${base}/${encodeURIComponent(reply_to)}/replies` : base;
+  try {
+    const m = await graphApp(path, { method: 'POST', body: { body: { contentType: 'text', content } }, userToken });
+    return {
+      source: 'graph.teams', entity: 'channel-message', team_id, channel_id, sent: true, asUser: true,
+      message: {
+        id: m?.id || null,
+        from: m?.from?.user?.displayName || 'you',
+        created: m?.createdDateTime || new Date().toISOString(),
+        preview: clip((m?.body?.content || content).replace(/<[^>]+>/g, ' '), 300),
+        webUrl: m?.webUrl || null,
+        replyTo: reply_to || null,
+      },
+    };
+  } catch (e) { return graphErr('post_channel_message', e, userToken); }
 }
 
 // Connectivity probe for the connector test / config surface.
@@ -152,8 +203,21 @@ export async function wiConnectivity() {
   } catch (e) { return { ok: false, reason: String(e?.message || e).slice(0, 200) }; }
 }
 
-function graphErr(tool, e) {
+function graphErr(tool, e, userToken = null) {
   const status = e?.status;
-  if (status === 403) return { error: 'forbidden', tool, reason: 'The Work IQ app lacks admin-consented Graph permission for this read. Grant Sites.Read.All / Files.Read.All / Mail.Read / ChannelMessage.Read.All (application) + admin consent.' };
-  return { error: 'graph-call-failed', tool, detail: String(e?.message || e).slice(0, 240) };
+  if (tool === 'post_channel_message' && (status === 403 || status === 401)) {
+    return {
+      error: 'forbidden', tool, asUser: true,
+      reason: 'Microsoft 365 declined to post as you. Either you are not a member of this channel, or the delegated ChannelMessage.Send permission has not been consented for the Deal Room.',
+    };
+  }
+  // A 403 means very different things in the two modes, and telling them apart is the
+  // difference between "ask your admin to consent" and "you personally do not have
+  // access to this content" — which is a correct, expected outcome.
+  if (status === 403) {
+    return userToken
+      ? { error: 'forbidden', tool, asUser: true, reason: 'Microsoft 365 declined this read for the signed-in user. Either the user does not have access to this content, or the delegated Work IQ scopes have not been consented.' }
+      : { error: 'forbidden', tool, asUser: false, reason: 'The Work IQ app lacks admin-consented Graph permission for this read. Grant Sites.Read.All / Files.Read.All / Mail.Read / ChannelMessage.Read.All (application) + admin consent.' };
+  }
+  return { error: 'graph-call-failed', tool, asUser: !!userToken, detail: String(e?.message || e).slice(0, 240) };
 }

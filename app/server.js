@@ -118,6 +118,12 @@ import { lensBlock } from './lib/personaLens.js';
 import { demoProfileById } from './data/demoProfiles.js';
 import { addWorkiqNote, listWorkiqNotes, hydrateWorkiqNotes, deleteWorkiqNote } from './lib/workiqMemory.js';
 import { workiqCorpusForDeal } from './data/workiqSeed.js';
+// Live Teams channel read + the delegated send. Imported straight from the Graph
+// backend rather than through the Work IQ tool dispatcher: the dispatcher degrades a
+// failed read to the seeded demo corpus, which is right for an agent read and a lie
+// for a write. A send that quietly "succeeded" into a fixture would tell someone their
+// message reached the deal team when it did not.
+import { wiReadChannel, wiPostChannelMessage } from './lib/m365/workIqGraph.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
@@ -177,7 +183,16 @@ function requestingIdentity(req) {
   return null;
 }
 
-// The role the caller is previewing as (demo "view as"), from body or trusted header.
+// The signed-in person's own Graph token, exchanged On-Behalf-Of by the Teams server
+// and forwarded here. Trusted on exactly the same terms as the identity header: only
+// when the caller proves it is the Teams server with the shared key. Anything acting
+// as a specific human — reading a channel they are a member of, posting under their
+// name — depends on this, so it must never be accepted from an arbitrary client.
+function requestingUserGraphToken(req) {
+  if (!BOT_BACKEND_KEY || req.headers['x-bot-key'] !== BOT_BACKEND_KEY) return null;
+  const t = req.headers['x-user-graph-token'];
+  return typeof t === 'string' && t.split('.').length === 3 ? t : null;
+}
 function requestingViewAs(req) {
   return req.body?.viewAsRole || req.headers['x-dr-view-as'] || null;
 }
@@ -745,13 +760,89 @@ api.delete('/deals/:id/workiq-notes/:noteId', (req, res) => {
 // Work IQ M365 corpus for a deal — the Teams war-room channel, SharePoint files and mail.
 // Deterministic so the deal workspace can SHOW it directly (not only when an agent calls a
 // Work IQ tool). Deal-access gated.
-api.get('/deals/:id/workiq-corpus', (req, res) => {
+//
+// When the deal has a real Teams channel AND the caller arrived with their own delegated
+// token, the channel block is replaced by the LIVE thread, read as them. Without a token
+// we do NOT fall back to an application-wide read here: this panel sits in front of a
+// named person, and showing them messages their own account could not open would be a
+// quiet permissions leak. Seeded corpus is the honest fallback, and says so.
+api.get('/deals/:id/workiq-corpus', async (req, res) => {
   const identity = requestingIdentity(req);
   const viewAs = requestingViewAs(req);
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
   if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
-  res.json(workiqCorpusForDeal(req.params.id));
+
+  const corpus = workiqCorpusForDeal(req.params.id);
+  const userToken = requestingUserGraphToken(req);
+  const link = deal?.teamsChannel;
+  let live = false;
+  if (userToken && link?.teamId && link?.channelId) {
+    try {
+      const r = await wiReadChannel({ team_id: link.teamId, channel_id: link.channelId, top: 20, userToken });
+      if (r && Array.isArray(r.results) && r.results.length) {
+        corpus.channel = {
+          name: link.displayName || corpus.channel?.name || 'Deal channel',
+          messages: r.results.map((m) => ({ id: m.id, from: m.from, created: m.created, preview: m.preview, webUrl: m.webUrl })),
+        };
+        live = true;
+      }
+    } catch { /* fall through to the seeded corpus */ }
+  }
+  res.json({
+    ...corpus,
+    live,
+    channelUrl: link?.webUrl || null,
+    // What it would take for THIS caller to post into THIS channel, and if they cannot,
+    // precisely why. Resolved here so the client never offers a box that could not send.
+    compose: !link?.teamId || !link?.channelId
+      ? { canSend: false, reason: 'No Teams channel is linked to this deal yet, so there is nowhere to post.' }
+      : !gate.access?.canWrite
+        ? { canSend: false, reason: 'Your seat is read-only on this deal.' }
+        : !userToken
+          ? { canSend: false, reason: 'Sending posts as you, which needs your own Microsoft 365 sign-in.' }
+          : !live
+            ? { canSend: false, reason: 'The live channel could not be read, so the app will not post into it blind.' }
+            : { canSend: true, reason: null },
+  });
+});
+
+// Speak in the deal's Teams channel — AS THE SIGNED-IN PERSON, never as the app.
+//
+// This is the write half of bringing Teams into the deal workspace. It exists so a
+// person does not have to leave the deal to answer a question about the deal; it does
+// NOT exist so the product can put words in anyone's mouth. Hence: a read-only seat
+// cannot post, and without the caller's own On-Behalf-Of token we refuse outright
+// rather than quietly falling back to application credentials.
+api.post('/deals/:id/channel/message', async (req, res) => {
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  const deal = getDealRaw(req.params.id);
+  const gate = authorizeDealContent(identity, deal, viewAs);
+  if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
+  if (!gate.access?.canWrite) {
+    return res.status(403).json({ error: 'read-only-seat', detail: 'Your seat is read-only on this deal, so it cannot post to the deal channel.' });
+  }
+  const userToken = requestingUserGraphToken(req);
+  if (!userToken) {
+    return res.status(412).json({
+      error: 'delegated-required',
+      detail: 'Posting requires your own Microsoft 365 sign-in so the message is attributable to you. The Deal Room will not post to a deal channel as the application.',
+    });
+  }
+  const link = deal?.teamsChannel;
+  if (!link?.teamId || !link?.channelId) {
+    return res.status(409).json({ error: 'no-channel', detail: 'This deal has no provisioned Teams channel to post into.' });
+  }
+  const r = await wiPostChannelMessage({
+    team_id: link.teamId, channel_id: link.channelId,
+    text: req.body?.text, reply_to: String(req.body?.replyTo || '') || null, userToken,
+  });
+  if (r?.error) {
+    const status = r.error === 'forbidden' ? 403 : r.error === 'bad-args' ? 400 : 502;
+    return res.status(status).json(r);
+  }
+  res.json(r);
 });
 
 // Deal activity / audit trail — actor, action, timestamp and provenance (via='assistant').
