@@ -483,6 +483,10 @@ details[open] > summary:before { content: "\\25BE "; }
 .askchips { display: flex; gap: 7px; flex-wrap: wrap; }
 .askbox { display: flex; gap: 8px; margin-top: 10px; }
 .askbox input { flex: 1; min-width: 0; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; color: var(--fg); font: inherit; }
+/* An action that belongs inline in a sentence. It must be a <button>, not an <a>,
+   because it performs an action rather than navigating — but it should read as a link. */
+.linkish { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; }
+.linkish:hover { opacity: .8; }
 
 .topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); flex: 0 0 auto; }
 

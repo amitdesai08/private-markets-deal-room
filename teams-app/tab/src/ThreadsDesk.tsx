@@ -14,8 +14,12 @@ import { Tag, ago } from './deskUi';
 // ChannelMessage.Read.All permission, through the same governed Work IQ
 // dispatcher the agent tools use). Otherwise we show the demo corpus and say so
 // — a surface that pretends to be live is worse than one that admits it isn't.
+//
+// You can also SPEAK here. The message is sent with your own delegated token, so it
+// arrives in Teams from you — your name, your audit trail, your retention. The app is
+// the surface, not the author: it never posts on its own and never posts as itself.
 
-type Msg = { id: string; from: string; initials?: string; role?: string | null; at?: string | null; text: string; webUrl?: string | null; mine?: boolean };
+type Msg = { id: string; graphId?: string | null; from: string; initials?: string; role?: string | null; at?: string | null; text: string; webUrl?: string | null; mine?: boolean };
 type Thread = {
   id: string; group: string; title: string; ref?: string; state?: string;
   anchorKind: string; anchor: string; preview: string; updated?: string | null;
@@ -29,6 +33,9 @@ type Desk = {
   // authored demo content from content derived from the deal record.
   asUser?: boolean; obo?: boolean;
   origin?: { channel?: string; files?: string; mail?: string };
+  // Whether this person can actually post into this channel, and if not, why not.
+  // Resolved server-side so the composer is never offered when it could not work.
+  compose?: { canSend: boolean; reason: string | null };
   threads: Thread[];
   catchUp: { count: number; window: string; keyPoint?: string | null; openQuestion?: string | null; decision: string; basis: string } | null;
   commitments: { id: string; author: string; headline: string; quote: string; owner?: string | null; due?: string | null; dueText?: string | null; laneLabel?: string | null; basis: string }[];
@@ -47,6 +54,8 @@ export default function ThreadsDesk({
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState('');
   const [draft, setDraft] = useState('');
+  const [replyTo, setReplyTo] = useState<{ id: string; from: string } | null>(null);
+  const [sending, setSending] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   async function load() {
@@ -57,7 +66,33 @@ export default function ThreadsDesk({
     setLoading(false);
   }
 
-  useEffect(() => { setNote(''); setDismissed(new Set()); setActive(''); load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [dealId]);
+  useEffect(() => { setNote(''); setDismissed(new Set()); setActive(''); setReplyTo(null); setDraft(''); load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [dealId]);
+
+  // Speak in the deal's Teams channel. The orchestrator posts with the signed-in
+  // person's own delegated token, so this is them talking, not the app talking for
+  // them. A failure is reported plainly and the draft is kept — there is no local
+  // echo, because showing an unsent message as sent is worse than showing an error.
+  async function send() {
+    const text = draft.trim();
+    if (!text || sending) return;
+    setSending(true); setNote('');
+    try {
+      const r = await af(`/api/deals/${dealId}/threads/message`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text, replyTo: replyTo?.id || null }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        setNote(d?.detail || d?.reason || 'Microsoft 365 did not accept that message.');
+        return;
+      }
+      setDraft(''); setReplyTo(null);
+      setNote('Sent to Teams as you.');
+      await load();
+    } catch (e: any) {
+      setNote(`Could not send that (${String(e?.message || e)}).`);
+    } finally { setSending(false); }
+  }
 
   // A detected decision only enters the decision log when a person records it —
   // it lands as a durable, attributed Work IQ note the rest of the deal can read.
@@ -90,6 +125,12 @@ export default function ThreadsDesk({
 
   const canWrite = !!data.canWrite;
   const thread = data.threads.find((t) => t.id === active) || data.threads[0];
+  // Posting is only offered on the thread that IS the Teams channel, and only when the
+  // server has confirmed this person could actually post — channel linked, write seat,
+  // their own M365 sign-in present. The issue log and shared-memory threads are
+  // constructions of the deal record; there is no channel behind them to speak into.
+  const canSend = !!data.compose?.canSend && thread.id === 'war-room' && !!thread.live;
+  const sendBlockedReason = thread.id === 'war-room' ? data.compose?.reason || null : null;
   const decisions = data.decisions.filter((d) => !dismissed.has(d.id));
   const commitments = data.commitments.filter((c) => !dismissed.has(c.id));
 
@@ -128,7 +169,7 @@ export default function ThreadsDesk({
             </div>
             <div className="note">
               {data.connected && data.asUser
-                ? 'Live Microsoft Teams messages, read as you — you are seeing exactly what your own Microsoft 365 permissions allow, nothing more.'
+                ? `Live Microsoft Teams messages, read as you — you are seeing exactly what your own Microsoft 365 permissions allow, nothing more.${data.compose?.canSend ? ' You can reply from here, and it posts under your name.' : ''}`
                 : data.connected
                   ? 'Live Microsoft Teams messages, read with the application’s consented Work IQ permission rather than your own — the deal team gate is what is limiting this view.'
                   : data.origin?.channel === 'derived'
@@ -170,7 +211,16 @@ export default function ThreadsDesk({
                   <div className="bub">
                     <div className="who">{m.from}{m.role ? <span className="sub"> · {m.role}</span> : null}</div>
                     <div>{m.text}</div>
-                    <div className="t">{ago(m.at)}{m.webUrl ? <> · <a className="dashlink" href={m.webUrl} target="_blank" rel="noreferrer">open ↗</a></> : null}</div>
+                    <div className="t">
+                      {ago(m.at)}
+                      {m.webUrl ? <> · <a className="dashlink" href={m.webUrl} target="_blank" rel="noreferrer">open ↗</a></> : null}
+                      {/* Replying needs the real Teams message id, which only exists on
+                          messages actually read from Graph. Seeded corpus messages have
+                          nothing to reply to, so they correctly offer nothing. */}
+                      {canSend && m.graphId ? (
+                        <> · <button className="linkish" type="button" onClick={() => setReplyTo({ id: m.graphId as string, from: m.from })}>reply</button></>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -187,13 +237,44 @@ export default function ThreadsDesk({
               </div>
             ) : null}
 
+            {/* One box, two destinations. Typing the same sentence twice into two
+                near-identical inputs is how people send the wrong thing to the wrong
+                place, so the text is written once and the button says where it goes:
+                the channel, or the agent. */}
             <div className="bd">
-              <form className="askbox" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) { onAsk?.(`In the ${thread.anchor} thread on ${data.company}: ${draft.trim()}`); setDraft(''); } }}>
-                <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Ask the agent about this thread…" aria-label="Ask about this thread" />
-                <button className="btn primary" type="submit" disabled={!draft.trim()}>Ask</button>
+              {replyTo ? (
+                <div className="sub" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="chip">↩ Replying to {replyTo.from}</span>
+                  <button className="linkish" type="button" onClick={() => setReplyTo(null)}>cancel</button>
+                </div>
+              ) : null}
+              <form className="askbox" onSubmit={(e) => { e.preventDefault(); if (canSend) send(); }}>
+                <input
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder={canSend ? `Message the ${data.company} channel…` : 'Ask the agent about this thread…'}
+                  aria-label={canSend ? 'Message the deal channel or ask the agent' : 'Ask about this thread'}
+                />
+                {canSend ? (
+                  <button className="btn primary" type="button" disabled={!draft.trim() || sending} onClick={send}>
+                    {sending ? 'Sending…' : replyTo ? 'Reply in Teams' : 'Send to Teams'}
+                  </button>
+                ) : null}
+                <button
+                  className={canSend ? 'btn' : 'btn primary'}
+                  type="button"
+                  disabled={!draft.trim() || sending}
+                  onClick={() => { onAsk?.(`In the ${thread.anchor} thread on ${data.company}: ${draft.trim()}`); setDraft(''); }}
+                >
+                  Ask agent
+                </button>
               </form>
               <div className="sub" style={{ marginTop: 6 }}>
-                Replies are drafted here and posted from Teams — the app reads the channel, it does not speak for you.
+                {canSend
+                  ? 'Send to Teams posts as you — it lands in the channel under your name, with the same audit trail, retention and eDiscovery treatment as if you had typed it in Teams. The Deal Room never posts as itself. Ask agent keeps the question here.'
+                  : sendBlockedReason
+                    ? `Reading only here — ${sendBlockedReason} Ask agent keeps the question in the Deal Room.`
+                    : 'Reading only here. Ask agent keeps the question in the Deal Room.'}
               </div>
             </div>
           </div>

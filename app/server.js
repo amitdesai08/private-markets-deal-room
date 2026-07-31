@@ -121,6 +121,11 @@ import { corpusForDeal } from './lib/workiqCorpus.js';
 // Real Teams channel reads, brought INTO the app. Governed by the same Work IQ
 // dispatcher the agent tools use, so channel access is consented + audited once.
 import { readChannelMessages } from './lib/mcp/workiq.js';
+// Sending is imported DIRECTLY from the Graph backend, not through dispatchWorkiq.
+// The Work IQ dispatcher deliberately degrades a failed read to the demo corpus, which
+// is right for reads and catastrophic for writes: a send that quietly "succeeded" into
+// a fixture would tell someone their message reached the deal team when it did not.
+import { wiPostChannelMessage } from './lib/m365/workIqGraph.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
@@ -709,7 +714,76 @@ api.get('/deals/:id/threads', async (req, res) => {
     origin: corpus.origin,
     canWrite: !!g.access?.canWrite,
     roleLabel: g.access?.roleLabel || null,
+    // Whether this person can actually speak in this channel from here, and if not,
+    // precisely why. The composer is only offered when the answer is yes, so nobody
+    // types a message into a box that was never going to send it.
+    compose: composeState({
+      link,
+      liveChannel,
+      userToken,
+      canWrite: !!g.access?.canWrite,
+    }),
   });
+});
+
+// What it would take for THIS caller to post into THIS deal's channel. Ordered from
+// the most fundamental blocker outwards so the reason given is the real one.
+function composeState({ link, liveChannel, userToken, canWrite }) {
+  if (!link?.teamId || !link?.channelId) {
+    return { canSend: false, reason: 'No Teams channel is linked to this deal yet, so there is nowhere to post.' };
+  }
+  if (!canWrite) {
+    return { canSend: false, reason: 'Your seat is read-only on this deal.' };
+  }
+  if (!userToken) {
+    return { canSend: false, reason: 'Sending posts as you, which needs your own Microsoft 365 sign-in. Open the Deal Room inside Teams and accept the permission prompt.' };
+  }
+  if (!liveChannel) {
+    return { canSend: false, reason: 'The live channel could not be read, so the app will not post into it blind.' };
+  }
+  return { canSend: true, reason: null };
+}
+
+// Speak in the deal's Teams channel — AS THE SIGNED-IN PERSON, never as the app.
+//
+// This is the write half of bringing Teams inside the Deal Room. It exists so a person
+// does not have to leave the deal to answer a question about the deal; it does NOT
+// exist so the product can put words in anyone's mouth. Every guard below reflects
+// that: a read-only seat cannot post, an agent cannot call this, and without the
+// caller's own On-Behalf-Of token we refuse outright rather than falling back to
+// application credentials.
+api.post('/deals/:id/threads/message', async (req, res) => {
+  const g = deskGate(req, res);
+  if (!g) return;
+  if (!g.access?.canWrite) {
+    return res.status(403).json({ error: 'read-only-seat', detail: 'Your seat is read-only on this deal, so it cannot post to the deal channel.' });
+  }
+  const userToken = requestingGraphToken(req);
+  if (!userToken) {
+    return res.status(412).json({
+      error: 'delegated-required',
+      detail: 'Posting requires your own Microsoft 365 sign-in so the message is attributable to you. The Deal Room will not post to a deal channel as the application.',
+    });
+  }
+  const link = g.raw.teamsChannel;
+  if (!link?.teamId || !link?.channelId) {
+    return res.status(409).json({ error: 'no-channel', detail: 'This deal has no provisioned Teams channel to post into.' });
+  }
+  const text = String(req.body?.text ?? '').trim();
+  if (!text) return res.status(400).json({ error: 'empty-message', detail: 'There is nothing to send.' });
+
+  const r = await wiPostChannelMessage({
+    team_id: link.teamId,
+    channel_id: link.channelId,
+    text,
+    reply_to: String(req.body?.replyTo || '') || null,
+    userToken,
+  });
+  if (r?.error) {
+    const status = r.error === 'forbidden' ? 403 : r.error === 'bad-args' ? 400 : 502;
+    return res.status(status).json(r);
+  }
+  res.json(r);
 });
 
 api.get('/deals/:id/doc-desk', (req, res) => {

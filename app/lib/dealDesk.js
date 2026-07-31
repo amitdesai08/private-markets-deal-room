@@ -350,8 +350,11 @@ export function buildThreads(deal, { channel = null, notes = [], liveChannel = n
 
   // 1. The deal war room — the real Teams channel where it exists, the seeded
   //    corpus otherwise. Either way it is labelled with which one it is.
+  //    `graphId` is the real Teams message id and is present ONLY on live messages;
+  //    it is what lets a person reply to a specific message from inside the app.
   const msgs = (liveChannel?.results || channel?.messages || []).map((m, i) => ({
-    id: `ch-${i}`, from: m.from, initials: initials(m.from), at: iso(m.created), text: m.preview || m.text || '',
+    id: `ch-${i}`, graphId: m.id || null,
+    from: m.from, initials: initials(m.from), at: iso(m.created), text: m.preview || m.text || '',
     webUrl: m.webUrl || null,
   }));
   if (msgs.length) {

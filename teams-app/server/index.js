@@ -282,17 +282,27 @@ const GRAPH_WORKIQ_SCOPES = [
   'https://graph.microsoft.com/Mail.Read',
 ];
 
+// Sending is a SEPARATE exchange, on purpose. Reads happen on every deal interaction;
+// sending happens only when a person presses send. Folding ChannelMessage.Send into the
+// read scope set would mean every routine read carried a token that could post as the
+// user — a standing capability nobody asked for. Least privilege costs one extra
+// round-trip on an action that is already deliberate.
+const GRAPH_SEND_SCOPES = ['https://graph.microsoft.com/ChannelMessage.Send'];
+const isSendRequest = (req) => req.method === 'POST' && /\/threads\/message$/.test(req.path || '');
+
 // The OBO exchange is a network round-trip to Entra; doing it on every deal request
 // would add latency to each tab interaction. Cache per user until shortly before the
-// token expires. Keyed by oid so one user's token can never be handed to another.
+// token expires. Keyed by oid AND scope set, so one user's token can never be handed to
+// another, and a read token is never mistaken for a send token.
 const _oboCache = new Map();
 const OBO_SKEW_MS = 120000;
-async function workIqUserToken(ssoToken, identity) {
+async function workIqUserToken(ssoToken, identity, scopes = GRAPH_WORKIQ_SCOPES) {
   if (!ssoToken || !identity?.oid || !isSsoConfigured()) return null;
-  const hit = _oboCache.get(identity.oid);
+  const key = `${identity.oid}|${scopes.join(' ')}`;
+  const hit = _oboCache.get(key);
   if (hit && hit.exp > Date.now() + OBO_SKEW_MS) return hit.token;
   try {
-    const token = await exchangeOnBehalfOf(ssoToken, GRAPH_WORKIQ_SCOPES);
+    const token = await exchangeOnBehalfOf(ssoToken, scopes);
     if (!token) return null;
     // Trust the token's own expiry rather than guessing; fall back to 30 minutes.
     let exp = Date.now() + 1800000;
@@ -300,11 +310,12 @@ async function workIqUserToken(ssoToken, identity) {
       const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
       if (payload?.exp) exp = payload.exp * 1000;
     } catch { /* keep the conservative default */ }
-    _oboCache.set(identity.oid, { token, exp });
+    _oboCache.set(key, { token, exp });
     return token;
   } catch {
     // Consent not granted, or the user has no M365 licence. Work IQ degrades to the
-    // app-only/demo path rather than failing the whole request.
+    // app-only/demo path rather than failing the whole request; the send path refuses
+    // outright rather than degrading, which the orchestrator enforces.
     return null;
   }
 }
@@ -325,9 +336,10 @@ app.use('/api/deals', async (req, res) => {
   // Only attach the delegated token when the caller is genuinely that user. Under a
   // demo "view as USER" override the seat on screen is NOT the signed-in person, so
   // handing over their Graph token would read one person's mail while presenting as
-  // another — exactly the confusion the seat lens must never create.
+  // another — exactly the confusion the seat lens must never create. It would also let
+  // someone post to a deal channel under their real name while wearing another seat.
   if (!asOverride) {
-    const graphToken = await workIqUserToken(ssoToken, identity);
+    const graphToken = await workIqUserToken(ssoToken, identity, isSendRequest(req) ? GRAPH_SEND_SCOPES : GRAPH_WORKIQ_SCOPES);
     if (graphToken) headers['x-dr-graph-token'] = graphToken;
   }
   const hasBody = !['GET', 'HEAD'].includes(req.method);
