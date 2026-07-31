@@ -55,7 +55,10 @@ export default function Stage3({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen
                   {figs.length ? <div className="dc-figs">{figs.map((f) => <span key={f.label} className="dc-fig"><b>{f.value}</b> {f.label}</span>)}</div> : null}
                   {d.thesis ? <p className="dc-thesis">{d.thesis.length > 180 ? `${d.thesis.slice(0, 180)}…` : d.thesis}</p> : null}
                   <div className="dc-foot">
-                    <span className="muted">{done}/{lanes.length} diligence lanes complete</span>
+                    {/* Lanes are stripped for readers who hold the deal at metadata level, so
+                        an empty array means "withheld", not "none exist". Rendering "0/0"
+                        would assert the deal has no diligence lanes at all. */}
+                    <span className="muted">{lanes.length ? `${done}/${lanes.length} diligence lanes complete` : 'Lane detail not shown'}</span>
                     <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
                   </div>
                 </div>

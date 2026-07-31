@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Deal Room — navigation IA mockup, rev 3 (not deployed)</title>
+<title>Deal Room — navigation IA mockup, rev 4 (not deployed)</title>
 <style>
 :root{
   --bg:#f5f5f5; --surface:#ffffff; --card:#ffffff; --fg:#1f1f1f; --muted:#57606a;
@@ -165,14 +165,14 @@ details.fold>summary+*{border-top:1px solid var(--border)}
     <div class="logo">&#9672;</div>
     <div>
       <div class="brand-t">The Deal Room</div>
-      <div class="brand-s">Navigation IA &mdash; rev 3</div>
+      <div class="brand-s">Navigation IA &mdash; rev 4</div>
     </div>
   </div>
   <div class="tools">
     <label class="sub">Viewing as</label>
     <select id="persona">
       <option value="deal">Tahani Al-Jamil &middot; Deal Team</option>
-      <option value="ops">Marcus Reed &middot; Operating Partner</option>
+      <option value="ops">Operating Partner &mdash; cut, see why</option>
     </select>
     <button class="ghostbtn" id="themebtn">&#127769; Dark</button>
   </div>
@@ -180,7 +180,7 @@ details.fold>summary+*{border-top:1px solid var(--border)}
 
 <div class="mocknote">
   <strong>Mockup &mdash; not deployed.</strong>
-  <span>Live theme tokens; real <code>/api/home-desk</code> and <code>/api/deals</code> payloads (31 Jul).</span>
+  <span>Every verdict, gating sentence and step position on this page is the literal output of the engine as it now stands, not a drawing of it.</span>
   <span class="spacer"></span>
   <span>Rationale is folded away at the bottom of the page.</span>
 </div>
@@ -205,8 +205,8 @@ details.fold>summary+*{border-top:1px solid var(--border)}
 <div id="home-deal">
 
 <div class="kpis">
-  <div class="kpi"><div class="kpi-v bad" style="color:var(--bad)">3</div><div class="kpi-l">Not IC-ready, IC inside 30d</div><div class="kpi-s">Nordic Grocery is nearest, 12d</div></div>
-  <div class="kpi"><div class="kpi-v">7</div><div class="kpi-l">Blocking workstreams</div><div class="kpi-s">across 4 deals</div></div>
+  <div class="kpi"><div class="kpi-v bad" style="color:var(--bad)">8</div><div class="kpi-l">Not IC-ready</div><div class="kpi-s">2 conditional &middot; 5 ready to table</div></div>
+  <div class="kpi"><div class="kpi-v">4</div><div class="kpi-l">Blocking workstreams</div><div class="kpi-s">across 3 deals</div></div>
   <div class="kpi"><div class="kpi-v">12</div><div class="kpi-l">Promises due this week</div><div class="kpi-s">of 39 untracked</div></div>
   <div class="kpi"><div class="kpi-v">9d</div><div class="kpi-l">Next committee</div><div class="kpi-s">Lumen Analytics</div></div>
 </div>
@@ -224,41 +224,49 @@ details.fold>summary+*{border-top:1px solid var(--border)}
       <div class="att">
         <div class="att-t"><span class="chip bad">Not IC-ready</span><span class="name">Nordic Grocery Group</span><span class="chip step">Diligence &middot; step 2 of 5</span><span class="spacer"></span><span class="chip bad">IC in 12d</span></div>
         <ul class="gating">
-          <li>3 required artifacts incomplete &mdash; QoE, legal report, tax structuring paper</li>
-          <li>2 workstreams blocking &mdash; Tax (not started), Environmental (1 open high-severity issue)</li>
-          <li>2 unresolved risk-level issues</li>
+          <li>5 required items outstanding: Findings / red-flag report, Final IC memo, IC memo sections approved, Recommendation drafted, KYC / compliance cleared</li>
+          <li>1 workstream blocking: Operations DD</li>
         </ul>
         <div class="impact">&#9889; Anything still open at IC becomes a condition, which is the slowest way to close it.</div>
-        <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn">Tax lane</button><button class="btn link">Ask agents</button></div>
+        <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn">Operations DD</button><button class="btn link">Ask agents</button></div>
       </div>
 
       <div class="att">
-        <div class="att-t"><span class="chip warn">Conditional</span><span class="name">Lumen Analytics</span><span class="chip step">Diligence &middot; step 4 of 5</span><span class="spacer"></span><span class="chip bad">IC in 9d</span></div>
+        <div class="att-t"><span class="chip bad">Not IC-ready</span><span class="name">Lumen Analytics</span><span class="chip step">Diligence &middot; step 3 of 5</span><span class="spacer"></span><span class="chip bad">IC in 9d</span></div>
         <ul class="gating">
-          <li>Required artifacts complete; no blocking workstreams</li>
-          <li>4 open IC conditions carried from the last committee</li>
+          <li>4 required items outstanding: Final IC memo, IC memo sections approved, Recommendation drafted, KYC / compliance cleared</li>
         </ul>
-        <div class="att-l">Goes to committee first. Conditional is a decision the IC can take &mdash; but somebody has to own the four conditions before Monday.</div>
-        <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn">4 conditions</button><button class="btn link">Ask agents</button></div>
+        <div class="att-l">Goes to committee first. No lane is blocking &mdash; this one is a paperwork race, and it is losing it.</div>
+        <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn">Draft memo</button><button class="btn link">Ask agents</button></div>
       </div>
 
       <div class="att">
-        <div class="att-t"><span class="chip bad">Not IC-ready</span><span class="name">Lone Star Energy Services</span><span class="chip step">Diligence &middot; step 4 of 5</span><span class="spacer"></span><span class="chip warn">IC in 21d</span></div>
+        <div class="att-t"><span class="chip bad">Not IC-ready</span><span class="name">Lone Star Energy Services</span><span class="chip step">Diligence &middot; step 3 of 5</span><span class="spacer"></span><span class="chip warn">IC in 21d</span></div>
         <ul class="gating">
-          <li>1 workstream blocking &mdash; Environmental, awaiting third-party report</li>
+          <li>3 required items outstanding: Final IC memo, IC memo sections approved, Recommendation drafted</li>
+        </ul>
+        <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn link">Ask agents</button></div>
+      </div>
+
+      <div class="att">
+        <div class="att-t"><span class="chip warn">Not IC-ready</span><span class="name">HelioPack Sustainable Packaging</span><span class="chip step">Diligence &middot; step 1 of 5</span></div>
+        <ul class="gating">
+          <li>6 required items outstanding: Diligence plan, Findings / red-flag report, Final IC memo, IC memo sections approved, Recommendation drafted, KYC / compliance cleared</li>
+          <li>2 workstreams blocking: Commercial DD, Tech / AI DD</li>
         </ul>
         <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn link">Ask agents</button></div>
       </div>
 
       <div class="att">
-        <div class="att-t"><span class="chip warn">Not started</span><span class="name">Mojave Renewables</span><span class="chip step">Origination &middot; step 2 of 4</span></div>
+        <div class="att-t"><span class="chip warn">Not IC-ready</span><span class="name">Atlas Cold Chain Logistics</span><span class="chip step">Diligence &middot; step 4 of 5</span></div>
         <ul class="gating">
-          <li>None of the 7 diligence lanes have recorded progress</li>
+          <li>1 required item outstanding: IC memo sections approved</li>
         </ul>
+        <div class="att-l">One item from ready. This is the cheapest thing on the page to close.</div>
         <div class="acts"><button class="btn primary">Open deal &#9656;</button><button class="btn link">Ask agents</button></div>
       </div>
 
-      <div class="note">Two more below &middot; nothing here changes a deal, it tells you where to look first.</div>
+      <div class="note">Six shown, worst first. Every sentence above is the literal <code>verdict.gating</code> output of <code>computeICReadiness</code> against the seeded record &mdash; nothing on this card is written by hand. Two deals (Great Lakes, Helvetia) sit below at <em>Conditional</em>. Nothing here changes a deal; it tells you where to look first.</div>
     </div>
 
     <div class="card">
@@ -283,9 +291,9 @@ details.fold>summary+*{border-top:1px solid var(--border)}
         <span class="spacer"></span>
         <span class="sub">tick 2&ndash;4 for a field-by-field table</span>
       </div>
-      <div class="dl"><input type="checkbox" checked /><span class="nm">Nordic Grocery Group</span><span class="st">$610M &middot; Grocery</span><span class="why">Not IC-ready &middot; 3 artifacts, 2 lanes blocking</span></div>
-      <div class="dl"><input type="checkbox" checked /><span class="nm">Lumen Analytics</span><span class="st">$430M &middot; Software</span><span class="why">Conditional &middot; 4 open conditions</span></div>
-      <div class="dl"><input type="checkbox" /><span class="nm">Project Sterling</span><span class="st">$775M &middot; Industrials</span><span class="why">Conditional &middot; 1 open condition</span></div>
+      <div class="dl"><input type="checkbox" checked /><span class="nm">Nordic Grocery Group</span><span class="st">$610M &middot; Grocery</span><span class="why">Not IC-ready &middot; 5 items, 1 lane blocking</span></div>
+      <div class="dl"><input type="checkbox" checked /><span class="nm">Lumen Analytics</span><span class="st">$430M &middot; Software</span><span class="why">Not IC-ready &middot; 4 items outstanding</span></div>
+      <div class="dl"><input type="checkbox" /><span class="nm">Great Lakes Precision</span><span class="st">$285M &middot; Industrials</span><span class="why">Conditional &middot; 2 open conditions</span></div>
       <div class="note"><button class="btn primary">Compare 2 deals</button> <span class="sub" style="margin-left:8px">copies to the clipboard for the memo</span></div>
     </div>
 
@@ -320,9 +328,9 @@ details.fold>summary+*{border-top:1px solid var(--border)}
     <details class="fold">
       <summary>Portfolio briefing<span class="spacer"></span><span class="chip ai">AI &middot; 4 sources</span></summary>
       <div class="bd narr">
-        <p>3 of your 19 deals are <b>not IC-ready</b> with a committee date inside 30 days.<cite>1</cite></p>
-        <p>Nordic Grocery Group is the nearest at 12 days, gated on three required artifacts and two blocking workstreams.<cite>2</cite></p>
-        <p>Lumen Analytics goes first, in 9 days, and is <b>conditional</b> &mdash; four conditions carried from the last committee are still unowned.<cite>2</cite></p>
+        <p>You have 19 deals in view carrying $8.1B of enterprise value across 7 sectors.<cite>1</cite></p>
+        <p>2 deals need attention before they slip &mdash; starting with Nordic Grocery Group: IC is 12 days out and the deal is not ready, on five required items and one blocking workstream.<cite>2</cite></p>
+        <p>5 deals are ready to table &mdash; papers on record, no blocking lanes, no unresolved risk findings. 2 carry committee conditions that are still open.<cite>2</cite></p>
         <p>Work IQ found 39 commitments in deal channels that are not tracked as tasks; 12 fall due this week.<cite>3</cite></p>
       </div>
     </details>
@@ -330,10 +338,18 @@ details.fold>summary+*{border-top:1px solid var(--border)}
     <div class="card">
       <div class="hd"><h3>What you can and cannot see</h3></div>
       <div class="bd sub" style="line-height:1.65">
-        <b>Deal Team.</b> Full detail on deals you are on. Deals marked confidential are hidden entirely;
-        status-only deals show that they exist and roughly where they are, with no lane detail, documents or channel content.
+        <b>Deal Team.</b> Full detail on deals you are on. Deals marked confidential are hidden entirely.
+        Status-only deals show that they exist, roughly where they are and a single overall progress figure &mdash;
+        no lane-by-lane detail, no memo or compliance counts, no documents, no channel content, and no entry in
+        the attention queue beyond &ldquo;not assessed&rdquo;.
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
           <span class="chip good">16 full</span><span class="chip warn">3 status-only</span><span class="chip">2 hidden</span>
+        </div>
+        <div class="note" style="margin-top:9px">
+          This card is now true. In rev 3 it was not: the lane array was stripped but
+          <code>diligenceProgress</code>, <code>memoApproved/Total</code> and
+          <code>complianceCleared/Total</code> still shipped, which is the same substance one
+          aggregate removed. They are nulled at the tier boundary and there is a test.
         </div>
       </div>
     </div>
@@ -343,68 +359,40 @@ details.fold>summary+*{border-top:1px solid var(--border)}
       <div class="ev"><div class="ic">&#9878;</div><div class="tx">Grocery: 3 comparable deals at <b>8.1&ndash;9.4&times; EBITDA</b>, median 8.6&times;.<div class="mt">vs Nordic Grocery underwritten at 9.1&times;</div></div></div>
       <div class="ev"><div class="ic">&#128499;</div><div class="tx">IC precedent: 4 of the last 6 software deals approved <b>conditional</b> on a customer-concentration test.<div class="mt">relevant to Lumen Analytics</div></div></div>
       <div class="ev"><div class="ic">&#128202;</div><div class="tx">Benchmark: environmental findings appear in <b>31%</b> of industrials diligences, median 2 weeks to clear.<div class="mt">Lone Star is at week 3</div></div></div>
+      <div class="note">Shape only. The comparables and precedent rows above need a source column before they can ship &mdash; a figure with a freshness chip and no named source is not a citation.</div>
     </div>
 
   </div>
 </div>
 </div>
 
-<!-- OPERATING PARTNER HOME -->
+<!-- OPERATING PARTNER HOME — CUT IN REV 4 -->
 <div id="home-ops" style="display:none">
-
-<div class="kpis">
-  <div class="kpi"><div class="kpi-v" style="color:var(--bad)">2</div><div class="kpi-l">Reporting packs overdue</div><div class="kpi-s">Vertex Data, Harbor Coatings</div></div>
-  <div class="kpi"><div class="kpi-v" style="color:var(--warn)">1</div><div class="kpi-l">Covenant headroom &lt; 15%</div><div class="kpi-s">BlueRiver &middot; test 30 Sep</div></div>
-  <div class="kpi"><div class="kpi-v">5</div><div class="kpi-l">Levers behind plan</div><div class="kpi-s">across 3 companies</div></div>
-  <div class="kpi"><div class="kpi-v">2</div><div class="kpi-l">Board meetings next 14d</div><div class="kpi-s">Summit, Cascade</div></div>
-</div>
-
-<div class="card" style="border-color:var(--accent)">
-  <div class="hd"><h3>Same shell, different payload</h3></div>
-  <div class="bd sub" style="line-height:1.65">
-    Home is composed for the role, not fixed. The deal-team Home leads with IC readiness; this one leads with
-    the reporting cycle, covenants and value-creation levers, because a company we have owned for two years has
-    no IC date and no diligence lanes. The backend already takes a role and there is already an operating-partner
-    lens &mdash; this is a second payload behind the same route, not a second product.
-    <div style="margin-top:9px;color:var(--warn)">
-      The cards below are indicative. The data behind them does not exist yet &mdash; see the appendix.
-      This tab is included to test the shape, not to imply it ships in this release.
+  <div class="card" style="border-color:var(--warn)">
+    <div class="hd"><h3>Cut from this proposal</h3></div>
+    <div class="bd sub" style="line-height:1.65">
+      Rev 3 sketched a second Home for the operating partner &mdash; overdue reporting packs, covenant
+      headroom, levers behind plan. It has been removed rather than refined, for two reasons given by
+      two different reviewers.
+      <p style="margin:10px 0 0">
+        First, it was scope creep on a release whose users are the deal team, and the cost of making one
+        shell serve two very different jobs lands on the deal-team Home.
+      </p>
+      <p style="margin:8px 0 0">
+        Second, and worse: the cards used the six real portfolio companies from
+        <code>app/data/portfolio.js</code> with figures that are not in the record. Vertex Data is
+        <code>status: 'on-track'</code> there and &ldquo;pack overdue, third month running&rdquo; here;
+        Harbor&rsquo;s pricing lever is <code>progressPct: 44</code> there and &ldquo;30% against 60%
+        plan&rdquo; here. Real names carrying invented facts is how a mockup becomes a screenshot and
+        then a commitment.
+      </p>
+      <p style="margin:8px 0 0">
+        The underlying point stands and is recorded in the appendix: portfolio operations has no home in
+        this product, and the first thing it needs is a reporting-cycle entity &mdash; the only one of the
+        three asks that generates time-stamped facts for the other two to hang off.
+      </p>
     </div>
   </div>
-</div>
-
-<div class="grid g2">
-  <div style="min-width:0">
-    <div class="card">
-      <div class="hd"><h3>What needs my attention</h3><span class="spacer"></span><span class="chip">6 companies</span></div>
-      <div class="att">
-        <div class="att-t"><span class="chip bad">Pack overdue</span><span class="name">Vertex Data</span><span class="spacer"></span><span class="chip bad">9 days late</span></div>
-        <ul class="gating"><li>June management accounts not submitted &mdash; third month running</li><li>Blocks the LP quarterly and the covenant certificate</li></ul>
-        <div class="acts"><button class="btn primary">Open company &#9656;</button><button class="btn">Chase CFO</button></div>
-      </div>
-      <div class="att">
-        <div class="att-t"><span class="chip bad">Covenant</span><span class="name">BlueRiver</span><span class="spacer"></span><span class="chip warn">test 30 Sep</span></div>
-        <ul class="gating"><li>Leverage headroom 11% on the last reported figures</li><li>Two levers behind plan are the ones underwritten to close the gap</li></ul>
-        <div class="acts"><button class="btn primary">Open company &#9656;</button><button class="btn">Lever plan</button></div>
-      </div>
-      <div class="att">
-        <div class="att-t"><span class="chip warn">Lever behind</span><span class="name">Harbor Coatings</span></div>
-        <ul class="gating"><li>Pricing initiative at 30% against 60% plan &mdash; owner unchanged since January</li></ul>
-        <div class="acts"><button class="btn primary">Open company &#9656;</button></div>
-      </div>
-    </div>
-  </div>
-  <div style="min-width:0">
-    <div class="card">
-      <div class="hd"><h3>Reporting cycle</h3><span class="spacer"></span><span class="chip">June period</span></div>
-      <div class="dl"><span class="nm">Summit Provisions</span><span class="st">submitted 8 Jul</span><span class="why">On time</span></div>
-      <div class="dl"><span class="nm">Cascade Precision</span><span class="st">submitted 14 Jul</span><span class="why">On time</span></div>
-      <div class="dl"><span class="nm">Meridian Health</span><span class="st">submitted 22 Jul</span><span class="why">Late &middot; 7 days</span></div>
-      <div class="dl"><span class="nm">Vertex Data</span><span class="st">not received</span><span class="why">Overdue &middot; 9 days</span></div>
-      <div class="dl"><span class="nm">Harbor Coatings</span><span class="st">not received</span><span class="why">Overdue &middot; 2 days</span></div>
-    </div>
-  </div>
-</div>
 </div>
 
 </div>
@@ -437,13 +425,20 @@ details.fold>summary+*{border-top:1px solid var(--border)}
     <span class="spacer"></span>
     <span class="sub">gated into a deal, no diligence lane started</span>
   </div>
-  <div class="dl"><span class="nm">Mojave Renewables</span><span class="st">Origination &middot; step 2 of 4</span><span class="why">Screened &mdash; no lane has recorded progress</span></div>
-  <div class="dl"><span class="nm">Cypress Grove Dental Partners</span><span class="st">Origination &middot; step 2 of 4</span><span class="why">Screened &mdash; no lane has recorded progress</span></div>
-  <div class="dl"><span class="nm">Riverbend Specialty Foods</span><span class="st">Origination &middot; step 2 of 4</span><span class="why">Screened &mdash; no lane has recorded progress</span></div>
-  <div class="dl"><span class="nm">Beacon Hill Biotech</span><span class="st">Origination &middot; step 3 of 4</span><span class="why">Knocked back from diligence &mdash; environmental finding</span></div>
+  <div class="dl"><span class="nm">Mojave Renewables</span><span class="st">Screened &mdash; awaiting launch</span><span class="why">No diligence lane has recorded progress</span></div>
+  <div class="dl"><span class="nm">Cypress Grove Dental Partners</span><span class="st">Screened &mdash; awaiting launch</span><span class="why">No diligence lane has recorded progress</span></div>
+  <div class="dl"><span class="nm">Riverbend Specialty Foods</span><span class="st">Screened &mdash; awaiting launch</span><span class="why">No diligence lane has recorded progress</span></div>
+  <div class="dl"><span class="nm">Harborlight Marine Services</span><span class="st">Origination &middot; step 3 of 4</span><span class="why">Indicative offer drafted</span></div>
   <div class="note">
     These already sit on this surface today and stay here, so they do not also appear under Deals.
     A deal is on exactly one list.
+    <p style="margin:8px 0 0">
+      No step position is shown for the three screened rows, because they do not have one. The record
+      used to place a screened deal at <code>stageStepNumber = 0</code> of the five <em>diligence</em>
+      steps, which rendered as &ldquo;step 0 of 5&rdquo; and put the deal in a stage it has never been in.
+      Both fields are null for a screened deal now. <b>Beacon Hill Biotech was on this list in rev 3 and
+      should not have been</b> &mdash; it is <code>D1</code> / <code>in_diligence</code> and now sits under Deals.
+    </p>
   </div>
 </div>
 
@@ -471,15 +466,18 @@ details.fold>summary+*{border-top:1px solid var(--border)}
     <span class="sub">in diligence, execution or ownership &middot; origination sits on Sourcing</span>
   </div>
 
-  <div class="dl" data-s="D" data-n="nordic grocery group"><span class="chip bad">Not IC-ready</span><span class="nm">Nordic Grocery Group</span><span class="st">Diligence &middot; step 2 of 5</span><span class="why">3 artifacts incomplete &middot; Tax and Environmental blocking</span></div>
-  <div class="dl" data-s="D" data-n="lumen analytics"><span class="chip warn">Conditional</span><span class="nm">Lumen Analytics</span><span class="st">Diligence &middot; step 4 of 5</span><span class="why">4 open IC conditions</span></div>
-  <div class="dl" data-s="D" data-n="lone star energy services"><span class="chip bad">Not IC-ready</span><span class="nm">Lone Star Energy Services</span><span class="st">Diligence &middot; step 4 of 5</span><span class="why">Environmental blocking &mdash; awaiting third-party report</span></div>
-  <div class="dl" data-s="D" data-n="cascadia timber partners"><span class="chip warn">Conditional</span><span class="nm">Cascadia Timber Partners</span><span class="st">Diligence &middot; step 2 of 5</span><span class="why">2 open conditions &middot; 1 untracked promise due Monday</span></div>
-  <div class="dl" data-s="D" data-n="project sterling"><span class="chip warn">Conditional</span><span class="nm">Project Sterling</span><span class="st">Diligence &middot; step 2 of 5</span><span class="why">1 open condition &middot; QoE v3 awaiting review</span></div>
+  <div class="dl" data-s="D" data-n="nordic grocery group"><span class="chip bad">Not IC-ready</span><span class="nm">Nordic Grocery Group</span><span class="st">Diligence &middot; step 2 of 5</span><span class="why">5 required items outstanding &middot; Operations DD blocking</span></div>
+  <div class="dl" data-s="D" data-n="lumen analytics"><span class="chip bad">Not IC-ready</span><span class="nm">Lumen Analytics</span><span class="st">Diligence &middot; step 3 of 5</span><span class="why">4 required items outstanding &middot; IC in 9 days</span></div>
+  <div class="dl" data-s="D" data-n="lone star energy services"><span class="chip bad">Not IC-ready</span><span class="nm">Lone Star Energy Services</span><span class="st">Diligence &middot; step 3 of 5</span><span class="why">3 required items outstanding</span></div>
+  <div class="dl" data-s="D" data-n="heliopack sustainable packaging"><span class="chip warn">Not IC-ready</span><span class="nm">HelioPack Sustainable Packaging</span><span class="st">Diligence &middot; step 1 of 5</span><span class="why">6 required items outstanding &middot; 2 lanes blocking</span></div>
+  <div class="dl" data-s="D" data-n="beacon hill biotech"><span class="chip warn">Not IC-ready</span><span class="nm">Beacon Hill Biotech</span><span class="st">Diligence &middot; step 1 of 5</span><span class="why">6 required items outstanding &middot; environmental finding open</span></div>
+  <div class="dl" data-s="D" data-n="cascadia timber partners"><span class="chip warn">Not IC-ready</span><span class="nm">Cascadia Timber Partners</span><span class="st">Diligence &middot; step 2 of 5</span><span class="why">4 required items outstanding &middot; ESG / Environmental blocking</span></div>
+  <div class="dl" data-s="D" data-n="project sterling"><span class="chip warn">Not IC-ready</span><span class="nm">Project Sterling</span><span class="st">Diligence &middot; step 2 of 5</span><span class="why">5 required items outstanding &middot; QoE v3 awaiting review</span></div>
+  <div class="dl" data-s="D" data-n="baltic precision components"><span class="chip good">IC-ready</span><span class="nm">Baltic Precision Components</span><span class="st">Diligence &middot; step 5 of 5</span><span class="why">Papers on record &middot; no blocking lanes</span></div>
   <div class="dl locked" data-s="D" data-n="atlas cold chain logistics"><span class="chip">Status only</span><span class="nm">Atlas Cold Chain Logistics &#128274;</span><span class="st">Diligence</span><span class="why">You are not on this deal team</span></div>
-  <div class="dl" data-s="E" data-n="great lakes precision"><span class="chip good">IC-ready</span><span class="nm">Great Lakes Precision</span><span class="st">Execution &middot; step 1 of 4</span><span class="why">SPA out for comment</span></div>
-  <div class="dl" data-s="E" data-n="helvetia diagnostics"><span class="chip good">IC-ready</span><span class="nm">Helvetia Diagnostics</span><span class="st">Execution &middot; step 2 of 4</span><span class="why">Signed &middot; completion 14 Aug</span></div>
-  <div class="dl" data-s="E" data-n="project onyx"><span class="chip warn">Conditional</span><span class="nm">Project Onyx</span><span class="st">Execution &middot; step 2 of 4</span><span class="why">Carve-out TSA schedules in negotiation</span></div>
+  <div class="dl" data-s="E" data-n="great lakes precision"><span class="chip warn">Conditional</span><span class="nm">Great Lakes Precision</span><span class="st">Execution &middot; step 1 of 4</span><span class="why">2 open committee conditions &middot; SPA out for comment</span></div>
+  <div class="dl" data-s="E" data-n="helvetia diagnostics"><span class="chip warn">Conditional</span><span class="nm">Helvetia Diagnostics</span><span class="st">Execution &middot; step 2 of 4</span><span class="why">1 open condition &mdash; regulatory clearance</span></div>
+  <div class="dl" data-s="E" data-n="project onyx"><span class="chip good">IC-ready</span><span class="nm">Project Onyx</span><span class="st">Execution &middot; step 2 of 4</span><span class="why">Carve-out TSA schedules in negotiation</span></div>
   <div class="dl" data-s="V" data-n="meridian logistics"><span class="chip good">Owned</span><span class="nm">Meridian Logistics</span><span class="st">Value &amp; Exit &middot; step 2 of 3</span><span class="why">Value-creation plan on track</span></div>
   <div class="dl" data-s="V" data-n="peachtree health partners"><span class="chip good">Owned</span><span class="nm">Peachtree Health Partners</span><span class="st">Value &amp; Exit &middot; step 2 of 3</span><span class="why">Bolt-on pipeline under review</span></div>
   <div class="dl" data-s="V" data-n="aurora software"><span class="chip good">Owned</span><span class="nm">Aurora Software</span><span class="st">Value &amp; Exit &middot; step 3 of 3</span><span class="why">Exit readiness &mdash; vendor DD commissioned</span></div>
@@ -489,8 +487,9 @@ details.fold>summary+*{border-top:1px solid var(--border)}
   </div>
 
   <div class="note">
-    Step position is per stage, which is how the record already stores it.
-    12 of the 15 rows are drawn here.
+    Step position is per stage, which is how the record already stores it. Every chip and every reason
+    above is the computed verdict for that deal against the seeded record &mdash; NOT-READY 13, READY 4,
+    CONDITIONAL 2 across all 19 deals, of which 15 are in diligence or later.
   </div>
 </div>
 
@@ -512,6 +511,14 @@ details.fold>summary+*{border-top:1px solid var(--border)}
         <b>Known and not fixed here.</b> This tab and the Value&nbsp;&amp;&nbsp;Exit rows on Deals are two different
         datasets that share a word &mdash; six owned companies here, three V-stage deals there, and no key joining them.
         Deciding that a portfolio company is its own entity created at completion is the next release, not this one.
+      </div>
+      <div class="note" style="margin-top:9px">
+        One thing on that seam <em>was</em> fixed, because it was a wrong number on a live screen rather than a
+        missing feature: the Value&nbsp;&amp;&nbsp;Exit cards reported &ldquo;Value-creation plan N% executed&rdquo; from the
+        mean of <code>workstreams</code> &mdash; which is <b>diligence lane progress</b>. Real VCP progress is already
+        computed correctly in <code>app/lib/fund.js</code> from the 100-day plan and lever completion, but it is
+        keyed by portfolio company with no join back to a deal, so it cannot be shown there. The card now states
+        what it actually has, and states nothing when it has nothing.
       </div>
     </div>
   </div>
@@ -539,34 +546,53 @@ details.fold>summary+*{border-top:1px solid var(--border)}
       <li>The agent catalogue moves out of the landing page into the agents panel. The access strip it contained stays on Home in its own right.</li>
     </ul>
 
-    <h4>IC readiness: verdict, not percentage</h4>
+    <h4>IC readiness: verdict, not percentage &mdash; now wired, not drawn</h4>
     <ul>
       <li>The percentage is 45% average lane progress, 35% memo section status, 20% compliance. Lane progress is typed by hand and a <em>draft</em> memo section scores 0.6, so the number is gameable and everyone will learn how within a month.</li>
-      <li><code>computeICReadiness</code> already produces READY / CONDITIONAL / NOT-READY from gating facts &mdash; missing required artifacts, blocking workstreams, unresolved risk-severity issues, open conditions &mdash; and already labels the percentage as progress-only. This surfaces the verdict and its gating list instead. No new scoring, no new data.</li>
+      <li>Rev 3 drew this fix without making it. <code>assess()</code> in <code>homeDesk.js</code> did not import <code>icReadiness.js</code> at all &mdash; every branch still tested <code>num(deal.readiness)</code>, and the gating sentences on the screen (&ldquo;QoE, legal report, tax structuring paper&rdquo;) were strings the function cannot emit. <b>That is now done properly.</b> <code>assess(deal, raw)</code> ranks on <code>verdict.state</code> and renders <code>verdict.gating</code> verbatim.</li>
+      <li>Four things had to change in the engine before the verdict meant anything:
+        <ul>
+          <li><b>The verdict had one reachable state.</b> The artifact check tested <code>deal.artifacts.D1/D2/D3</code> &mdash; the AI generator&rsquo;s cache. No seeded deal has it, so <code>gating</code> was never empty and CONDITIONAL and READY were both unreachable. Every one of the 15 rows would have read &ldquo;Not IC-ready&rdquo;.</li>
+          <li><b>The check asked the wrong question.</b> &ldquo;Has the agent been run?&rdquo; is not &ldquo;does the paper exist?&rdquo;. A <code>deal.icPapers</code> record satisfies it by any route, and diligence papers accumulate with the step &mdash; you cannot stand at D3 (draft the memo) with no plan and no findings behind you.</li>
+          <li><b>Any lane under 80% blocked.</b> So nothing mid-diligence could ever clear, and it handed the analyst who types the number a switch that silently flipped the verdict. A lane now blocks when it has not opened, is halted, or carries an unresolved high-severity finding.</li>
+          <li><b>Gating was a bare count.</b> &ldquo;3 required artifact(s) incomplete&rdquo; sends the reader into the deal to find out which &mdash; the exact click this surface exists to save. It names them, and the labels lost their <code>D1</code>/<code>D2</code> codes.</li>
+        </ul>
+      </li>
+      <li>Result against the seeded record: <b>NOT-READY 13, READY 4, CONDITIONAL 2</b>, with gating that differs by step rather than one sentence repeated 19 times.</li>
       <li>Progress bars come off the rows. A bar invites comparison between two numbers that were typed by different analysts.</li>
+      <li>Honest cost note: this was <em>not</em> &ldquo;no new scoring, no new data&rdquo;, as rev 3 claimed. The verdict needs the unredacted record, so the queue, the KPI row and three briefing sentences all had to route through the access-checked resolver.</li>
     </ul>
 
     <h4>Step position</h4>
     <ul>
       <li><code>Diligence &middot; step 2 of 5</code> uses <code>stageStepNumber</code> / <code>stageStepTotal</code>, which the record already emits. An earlier draft used a global <code>n/16</code>; that spine puts Archive mid-way and parks a healthy owned company at 14/16, so the denominator was misleading.</li>
+      <li>Fixed here: a <em>screened</em> deal was given position 0 of the five <b>diligence</b> steps, rendering &ldquo;step 0 of 5&rdquo; for a deal that has never been in diligence. Both fields are null for a screened deal now, so a consumer shows a real position or shows nothing.</li>
+      <li>Still true and not fixed: D5 is <em>Archive</em>, so &ldquo;step 4 of 5&rdquo; inside Diligence still counts a post-decision step in its denominator. Correcting that means re-cutting the stage spine in <code>flow.js</code>, which is a bigger change than this release.</li>
     </ul>
 
     <h4>Access</h4>
     <ul>
       <li>Two defects were found while preparing this and are fixed in the same change. The cross-deal commitments feed read the unredacted record for <em>every</em> visible deal, including status-tier deals the reader is not on &mdash; surfacing named people and verbatim channel quotes. And every deal summary shipped per-lane diligence status to status-tier seats.</li>
-      <li>Not fixed here: the <code>/fund/*</code> routes discard the caller's identity entirely.</li>
+      <li>Both fixes were then reviewed and both were incomplete. The commitments guard <b>failed open</b> when <code>accessLevel</code> was absent &mdash; and absent is not a trusted internal path, because <code>listAgentDeals</code> stamps <code>'full'</code> on everything it returns with no identity argument at all. It is inverted to refuse anything that is not explicitly <code>'full'</code>.</li>
+      <li>Stripping the lane array did not close the exposure either: <code>diligenceProgress</code> is the mean of that array, and the memo and compliance counts are the same substance one aggregate removed. All are nulled at the tier boundary. <code>readiness</code> survives deliberately as the single overall figure, and the card on Home says exactly that.</li>
+      <li>A regression was introduced and fixed: with the lane array emptied, the attention queue fell through every lane branch and landed on <b>&ldquo;On track&rdquo;</b> &mdash; a health claim about a deal whose health data the reader had just been refused. Metadata-tier deals get their own row. There is a test.</li>
+      <li>Not fixed here, and named: the <code>/fund/*</code> routes discard the caller's identity entirely. And <code>'full'</code> is broader than it sounds &mdash; <code>RESTRICTED_STAGE_RE</code> only covers D/E/V stages, so an origination deal is <code>full</code> for any in-region user, and the commitments feed will mine its channel. That is policy-consistent but has never been policy-reviewed.</li>
+      <li><b>Production, not beta.</b> <code>recordEvent</code> has no actor field, is not append-only, swallows failures and captures only writes &mdash; so &ldquo;who saw what, when&rdquo; is unanswerable, which means the leak fixed above cannot be investigated retrospectively. Channel-utterance monitoring has had no DPIA and no works-council consultation. Both are hard stops before a live tenant, neither blocks a seeded demo tenant.</li>
     </ul>
 
     <h4>What changed since you were last here</h4>
     <ul>
       <li>Ships from the deal activity log and data-room changes, filtered by a watermark held <b>server-side per user</b> and routed through the same access check as the deal list.</li>
+      <li>That sentence is not sufficient on its own, and the implementation must also: floor the watermark at the user&rsquo;s <em>join</em> timestamp per deal, not their last visit &mdash; otherwise adding someone to a team hands them the deal&rsquo;s entire prior activity, which is retrospective wall-crossing with no crossing record; filter events by the access level <em>at event time</em>; re-run the tier strip on every event body, since events carry lane and channel content the list now removes; exclude status-tier deals rather than degrading them; and write a read event per digest.</li>
       <li>Deferred, with reasons: readiness movements (computed live, no time series to diff), IC-date changes (nothing writes an event when the date is edited), and channel volume (a slow per-deal Graph call that belongs in a proactive card, not a page load).</li>
     </ul>
 
-    <h4>Role-composed Home</h4>
+    <h4>Role-composed Home &mdash; withdrawn</h4>
     <ul>
-      <li>The deal-team Home and the operating-partner Home are one shell and two payloads. The route already takes a role and an operating-partner lens already exists.</li>
-      <li>The operating-partner payload is <b>shape only</b> in this mockup. Reporting cycles, covenant headroom and dated KPIs do not exist in the record &mdash; a KPI is a single plan/actual pair with no period, so nothing can be trended or chased. That is the next release.</li>
+      <li>Rev 3 proposed one shell and two payloads, on the grounds that &ldquo;the route already takes a role and an operating-partner lens already exists&rdquo;. <b>Both claims were wrong and are withdrawn.</b></li>
+      <li><code>buildHomeDesk</code>&rsquo;s <code>role</code> is echoed back and never branched on, and it is filled from <code>access.role</code> &mdash; an RBAC <em>tier</em> (admin / partner / deal-team / analyst / member). Operating Partner is a <em>function</em>, not a tier: the parameter that exists is on the wrong axis.</li>
+      <li><code>personaLens</code> is a prompt string prepended to an agent input. It shapes what a model says. It composes nothing.</li>
+      <li>So a second Home is a new builder on a new axis over data that does not exist &mdash; not a payload swap. It is cut from this release. What portfolio operations needs first is a <b>reporting-cycle entity</b> with expected submissions, due dates and received / late / missing status: the only one of its three gaps that generates time-stamped facts, which the dated KPI and the covenant test date then hang off.</li>
     </ul>
 
     <h4>Deliberately out of scope</h4>
@@ -576,7 +602,9 @@ details.fold>summary+*{border-top:1px solid var(--border)}
       <li><b>Relationship intelligence from Graph.</b> The M365 layer is provisioning only &mdash; no read of people, contacts or calendar. Answering &ldquo;has anyone here ever met this company&rdquo; is the largest unbuilt advantage of being Teams-native.</li>
       <li><b>Intermediaries as objects</b> &mdash; coverage owner, what they sent us, our response latency, our hit rate.</li>
       <li><b>The deal interior.</b> Twelve tabs. More overloaded than the top nav ever was, and the right target for the cycle after this one.</li>
-      <li><b>Process calendar, exclusivity clock, DD spend, financing workstream, team capacity</b> &mdash; each is a real gap named by review and none is a navigation problem.</li>
+      <li><b>Process calendar, DD spend, financing workstream, team capacity</b> &mdash; each is a real gap named by review and none is a navigation problem.</li>
+      <li><b>The exclusivity clock</b> is a gap, but a fabricated one was worse. <code>diligence.js</code> invented the window as <code>EV &gt;= 500 ? 9 : 7</code> weeks and printed it next to real dates. Nothing on the record carries the exclusivity date agreed in the LOI, so it is now labelled as the planning assumption it is, everywhere it surfaces. Making it contractual needs a field that does not exist.</li>
+      <li><b>The handover from deal to portfolio.</b> There is no moment where a closed deal becomes an owned company, and there cannot be until the company is an entity to hand it to. The post-close-tagged diligence findings that <code>diligence.js</code> already classifies, and which nothing consumes today, are the payload of that future handover &mdash; recorded here so it is not rediscovered.</li>
     </ul>
 
   </div>

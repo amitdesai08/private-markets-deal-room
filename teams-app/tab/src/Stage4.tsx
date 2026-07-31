@@ -54,7 +54,14 @@ export default function Stage4({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen
                   {figs.length ? <div className="dc-figs">{figs.map((f) => <span key={f.label} className="dc-fig"><b>{f.value}</b> {f.label}</span>)}</div> : null}
                   {d.thesis ? <p className="dc-thesis">{d.thesis.length > 180 ? `${d.thesis.slice(0, 180)}…` : d.thesis}</p> : null}
                   <div className="dc-foot">
-                    <span className="muted">Value-creation plan {avg}% executed</span>
+                    {/* This used to read "Value-creation plan N% executed" from the mean of
+                        `workstreams` — which is DILIGENCE lane progress, not VCP execution.
+                        Real VCP progress is computed in app/lib/fund.js from the 100-day plan
+                        and lever completion, but it is keyed by portfolio company and there is
+                        no join back to a deal id yet, so it cannot be shown here. Until that
+                        join exists this states what it actually has, and shows nothing when it
+                        has nothing rather than "0% executed". */}
+                    <span className="muted">{lanes.length ? `Post-close workstreams ${avg}% complete` : 'Workstream detail not shown'}</span>
                     <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
                   </div>
                 </div>

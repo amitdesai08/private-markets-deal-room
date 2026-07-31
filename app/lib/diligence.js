@@ -113,7 +113,13 @@ export function buildDiligencePlan(deal, memoRisks = []) {
     { item: 'Ops / tech / ESG / other', amount: +(budgetTotal * 0.18).toFixed(2) }
   ];
 
+  // PLANNING ASSUMPTION, not a contractual date. Nothing on the deal record carries the
+  // exclusivity end date agreed in the LOI, so this sizes the plan from deal size using
+  // the market-standard 6-10 week window. It is labelled as an assumption everywhere it
+  // surfaces — presented as a countdown it would be a fabricated clock next to real
+  // dates, which is worse than having no clock at all.
   const exclusivityWeeks = f.ev >= 500 ? 9 : 7;
+  const exclusivityBasis = 'Planning assumption from deal size (market-standard 6–10 week window) — not the exclusivity date agreed in the LOI.';
   return {
     kind: 'plan',
     company: deal.company,
@@ -122,6 +128,7 @@ export function buildDiligencePlan(deal, memoRisks = []) {
     budgetTotal,
     timeline: {
       exclusivityWeeks,
+      exclusivityBasis,
       irlItems: '200–300',
       phases: [
         { name: 'Kickoff & IRL', window: 'Week 1', detail: 'Engage advisers, distribute the information-request list, open the VDR.' },
@@ -130,7 +137,7 @@ export function buildDiligencePlan(deal, memoRisks = []) {
       ]
     },
     dataRoom: { platform: 'Datasite / Ansarada VDR', sections: 13, note: 'Q&A centralized in the VDR (can consume up to 70% of deal time).' },
-    headline: `${workstreams.filter((w) => w.tier === 'critical').length} critical workstream(s) · ${money(budgetTotal)} DD budget · ${exclusivityWeeks}-week exclusivity window.`
+    headline: `${workstreams.filter((w) => w.tier === 'critical').length} critical workstream(s) · ${money(budgetTotal)} DD budget · planned against an assumed ${exclusivityWeeks}-week exclusivity window.`
   };
 }
 

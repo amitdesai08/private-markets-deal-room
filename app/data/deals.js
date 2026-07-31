@@ -809,8 +809,63 @@ export const demoStageDeals = [
   }
 ];
 
+// A deal that has reached Execution or ownership has already been to committee, so its
+// diligence plan, findings report and IC memo exist by definition — they are the papers
+// the committee read — and its memo and compliance are signed off. Without this the IC
+// readiness verdict has exactly one reachable state across the whole demo record,
+// because the artifact check is otherwise satisfied only by running the AI generator.
+const PAST_COMMITTEE = /^[EV]/;
+
+// Conditions attach to deals that CLEARED committee subject to closing items — that is
+// what a condition is. They sit on post-committee deals for that reason; on a deal that
+// is still gated they would be invisible anyway, since the verdict only reports
+// conditions once nothing else is outstanding.
+const OPEN_CONDITIONS = {
+  'demo-greatlakes': [
+    { id: 'c-glp-1', text: 'Confirm change-of-control consents on the top-10 customer contracts', owner: 'Legal DD', status: 'proposed' },
+    { id: 'c-glp-2', text: 'Working-capital bridge agreed with the vendor before completion', owner: 'Finance MD', status: 'proposed' }
+  ],
+  'demo-helvetia': [
+    { id: 'c-hel-1', text: 'Regulatory clearance filed and acknowledged in both jurisdictions', owner: 'Compliance', status: 'proposed' }
+  ]
+};
+
+const seedICState = (d) => {
+  const stage = String(d.stage || '');
+  // Within diligence the papers accumulate with the step, because the steps ARE the
+  // papers: you cannot be standing at D3 (draft the IC memo) with no diligence plan and
+  // no findings report behind you. Without this every diligence deal reports the same
+  // six outstanding items regardless of how far through it is, which is an all-red wall
+  // that a partner stops reading by the second week.
+  const diligencePapers = {
+    D1: {}, // plan being written now — nothing yet on record
+    D2: { D1: true },
+    D3: { D1: true, D2: true },
+    D4: { D1: true, D2: true, D3: true },
+    D5: { D1: true, D2: true, D3: true },
+  }[stage];
+  if (diligencePapers) {
+    return Object.keys(diligencePapers).length ? { ...d, icPapers: { ...diligencePapers, ...(d.icPapers || {}) } } : d;
+  }
+  if (!PAST_COMMITTEE.test(stage)) return d;
+  const memo = (d.memoSections || []).map((m) => ({ ...m, status: 'approved' }));
+  // Committee cannot approve a deal without a recommendation in front of it, so a deal
+  // that is past the gate necessarily has one.
+  if (!memo.some((m) => m.key === 'recommendation')) {
+    memo.push({ key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'Approved at committee.', citations: [] });
+  }
+  const conditions = OPEN_CONDITIONS[d.id];
+  return {
+    ...d,
+    icPapers: { D1: true, D2: true, D3: true, ...(d.icPapers || {}) },
+    memoSections: memo,
+    compliance: (d.compliance || []).map((c) => ({ ...c, status: 'passed' })),
+    ...(conditions ? { conditions } : {})
+  };
+};
+
 // Every deal the app seeds into the datastore at boot. lib/store.js inserts any of
 // these that the datastore does not already hold, BY ID, and never clobbers one that
 // is already there — so a seeded deal becomes a live, mutable record on first boot and
 // its subsequent progress survives every restart and redeploy.
-export const seededDeals = [...seedDeals, ...demoStageDeals];
+export const seededDeals = [...seedDeals, ...demoStageDeals].map(seedICState);

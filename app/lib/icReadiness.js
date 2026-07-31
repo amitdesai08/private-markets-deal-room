@@ -36,6 +36,14 @@ const laneLabel = (l) => LANE_LABEL[l] || l;
 // ---- 1. Required artifacts -------------------------------------------------
 function requiredArtifacts(deal) {
   const arts = deal.artifacts || {};
+  // `artifacts` is the AI generator's CACHE — it is populated when somebody presses
+  // generate. On its own it makes this check ask "has the agent been run?" rather than
+  // "does the paper exist?", which is not the same question and is not the one a
+  // committee cares about. `icPapers` records that the deliverable is on file by any
+  // route, so a deal that has already been to committee is not reported as missing the
+  // very papers the committee read.
+  const filed = deal.icPapers || {};
+  const onRecord = (k) => !!(arts[k] || filed[k]);
   const memo = deal.memoSections || [];
   const memoApproved = memo.filter((m) => m.status === 'approved').length;
   const recSection = memo.find((m) => m.key === 'recommendation');
@@ -43,11 +51,14 @@ function requiredArtifacts(deal) {
   const complianceCleared = compliance.length && compliance.every((c) => c.status === 'passed');
 
   const items = [
-    { key: 'D1', label: 'D1 · Diligence plan', complete: !!arts.D1, detail: arts.D1 ? 'Plan on record.' : 'Not yet generated.' },
-    { key: 'D2', label: 'D2 · Findings / red-flag report', complete: !!arts.D2, detail: arts.D2 ? 'Findings synthesized.' : 'Not yet generated.' },
-    { key: 'D3', label: 'D3 · Final IC memo', complete: !!arts.D3, detail: arts.D3 ? 'Memo drafted.' : 'Not yet generated.' },
+    // Labels are the deliverable, not its internal artifact code. These strings are
+    // now read out verbatim in the gating sentence on the home queue and the deal row,
+    // where "D2" means nothing to a partner.
+    { key: 'D1', label: 'Diligence plan', complete: onRecord('D1'), detail: onRecord('D1') ? 'Plan on record.' : 'Not yet on record.' },
+    { key: 'D2', label: 'Findings / red-flag report', complete: onRecord('D2'), detail: onRecord('D2') ? 'Findings synthesized.' : 'Not yet on record.' },
+    { key: 'D3', label: 'Final IC memo', complete: onRecord('D3'), detail: onRecord('D3') ? 'Memo drafted.' : 'Not yet on record.' },
     { key: 'memo', label: 'IC memo sections approved', complete: memo.length > 0 && memoApproved === memo.length, detail: `${memoApproved}/${memo.length} sections approved.` },
-    { key: 'recommendation', label: 'Recommendation section drafted', complete: !!recSection && recSection.status !== 'empty', detail: recSection ? `Status: ${recSection.status}.` : 'No recommendation section.' },
+    { key: 'recommendation', label: 'Recommendation drafted', complete: !!recSection && recSection.status !== 'empty', detail: recSection ? `Status: ${recSection.status}.` : 'No recommendation section.' },
     { key: 'compliance', label: 'KYC / compliance cleared', complete: !!complianceCleared, detail: compliance.length ? `${compliance.filter((c) => c.status === 'passed').length}/${compliance.length} cleared.` : 'No compliance checks.' }
   ];
   const complete = items.filter((i) => i.complete).length;
@@ -55,15 +66,24 @@ function requiredArtifacts(deal) {
 }
 
 // ---- 2. Blocking workstreams ----------------------------------------------
+// A lane BLOCKS the committee when it has not opened, has been explicitly blocked,
+// or is carrying an unresolved high-severity finding. A lane that is merely partway
+// through does NOT block — that is progress, and `progressReadiness` already carries
+// it. Treating "under 80%" as blocking made every mid-diligence deal NOT-READY, which
+// collapsed the verdict to a single reachable state and made it useless as a signal.
+// It also handed the analyst who types the progress number a switch that silently
+// flips the verdict.
 function blockingWorkstreams(deal, openIssues) {
   const lanes = deal.workstreams || [];
   const out = [];
   for (const w of lanes) {
     const laneIssues = openIssues.filter((i) => i.lane === w.lane);
     const blockingIssues = laneIssues.filter((i) => BLOCKING_SEVERITIES.has(i.severity));
-    const incomplete = (w.progress || 0) < 80 || w.status === 'not_started';
+    const notOpened = w.status === 'not_started' || (w.progress || 0) === 0;
+    const halted = w.status === 'blocked' || w.status === 'on_hold';
     const reasons = [];
-    if (incomplete) reasons.push(`${w.progress || 0}% complete (${w.status || 'not started'})`);
+    if (notOpened) reasons.push('not started');
+    else if (halted) reasons.push(`lane ${w.status.replace('_', ' ')}`);
     if (blockingIssues.length) reasons.push(`${blockingIssues.length} open high-severity issue(s)`);
     if (reasons.length) {
       out.push({ lane: w.lane, label: laneLabel(w.lane), owner: w.owner || null, progress: w.progress || 0, status: w.status || 'not_started', openIssues: laneIssues.length, blockingIssues: blockingIssues.length, reasons });
@@ -158,12 +178,19 @@ function icAsk(deal) {
 }
 
 // ---- verdict ---------------------------------------------------------------
+// Gating strings NAME what is outstanding. A bare count ("3 required artifacts
+// incomplete") tells a partner there is a problem without telling them which one, so
+// the first thing they do is open the deal to find out — which is the click the whole
+// surface exists to save.
 function verdict({ required, blocking, unresolvedRisks, conditions }) {
   const gating = [];
-  if (!required.allComplete) gating.push(`${required.total - required.complete} required artifact(s) incomplete`);
-  if (blocking.length) gating.push(`${blocking.length} workstream(s) blocking`);
+  if (!required.allComplete) {
+    const missing = required.items.filter((i) => !i.complete).map((i) => i.label);
+    gating.push(`${missing.length} required item${missing.length === 1 ? '' : 's'} outstanding: ${missing.join(', ')}`);
+  }
+  if (blocking.length) gating.push(`${blocking.length} workstream${blocking.length === 1 ? '' : 's'} blocking: ${blocking.map((b) => b.label).join(', ')}`);
   const hardRisks = unresolvedRisks.filter((i) => i.severity === 'risk');
-  if (hardRisks.length) gating.push(`${hardRisks.length} unresolved risk-level issue(s)`);
+  if (hardRisks.length) gating.push(`${hardRisks.length} unresolved risk-level issue${hardRisks.length === 1 ? '' : 's'}`);
   const openConditions = conditions.filter((c) => c.status !== 'satisfied');
 
   let state, headline;

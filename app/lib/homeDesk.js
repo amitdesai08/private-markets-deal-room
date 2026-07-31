@@ -23,6 +23,7 @@
 import { corpusForDeal } from './workiqCorpus.js';
 import { detectCommitments } from './dealDesk.js';
 import { icPending, daysUntil } from './cockpit.js';
+import { computeICReadiness } from './icReadiness.js';
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 
@@ -65,31 +66,70 @@ const PHASES = [
 ];
 const phaseOf = (d) => PHASES.find((p) => p.re.test(`${d.stage || ''} ${d.stageName || ''}`)) || null;
 
-function assess(deal) {
+// This queue used to rank on `deal.readiness` — a 45/35/20 blend whose largest term is
+// a percentage an analyst types into a lane by hand. That made the top of a partner's
+// day sortable by whoever was most optimistic with a slider. It now ranks on the IC
+// readiness VERDICT (lib/icReadiness.js), which is derived from facts that leave a
+// trace: whether the papers are on record, whether a lane has actually opened, whether
+// high-severity findings are unresolved, whether committee conditions are outstanding.
+// The percentage survives as context on the row, never as the reason.
+//
+// `raw` is the unredacted record and is REQUIRED to compute a verdict, because the
+// verdict names lanes and findings. It is passed as null for any deal the reader holds
+// at metadata level, and that case returns its own row rather than falling through to
+// a health claim about a deal the reader cannot open.
+function assess(deal, raw) {
   const readiness = num(deal.readiness);
   const pre = icPending(deal);
   const days = pre ? daysUntil(deal.targetICDate) : null;
   const icDays = typeof deal.daysToIC === 'number' ? deal.daysToIC : days;
 
+  if (!raw) {
+    return {
+      rank: 7, tag: 'Not on this deal', tone: 'muted',
+      why: 'You hold this deal at metadata level, so its diligence detail is not assessed here.',
+      impact: null,
+      basis: 'Access level',
+      verdict: null, gating: [],
+    };
+  }
+
+  let ic = null;
+  try { ic = computeICReadiness(raw); } catch { ic = null; }
+  const v = ic?.verdict || null;
+  const gating = v?.gating || [];
+  // A deal that has not entered diligence has not failed to reach committee — it has
+  // not been asked to. Reporting "not IC-ready, diligence plan outstanding" against an
+  // origination-stage target is technically true and completely useless, and it would
+  // bury the eight deals where the same words mean something.
+  const preDiligence = /^o/i.test(String(deal.stage || '')) || deal.stageId === 'screened' || deal.status === 'screened';
+  const state = preDiligence ? null : (v?.state || null);
+
   // Ranked worst-first. The wording states the mechanism, not just the label —
-  // "IC in 9 days at 41% readiness" is actionable; "at risk" is not.
+  // "IC in 9 days, diligence plan and findings report outstanding" is actionable;
+  // "at risk" is not.
   if (pre && typeof icDays === 'number' && icDays < 0) {
     return {
       rank: 0, tag: 'IC date passed', tone: 'bad',
       why: `The target committee date passed ${Math.abs(icDays)} days ago and the deal has not reached committee.`,
       impact: 'Either the date moves with a written reason, or the gap becomes the story at IC.',
       basis: 'Deal record — target IC date vs current step',
+      verdict: state, gating,
     };
   }
-  if (pre && typeof icDays === 'number' && icDays <= 21 && readiness < 80) {
+  if (pre && typeof icDays === 'number' && icDays <= 21 && state === 'NOT-READY') {
     return {
-      rank: 1, tag: 'Approaching IC', tone: 'bad',
-      why: `IC is ${icDays} day${icDays === 1 ? '' : 's'} out at ${readiness}% readiness — below the 80% bar.`,
-      impact: 'Open diligence gates become IC conditions, which is the slowest way to close them.',
+      rank: 1, tag: 'Not IC-ready', tone: 'bad',
+      why: `IC is ${icDays} day${icDays === 1 ? '' : 's'} out and the deal is not ready — ${gating.join('; ')}.`,
+      impact: 'Open gates become IC conditions, which is the slowest way to close them.',
       basis: 'IC readiness board',
+      verdict: state, gating,
     };
   }
-  const lanes = deal.workstreams || [];
+  if (preDiligence) {
+    return { rank: 9, tag: 'In origination', tone: 'muted', why: 'Screened, not yet launched into diligence.', impact: null, basis: 'Deal record — current step', verdict: null, gating: [] };
+  }
+  const lanes = raw.workstreams || deal.workstreams || [];
   const idle = lanes.filter((w) => (w.progress ?? 0) === 0);
   if (idle.length && idle.length === lanes.length && lanes.length) {
     return {
@@ -97,28 +137,34 @@ function assess(deal) {
       why: `None of the ${lanes.length} diligence lane${lanes.length === 1 ? ' has' : 's have'} recorded progress.`,
       impact: 'Nothing is wrong yet — but nothing is moving either, and the clock is.',
       basis: 'Workstream progress',
+      verdict: state, gating,
     };
   }
-  if (readiness < 40) {
+  if (state === 'NOT-READY') {
     return {
-      rank: 3, tag: 'Early', tone: 'warn',
-      why: `${readiness}% IC-ready — the evidence base is still thin.`,
-      impact: 'Expect the readiness number to be the binding constraint on the IC date.',
+      rank: 3, tag: 'Not IC-ready', tone: 'warn',
+      why: `Not ready for committee — ${gating.join('; ')}.`,
+      impact: 'Each of these has to close before the deal can be tabled.',
       basis: 'IC readiness board',
+      verdict: state, gating,
     };
   }
-  if (idle.length) {
+  if (state === 'CONDITIONAL') {
+    const n = v.openConditions;
     return {
-      rank: 4, tag: 'Lane not started', tone: 'warn',
-      why: `${idle.length} of ${lanes.length} lanes ${idle.length === 1 ? 'has' : 'have'} not started.`,
-      impact: 'An unopened lane is the most common source of a late surprise.',
-      basis: 'Workstream progress',
+      rank: 4, tag: 'Conditional', tone: 'warn',
+      why: `Ready to table, subject to ${n} condition${n === 1 ? '' : 's'} still to close.`,
+      impact: 'Conditions left open at the meeting come back as post-completion obligations.',
+      basis: 'IC readiness board — committee conditions',
+      verdict: state, gating,
     };
   }
-  if (readiness >= 80) {
-    return { rank: 8, tag: 'IC-ready', tone: 'good', why: `${readiness}% ready — cleared the readiness bar.`, impact: null, basis: 'IC readiness board' };
+  if (state === 'READY') {
+    return {
+      rank: 8, tag: 'IC-ready', tone: 'good', why: 'Papers on record, no blocking lanes, no unresolved risk findings.', impact: null, basis: 'IC readiness board', verdict: state, gating,
+    };
   }
-  return { rank: 6, tag: 'On track', tone: 'good', why: `${readiness}% ready and progressing on plan.`, impact: null, basis: 'IC readiness board' };
+  return { rank: 6, tag: 'On track', tone: 'good', why: `Progressing on plan at ${readiness}% completion.`, impact: null, basis: 'IC readiness board', verdict: state, gating };
 }
 
 // ---------------------------------------------------------------------------
@@ -136,9 +182,11 @@ function portfolioCommitments(deals, rawFor, limit = 6) {
     // and `rawFor` below resolves to the UNREDACTED record. Reading a status-tier
     // deal here would therefore promote a metadata-only seat to full channel
     // content, which is the exact escalation the access model exists to prevent.
-    // Only full-access deals contribute. An absent accessLevel means the caller is
-    // the system/agent path, which is already scoped upstream.
-    if (d.accessLevel && d.accessLevel !== 'full') continue;
+    // Only full-access deals contribute. An accessLevel that is missing entirely is
+    // also refused: the one caller that omits identity (`listAgentDeals`) stamps
+    // 'full' on every deal it returns, so "absent" is not a trusted internal path,
+    // it is an unknown one.
+    if (d.accessLevel !== 'full') continue;
     let corpus;
     // The corpus is composed from the FULL deal record (lane owners, sponsor,
     // dates); a list summary has those stripped, which would leave every
@@ -178,8 +226,16 @@ function portfolioCommitments(deals, rawFor, limit = 6) {
 export function buildHomeDesk(deals = [], { role = null, roleLabel = null, rawFor = (d) => d } = {}) {
   const list = Array.isArray(deals) ? deals.filter(Boolean) : [];
 
+  // The verdict is computed from the unredacted record and names lanes and findings,
+  // so it is only ever computed for a deal this reader can open. Metadata-tier deals
+  // get a null raw and their own row — the queue says "not assessed", not "on track".
+  const rawIfPermitted = (d) => {
+    if (d.accessLevel !== 'full') return null;
+    try { return rawFor(d) || d; } catch { return null; }
+  };
+
   const ranked = list
-    .map((d) => ({ deal: d, a: assess(d) }))
+    .map((d) => ({ deal: d, a: assess(d, rawIfPermitted(d)) }))
     .sort((x, y) => x.a.rank - y.a.rank || num(x.deal.readiness) - num(y.deal.readiness));
 
   const attention = ranked
@@ -194,6 +250,11 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, rawFo
       dealId: r.deal.id,
       company: r.deal.company,
       stageName: r.deal.stageName || r.deal.stage || null,
+      // Per-stage step position. "step 2 of 5" is a place in a process; the old
+      // global "6 of 16" counted archive and post-close steps a live deal will
+      // never reach in this stage.
+      stepNumber: typeof r.deal.stageStepNumber === 'number' && r.deal.stageStepNumber > 0 ? r.deal.stageStepNumber : null,
+      stepTotal: typeof r.deal.stageStepTotal === 'number' ? r.deal.stageStepTotal : null,
       readiness: num(r.deal.readiness),
       icInDays: typeof r.deal.daysToIC === 'number' ? r.deal.daysToIC : null,
     }));
@@ -201,8 +262,11 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, rawFo
   // Headline numbers, all derived from the deals THIS caller can see so the
   // narrative and the tiles can never disagree.
   const capital = list.reduce((s, d) => s + num(d.dealSize), 0) * 1e6;
-  const avgReadiness = list.length ? Math.round(list.reduce((s, d) => s + num(d.readiness), 0) / list.length) : 0;
-  const icReady = list.filter((d) => num(d.readiness) >= 80).length;
+  // Counted from the verdict, not from a percentage bar. "3 not IC-ready" is a number
+  // a partner can act on; "62% average readiness" is a number nobody has ever acted on.
+  const notReady = ranked.filter((r) => r.a.verdict === 'NOT-READY').length;
+  const conditional = ranked.filter((r) => r.a.verdict === 'CONDITIONAL').length;
+  const icReady = ranked.filter((r) => r.a.verdict === 'READY').length;
   const sectors = new Set(list.map((d) => d.sector).filter(Boolean)).size;
   const upcoming = list
     .filter((d) => icPending(d) && typeof d.daysToIC === 'number' && d.daysToIC >= 0)
@@ -222,8 +286,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, rawFo
     c.add('You do not have any live deals in view. Sourced candidates appear here once they clear the screening gate.', 'Deal list');
   } else {
     c.add(
-      `You have ${list.length} deal${list.length === 1 ? '' : 's'} in view carrying ${money(capital)} of enterprise value across ${sectors || 1} sector${sectors === 1 ? '' : 's'}, at ${avgReadiness}% average IC readiness.`,
-      'Deal list', 'IC readiness board',
+      `You have ${list.length} deal${list.length === 1 ? '' : 's'} in view carrying ${money(capital)} of enterprise value across ${sectors || 1} sector${sectors === 1 ? '' : 's'}.`,
+      'Deal list',
     );
 
     const urgent = attention.filter((a) => a.tone === 'bad');
@@ -243,13 +307,16 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, rawFo
 
     if (nearest) {
       c.add(
-        `The next committee date is ${nearest.company} in ${nearest.daysToIC} day${nearest.daysToIC === 1 ? '' : 's'}, at ${num(nearest.readiness)}% readiness.`,
+        `The next committee date is ${nearest.company} in ${nearest.daysToIC} day${nearest.daysToIC === 1 ? '' : 's'}.`,
         'Deal record — target IC date',
       );
     }
 
     if (icReady) {
-      c.add(`${icReady} deal${icReady === 1 ? ' has' : 's have'} cleared the 80% readiness bar and could be scheduled for committee.`, 'IC readiness board');
+      c.add(`${icReady} deal${icReady === 1 ? ' is' : 's are'} ready to table — papers on record, no blocking lanes, no unresolved risk findings.`, 'IC readiness board');
+    }
+    if (conditional) {
+      c.add(`${conditional} deal${conditional === 1 ? ' carries' : 's carry'} committee conditions that are still open.`, 'IC readiness board — committee conditions');
     }
 
     if (workiq.total) {
@@ -278,9 +345,9 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, rawFo
     kpis: [
       { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${phases.find((p) => p.key === 'diligence')?.count || 0} in diligence` },
       { key: 'capital', label: 'Enterprise value', value: money(capital), sub: list.length ? `avg ${money(capital / list.length)} · ${sectors || 1} sector${sectors === 1 ? '' : 's'}` : '—' },
-      { key: 'readiness', label: 'Avg IC readiness', value: `${avgReadiness}%`, sub: `${icReady} past the 80% bar` },
+      { key: 'readiness', label: 'Not IC-ready', value: String(notReady), sub: `${conditional} conditional · ${icReady} ready to table` },
       { key: 'ic', label: 'Next committee', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
     ],
-    counts: { deals: list.length, attention: attention.length, icReady, commitments: workiq.total },
+    counts: { deals: list.length, attention: attention.length, notReady, conditional, icReady, commitments: workiq.total },
   };
 }

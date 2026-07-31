@@ -400,12 +400,17 @@ function derive(deal) {
   const completedSteps = STEP_KEYS.slice(0, idx);
 
   // Stage-local position (e.g. "Diligence · Step 2 of 5").
+  // A screened deal has NOT entered a stage yet — it is waiting to be launched. It
+  // used to be given position 0 out of the five DILIGENCE steps, which rendered as
+  // "step 0 of 5" and told the reader it was in a stage it has never been in. Both
+  // fields are null instead, so every consumer either shows a real position or shows
+  // nothing.
   const stepObj = stepByKey(deal.stage) || STEPS[idx];
   const stageId = isScreened ? 'screened' : (stepObj ? stepObj.stage : STAGES[0].id);
   const stageObj = STAGES.find((s) => s.id === stageId) || STAGES[0];
-  const stageSteps = STEPS.filter((s) => s.stage === (isScreened ? 'diligence' : stageId));
-  const stageStepTotal = stageSteps.length;
-  const stageStepNumber = isScreened ? 0 : Math.max(1, stageSteps.findIndex((s) => s.key === deal.stage) + 1);
+  const stageSteps = isScreened ? [] : STEPS.filter((s) => s.stage === stageId);
+  const stageStepTotal = isScreened ? null : stageSteps.length;
+  const stageStepNumber = isScreened ? null : Math.max(1, stageSteps.findIndex((s) => s.key === deal.stage) + 1);
 
   // Real, defensible deal KPIs derived from the live record.
   const lanes = deal.workstreams || [];
@@ -510,6 +515,17 @@ export function listDeals(identity, viewAsRole = null) {
       // metadata-only seat can read the lane board of a deal it cannot open.
       s.thesis = undefined;
       s.workstreams = [];
+      // Removing the lane ARRAY is not enough on its own: every one of these is an
+      // aggregate OF that array, and "2 of 9 memo sections approved, 3 of 4
+      // compliance gates cleared" is the same diligence substance at one remove.
+      // `readiness` survives deliberately — it is the single overall progress figure
+      // this tier is entitled to, and the UI says so in as many words.
+      s.diligenceProgress = null;
+      s.memoApproved = null;
+      s.memoTotal = null;
+      s.memoProgress = null;
+      s.complianceCleared = null;
+      s.complianceTotal = null;
       s.locked = true;
     }
     out.push(s);
