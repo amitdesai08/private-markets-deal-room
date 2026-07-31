@@ -560,11 +560,8 @@ details[open] > summary:before { content: "\\25BE "; }
 /* The reason wraps. It is the most important column on the row and truncating it to one
    line is how "2 required items outstanding: Findings / red-flag report, KYC…" became a
    tooltip nobody opened. */
-/* Clamped, not truncated: the reason is still there and still selectable, it just does not
-   turn a 15-row list into six screens. Two lines is enough to see the shape of what is
-   outstanding; the deal page has all of it. Truncating it to one line is how "2 required
-   items outstanding: Findings / red-flag report, KYC…" became a tooltip nobody opened. */
-.dv-why { color: var(--muted); line-height: 1.35; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.dv-why { color: var(--muted); line-height: 1.35; overflow-wrap: anywhere; }
+.dv-more { color: var(--accent); font-weight: 600; white-space: nowrap; }
 .dv-size { text-align: right; }
 .linkbtn { border: none; background: none; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; padding: 0; }
 .cand-list { display: flex; flex-direction: column; }

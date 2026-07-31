@@ -126,17 +126,20 @@ export default function Deals({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen:
                   <span className={`dv-chip ${chip.tone}`}>{chip.label}</span>
                   <span className="dv-name">{d.company}{d.locked ? ' 🔒' : ''}</span>
                   <span className="dv-stage">{stepLabel(d)}</span>
-                  {/* The gating list, clamped to two lines. Not the headline: on a diligence
-                      deal `headline` is the same itemised list with the state prefixed, so
-                      rendering both put the identical sentence on the row twice under a chip
-                      that had already said "Not IC-ready". Clamped, not truncated — the text
-                      is all present and selectable; the deal page has it laid out. */}
+                  {/* Not the headline: on a diligence deal `headline` is this same list with
+                      the state prefixed, and the chip has already said the state.
+
+                      The elision is EXPLICIT. A CSS line-clamp hides text with no indication
+                      that anything was hidden, which is how "2 required items outstanding:
+                      Findings / red-flag report, KYC…" became a tooltip nobody opened. "+5
+                      more" tells you the row is not the whole answer and the deal is. */}
                   <span className="dv-why">
-                    {d.locked
-                      ? 'You are not on this deal team'
-                      : v?.gating?.length
-                        ? v.gating.join(' · ')
-                        : v?.headline || '—'}
+                    {d.locked ? 'You are not on this deal team' : (() => {
+                      const g: string[] = v?.gating || [];
+                      if (!g.length) return v?.headline || '—';
+                      const head = g.slice(0, 2).join(' · ');
+                      return g.length > 2 ? <>{head} <span className="dv-more">+{g.length - 2} more</span></> : head;
+                    })()}
                   </span>
                   <span className="dv-size">{d.locked ? '' : money(d.dealSize)}</span>
                   <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
