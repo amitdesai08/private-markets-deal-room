@@ -247,7 +247,7 @@ export const seedDeals = [
       { key: 'market', title: 'Market & commercial', status: 'approved', content: 'Utilisation 87%; pharma tailwind.', citations: ['Commercial DD'] },
       { key: 'value-creation', title: 'Value creation plan', status: 'approved', content: 'Buy-and-build; energy hedging.', citations: ['Ops DD'] },
       { key: 'risks', title: 'Key risks & mitigants', status: 'approved', content: 'Energy costs hedged via PPAs.', citations: ['Ops DD'] },
-      { key: 'recommendation', title: 'Recommendation', status: 'in_progress', content: 'Recommend proceed at 9.2x subject to final IC conditions.', citations: ['Deal model'] }
+      { key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'Recommend proceed at 9.2x. Diligence complete across all three lanes; no unresolved risk-level findings.', citations: ['Deal model', 'Commercial DD', 'Tech / AI DD'] }
     ],
     compliance: [
       { check: 'Sanctions / UBO screening', framework: 'KYC', status: 'passed' },
@@ -415,7 +415,13 @@ export const demoStageDeals = [
     ],
     workstreams: [
       { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 35, findings: [] },
-      { lane: 'techai', owner: 'ai-md', status: 'not_started', progress: 0, findings: [] },
+      // DELIBERATELY BARE, and the only lane in the seed that is. Marked complete at 100%
+      // with nothing recorded against it — the exact state the readiness gate exists to
+      // catch: a lane the committee cannot check, whatever the status field says. Every
+      // other lane carries its findings, so without this one the rule would live in the
+      // code, never fire in a demo, and be deleted by the next person who could not see
+      // why it was there.
+      { lane: 'techai', owner: 'ai-md', status: 'complete', progress: 100, findings: [] },
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Boston CRO carve-out with recurring biotech demand.', citations: ['CIM'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],

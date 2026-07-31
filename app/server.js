@@ -1661,6 +1661,10 @@ api.post('/deals/:id/advance', async (req, res) => {
   // partner who is viewing as an analyst cannot override either — view-as only narrows.
   // An admin is a systems role, not a deal sponsor, and is deliberately not promoted here.
   const access = accessFor(requestingIdentity(req), requestingViewAs(req));
+  // Advancing a deal is a write. `accessFor` computes `advanceWorkflow` and nothing read
+  // it, so a read-only seat could move a deal through every ungated transition — a
+  // capability computed, shipped to the UI, and enforced nowhere.
+  if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'This seat cannot move deals.' });
   const r = await advanceDeal(req.params.id, { persona: access.role || null, overrideReason });
   if (r && r.error === 'not-found') return res.status(404).json({ error: 'deal not found' });
   // A refused override is an authorization failure, not a conflict — it must not be
@@ -1683,8 +1687,15 @@ api.post('/deals/:id/artifact/:step', async (req, res) => {
   }
 });
 
+// Moving a deal BACKWARDS is a write, and it used to be an unauthenticated, unlogged one:
+// no access check, no reason, and `regressDeal` wrote no activity entry at all, so walking
+// a deal back and forward left two "Advanced to D4" lines with nothing between them.
+// `/back-stage` additionally took `persona` straight from the request body — the same
+// client-supplied-attribution shape that was closed on the contributions route.
 api.post('/deals/:id/back', async (req, res) => {
-  const deal = await regressDeal(req.params.id);
+  const access = accessFor(requestingIdentity(req), requestingViewAs(req));
+  if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'This seat cannot move deals.' });
+  const deal = await regressDeal(req.params.id, { persona: access.role || null, reason: (req.body || {}).reason });
   if (!deal) return res.status(404).json({ error: 'deal not found' });
   res.json(deal);
 });
@@ -1692,8 +1703,10 @@ api.post('/deals/:id/back', async (req, res) => {
 // Knock a deal back a whole stage (e.g. Execution → start of Diligence). No-op if
 // already in the first stage; the response reflects the (possibly unchanged) deal.
 api.post('/deals/:id/back-stage', async (req, res) => {
-  const { persona, reason } = req.body || {};
-  const deal = await regressDealStage(req.params.id, { persona, reason });
+  const { reason } = req.body || {};
+  const access = accessFor(requestingIdentity(req), requestingViewAs(req));
+  if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'This seat cannot move deals.' });
+  const deal = await regressDealStage(req.params.id, { persona: access.role || null, reason });
   if (!deal) return res.status(404).json({ error: 'deal not found' });
   res.json(deal);
 });

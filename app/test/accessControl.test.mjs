@@ -5,7 +5,7 @@
 // control with no test is a comment.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hydrate, listDeals, advanceDeal, getDeal } from '../lib/store.js';
+import { hydrate, listDeals, advanceDeal, regressDeal, getDeal } from '../lib/store.js';
 
 // Real store, real seed data, no datastore configured — so these run against the same
 // functions the HTTP routes call, not a fixture shaped to look like them.
@@ -110,4 +110,27 @@ test('a partner CAN proceed, and the override is written down', async () => {
   assert.match(ov.reason, /proceeding at risk/);
   assert.ok(ov.gating.length, 'the override records WHAT was overridden, not just that it was');
   assert.ok(!after.activity.some((a) => a.actor === 'Investment Committee'), 'no activity line may be attributed to a body that never sat');
+});
+
+// ---------------------------------------------------------------------------
+// 4. Moving a deal BACKWARDS leaves a trace.
+//
+// `regressDeal` wrote no activity entry at all, so walking a deal back and forward left
+// two "Advanced to ..." lines with nothing between them — which is worse than no log,
+// because it reads as one clean progression.
+// ---------------------------------------------------------------------------
+test('a backwards move is written to the activity log, with an actor', async () => {
+  const id = 'demo-cascadia';
+  const before = getDeal(id);
+  const startStage = before.stage;
+  const startLines = before.activity.length;
+
+  const after = await regressDeal(id, { persona: 'principal', reason: 'QoE reopened after the vendor restated Q3.' });
+  assert.notEqual(after.stage, startStage, 'the deal must actually have moved');
+  assert.equal(after.activity.length, startLines + 1, 'a backwards move that leaves no trace is an untracked write');
+
+  const line = after.activity[0];
+  assert.match(line.actor, /principal/, 'the log must name who did it');
+  assert.match(line.action, /Moved back/i);
+  assert.match(line.action, /QoE reopened/, 'and why');
 });

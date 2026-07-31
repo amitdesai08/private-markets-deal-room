@@ -198,6 +198,14 @@ export function dealPhase(deal) {
   const stage = String(deal.stage || '');
   if (/^o/i.test(stage)) return 'origination';
   if (/^[ev]/i.test(stage)) return 'post-committee';
+  // D5 is the diligence stage's ARCHIVE / close-out step, which a deal only reaches after
+  // the committee has sat. Reading it as diligence made `baltic-precision` — stage D5,
+  // status `signing`, thesis "IC approved; deal archived" — report "IC-ready: required
+  // artifacts complete, no blocking workstreams". A signed and archived deal presented as
+  // ready to be tabled. The regex above was written for E and V and simply did not reach it.
+  if (/^d5/i.test(stage)) return 'post-committee';
+  // The status field can also say it outright, whatever the stage letter is.
+  if (['signing', 'signed', 'closing', 'closed', 'completed', 'owned', 'exited', 'archived'].includes(String(deal.status || '').toLowerCase())) return 'post-committee';
   return 'diligence';
 }
 
@@ -219,9 +227,14 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
   // (date, attendees, outcome, terms), so this must not be worded as though a minute exists.
   if (phase === 'post-committee') {
     const openChecks = (deal?.compliance || []).filter((c) => c.status !== 'passed');
+    // `blocking` is read here too. It was not, and the result was one payload contradicting
+    // itself: `demo-peachtree` shipped `blockingWorkstreams: ['Tech / AI DD']` — reason,
+    // no work recorded against it — under the headline "nothing outstanding on the record".
+    // A lane nobody has evidenced is outstanding whatever stage the deal is at.
     const outstanding = [
       ...openConditions.map((c) => c.text || c.id),
       ...openChecks.map((c) => `${c.check}${c.framework ? ` (${c.framework})` : ''} not cleared`),
+      ...blocking.map((b) => `${b.label} — ${b.reasons.join(', ')}`),
     ];
     if (outstanding.length) {
       return {

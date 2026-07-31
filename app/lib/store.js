@@ -2632,7 +2632,10 @@ export async function advanceDeal(id, { persona, overrideReason } = {}) {
         const at = new Date().toISOString();
         deal.icOverrides = deal.icOverrides || [];
         deal.icOverrides.push({ stage: deal.stage, gate, verdict: board.verdict.state, gating: board.verdict.gating, reason, by: persona || 'partner', at });
-        deal.activity.unshift({ actor: 'Partner', action: `IC-readiness gate OVERRIDE at ${deal.stage} (${gate}) — verdict ${board.verdict.state}: ${reason}`, when: at });
+        // Name the person, not the role. `actor: 'Partner'` was hardcoded on the one act
+        // in this system with the highest consequence — overriding a gate — while the
+        // contributions route, which files a note, resolves an actual identity.
+        deal.activity.unshift({ actor: `Partner (${persona})`, action: `IC-readiness gate OVERRIDE at ${deal.stage} (${gate}) — verdict ${board.verdict.state}: ${reason}`, when: at });
         logEvent(deal.id, 'ic-gate-override', { stage: deal.stage, gate, verdict: board.verdict.state, gating: board.verdict.gating, reason, by: persona || 'partner' });
       }
     }
@@ -2648,7 +2651,9 @@ export async function advanceDeal(id, { persona, overrideReason } = {}) {
     // this system does not have.
     const who = persona ? `Deal team (${persona})` : 'Deal team';
     deal.activity.unshift({
-      actor: crossedGate ? 'Power Automate' : who,
+      actor: who,
+      // `crossedGate` used to attribute this to 'Power Automate'. A person clicked; the
+      // log named a robot. Same rule as 'Investment Committee', lower stakes.
       action: crossedGate ? `PURSUE — ${GATE.detail}` : `Advanced to ${next.code} · ${next.title}`,
       when: new Date().toISOString()
     });
@@ -2658,11 +2663,24 @@ export async function advanceDeal(id, { persona, overrideReason } = {}) {
   return r.deal;
 }
 
-export async function regressDeal(id) {
+export async function regressDeal(id, { persona, reason } = {}) {
   const r = await mutateDeal(id, (deal) => {
     const idx = stepIndex(deal.stage);
-    if (idx > 0) deal.stage = STEP_KEYS[idx - 1];
-    return { event: 'deal-regressed' };
+    if (idx <= 0) return {}; // already at the first step — no-op
+    const from = deal.stage;
+    deal.stage = STEP_KEYS[idx - 1];
+    const target = stepByKey(deal.stage);
+    const fromStep = stepByKey(from);
+    // This used to write NOTHING. Walk a deal back and forward and the log showed two
+    // "Advanced to D4" lines with nothing between them — which is worse than no log,
+    // because it reads as a single clean progression.
+    const why = String(reason || '').trim();
+    deal.activity.unshift({
+      actor: persona ? `Deal team (${persona})` : 'Deal team',
+      action: `Moved back to ${target.code} · ${target.title} (from ${fromStep ? `${fromStep.code} · ${fromStep.title}` : from})${why ? ` — ${why}` : ''}`,
+      when: new Date().toISOString()
+    });
+    return { event: 'deal-regressed', detail: { from, to: deal.stage, by: persona || null, reason: why || null } };
   });
   return r.error ? null : r.deal;
 }
@@ -2685,7 +2703,7 @@ export async function regressDealStage(id, { persona, reason } = {}) {
     const at = new Date().toISOString();
     const why = String(reason || '').trim();
     deal.activity.unshift({
-      actor: 'Deal Orchestrator',
+      actor: persona ? `Deal team (${persona})` : 'Deal team',
       action: `Knocked back to ${stage?.name || prevId} — reopened at ${target.code} · ${target.title} (from ${fromStep ? `${fromStep.code} · ${fromStep.title}` : from})${why ? ` — ${why}` : ''}`,
       when: at
     });

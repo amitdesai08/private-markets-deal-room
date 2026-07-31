@@ -38,6 +38,22 @@ connected, the items under "Not in place" below stop being theoretical.
 - **View-as narrows only.** It can never elevate a capability the caller does not have.
 - **Partner-only IC-gate override**, resolved server-side from the caller's identity, and
   failing shut for an unidentified caller. Tested in `app/test/accessControl.test.mjs`.
+- **Write routes require a write-capable seat.** `/deals/:id/advance`, `/back` and
+  `/back-stage` all check `canWrite` and resolve the actor server-side. Backwards moves
+  are written to the activity log with an actor and a reason.
+
+## What a deal team must be told on day one
+
+Say this, in these words, before anyone opens it:
+
+- **Nothing in this system is a committee decision.** The phase is read off the stage
+  field. There is no minute, no attendee list and no approval terms behind any sentence
+  that mentions the committee.
+- **The activity log is not yet an audit trail.** See the list below.
+- **Every finding, condition, memo section and figure is fabricated demo content.**
+- **Pressing "generate" clears required items by writing them.** The gate cannot tell a
+  filed document from a model output.
+- **Do not export any of it to an LP, a lender, or counsel.**
 
 ## Not in place — and blocking a production deployment
 

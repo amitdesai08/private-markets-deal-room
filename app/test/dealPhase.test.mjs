@@ -112,6 +112,43 @@ test('nothing cites a document the system cannot produce without saying so', () 
   }
 });
 
+test('a signed or archived deal is never reported as ready to table', () => {
+  // `baltic-precision` is stage D5, status `signing`, thesis "IC approved; deal archived".
+  // D5 is the diligence stage's ARCHIVE step, reached only after the committee has sat —
+  // but the post-committee test was `/^[ev]/`, which does not match D5, so the deal fell
+  // through to the diligence gate and read "IC-ready: required artifacts complete, no
+  // blocking workstreams". A signed and archived deal presented as ready to be tabled.
+  const SIGNED = new Set(['signing', 'signed', 'closing', 'closed', 'completed', 'owned', 'exited', 'archived']);
+  for (const d of seededDeals) {
+    if (!SIGNED.has(String(d.status || '').toLowerCase()) && !/^d5/i.test(String(d.stage || ''))) continue;
+    assert.equal(dealPhase(d), 'post-committee', `${d.id} (${d.stage}/${d.status}) must not be measured against the readiness gate`);
+    const v = computeICReadiness(d).verdict;
+    assert.ok(!/IC-ready/.test(v.headline), `${d.id}: "${v.headline}"`);
+  }
+});
+
+test('a verdict never says nothing is outstanding while the same payload names something', () => {
+  // `demo-peachtree` shipped `blockingWorkstreams: ['Tech / AI DD']` — reason, no work
+  // recorded against it — under the headline "nothing outstanding on the record". One
+  // payload contradicting itself, and the contradiction was the sentence, not the data.
+  for (const d of seededDeals) {
+    const b = computeICReadiness(d);
+    if (b.verdict.state !== 'READY') continue;
+    assert.equal((b.blockingWorkstreams || []).length, 0,
+      `${d.id}: verdict READY while blocking on ${(b.blockingWorkstreams || []).map((x) => x.label).join(', ')}`);
+    assert.equal(b.verdict.gating.length, 0, `${d.id}: READY with gating items listed`);
+  }
+});
+
+test('the seed keeps one lane marked complete with nothing recorded against it', () => {
+  // The rule that catches this was fought for twice. If the demo never shows it firing,
+  // the next person to read the code deletes it. This asserts the example survives.
+  const bare = seededDeals.flatMap((d) => (d.workstreams || [])
+    .filter((w) => w.status === 'complete' && !(w.findings || []).length && !(w.contributions || []).length)
+    .map((w) => `${d.id}/${w.lane}`));
+  assert.ok(bare.length >= 1, 'no lane demonstrates the complete-but-unevidenced case any more');
+});
+
 test('the seed does not clear a post-committee gate by overwriting the evidence', () => {
   // The substantive fact the record tracks: an EU merger-control filing does not complete
   // because a committee approved the deal. A previous pass mapped every compliance check
