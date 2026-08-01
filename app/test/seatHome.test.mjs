@@ -324,6 +324,42 @@ test('an unrecognised persona is admitted to, not guessed at', () => {
   assert.equal(unknown.unbound, true);
 });
 
+test('a seat is never invented for a user who has not been given one', async () => {
+  // The Teams tab used to derive a persona LOCALLY by hashing the caller's object id
+  // and indexing the roster modulo its length, so every real signed-in user was handed
+  // a fictional colleague's seat and the top bar badged them with that character's
+  // name. Two guarantees replace it: the access profile carries the seat (one policy
+  // source), and an unassigned user carries `null`.
+  const prevAssign = process.env.PERSONA_ASSIGNMENTS;
+  const prevDemo = process.env.DEMO_PROFILES;
+  try {
+    process.env.DEMO_PROFILES = 'false';
+    process.env.PERSONA_ASSIGNMENTS = JSON.stringify({ 'supply-md': ['jo.chen@contoso.com'] });
+    const { describeAccess } = await import(`../lib/userPolicy.js?seatless=${Date.now()}`);
+
+    const assigned = describeAccess({ upn: 'jo.chen@contoso.com' });
+    assert.equal(assigned.persona, 'supply-md', 'the access profile must carry the assigned seat');
+    assert.equal(assigned.demoMode, false);
+
+    // Several distinct identities, because a hash only shows itself as wrong when the
+    // inputs differ: the old code returned SOME persona for every one of these.
+    for (const id of [{ oid: 'aaaa-1111' }, { oid: 'zzzz-9999' }, { upn: 'nobody@contoso.com' }, {}]) {
+      assert.equal(describeAccess(id).persona, null, `an unassigned identity must stay unbound: ${JSON.stringify(id)}`);
+    }
+  } finally {
+    process.env.PERSONA_ASSIGNMENTS = prevAssign ?? '';
+    if (prevDemo === undefined) delete process.env.DEMO_PROFILES; else process.env.DEMO_PROFILES = prevDemo;
+  }
+});
+
+test('the persona lookup resolves an id and refuses to substitute one', async () => {
+  const { personaRecord } = await import('../../teams-app/server/sharedLib.js');
+  assert.equal((await personaRecord('analyst'))?.id, 'analyst');
+  for (const empty of [null, undefined, '', 'no-such-persona']) {
+    assert.equal(await personaRecord(empty), null, `"${empty}" must not resolve to a seat`);
+  }
+});
+
 test('lanes nobody owns are declared rather than left to be discovered', () => {
   assert.ok(Array.isArray(UNOWNED_LANES));
   assert.ok(!UNOWNED_LANES.includes('tax'), 'tax is owned by the Fund CFO (sources & uses / structuring)');

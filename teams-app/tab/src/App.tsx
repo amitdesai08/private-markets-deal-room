@@ -115,7 +115,11 @@ export default function App() {
 
   function applyAccess(ctx: any) {
     if (!ctx) return;
-    if (ctx.persona) setPersona(ctx.persona);
+    // Assigned or absent — never left over. Switching showcase profiles (or turning
+    // demo mode off) has to be able to take the seat AWAY, and `if (ctx.persona)`
+    // could only ever set one, so the previous profile's seat stayed bound and kept
+    // filtering the agent list after the user had moved on.
+    setPersona(ctx.persona || null);
     setCanViewStage2(!!ctx.canViewStage2);
     setCanWrite(ctx.canWrite !== false);
     if (Array.isArray(ctx.allowedPersonas)) setAllowedPersonas(ctx.allowedPersonas);
@@ -251,7 +255,7 @@ export default function App() {
           </div>
         </div>
         <div className="topbar-r">
-          {persona?.name ? <span className="badge" title="Signed-in persona">{persona.name}</span> : null}
+          {isDemoMode && persona?.name ? <span className="badge" title="The showcase profile you are signed in as">{persona.name}</span> : null}
           {roleLabel ? <span className="badge" title="Your role">{isAdmin ? '★ ' : ''}{roleLabel}</span> : null}
           {demoUsers.length ? (
             <select className="viewas" value={viewAs} onChange={(e) => { setViewAsRole(''); setViewAs(e.target.value); }} title="Sign in as one of the showcase profiles to see their view and access">
@@ -261,7 +265,7 @@ export default function App() {
           {teamsInfo?.inTeams ? <a className="dashlink" href={cfg?.appBaseUrl || window.location.origin} target="_blank" rel="noopener noreferrer">Open web console ↗</a> : null}
           {canViewStage2 ? <button className="asktoggle" onClick={() => setIntakeOpen(true)} title="Create a new deal via guided intake">+ New deal</button> : null}
           {isAdmin ? <button className="gearbtn" onClick={() => setAdminGroupsOpen(true)} title="Admin — deal groups &amp; territories" aria-label="Deal groups and territories"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle' }} aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></button> : null}
-          <button className={`asktoggle${chatOpen ? ' on' : ''}`} onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide agents' : '💬 Ask agents'}</button>
+          <button className={`asktoggle${chatOpen ? ' on' : ''}`} onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide the assistant' : '💬 Ask the assistant'}</button>
           <button className="gearbtn" onClick={() => setTheme(toggleTheme())} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label="Toggle light or dark theme">{theme === 'dark' ? '☀' : '🌙'}</button>
           <button className={`gearbtn${settingsOpen ? ' on' : ''}`} onClick={() => setSettingsOpen((v) => !v)} title="Settings — data sources & administration" aria-label="Settings">⚙</button>
         </div>
@@ -340,7 +344,7 @@ export default function App() {
           )}
           </main>
         )}
-        {chatOpen ? <ChatPanel agents={visibleAgents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} viewAsRole={viewAsRole} canWrite={canWrite} seed={chatSeed} seedNonce={chatSeedNonce} /> : null}
+        {chatOpen ? <ChatPanel agents={visibleAgents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} viewAsRole={viewAsRole} canWrite={canWrite} demoMode={isDemoMode} seed={chatSeed} seedNonce={chatSeedNonce} /> : null}
       </div>
 
       {intakeOpen ? <IntakeWizard isAdmin={isAdmin} onClose={() => setIntakeOpen(false)} onCreated={(id) => { setIntakeOpen(false); refreshData(); setOpenDealId(id); }} /> : null}

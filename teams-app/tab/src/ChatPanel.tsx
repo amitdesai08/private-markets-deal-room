@@ -18,7 +18,11 @@ const DEAL_STARTERS = [
   'What are the top risks and the compliance status?',
 ];
 
-// Seats offered in the "compare across seats" showcase — same question, different persona lens.
+// The seats offered by "Compare roles". This is a showcase device — it exists to put
+// the same question through several colleagues' framing side by side so the access and
+// persona model is visible on stage. It is hidden outside demo mode: in real use a
+// person has one job, and asking the assistant to answer as six other people's roles
+// is a demo, not a task.
 const COMPARE_SEATS: { id: string; label: string }[] = [
   { id: 'ai-md', label: 'AI Partner' },
   { id: 'supply-md', label: 'Supply Chain' },
@@ -29,8 +33,8 @@ const COMPARE_SEATS: { id: string; label: string }[] = [
   { id: 'partner', label: 'Lead Partner' },
 ];
 
-export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsRole, canWrite, seed, seedNonce }: {
-  agents: Agent[]; deals: Deal[]; focusDealId: string; onClose: () => void; viewAsRole?: string; canWrite?: boolean; seed?: string; seedNonce?: number;
+export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsRole, canWrite, demoMode, seed, seedNonce }: {
+  agents: Agent[]; deals: Deal[]; focusDealId: string; onClose: () => void; viewAsRole?: string; canWrite?: boolean; demoMode?: boolean; seed?: string; seedNonce?: number;
 }) {
   const [agentKey, setAgentKey] = useState('orchestrator');
   const [dealId, setDealId] = useState(focusDealId || '');
@@ -248,7 +252,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
       </div>
 
       <form className="composer" onSubmit={(e) => { e.preventDefault(); send(input); }}>
-        {agent.kind === 'orchestrator' ? (
+        {demoMode && agent.kind === 'orchestrator' ? (
           <div className="cmpbar">
             <button type="button" className={`cmp-toggle${compareOpen ? ' on' : ''}`} onClick={() => setCompareOpen((v) => !v)} title="Ask the same question as several roles side by side">{compareOpen ? 'Close compare' : 'Compare roles'}</button>
             {compareOpen ? (

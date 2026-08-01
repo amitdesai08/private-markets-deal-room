@@ -15,7 +15,7 @@ import { existsSync } from 'fs';
 import { config, validateConfig, isBackendLive, isSsoConfigured, isBotConfigured, isDemoMode } from './config.js';
 import { proxyToBackend } from './proxy.js';
 import { exchangeOnBehalfOf, identityFromSsoToken } from './sso.js';
-import { personaForUser, stageAccessFor } from './sharedLib.js';
+import { personaRecord, stageAccessFor } from './sharedLib.js';
 import { initBot } from './bot.js';
 import { postDealEvent } from './notifications.js';
 import { TEAMS_BOOTSTRAP_JS, TEAMS_CONFIG_HTML } from './siteProxy.js';
@@ -97,7 +97,6 @@ app.post('/api/teams/context', async (req, res) => {
   const identity = identityFromSsoToken(ssoToken);
   const asOverride = await resolveDemoOverride(req);                       // demo "view as USER", roster-checked
   const viewAsRole = String(req.body?.viewAsRole || '').trim() || null; // hierarchy "view as ROLE"
-  const persona = await personaForUser(identity || {});
   // Authoritative access profile from the orchestrator (single policy source): which
   // agents this user may use + the roles they can view-as. The requesting identity is
   // the demo override (by name) or the SSO identity, trusted via the shared bot key.
@@ -116,6 +115,10 @@ app.post('/api/teams/context', async (req, res) => {
     } catch { /* fall back to local stage access below */ }
   }
   const fallback = stageAccessFor(asOverride || identity?.upn || '');
+  // The seat comes from the access profile or not at all. With the orchestrator
+  // unreachable there is no policy to consult, so nobody is given a persona — the
+  // page falls back to the untailored view rather than inventing a seat for them.
+  const persona = await personaRecord(acc?.persona);
   let graphLinked = false;
   try { graphLinked = !!(await exchangeOnBehalfOf(ssoToken)); } catch { graphLinked = false; }
   res.json({

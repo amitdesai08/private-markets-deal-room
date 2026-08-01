@@ -281,6 +281,12 @@ export function describeAccess(identity, viewAsRole = null) {
     // The demo-only affordances ("view as ROLE") are suppressed when demo mode is off
     // so a production tab shows only the caller's real role.
     viewAsRoles: demo ? viewAsRolesFor(identity).map((r) => ({ role: r, label: labelOf(r) })) : [],
+    // The seat this identity is actually BOUND to, or null. The single source of truth
+    // for "which persona is this?" — the Teams app used to derive it by hashing the
+    // user's object id, which handed real signed-in users a fictional colleague's seat.
+    // A persona is assigned (PERSONA_ASSIGNMENTS / PERSONA_GROUP_IDS, or a demo profile
+    // while demo mode is on) or it does not exist.
+    persona: personaForIdentity(identity),
     demoMode: demo,
   };
 }

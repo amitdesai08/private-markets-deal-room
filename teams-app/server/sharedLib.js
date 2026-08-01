@@ -26,16 +26,19 @@ export async function listPersonas() {
   return personas;
 }
 
-// Deterministically map a signed-in user to a Deal Room persona (per-user context).
-// Real mapping (by group / directory attribute) slots in here later; for now a
-// stable hash keeps the demo consistent per user.
-export async function personaForUser(identity) {
-  const { personas } = await loadPersonas();
-  if (!personas.length) return null;
-  const key = String(identity?.oid || identity?.upn || 'anonymous');
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
-  return personas[hash % personas.length];
+// Look up a persona record by id. `null` in, `null` out.
+//
+// This replaces a personaForUser(identity) that hashed the caller's object id and
+// picked a seat out of the roster modulo its length. That is a demo trick, and it ran
+// for everyone: a real signed-in user was handed a fictional colleague's persona and
+// the top bar badged them with that character's NAME. Whether someone holds a seat is
+// an access-policy question, so it is answered once, by the orchestrator
+// (describeAccess -> personaForIdentity), and this function only resolves the id it
+// returns into the persona record for display. Unassigned stays unassigned.
+export async function personaRecord(personaId) {
+  if (!personaId) return null;
+  const { personaById } = await loadPersonas();
+  return personaById[String(personaId)] || null;
 }
 
 // ---- Stage visibility (role-based) ------------------------------------------

@@ -42,20 +42,28 @@ export default function Admin({ ssoToken, viewAs }: { ssoToken?: string; viewAs?
   const personaIds = data.personas.map((p) => p.id);
   const roleCount = { total: data.roles.length, custom: data.roles.filter((r) => !r.builtin).length };
   const pCount = { total: data.personas.length, custom: data.personas.filter((p) => !p.builtin).length };
+  // Personas are a showcase construct: the roster is a cast of fictional colleagues
+  // used to demonstrate how the same deal reads from different seats. Roles are the
+  // real access control. So the persona designer is shown only while demo mode is on —
+  // a production administrator manages who can see and do what, not who they are
+  // pretending to be. `activeTab` falls back to Roles so turning demo mode off cannot
+  // leave the screen on a tab that is no longer offered.
+  const showPersonas = !!data.demoMode;
+  const activeTab = showPersonas ? tab : 'roles';
 
   return (
     <div className="adm">
       <style>{CSS}</style>
       <div className="adm-head">
         <h2>Access administration</h2>
-        <p>Define custom roles and personas — data access, permission level and workflow rights. Select a row to expand and edit; changes persist and layer over the built-in defaults.</p>
+        <p>Define custom roles — data access, permission level and workflow rights. Select a row to expand and edit; changes persist and layer over the built-in defaults.</p>
       </div>
 
       {data.demoModeConfigurable ? (
         <div className="adm-demo">
           <div className="adm-demo-txt">
             <div className="adm-demo-t">Demo mode {data.demoMode ? <span className="adm-demo-on">On</span> : <span className="adm-demo-off">Off</span>}</div>
-            <div className="adm-demo-s">Shows the “View as” switcher and showcase personas so you can preview the access model. Turn this off for a production-style experience — every user then sees only their own role and identity.</div>
+            <div className="adm-demo-s">Shows the “View as” switcher, the showcase profiles and the persona designer so you can preview the access model. Turn this off for a production-style experience — every user then sees only their own role and identity.</div>
           </div>
           <label className="adm-toggle" title={data.demoMode ? 'Disable demo mode' : 'Enable demo mode'}>
             <input
@@ -75,12 +83,12 @@ export default function Admin({ ssoToken, viewAs }: { ssoToken?: string; viewAs?
       ) : null}
 
       <nav className="adm-tabs">
-        <button className={tab === 'roles' ? 'on' : ''} onClick={() => setTab('roles')}>Roles <span className="adm-count">{roleCount.total}</span></button>
-        <button className={tab === 'personas' ? 'on' : ''} onClick={() => setTab('personas')}>Personas <span className="adm-count">{pCount.total}</span></button>
+        <button className={activeTab === 'roles' ? 'on' : ''} onClick={() => setTab('roles')}>Roles <span className="adm-count">{roleCount.total}</span></button>
+        {showPersonas ? <button className={activeTab === 'personas' ? 'on' : ''} onClick={() => setTab('personas')}>Personas <span className="adm-count">{pCount.total}</span></button> : null}
       </nav>
 
-      {tab === 'roles'
-        ? <RolesEditor data={data} personaIds={personaIds} busy={busy} setBusy={setBusy} post={post} reload={load} />
+      {activeTab === 'roles'
+        ? <RolesEditor data={data} personaIds={personaIds} showPersonas={showPersonas} busy={busy} setBusy={setBusy} post={post} reload={load} />
         : <PersonasEditor data={data} busy={busy} setBusy={setBusy} post={post} reload={load} />}
     </div>
   );
@@ -175,7 +183,7 @@ function BulkAssign({ data, post, reload }: any) {
   );
 }
 
-function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
+function RolesEditor({ data, personaIds, showPersonas, busy, setBusy, post, reload }: any) {
   const [draft, setDraft] = useState<Record<string, Role>>({});
   const [open, setOpen] = useState<string | null>(null);
   const [panel, setPanel] = useState<'' | 'add' | 'import'>('');
@@ -239,7 +247,7 @@ function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
                 {dirty ? <span className="adm-dot" title="Unsaved changes">●</span> : null}
                 <span className="adm-sum-meta">
                   <Chip>rank {base.rank}</Chip>
-                  <Chip>{base.personas.length} personas</Chip>
+                  {showPersonas ? <Chip>{base.personas.length} personas</Chip> : null}
                   <Chip>{base.write ? 'write' : 'read-only'}</Chip>
                   {base.stage2 ? <Chip>Stage 2</Chip> : null}
                   <Chip>{base.regions.length ? base.regions.join(' / ') : 'all regions'}</Chip>
@@ -257,7 +265,7 @@ function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
                       <label className="adm-flag"><input type="checkbox" checked={r.write} onChange={(e) => edit(base.id, { write: e.target.checked })} />Can write</label>
                       <label className="adm-flag"><input type="checkbox" checked={r.stage2} onChange={(e) => edit(base.id, { stage2: e.target.checked })} />See Stage 2 (diligence)</label>
                     </div>
-                    <Field label="Personas this role may act as" col><CheckGrid options={personaIds} value={r.personas} onChange={(v) => edit(base.id, { personas: v })} /></Field>
+                    {showPersonas ? <Field label="Personas this role may act as" col><CheckGrid options={personaIds} value={r.personas} onChange={(v) => edit(base.id, { personas: v })} /></Field> : null}
                   </Section>
                   <Section title="Workflow management" hint="Advancing the pipeline and the stages this role may manage">
                     <div className="adm-flags">
