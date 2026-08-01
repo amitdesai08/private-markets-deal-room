@@ -1,14 +1,21 @@
-// The "Admin" tab — in-app RBAC role builder + persona designer. Visible only to an
+// The "Admin" tab — in-app RBAC role builder + seat designer. Visible only to an
 // administrator (App gates it on isAdmin; the orchestrator re-enforces admin-only on
-// every write). Custom roles/personas persist server-side and layer over the built-in
-// defaults. Layout: two sub-tabs (Roles · Personas); each row is a collapsed summary
-// that expands into clearly-grouped sections (Identity · Access · Workflow · Data
-// sovereignty · Assignment) to keep the surface uncluttered.
+// every write). Custom roles/seats persist server-side and layer over the built-in
+// defaults. Layout: two sub-tabs (Roles · Seats); each row is a collapsed summary
+// that expands into clearly-grouped sections (Identity · Access · Entra ID · Workflow ·
+// Data sovereignty · Assignment) to keep the surface uncluttered.
+//
+// This screen is deliberately NOT demo-gated. Seats are how a tenant tailors the
+// product to its own job titles, so an administrator has to be able to configure them
+// in a real deployment; what is demo-only is the roster of fictional colleagues and
+// the "view as" switcher that presents them, which live in App.tsx.
 import { useEffect, useState } from 'react';
 
 type Role = {
   id: string; label: string; rank: number; personas: string[]; write: boolean; stage2: boolean;
   advanceWorkflow: boolean; allowedStages: string[]; regions: string[];
+  appRoles: string[]; groupIds: string[]; persona: string | null;
+  envAppRoleCount: number; envGroupCount: number;
   isAdminRole: boolean; builtin: boolean; assignments: string[]; envAssignedCount: number;
 };
 type Persona = { id: string; label: string; lane: string | null; builtin: boolean; actions: string[] | null; stages: string[] };
@@ -42,28 +49,20 @@ export default function Admin({ ssoToken, viewAs }: { ssoToken?: string; viewAs?
   const personaIds = data.personas.map((p) => p.id);
   const roleCount = { total: data.roles.length, custom: data.roles.filter((r) => !r.builtin).length };
   const pCount = { total: data.personas.length, custom: data.personas.filter((p) => !p.builtin).length };
-  // Personas are a showcase construct: the roster is a cast of fictional colleagues
-  // used to demonstrate how the same deal reads from different seats. Roles are the
-  // real access control. So the persona designer is shown only while demo mode is on —
-  // a production administrator manages who can see and do what, not who they are
-  // pretending to be. `activeTab` falls back to Roles so turning demo mode off cannot
-  // leave the screen on a tab that is no longer offered.
-  const showPersonas = !!data.demoMode;
-  const activeTab = showPersonas ? tab : 'roles';
 
   return (
     <div className="adm">
       <style>{CSS}</style>
       <div className="adm-head">
         <h2>Access administration</h2>
-        <p>Define custom roles — data access, permission level and workflow rights. Select a row to expand and edit; changes persist and layer over the built-in defaults.</p>
+        <p>A person’s Entra ID app role or security group puts them in a Deal Room role; the role decides what they can see and do, and which seat their home page is built around. Select a row to expand and edit; changes persist and layer over the built-in defaults.</p>
       </div>
 
       {data.demoModeConfigurable ? (
         <div className="adm-demo">
           <div className="adm-demo-txt">
             <div className="adm-demo-t">Demo mode {data.demoMode ? <span className="adm-demo-on">On</span> : <span className="adm-demo-off">Off</span>}</div>
-            <div className="adm-demo-s">Shows the “View as” switcher, the showcase profiles and the persona designer so you can preview the access model. Turn this off for a production-style experience — every user then sees only their own role and identity.</div>
+            <div className="adm-demo-s">Shows the “View as” switcher and the showcase profiles so you can preview the access model from any seat. Turn this off for a production-style experience — every user then sees only their own role and identity.</div>
           </div>
           <label className="adm-toggle" title={data.demoMode ? 'Disable demo mode' : 'Enable demo mode'}>
             <input
@@ -83,12 +82,12 @@ export default function Admin({ ssoToken, viewAs }: { ssoToken?: string; viewAs?
       ) : null}
 
       <nav className="adm-tabs">
-        <button className={activeTab === 'roles' ? 'on' : ''} onClick={() => setTab('roles')}>Roles <span className="adm-count">{roleCount.total}</span></button>
-        {showPersonas ? <button className={activeTab === 'personas' ? 'on' : ''} onClick={() => setTab('personas')}>Personas <span className="adm-count">{pCount.total}</span></button> : null}
+        <button className={tab === 'roles' ? 'on' : ''} onClick={() => setTab('roles')}>Roles <span className="adm-count">{roleCount.total}</span></button>
+        <button className={tab === 'personas' ? 'on' : ''} onClick={() => setTab('personas')}>Seats <span className="adm-count">{pCount.total}</span></button>
       </nav>
 
-      {activeTab === 'roles'
-        ? <RolesEditor data={data} personaIds={personaIds} showPersonas={showPersonas} busy={busy} setBusy={setBusy} post={post} reload={load} />
+      {tab === 'roles'
+        ? <RolesEditor data={data} personaIds={personaIds} busy={busy} setBusy={setBusy} post={post} reload={load} />
         : <PersonasEditor data={data} busy={busy} setBusy={setBusy} post={post} reload={load} />}
     </div>
   );
@@ -183,7 +182,7 @@ function BulkAssign({ data, post, reload }: any) {
   );
 }
 
-function RolesEditor({ data, personaIds, showPersonas, busy, setBusy, post, reload }: any) {
+function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
   const [draft, setDraft] = useState<Record<string, Role>>({});
   const [open, setOpen] = useState<string | null>(null);
   const [panel, setPanel] = useState<'' | 'add' | 'import'>('');
@@ -195,7 +194,7 @@ function RolesEditor({ data, personaIds, showPersonas, busy, setBusy, post, relo
     setBusy(true);
     try {
       await post(`/roles/${r.id}`, {
-        patch: { label: r.label, rank: Number(r.rank), personas: r.personas, write: r.write, stage2: r.stage2, advanceWorkflow: r.advanceWorkflow, allowedStages: r.allowedStages, regions: r.regions },
+        patch: { label: r.label, rank: Number(r.rank), personas: r.personas, write: r.write, stage2: r.stage2, advanceWorkflow: r.advanceWorkflow, allowedStages: r.allowedStages, regions: r.regions, appRoles: r.appRoles, groupIds: r.groupIds, persona: r.persona || '' },
         assignments: r.assignments,
       });
       setDraft((d: any) => { const c = { ...d }; delete c[r.id]; return c; });
@@ -208,7 +207,7 @@ function RolesEditor({ data, personaIds, showPersonas, busy, setBusy, post, relo
     setBusy(true);
     try {
       const id = newRole.id.trim().toLowerCase();
-      await post(`/roles/${id}`, { patch: { label: newRole.label || newRole.id, rank: Number(newRole.rank), personas: [], write: false, stage2: false, advanceWorkflow: false, allowedStages: [], regions: [] } });
+      await post(`/roles/${id}`, { patch: { label: newRole.label || newRole.id, rank: Number(newRole.rank), personas: [], write: false, stage2: false, advanceWorkflow: false, allowedStages: [], regions: [], appRoles: [], groupIds: [], persona: '' } });
       setNewRole({ id: '', label: '', rank: 50 }); setPanel(''); await reload(); setOpen(id);
     } finally { setBusy(false); }
   };
@@ -227,7 +226,7 @@ function RolesEditor({ data, personaIds, showPersonas, busy, setBusy, post, relo
             <input type="number" placeholder="rank" value={newRole.rank} onChange={(e) => setNewRole({ ...newRole, rank: Number(e.target.value) })} style={{ width: 76 }} />
             <button className="adm-btn primary" disabled={busy || !newRole.id.trim()} onClick={addRole}>Create</button>
           </div>
-          <p className="adm-panel-lead">New roles start with no access — expand the row to grant personas, write, stages, and regions.</p>
+          <p className="adm-panel-lead">New roles start with no access — expand the row to set what the role grants and how Entra ID assigns people to it.</p>
         </div>
       ) : null}
       {panel === 'import' ? <BulkAssign data={data} post={post} reload={reload} /> : null}
@@ -247,7 +246,7 @@ function RolesEditor({ data, personaIds, showPersonas, busy, setBusy, post, relo
                 {dirty ? <span className="adm-dot" title="Unsaved changes">●</span> : null}
                 <span className="adm-sum-meta">
                   <Chip>rank {base.rank}</Chip>
-                  {showPersonas ? <Chip>{base.personas.length} personas</Chip> : null}
+                  {base.persona ? <Chip>seat: {base.persona}</Chip> : null}
                   <Chip>{base.write ? 'write' : 'read-only'}</Chip>
                   {base.stage2 ? <Chip>Stage 2</Chip> : null}
                   <Chip>{base.regions.length ? base.regions.join(' / ') : 'all regions'}</Chip>
@@ -265,7 +264,26 @@ function RolesEditor({ data, personaIds, showPersonas, busy, setBusy, post, relo
                       <label className="adm-flag"><input type="checkbox" checked={r.write} onChange={(e) => edit(base.id, { write: e.target.checked })} />Can write</label>
                       <label className="adm-flag"><input type="checkbox" checked={r.stage2} onChange={(e) => edit(base.id, { stage2: e.target.checked })} />See Stage 2 (diligence)</label>
                     </div>
-                    {showPersonas ? <Field label="Personas this role may act as" col><CheckGrid options={personaIds} value={r.personas} onChange={(v) => edit(base.id, { personas: v })} /></Field> : null}
+                    <Field label="Assistants this role may use" col><CheckGrid options={personaIds} value={r.personas} onChange={(v) => edit(base.id, { personas: v })} /></Field>
+                  </Section>
+                  <Section title="Microsoft Entra ID" hint="How people get this role, and the seat it puts them in">
+                    <Field label="App role values" hint="(the “roles” claim on the token; comma-separated)">
+                      <input className="adm-text" value={r.appRoles.join(', ')} onChange={(e) => edit(base.id, { appRoles: splitCsv(e.target.value) })} placeholder="e.g. DealRoom.Partner" />
+                    </Field>
+                    <Field label="Security group object ids" hint="(the “groups” claim; comma-separated)">
+                      <input className="adm-text" value={r.groupIds.join(', ')} onChange={(e) => edit(base.id, { groupIds: splitCsv(e.target.value) })} placeholder="00000000-0000-0000-0000-000000000000" />
+                    </Field>
+                    {base.envAppRoleCount || base.envGroupCount ? (
+                      <p className="adm-note">
+                        The deploy configuration also grants this role via {base.envAppRoleCount} app role(s) and {base.envGroupCount} group(s), which are read-only here.
+                      </p>
+                    ) : null}
+                    <Field label="Seat this role puts people in" hint="(their home page and default assistant; a per-user assignment still wins)">
+                      <select className="adm-text" value={r.persona || ''} onChange={(e) => edit(base.id, { persona: e.target.value || null })}>
+                        <option value="">No seat — untailored home page</option>
+                        {data.personas.map((p: Persona) => (<option key={p.id} value={p.id}>{p.label || p.id}</option>))}
+                      </select>
+                    </Field>
                   </Section>
                   <Section title="Workflow management" hint="Advancing the pipeline and the stages this role may manage">
                     <div className="adm-flags">
@@ -330,12 +348,12 @@ function PersonasEditor({ data, busy, setBusy, post, reload }: any) {
   return (
     <div>
       <div className="adm-toolbar">
-        <button className={`adm-tbtn${showAdd ? ' on' : ''}`} onClick={() => setShowAdd((v) => !v)}>+ New persona</button>
+        <button className={`adm-tbtn${showAdd ? ' on' : ''}`} onClick={() => setShowAdd((v) => !v)}>+ New seat</button>
       </div>
       {showAdd ? (
         <div className="adm-panel">
           <div className="adm-addrow">
-            <input placeholder="persona id (e.g. esg-lead)" value={newP.id} onChange={(e) => setNewP({ ...newP, id: e.target.value })} />
+            <input placeholder="seat id (e.g. esg-lead)" value={newP.id} onChange={(e) => setNewP({ ...newP, id: e.target.value })} />
             <input placeholder="label" value={newP.label} onChange={(e) => setNewP({ ...newP, label: e.target.value })} />
             <select value={newP.lane} onChange={(e) => setNewP({ ...newP, lane: e.target.value })}>
               <option value="">(no workstream)</option>
@@ -343,7 +361,7 @@ function PersonasEditor({ data, busy, setBusy, post, reload }: any) {
             </select>
             <button className="adm-btn primary" disabled={busy || !newP.id.trim()} onClick={addP}>Create</button>
           </div>
-          <p className="adm-panel-lead">New personas start with no workflow actions — expand the row to grant actions and stage limits.</p>
+          <p className="adm-panel-lead">New seats start with no workflow actions — expand the row to grant actions and stage limits.</p>
         </div>
       ) : null}
 

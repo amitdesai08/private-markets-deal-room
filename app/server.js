@@ -1541,10 +1541,35 @@ api.post('/admin/doc-template/reset', async (req, res) => {
   const t = await setDocTemplate({ ...DOC_TEMPLATE_DEFAULTS, sections: { ...DOC_TEMPLATE_DEFAULTS.sections } });
   res.json({ template: t });
 });
+// Role spec fields an administrator may author. An allowlist rather than a passthrough:
+// `patch` used to go straight into the persisted spec, so any key in the body became
+// part of the role — including `all`, the flag that makes a role an administrator.
+// Being admin-only is not a reason to accept an unbounded write; it is the reason to
+// bound it, because this is the one screen where a typo grants standing access.
+const ROLE_PATCH_STRINGS = ['label'];
+const ROLE_PATCH_BOOLS = ['write', 'stage2', 'advanceWorkflow'];
+const ROLE_PATCH_LISTS = ['personas', 'allowedStages', 'regions', 'appRoles', 'groupIds'];
+function sanitizeRolePatch(patch = {}) {
+  const out = {};
+  for (const k of ROLE_PATCH_STRINGS) if (patch[k] !== undefined) out[k] = String(patch[k]).slice(0, 120);
+  for (const k of ROLE_PATCH_BOOLS) if (patch[k] !== undefined) out[k] = !!patch[k];
+  for (const k of ROLE_PATCH_LISTS) {
+    if (patch[k] === undefined) continue;
+    out[k] = (Array.isArray(patch[k]) ? patch[k] : []).map((s) => String(s).trim()).filter(Boolean).slice(0, 200);
+  }
+  if (patch.rank !== undefined) out.rank = Math.max(0, Math.min(100, Number(patch.rank) || 0));
+  // The seat a role confers. Validated against the known personas so a mistyped id
+  // silently binds nobody rather than being persisted as a seat that cannot resolve.
+  if (patch.persona !== undefined) {
+    const p = String(patch.persona || '').trim();
+    out.persona = ALL_PERSONA_IDS.includes(p) ? p : null;
+  }
+  return out;
+}
 api.post('/admin/roles/:id', async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const { patch, assignments } = req.body || {};
-  const out = await upsertRole(req.params.id, patch || {});
+  const out = await upsertRole(req.params.id, sanitizeRolePatch(patch || {}));
   if (Array.isArray(assignments)) await setRoleAssignments(req.params.id, assignments);
   res.json({ id: req.params.id, role: out });
 });

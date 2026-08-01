@@ -156,13 +156,16 @@ function groupGrantsDeal(identity, deal) {
 // clearance (what you may see), persona is job (what you are here to do). Two people
 // with identical clearance can want completely different home pages.
 //
-// Bound the same three ways a role is, so the feature is real in a tenant rather than
-// a demo-only trick:
-//   1. PERSONA_GROUP_IDS  — {"<entra-group-oid>": "supply-md"} — the tenant-managed path.
-//   2. PERSONA_ASSIGNMENTS — {"supply-md": ["oid", "upn", "alias"]} — explicit list.
-//   3. demo showcase profiles, and ONLY while demo mode is active.
-// Highest-confidence source wins: an explicit assignment beats a group, and a real
-// binding always beats a demo one.
+// Bound the same ways a role is, so the feature is real in a tenant rather than a
+// demo-only trick. Highest-confidence source wins:
+//   1. PERSONA_ASSIGNMENTS  — {"supply-md": ["oid", "upn", "alias"]} — explicit list.
+//   2. PERSONA_GROUP_IDS    — {"<entra-group-oid>": "supply-md"}.
+//   3. the seat the caller's ROLE confers (admin-editable, see rolesView) — the
+//      tenant-managed path: assign an Entra app role or security group, that resolves
+//      to a Deal Room role, and the role carries the seat its holders occupy.
+//   4. demo showcase profiles, and ONLY while demo mode is active.
+// An explicit binding beats a group, a group beats a role default, and a real binding
+// always beats a demo one.
 const PERSONA_GROUP_ENV = parseJsonEnv('PERSONA_GROUP_IDS');
 const PERSONA_ASSIGN_ENV = parseJsonEnv('PERSONA_ASSIGNMENTS');
 
@@ -183,7 +186,12 @@ export function personaForIdentity(identity = {}) {
       if (groups.includes(norm(gid))) { const v = valid(persona); if (v) return v; }
     }
   }
-  // 3. demo showcase profile. Gated on demo mode because the lookup keys include
+  // 3. the seat conferred by the caller's ROLE. Ranked below the two explicit bindings
+  // so one person can be moved to a different seat without redefining the role, and
+  // above the demo roster so a configured tenant is never overridden by the showcase.
+  const roleSeat = valid(effRoles()[roleForUser(identity)]?.persona);
+  if (roleSeat) return roleSeat;
+  // 4. demo showcase profile. Gated on demo mode because the lookup keys include
   // identity.name, which is attacker-influenced on the demo "view as" path. The seat is
   // only a lens and never widens access, but a production deploy should not let a
   // caller select a seat by naming it.
@@ -200,13 +208,18 @@ export function roleForUser(identity = {}) {
   const appRoles = (Array.isArray(identity.roles) ? identity.roles : []).map((r) => norm(r));
   const groups = (Array.isArray(identity.groups) ? identity.groups : []).map((g) => norm(g));
   const assign = getRoleAssignments() || {};
+  const eff = effRoles();
   const idsFor = (id) => [...(ENV_IDS[id] || []), ...((assign[id] || []).map((s) => norm(s)))];
   const hitId = (list) => keys.some((k) => list.includes(k));
-  const hitRole = (id) => (APP_ROLE_CLAIMS[id] || []).some((r) => appRoles.includes(norm(r)));
-  const hitGroup = (id) => (GROUP_IDS[id] || []).some((g) => groups.includes(norm(g)));
+  // Entra app-role values and security-group object ids come from the deploy config AND
+  // from the admin-authored role spec, so a tenant can wire up a new group from inside
+  // the product instead of waiting on a redeploy. Both GRANT a role, so both are
+  // admin-only to edit — enforced on the write path, not here.
+  const hitRole = (id) => [...(APP_ROLE_CLAIMS[id] || []), ...((eff[id]?.appRoles) || [])].some((r) => appRoles.includes(norm(r)));
+  const hitGroup = (id) => [...(GROUP_IDS[id] || []), ...((eff[id]?.groupIds) || [])].some((g) => groups.includes(norm(g)));
   // Highest-rank matching role wins. Entra app-role / group assignment (tenant-managed)
   // and the explicit id lists (env + admin-authored assignments) are all honoured.
-  const ranked = Object.keys(effRoles()).filter((r) => r !== 'member').sort((a, b) => rankOf(b) - rankOf(a));
+  const ranked = Object.keys(eff).filter((r) => r !== 'member').sort((a, b) => rankOf(b) - rankOf(a));
   for (const id of ranked) if (hitRole(id) || hitGroup(id) || hitId(idsFor(id))) return id;
   return 'member';
 }
@@ -418,6 +431,15 @@ export function rolesView() {
     advanceWorkflow: r.advanceWorkflow === undefined ? !!r.write : !!r.advanceWorkflow,
     allowedStages: r.allowedStages || [],
     regions: r.regions || [],
+    // How a tenant grants this role, and the seat it confers. `appRoles`/`groupIds` are
+    // the admin-editable half; the env-configured half is reported as a count so the
+    // screen can say "+2 from the deploy configuration" rather than pretending the list
+    // it shows is everything that grants the role.
+    appRoles: r.appRoles || [],
+    groupIds: r.groupIds || [],
+    persona: r.persona || null,
+    envAppRoleCount: (APP_ROLE_CLAIMS[id] || []).length,
+    envGroupCount: (GROUP_IDS[id] || []).length,
     isAdminRole: !!r.all,
     builtin: !!BUILTIN_ROLE[id],
     assignments: assign[id] || [],
