@@ -90,7 +90,7 @@ function blockingWorkstreams(deal, openIssues) {
     const halted = w.status === 'blocked' || w.status === 'on_hold';
     const reasons = [];
     if (notOpened) reasons.push(w.status === 'not_started' ? 'not started' : 'no work recorded against it');
-    else if (halted) reasons.push(`lane ${w.status.replace('_', ' ')}`);
+    else if (halted) reasons.push(`workstream ${w.status.replace('_', ' ')}`);
     if (blockingIssues.length) reasons.push(`${blockingIssues.length} open high-severity issue(s)`);
     if (reasons.length) {
       out.push({ lane: w.lane, label: laneLabel(w.lane), owner: w.owner || null, progress: w.progress || 0, status: w.status || 'not_started', openIssues: laneIssues.length, blockingIssues: blockingIssues.length, reasons });
@@ -247,7 +247,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
     if (outstanding.length) {
       const parts = [];
       if (obligations.length) parts.push(`${obligations.length} obligation${obligations.length === 1 ? '' : 's'} still outstanding`);
-      if (unevidenced.length) parts.push(`${unevidenced.length} diligence lane${unevidenced.length === 1 ? '' : 's'} with no work recorded`);
+      if (unevidenced.length) parts.push(`${unevidenced.length} diligence workstream${unevidenced.length === 1 ? '' : 's'} with no work recorded`);
       return {
         state: 'CONDITIONAL',
         headline: `Past the committee gate — ${parts.join(' and ')}.`,

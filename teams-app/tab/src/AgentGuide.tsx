@@ -30,8 +30,8 @@ export default function AgentGuide({ roleLabel, canViewStage2, canWrite, onAsk }
       <style>{CSS}</style>
       <details className="ag" open>
         <summary>
-          <span className="ag-h">Agents by stage</span>
-          <span className="ag-sub">what the assistant runs across the deal lifecycle{roleLabel ? <> · scoped for <strong>{roleLabel}</strong></> : null}</span>
+          <span className="ag-h">What you can ask for, stage by stage</span>
+          <span className="ag-sub">what the assistant can draft or pull together at each stage{roleLabel ? <> · scoped for <strong>{roleLabel}</strong></> : null}</span>
         </summary>
 
         <div className="ag-grid">

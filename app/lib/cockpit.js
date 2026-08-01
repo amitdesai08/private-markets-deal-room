@@ -133,7 +133,7 @@ function buildAttention(deal, board, role) {
       score: 90 + laneBoost(lane),
       actions: [
         { label: '+ Record issue', kind: 'record_issue', args: { lane, title: `${w.label || laneLabel(lane)} workstream blocking IC`, severity: 'risk', resolutionPath: reason, sources: [`IC readiness board · ${w.label || laneLabel(lane)}`] } },
-        { label: 'Open lane', kind: 'goto', args: { tab: 'workspace' } },
+        { label: 'Open workstream', kind: 'goto', args: { tab: 'workspace' } },
       ],
     });
   } else if (blocking.length > 1) {
@@ -143,15 +143,15 @@ function buildAttention(deal, board, role) {
     items.push({
       kind: 'risk',
       kindLabel: 'Blocking',
-      title: `${blocking.length} diligence lanes are short of ${preIC ? 'IC-ready' : 'closed out'}`,
+      title: `${blocking.length} diligence workstreams are short of ${preIC ? 'IC-ready' : 'closed out'}`,
       why: `${named.join(', ')} — none has closed out yet.`,
       owner: ownerLabel(worst.owner, worstLane),
       due: null,
-      impact: `${preIC ? 'The IC gate stays shut' : 'The next gate stays shut'} until every lane closes.`,
+      impact: `${preIC ? 'The IC gate stays shut' : 'The next gate stays shut'} until every workstream closes.`,
       basis: 'IC readiness board',
       score: 82 + Math.max(...blocking.map((w) => laneBoost(w.key || w.lane))),
       actions: [
-        { label: 'Open lanes', kind: 'goto', args: { tab: 'workspace' } },
+        { label: 'Open workstreams', kind: 'goto', args: { tab: 'workspace' } },
         { label: '+ Record issue', kind: 'record_issue', args: { lane: worstLane, title: `${named.length} workstreams blocking IC`, severity: 'risk', resolutionPath: `${named.join(', ')} outstanding.`, sources: ['IC readiness board'] } },
       ],
     });
@@ -195,12 +195,12 @@ function buildAttention(deal, board, role) {
       kindLabel: '✦ AI · not started',
       title: notStarted.length === 1
         ? `${names[0]} has not started`
-        : `${notStarted.length} diligence lanes have not started`,
-      why: `${names.join(', ')} — no progress recorded against ${notStarted.length === 1 ? 'this lane' : 'these lanes'} yet.`,
+        : `${notStarted.length} diligence workstreams have not started`,
+      why: `${names.join(', ')} — no progress recorded against ${notStarted.length === 1 ? 'this workstream' : 'these workstreams'} yet.`,
       owner: ownerLabel(notStarted[0].owner, notStarted[0].lane),
       due: deal.targetICDate || null,
       dueLabel: dueLabel(deal.targetICDate),
-      impact: 'Each unstarted lane is a fresh scope of work between here and the IC memo freeze.',
+      impact: 'Each unstarted workstream is a fresh scope of work between here and the IC memo freeze.',
       basis: 'Workstream progress',
       score: 74 + Math.max(...notStarted.map((w) => laneBoost(w.lane))),
       actions: [{ label: 'Open lanes', kind: 'goto', args: { tab: 'workspace' } }],
@@ -216,15 +216,15 @@ function buildAttention(deal, board, role) {
         kind: 'ai',
         kindLabel: '✦ AI · critical path',
         title: `${laneLabel(laggard.lane)} is the critical path at ${laggard.progress || 0}%`,
-        why: caution ? caution.text : `Trailing the other lanes, which average ${Math.round(avg)}%.`,
+        why: caution ? caution.text : `Trailing the other workstreams, which average ${Math.round(avg)}%.`,
         owner: ownerLabel(laggard.owner, laggard.lane),
         due: null,
-        impact: 'At the current lane velocity this closes after the IC memo freeze.',
-        basis: caution?.source ? `${caution.source} · lane progress` : 'Lane progress',
+        impact: 'At the current pace this closes after the IC memo freeze.',
+        basis: caution?.source ? `${caution.source} · workstream progress` : 'Workstream progress',
         score: 78 + laneBoost(laggard.lane),
         actions: [
-          { label: '+ Record issue', kind: 'record_issue', args: { lane: laggard.lane, title: `${laneLabel(laggard.lane)} is the critical path`, severity: 'risk', resolutionPath: caution ? caution.text : 'Lane trailing its peers.', sources: [caution?.source || 'Lane progress'] } },
-          { label: 'Open lane', kind: 'goto', args: { tab: 'workspace' } },
+          { label: '+ Record issue', kind: 'record_issue', args: { lane: laggard.lane, title: `${laneLabel(laggard.lane)} is the critical path`, severity: 'risk', resolutionPath: caution ? caution.text : 'Workstream trailing its peers.', sources: [caution?.source || 'Workstream progress'] } },
+          { label: 'Open workstream', kind: 'goto', args: { tab: 'workspace' } },
         ],
       });
     }
@@ -255,7 +255,7 @@ function buildAttention(deal, board, role) {
     if (openCount || blockingCount) {
       const outstanding = [
         openCount ? `${openCount} open issue${openCount === 1 ? '' : 's'}` : null,
-        blockingCount ? `${blockingCount} lane${blockingCount === 1 ? '' : 's'} still open` : null,
+        blockingCount ? `${blockingCount} workstream${blockingCount === 1 ? '' : 's'} still open` : null,
       ].filter(Boolean).join(' and ');
       items.push({
         kind: 'schedule',
@@ -324,11 +324,11 @@ function buildBriefing(deal, board, attention, sinceIso) {
     const idle = lanes.length - moving.length;
     const laneTxt = moving.map((w) => `${laneLabel(w.lane)} ${w.progress}%`).join(' · ');
     if (moving.length) {
-      add(`Diligence stands at ${laneTxt}${idle ? `, with ${idle} further lane${idle === 1 ? '' : 's'} not yet started` : ''}.`, 'Workstream progress');
+      add(`Diligence stands at ${laneTxt}${idle ? `, with ${idle} further workstream${idle === 1 ? '' : 's'} not yet started` : ''}.`, 'Workstream progress');
     } else {
       add(lanes.length === 1
-        ? `The ${laneLabel(lanes[0].lane)} lane has not recorded any progress yet.`
-        : `None of the ${lanes.length} diligence lanes has recorded progress yet.`, 'Workstream progress');
+        ? `The ${laneLabel(lanes[0].lane)} workstream has not recorded any progress yet.`
+        : `None of the ${lanes.length} diligence workstreams has recorded progress yet.`, 'Workstream progress');
     }
   }
 

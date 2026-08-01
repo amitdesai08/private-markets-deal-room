@@ -24,7 +24,7 @@ type Connector = {
 
 const STATUS_LABEL: Record<string, string> = {
   connected: 'Connected', disconnected: 'Not connected', degraded: 'Degraded',
-  disabled: 'Disabled', unknown: 'Ready', pending: 'Pending approval',
+  disabled: 'Disabled', unknown: 'Not tested', pending: 'Pending approval',
 };
 
 const TIERS: { key: string; title: string; blurb: string; match: (c: Connector) => boolean }[] = [
@@ -32,7 +32,7 @@ const TIERS: { key: string; title: string; blurb: string; match: (c: Connector) 
   { key: 'web', title: 'Live web search', blurb: 'Live web search for market news and signals (usage-metered).', match: (c) => c.kind === 'web' },
   { key: 'fabric-agent', title: 'Ask your fund data', blurb: 'Natural-language Q&A over the fund\u2019s data.', match: (c) => c.kind === 'fabric-agent' },
   { key: 'mcp', title: 'Subscription providers', blurb: 'Premium vendor data — sign in to connect.', match: (c) => c.kind === 'mcp' },
-  { key: 'm365', title: 'Microsoft 365', blurb: 'Your team’s files, chats and email.', match: (c) => c.kind === 'm365' },  { key: 'workiq', title: 'Work IQ (your team’s work data)', blurb: 'Your files \u00b7 chat threads \u00b7 email \u2014 add the connection, then connect.', match: (c) => c.kind === 'workiq' },  { key: 'database', title: 'Reference only', blurb: 'Shown for context — not connected.', match: (c) => c.kind === 'database' },
+  { key: 'm365', title: 'Microsoft 365 sign-in', blurb: 'Signs you in so the app knows who you are.', match: (c) => c.kind === 'm365' },  { key: 'workiq', title: 'Your team’s files, chats and email', blurb: 'Files, chats and email already in Microsoft 365 — add the address, then sign in.', match: (c) => c.kind === 'workiq' },  { key: 'database', title: 'Reference only', blurb: 'Shown for context — not connected.', match: (c) => c.kind === 'database' },
   { key: 'custom', title: 'Custom sources', blurb: 'Sources your fund added — shown with their live status.', match: (c) => c.kind === 'custom' },
 ];
 
@@ -229,7 +229,7 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
                   ) : null}
                   <div className="ds-foot">
                     <span className={`ds-pill ${c.status}`}>{STATUS_LABEL[c.status] || c.status}</span>
-                    {c.freshness?.status === 'stale' ? <span className="ds-pill degraded" title="Older than its freshness SLA — labelled stale and excluded from IC / LP-facing outputs">Stale</span> : null}
+                    {c.freshness?.status === 'stale' ? <span className="ds-pill degraded" title="Older than the refresh window this source allows, so it is kept out of IC and LP material">Stale</span> : null}
                     {c.latencyMs != null ? <span className="ds-lat">{c.latencyMs}ms</span> : null}
                     <span className="ds-actions">
                       {c.testable && c.enabled ? (

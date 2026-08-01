@@ -26,17 +26,17 @@ import { workiqConfigured, workiqConnected, workiqUrl, workiqBackend } from './m
 
 export const CONNECTORS = [
   {
-    id: 'm365', name: 'M365 Login', kind: 'm365', role: 'identity',
+    id: 'm365', name: 'Microsoft 365 sign-in', kind: 'm365', role: 'identity',
     primaryJob: 'Microsoft 365 access — Teams, SharePoint & mailbox (runs on the app’s own permissions; optional user sign-in to act as you)',
-    sweetSpot: 'App-only by default — no user sign-in needed; the deal data room provisions with the app’s identity',
+    sweetSpot: 'App-only by default — no user sign-in needed; the deal data room is created with the app’s identity',
     loginUrl: '/api/m365/login'
   },
   {
-    id: 'workiq', name: 'Work IQ', kind: 'workiq', provider: 'workiq', role: 'context',
-    primaryJob: 'M365 work data for agents — SharePoint files, Teams threads & mailbox (delegated, over MCP)',
-    sweetSpot: 'Ground agents in a deal\u2019s real documents, channel discussion & correspondence',
+    id: 'workiq', name: 'Files, chats & email', kind: 'workiq', provider: 'workiq', role: 'context',
+    primaryJob: 'The work already in Microsoft 365 — SharePoint files, Teams discussion & mailbox (read as you)',
+    sweetSpot: 'Ground answers in a deal’s real documents, channel discussion & correspondence',
     // Endpoint is set at runtime from Settings (persisted); no fixed vendor URL.
-    configFields: [{ key: 'mcpUrl', label: 'WorkIQ MCP endpoint URL', placeholder: 'https://\u2026/mcp', kind: 'url' }]
+    configFields: [{ key: 'mcpUrl', label: 'Endpoint URL', placeholder: 'https://…/mcp', kind: 'url' }]
   },
   {
     id: 'web', name: 'Web', kind: 'web', role: 'discover',
@@ -265,7 +265,7 @@ async function testFabricAgent(c) {
 
 async function testWorkiq(c) {
   if (!workiqConfigured()) {
-    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Not configured — set the Microsoft 365 app (app-only) or a WorkIQ MCP URL to enable governed M365 reads for agents.' });
+    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Not configured — set up the Microsoft 365 app to let the assistant read your team’s files, chats and email.' });
   }
   // App-only Microsoft Graph backend: Work IQ is LIVE using the APP'S OWN identity —
   // no per-user sign-in required (this is the default when the M365 app is configured).
@@ -283,7 +283,7 @@ async function testWorkiq(c) {
     await session.initialize();
     const latencyMs = Date.now() - t0;
     markSync(c.id);
-    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Healthy · WorkIQ MCP session established in ${latencyMs}ms` });
+    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Healthy · connected in ${latencyMs}ms` });
   } catch (e) {
     return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Reachable but errored · ${String(e.message || e).slice(0, 90)}` });
   }

@@ -172,7 +172,7 @@ export default function Cockpit({
             <div className="legend">
               <span>
                 Ranked by urgency{data.roleLabel ? <> · weighted for <b>{data.roleLabel}</b></> : null}
-                {canWrite ? ' · AI-detected items are labelled' : <> · <b>read-only seat</b> — actions hidden</>}
+                {canWrite ? ' · AI-detected items are labelled' : <> · <b>read-only access</b> — actions hidden</>}
               </span>
             </div>
 
@@ -213,7 +213,7 @@ export default function Cockpit({
 
           {/* ---------------- Ask ---------------- */}
           <div className="card">
-            <div className="hd"><h3>Ask the deal agent</h3><Tag kind="live" /></div>
+            <div className="hd"><h3>Ask about this deal</h3><Tag kind="live" /></div>
             <div className="bd">
               <div className="askchips">
                 {['What changed this week?', 'What is still missing for IC?', 'Who owns the critical path?', 'Summarise the open risks', 'Draft the IC memo skeleton'].map((q) => (
@@ -275,11 +275,11 @@ export default function Cockpit({
             </div>
           </div>
 
-          {/* Work IQ live signal — what is happening around the deal in Teams,
-              brought INTO the deal instead of left behind in the channel. */}
+          {/* What is happening around the deal in Teams, brought INTO the deal
+              instead of left behind in the channel. */}
           <div className="card">
             <div className="hd">
-              <h3>Work IQ · live signal</h3>
+              <h3>Latest from the deal channel</h3>
               <Tag kind={signal?.connected ? 'live' : 'new'} />
               <span className="spacer" />
               {warRoom?.webUrl ? <a className="dashlink" href={warRoom.webUrl} target="_blank" rel="noreferrer">Open channel ↗</a> : null}
@@ -298,7 +298,7 @@ export default function Cockpit({
                     <div className="sub">{signal.commitments[0].author} · no task exists for this</div>
                   </div>
                 ) : null}
-                <div className="note">{warRoom.source}. Reading the channel uses the same consented Work IQ permission the agent tools use.</div>
+                <div className="note">{warRoom.source}. Reading the channel uses the permission your organisation granted the app, not your own mailbox access.</div>
               </>
             ) : (
               <div className="bd muted">No Teams channel is linked to this deal yet.</div>

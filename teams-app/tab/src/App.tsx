@@ -280,7 +280,7 @@ export default function App() {
             .sbn-chip.off { color:var(--muted); }
           `}</style>
           <div role="note" className={`sbn${accFlash ? ' flash' : ''}`}>
-            <span>Showcase mode — viewing as <strong>{persona?.name || viewAs}</strong>. Their <strong>role</strong> controls what they can access (RBAC is still enforced); the <strong>persona lens</strong> controls how the assistant frames answers for that seat.</span>
+            <span>Showcase mode — viewing as <strong>{persona?.name || viewAs}</strong>. Their <strong>role</strong> controls what they can open (access rules are still enforced); their <strong>job</strong> controls how the assistant frames an answer for them.</span>
             <span className="sbn-chips">
               <span className="sbn-chip">{isAdmin ? '★ ' : ''}{roleLabel || 'role'}</span>
               <span className={`sbn-chip ${canWrite ? 'on' : 'off'}`}>{canWrite ? 'Can act · write' : 'Read-only'}</span>

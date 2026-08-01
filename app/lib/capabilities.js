@@ -38,7 +38,7 @@ const CAPABILITIES = [
     asks: ['Build the LBO — base IRR & MOIC vs the hurdle.', 'Run a base / bull / bear returns sensitivity.'],
   },
   {
-    agent: 'IC Memo', purpose: 'Draft the IC memo + committee deck, and audit every figure to a source',
+    agent: 'IC Memo', purpose: 'Draft the IC memo and deck, and audit every figure to a source',
     skills: ['ic-memo', 'deck-refresh', 'citation-audit'],
     stage: 'Approval (Stage 3)', needs: 'stage2',
     asks: ['Draft the IC memo for this deal.', 'Is every number in the memo sourced?'],
@@ -53,7 +53,7 @@ const CAPABILITIES = [
 
 const WRITE_EXAMPLES = [
   'Launch diligence on this deal.',
-  'Record a commercial finding (own lane).',
+  'Record a commercial finding (own workstream).',
   'Advance the deal to the next step.',
 ];
 

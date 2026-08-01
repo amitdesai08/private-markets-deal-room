@@ -134,7 +134,7 @@ function assess(deal, raw) {
   if (pre && typeof icDays === 'number' && icDays < 0) {
     return {
       rank: 0, tag: 'IC date passed', tone: 'bad',
-      why: `The target committee date passed ${Math.abs(icDays)} days ago and the deal has not reached committee.`,
+      why: `The target IC date passed ${Math.abs(icDays)} days ago and the deal has not gone to IC.`,
       impact: 'Either the date moves with a written reason, or the gap becomes the story at IC.',
       basis: 'Deal record — target IC date vs current step',
       verdict: state, gating,
@@ -154,7 +154,7 @@ function assess(deal, raw) {
   if (idle.length && idle.length === lanes.length && lanes.length) {
     return {
       rank: 2, tag: 'Not started', tone: 'warn',
-      why: `None of the ${lanes.length} diligence lane${lanes.length === 1 ? ' has' : 's have'} recorded progress.`,
+      why: `None of the ${lanes.length} diligence workstream${lanes.length === 1 ? ' has' : 's have'} recorded progress.`,
       impact: 'Nothing is wrong yet — but nothing is moving either, and the clock is.',
       basis: 'Workstream progress',
       verdict: state, gating,
@@ -176,7 +176,7 @@ function assess(deal, raw) {
     const n = post ? obligations : v.openConditions;
     const parts = [];
     if (n) parts.push(`${n} obligation${n === 1 ? '' : 's'} still outstanding`);
-    if (unevidenced) parts.push(`${unevidenced} diligence lane${unevidenced === 1 ? '' : 's'} with no work recorded`);
+    if (unevidenced) parts.push(`${unevidenced} diligence workstream${unevidenced === 1 ? '' : 's'} with no work recorded`);
     return {
       // A deal already through the gate ranks BELOW a live deal that cannot be tabled.
       // At rank 3 for both, half the IC chair's queue was deals he had already approved
@@ -188,8 +188,8 @@ function assess(deal, raw) {
       // Not "approved at committee" — nothing on the record is a committee decision. The
       // stage is where the deal sits, which is all this can honestly claim.
       why: post
-        ? `Past the committee gate — ${parts.join(' and ')}: ${gating.join('; ')}.`
-        : `Ready to table, subject to ${n} condition${n === 1 ? '' : 's'} still to close.`,
+        ? `Past IC — ${parts.join(' and ')}: ${gating.join('; ')}.`
+        : `Ready for IC, subject to ${n} condition${n === 1 ? '' : 's'} still to close.`,
       impact: post
         ? (n ? 'An unclosed obligation holds completion, and every one of them has an owner waiting on someone else.'
              : 'Nothing is outstanding on this deal; the diligence record behind it was simply never written up.')
@@ -201,15 +201,15 @@ function assess(deal, raw) {
   if (state === 'NOT-READY') {
     return {
       rank: 4, tag: 'Not IC-ready', tone: 'warn',
-      why: `Not ready for committee — ${gating.join('; ')}.`,
-      impact: 'Each of these has to close before the deal can be tabled.',
+      why: `Not ready for IC — ${gating.join('; ')}.`,
+      impact: 'Each of these has to close before the deal can go to IC.',
       basis: 'IC readiness board',
       verdict: state, gating,
     };
   }
   if (state === 'READY') {
     if (phase === 'post-committee') {
-      return { rank: 8, tag: 'In execution', tone: 'good', why: 'Past the committee gate with nothing outstanding on the record.', impact: null, basis: 'Deal record — open conditions and compliance checks', verdict: state, gating };
+      return { rank: 8, tag: 'In execution', tone: 'good', why: 'Past IC with nothing outstanding on the record.', impact: null, basis: 'Deal record — open conditions and compliance checks', verdict: state, gating };
     }
     // A deal that is READY with a committee date inside a fortnight is the most
     // actionable row on a chair's page, and at rank 8 it fell off the bottom of a
@@ -224,12 +224,12 @@ function assess(deal, raw) {
         // At rank 8 it was cut before the six-row queue even filled: the tile said
         // "Ready to table: 1" and the page never said which deal, while the chair read a
         // countdown pointing at a different company nine days out.
-        rank: 1, tag: 'Ready — table it', tone: 'good',
-        why: `Papers on record and no blocking lanes, with committee ${icDays === 0 ? 'today' : `in ${icDays} day${icDays === 1 ? '' : 's'}`}.`,
+        rank: 1, tag: 'Ready — take it to IC', tone: 'good',
+        why: `Papers on record and no blocking workstreams, with IC ${icDays === 0 ? 'today' : `in ${icDays} day${icDays === 1 ? '' : 's'}`}.`,
         impact: 'This one needs an agenda slot, not more work.',
         basis: 'IC readiness board', verdict: state, gating,
       }
-      : { rank: 8, tag: 'IC-ready', tone: 'good', why: 'Papers on record, no blocking lanes, no unresolved risk findings.', impact: null, basis: 'IC readiness board', verdict: state, gating };
+      : { rank: 8, tag: 'IC-ready', tone: 'good', why: 'Papers on record, no blocking workstreams, no unresolved risk findings.', impact: null, basis: 'IC readiness board', verdict: state, gating };
   }
   return { rank: 6, tag: 'On track', tone: 'good', why: `Progressing on plan at ${readiness}% completion.`, impact: null, basis: 'IC readiness board', verdict: state, gating, phase };
 }
@@ -273,8 +273,8 @@ function assessLane(deal, raw, lanes, laneLabels) {
   const soon = pre && typeof icDays === 'number' && icDays >= 0 && icDays <= 21;
   const late = pre && typeof icDays === 'number' && icDays < 0;
   const when = late
-    ? `the target committee date passed ${Math.abs(icDays)} days ago`
-    : soon ? `committee is ${icDays} day${icDays === 1 ? '' : 's'} out` : null;
+    ? `the target IC date passed ${Math.abs(icDays)} days ago`
+    : soon ? `IC is ${icDays} day${icDays === 1 ? '' : 's'} out` : null;
   // A seat can own MORE THAN ONE lane — the Fund CFO owns Financial / QoE and Tax &
   // structuring. Two earlier versions of this were wrong in the same direction. Reading
   // ws[0] made tax invisible on every deal. Reading the single worst lane fixed the
@@ -300,19 +300,19 @@ function assessLane(deal, raw, lanes, laneLabels) {
       .filter((f) => /high|critical/i.test(String(f.severity || '')))
       .map((f) => ({ title: f.text, lane: w.lane }));
     const high = [...highIssues.filter((i) => i.lane === w.lane), ...highFindings];
-    const base = { lane: w.lane, laneLabel: label, laneProgress: progress, laneStatus: w.status || 'not_started', basis: 'Workstream record — your lane' };
+    const base = { lane: w.lane, laneLabel: label, laneProgress: progress, laneStatus: w.status || 'not_started', basis: 'Workstream record' };
 
     if (!started) {
       return {
         ...base,
-        short: 'not started',
+        short: 'has no work recorded against it either',
         rank: when ? 0 : 1,
         tag: `${label} not started`,
         tone: when ? 'bad' : 'warn',
         why: when
-          ? `Your ${label} lane has no work recorded against it and ${when}.`
-          : `Your ${label} lane has no work recorded against it.`,
-        impact: 'A lane that has never opened blocks the committee gate on its own, whatever the rest of the deal looks like.',
+          ? `Your ${label} workstream has no work recorded against it and ${when}.`
+          : `Your ${label} workstream has no work recorded against it.`,
+        impact: 'A workstream that has never been opened holds IC on its own, whatever the rest of the deal looks like.',
         verdict: bundle?.verdict?.state || null,
         gating: blocking.map((b) => `${b.label} — ${b.reasons.join(', ')}`),
       };
@@ -320,12 +320,12 @@ function assessLane(deal, raw, lanes, laneLabels) {
     if (high.length) {
       return {
         ...base,
-        short: `carrying ${high.length} open high-severity finding${high.length === 1 ? '' : 's'}`,
+        short: `is carrying ${high.length} open high-severity finding${high.length === 1 ? '' : 's'}`,
         rank: 2,
         tag: `${high.length} open in ${label}`,
         tone: 'bad',
-        why: `${high.length} high-severity finding${high.length === 1 ? '' : 's'} in your ${label} lane ${high.length === 1 ? 'is' : 'are'} still open — ${high.slice(0, 2).map((i) => String(i.title || '').replace(/\s*\.\s*$/, '')).join('; ')}.`,
-        impact: 'An unresolved high-severity finding blocks the gate and, left open, becomes a condition or a price adjustment.',
+        why: `${high.length} high-severity finding${high.length === 1 ? '' : 's'} in your ${label} workstream ${high.length === 1 ? 'is' : 'are'} still open — ${high.slice(0, 2).map((i) => String(i.title || '').replace(/\s*\.\s*$/, '')).join('; ')}.`,
+        impact: 'An unresolved high-severity finding holds the deal at IC and, left open, becomes a condition or a price adjustment.',
         verdict: bundle?.verdict?.state || null,
         gating: high.map((i) => i.title),
       };
@@ -333,12 +333,12 @@ function assessLane(deal, raw, lanes, laneLabels) {
     if (blocking.length) {
       return {
         ...base,
-        short: 'blocking the gate',
+        short: 'is blocking IC',
         rank: 3,
         tag: `${label} blocking`,
         tone: 'warn',
-        why: `Your ${label} lane is one of the reasons this deal cannot be tabled — ${blocking.map((b) => b.reasons.join(', ')).join('; ')}.`,
-        impact: 'Until this lane clears, the deal cannot go to committee on the record as it stands.',
+        why: `Your ${label} workstream is among the reasons this deal is not yet IC-ready — ${blocking.map((b) => b.reasons.join(', ')).join('; ')}.`,
+        impact: 'Until this workstream clears, the deal cannot go to IC on the record as it stands.',
         verdict: bundle?.verdict?.state || null,
         gating: blocking.map((b) => `${b.label} — ${b.reasons.join(', ')}`),
       };
@@ -346,7 +346,7 @@ function assessLane(deal, raw, lanes, laneLabels) {
     if (progress >= 100 && findings === 0) {
       return {
         ...base,
-        short: 'marked complete but carrying nothing on the record',
+        short: 'is marked complete but carrying nothing on the record',
         rank: 4,
         tag: `${label} complete, nothing recorded`,
         tone: 'warn',
@@ -354,8 +354,8 @@ function assessLane(deal, raw, lanes, laneLabels) {
         // A lane marked done with no findings is either work that was never written up
         // or a lane that was closed to clear the board; the record cannot tell which,
         // and neither can this sentence, so it does not guess.
-        why: `Your ${label} lane is marked complete but carries no findings, so there is nothing on the record showing what the work concluded.`,
-        impact: 'At committee this reads as an unevidenced lane, which is the same as an open one.',
+        why: `Your ${label} workstream is marked complete but carries no findings, so there is nothing on the record showing what the work concluded.`,
+        impact: 'At IC, a workstream with nothing recorded counts the same as an open one.',
         verdict: bundle?.verdict?.state || null,
         gating: [],
       };
@@ -363,20 +363,20 @@ function assessLane(deal, raw, lanes, laneLabels) {
     if (soon && progress < 100) {
       return {
         ...base,
-        short: `${progress}% complete`,
+        short: `is ${progress}% complete`,
         rank: 5,
         tag: `${label} ${progress}%`,
         tone: 'warn',
-        why: `Your ${label} lane is ${progress}% complete and ${when}.`,
-        impact: 'Finishing after the papers go out means the committee reads a lane that changed underneath it.',
+        why: `Your ${label} workstream is ${progress}% complete and ${when}.`,
+        impact: 'Finishing after the papers go out means the IC reads a workstream that changed underneath it.',
         verdict: bundle?.verdict?.state || null,
         gating: [],
       };
     }
     if (progress >= 100) {
-      return { ...base, short: `complete with ${findings} finding${findings === 1 ? '' : 's'}`, rank: 8, tag: `${label} complete`, tone: 'good', why: `Your ${label} lane is complete with ${findings} finding${findings === 1 ? '' : 's'} on the record.`, impact: null, verdict: bundle?.verdict?.state || null, gating: [] };
+      return { ...base, short: `complete with ${findings} finding${findings === 1 ? '' : 's'}`, rank: 8, tag: `${label} complete`, tone: 'good', why: `Your ${label} workstream is complete with ${findings} finding${findings === 1 ? '' : 's'} on the record.`, impact: null, verdict: bundle?.verdict?.state || null, gating: [] };
     }
-    return { ...base, short: `${progress}% complete`, rank: 7, tag: `${label} ${progress}%`, tone: 'good', why: `Your ${label} lane is ${progress}% complete with ${findings} finding${findings === 1 ? '' : 's'} recorded.`, impact: null, verdict: bundle?.verdict?.state || null, gating: [] };
+    return { ...base, short: `${progress}% complete`, rank: 7, tag: `${label} ${progress}%`, tone: 'good', why: `Your ${label} workstream is ${progress}% complete with ${findings} finding${findings === 1 ? '' : 's'} recorded.`, impact: null, verdict: bundle?.verdict?.state || null, gating: [] };
   };
 
   const candidates = ws.map(assessOne).sort((a, b) => a.rank - b.rank || a.laneProgress - b.laneProgress);
@@ -397,7 +397,7 @@ function assessLane(deal, raw, lanes, laneLabels) {
     // work — which is the half of his job the firm actually chases him about.
     laneStates: candidates.map((c) => ({ lane: c.lane, label: c.laneLabel, progress: c.laneProgress, status: c.laneStatus, state: c.short })),
     why: others.length
-      ? `${row.why} Your ${others.map((o) => `${o.laneLabel} lane is ${o.short}`).join(', and your ')}.`
+      ? `${row.why} Your ${others.map((o) => `${o.laneLabel} workstream ${o.short}`).join(', and your ')}.`
       : row.why,
     // Every owned lane that is holding this deal, not just the one the row is named for.
     gating: [...new Set(candidates.flatMap((c) => c.gating || []))],
@@ -547,8 +547,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
       // are stated on the row that they placed.
       placedBy: (() => {
         const d = typeof r.deal.daysToIC === 'number' && r.deal.daysToIC >= 0 ? r.deal.daysToIC : null;
-        if (d === null) return `${r.a.tag} · no committee date set`;
-        return `${r.a.tag} · committee in ${d} day${d === 1 ? '' : 's'}`;
+        if (d === null) return `${r.a.tag} · no IC date set`;
+        return `${r.a.tag} · IC in ${d} day${d === 1 ? '' : 's'}`;
       })(),
 
       dealId: r.deal.id,
@@ -729,39 +729,39 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     // "financial / qoe" and "ESG" became "esg", which is the sort of thing the person
     // who owns that lane notices before they read anything else on the page.
     const lane = laneName(seat.laneLabels);
-    const laneWord = seat.laneLabels.length > 1 ? 'lanes' : 'lane';
+    const laneWord = seat.laneLabels.length > 1 ? 'workstreams' : 'workstream';
     // The denominator is the number of deals this lane was actually ASSESSED on, not
     // every deal in view. assessLane returns null for origination deals (the lanes have
     // not opened yet), so counting against list.length produced "open on 8 of the 19 —
     // 5 not started, 7 complete": 5 + 7 = 12, 8 + 7 = 15, and neither is 19.
     const laneTotal = laneRows.length;
     if (!laneOpen) {
-      c.add(`None of the ${laneTotal} deal${laneTotal === 1 ? '' : 's'} carrying your ${laneWord} ${laneTotal === 1 ? 'has' : 'have'} it open, so there is nothing on your desk today.`, 'Workstream record — your lane');
+      c.add(`None of the ${laneTotal} deal${laneTotal === 1 ? '' : 's'} carrying your ${laneWord} ${laneTotal === 1 ? 'has' : 'have'} it open, so there is nothing waiting on you today.`, 'Workstream record');
     } else {
       const many = seat.laneLabels.length > 1;
-      c.add(`You own the ${lane} ${laneWord}. Of the ${laneTotal} deal${laneTotal === 1 ? '' : 's'} in diligence or beyond that you can see, ${laneOpen} still ha${laneOpen === 1 ? 's' : 've'} ${many ? 'one of them' : 'it'} open — ${laneNotStarted} not started — and ${laneDone} ${laneDone === 1 ? 'is' : 'are'} complete.`, 'Workstream record — your lane');
+      c.add(`You own the ${lane} ${laneWord}. Of the ${laneTotal} deal${laneTotal === 1 ? '' : 's'} in diligence or beyond that you can see, ${laneOpen} still ha${laneOpen === 1 ? 's' : 've'} ${many ? 'one of them' : 'it'} open — ${laneNotStarted} of those not yet started — and ${laneDone} ${laneDone === 1 ? 'is' : 'are'} complete.`, 'Workstream record');
       const worst = attention[0];
       if (worst && (worst.tone === 'bad' || worst.tone === 'warn')) {
-        c.add(`Start with ${worst.company} — ${worst.why}`, worst.basis);
+        c.add(`Start with ${worst.company} — ${worst.why.charAt(0).toLowerCase()}${worst.why.slice(1)}`, worst.basis);
       }
       if (laneBlocking) {
-        c.add(`Your ${seat.laneLabels.length > 1 ? 'lanes are' : 'lane is'} currently one of the reasons ${laneBlocking} deal${laneBlocking === 1 ? '' : 's'} cannot be tabled at committee.`, 'IC readiness board — blocking workstreams');
+        c.add(`Your ${seat.laneLabels.length > 1 ? 'workstreams are' : 'workstream is'} among the reasons ${laneBlocking} deal${laneBlocking === 1 ? '' : 's'} ${laneBlocking === 1 ? 'is' : 'are'} not yet IC-ready.`, 'IC readiness board — blocking workstreams');
       } else {
-        c.add('Your lane is not blocking any deal from going to committee.', 'IC readiness board — blocking workstreams');
+        c.add(`Your ${laneWord} ${seat.laneLabels.length > 1 ? 'are' : 'is'} not blocking any deal from going to IC.`, 'IC readiness board — blocking workstreams');
       }
       if (laneNextIC) {
-        c.add(`The next committee date that still needs your lane is ${laneNextIC.company}, in ${laneNextIC.daysToIC} day${laneNextIC.daysToIC === 1 ? '' : 's'}.`, 'Deal record — target IC date');
+        c.add(`Your ${laneWord} ${seat.laneLabels.length > 1 ? 'are' : 'is'} needed soonest on ${laneNextIC.company}, which goes to IC in ${laneNextIC.daysToIC} day${laneNextIC.daysToIC === 1 ? '' : 's'}.`, 'Deal record — target IC date');
       }
     }
     c.add(`Across everything you can see: ${list.length} deal${list.length === 1 ? '' : 's'} carrying ${money(capital)} of enterprise value, ${notReady} not yet IC-ready.`, 'Deal list');
   } else {
     if (seat.kind === 'oversight') {
-      c.add(`You are seeing the administrator's view — every deal in the platform, ranked by deal health rather than weighted to any one desk.`, 'Access model — administrator');
+      c.add(`You are seeing the administrator's view — every deal in the fund, ranked by urgency rather than filtered to one role.`, 'Access model — administrator');
     } else if (seat.kind === 'observer') {
-      c.add('You hold an observer seat, so this page reports deal status and nothing behind it.', 'Access model — observer');
+      c.add('You have observer access, so this page shows where each deal stands, not the diligence detail behind it.', 'Access model — observer');
     } else if (seat.unbound) {
       // Say it, rather than let a generic page pass for a tailored one.
-      c.add('No specialist seat is assigned to you yet, so this is the general portfolio view rather than a desk built around your lane.', 'Access model — no persona assigned');
+      c.add('No specialist role is assigned to you yet, so this is the general portfolio view rather than one built around your own work. Ask an administrator to add you to the workstreams you own.', 'Access model — no specialist role');
     }
     // The seat's OWN opening sentence, ahead of the portfolio statistic.
     //
@@ -774,24 +774,24 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
       if (seat.kind === 'committee') {
         // A chair's first sentence is the agenda: what can be tabled, what cannot, and
         // who is holding it up.
-        const when = nearest ? `The next committee is in ${nearest.daysToIC} day${nearest.daysToIC === 1 ? '' : 's'}.` : 'No committee date is set on any deal in view.';
+        const when = nearest ? `The next IC is in ${nearest.daysToIC} day${nearest.daysToIC === 1 ? '' : 's'}.` : 'No IC date is set on any deal in view.';
         c.add(
           icReady
-            ? `${when} ${icReady} deal${icReady === 1 ? ' is' : 's are'} ready to table; ${notReady} in diligence ${notReady === 1 ? 'is' : 'are'} not.`
-            : `${when} Nothing in view is ready to table yet — ${notReady} deal${notReady === 1 ? ' is' : 's are'} still short of the gate.`,
+            ? `${when} ${icReady} deal${icReady === 1 ? ' is' : 's are'} ready for IC; ${notReady} in diligence ${notReady === 1 ? 'is' : 'are'} not.`
+            : `${when} Nothing in view is ready for IC yet — ${notReady} deal${notReady === 1 ? ' is' : 's are'} still short of it.`,
           'IC readiness board — verdicts',
         );
         const blockers = attention.filter((a) => (a.gating || []).length).slice(0, 3);
         if (blockers.length) {
-          c.add(`Holding up the next ones: ${blockers.map((b) => `${b.company} (${(b.gating || [])[0]})`).join(', ')}.`, 'IC readiness board — blocking workstreams');
+          c.add(`Not ready for the next IC: ${blockers.map((b) => `${b.company} (${(b.gating || [])[0]})`).join(', ')}.`, 'IC readiness board — blocking workstreams');
         }
         if (openObligations) {
-          c.add(`Separately, ${openObligations} deal${openObligations === 1 ? '' : 's'} already through committee still carr${openObligations === 1 ? 'ies' : 'y'} ${openConditionCount} obligation${openConditionCount === 1 ? '' : 's'} — conditions attached at approval and compliance checks not yet cleared.`, 'IC readiness board — post-committee obligations');
+          c.add(`Separately, ${openObligations} deal${openObligations === 1 ? '' : 's'} already through IC still carr${openObligations === 1 ? 'ies' : 'y'} ${openConditionCount} open condition${openConditionCount === 1 ? '' : 's'} — attached at approval, or compliance checks not yet cleared.`, 'IC readiness board — post-committee obligations');
         }
         if (unevidencedPostClose) {
           // A records gap, not an obligation. Reported separately and named for what it
           // is, so nobody chases an owner for a condition that was never attached.
-          c.add(`A further ${unevidencedPostClose} deal${unevidencedPostClose === 1 ? '' : 's'} past the gate ${unevidencedPostClose === 1 ? 'has' : 'have'} no obligation recorded but diligence lanes that were never written up — a records gap rather than something owed.`, 'IC readiness board — unevidenced lanes');
+          c.add(`Another ${unevidencedPostClose} deal${unevidencedPostClose === 1 ? '' : 's'} that ${unevidencedPostClose === 1 ? 'has' : 'have'} passed IC carr${unevidencedPostClose === 1 ? 'ies' : 'y'} no conditions, but ${unevidencedPostClose === 1 ? 'its' : 'their'} diligence workstreams were never written up — a records gap, not outstanding work.`, 'IC readiness board — workstreams with nothing recorded');
         }
         return true;
       }
@@ -801,12 +801,12 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
         const soon = list.filter((d) => typeof d.daysToIC === 'number' && d.daysToIC >= 0 && d.daysToIC <= 21 && awaitingCommittee(d)).length;
         c.add(
           soon
-            ? `You are running ${soon} deal${soon === 1 ? '' : 's'} with a committee date inside three weeks, and ${notReady} of the deals in view ${notReady === 1 ? 'is' : 'are'} not yet ready to be tabled.`
-            : `No deal in view has a committee date inside three weeks. ${notReady} ${notReady === 1 ? 'is' : 'are'} still short of the gate.`,
+            ? `You are running ${soon} deal${soon === 1 ? '' : 's'} with an IC date inside three weeks, and ${notReady} of the deals in view ${notReady === 1 ? 'is' : 'are'} not yet ready for IC.`
+            : `No deal in view has an IC date inside three weeks. ${notReady} ${notReady === 1 ? 'is' : 'are'} still short of being ready.`,
           'Deal record — target IC date',
         );
         if (workiq.total) {
-          c.add(`${workiq.total} commitment${workiq.total === 1 ? '' : 's'} made in the deal channels ${workiq.total === 1 ? 'has' : 'have'} not been turned into a tracked task — those land on you before they land on anyone else.`, 'Work IQ — deal channels');
+          c.add(`${workiq.total} follow-up${workiq.total === 1 ? '' : 's'} raised in the deal channels ${workiq.total === 1 ? 'has' : 'have'} no matching task here — those land on you before they land on anyone else.`, 'Teams channels on the deals');
         }
         return true;
       }
@@ -841,7 +841,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
           'Deal list — post-close portfolio',
         );
         if (openObligations) {
-          c.add(`${openObligations} deal${openObligations === 1 ? '' : 's'} past the committee gate still carr${openObligations === 1 ? 'ies' : 'y'} a condition attached at approval, which lands on the value-creation plan before anything else does.`, 'IC readiness board — post-committee obligations');
+          c.add(`${openObligations} deal${openObligations === 1 ? '' : 's'} past IC still carr${openObligations === 1 ? 'ies' : 'y'} a condition attached at approval, which lands on the value-creation plan before anything else does.`, 'IC readiness board — post-committee obligations');
         }
         return true;
       }
@@ -878,7 +878,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     const urgent = attention.filter((a) => a.tone === 'bad');
     if (urgent.length) {
       c.add(
-        `${urgent.length === 1 ? 'One deal needs' : `${urgent.length} deals need`} attention before ${urgent.length === 1 ? 'it slips' : 'they slip'} — starting with ${urgent[0].company}: ${urgent[0].why}`,
+        `${urgent.length === 1 ? 'One deal needs' : `${urgent.length} deals need`} attention before ${urgent.length === 1 ? 'it slips its IC date' : 'they slip their IC dates'} — starting with ${urgent[0].company}: ${urgent[0].why}`,
         urgent[0].basis,
       );
     } else if (attention.length) {
@@ -894,27 +894,27 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     // split, so these would restate it two paragraphs later in different words.
     if (nearest && seat.kind !== 'committee') {
       c.add(
-        `The next committee date is ${nearest.company} in ${nearest.daysToIC} day${nearest.daysToIC === 1 ? '' : 's'}.`,
+        `The next IC is in ${nearest.daysToIC} day${nearest.daysToIC === 1 ? '' : 's'}, for ${nearest.company}.`,
         'Deal record — target IC date',
       );
     }
 
     if (icReady && seat.kind !== 'committee') {
-      c.add(`${icReady} deal${icReady === 1 ? ' is' : 's are'} ready to table — papers on record, no blocking lanes, no unresolved risk findings.`, 'IC readiness board');
+      c.add(`${icReady} deal${icReady === 1 ? ' is' : 's are'} ready for IC — papers on record, no blocking workstreams, no unresolved risk findings.`, 'IC readiness board');
     }
     if (openObligations && !openedWithJob) {
       // The seats that open with their own job sentence (committee, IR) already say
       // this above; repeating it here would read as two different findings.
-      c.add(`${openObligations} deal${openObligations === 1 ? '' : 's'} already through committee still carr${openObligations === 1 ? 'ies' : 'y'} conditions that were attached at approval.`, 'IC readiness board — post-committee obligations');
+      c.add(`${openObligations} deal${openObligations === 1 ? '' : 's'} already through IC still carr${openObligations === 1 ? 'ies' : 'y'} conditions that were attached at approval.`, 'IC readiness board — post-committee obligations');
     }
   }
 
   if (workiq.total) {
     c.add(
       workiq.yours
-        ? `Work IQ found ${workiq.total} commitment${workiq.total === 1 ? '' : 's'} made in deal channels that ${workiq.total === 1 ? 'is' : 'are'} not tracked as tasks — ${workiq.yours} of them in your lane.`
-        : `Work IQ found ${workiq.total} commitment${workiq.total === 1 ? '' : 's'} made in deal channels across ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'} that ${workiq.total === 1 ? 'is' : 'are'} not tracked as tasks anywhere.`,
-      'Work IQ — Teams channels',
+        ? `${workiq.total} follow-up${workiq.total === 1 ? '' : 's'} raised in the deal channels ${workiq.total === 1 ? 'has' : 'have'} no matching task here — ${workiq.yours} of them yours.`
+        : `${workiq.total} follow-up${workiq.total === 1 ? '' : 's'} raised in the deal channels across ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'} ${workiq.total === 1 ? 'has' : 'have'} no matching task here.`,
+      'Teams channels on the deals',
     );
   }
 
@@ -925,8 +925,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   const portfolioKpis = [
     { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${diligenceCount} in diligence` },
     { key: 'capital', label: 'Enterprise value', value: money(capital), sub: list.length ? `avg ${money(capital / list.length)} · ${sectors || 1} sector${sectors === 1 ? '' : 's'}` : '—' },
-    { key: 'readiness', label: 'Not IC-ready', value: String(notReady), sub: `${icReady} ready to table · ${openObligations} with conditions open` },
-    { key: 'ic', label: 'Next committee', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
+    { key: 'readiness', label: 'Not IC-ready', value: String(notReady), sub: `${icReady} ready for IC · ${openObligations} with conditions open` },
+    { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
   ];
   let kpis = portfolioKpis;
   if (seat.kind === 'observer') {
@@ -936,8 +936,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     // a claim; this seat is only entitled to make claims about status and dates.
     kpis = [
       portfolioKpis[0], portfolioKpis[1],
-      { key: 'near', label: 'Committee inside 14 days', value: String(observerNearCommittee), sub: observerNearCommittee ? 'from the deal status only' : 'none in the next two weeks' },
-      { key: 'passed', label: 'Target date passed', value: String(observerOverdue), sub: observerOverdue ? 'still shown as pre-committee' : 'none overdue' },
+      { key: 'near', label: 'IC within 14 days', value: String(observerNearCommittee), sub: observerNearCommittee && nearest ? `soonest: ${nearest.company}, in ${nearest.daysToIC} day${nearest.daysToIC === 1 ? '' : 's'}` : 'none in the next two weeks' },
+      { key: 'passed', label: 'Past target IC date', value: String(observerOverdue), sub: observerOverdue ? 'still shown as pre-IC' : 'none overdue' },
     ];
   } else if (isLaneSeat) {
     const lane = laneName(seat.laneLabels);
@@ -946,28 +946,28 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     // lanes, and a number nobody has ever behaved differently because of. What this
     // person is chased about is which committees they are holding up.
     kpis = [
-      { key: 'lane-blocking', label: 'Blocking the gate', value: String(laneBlocking), sub: laneBlocking ? `${lane} is why ${laneBlocking === 1 ? 'it' : 'they'} cannot be tabled` : 'not blocking anything' },
-      { key: 'lane-due', label: 'Needed before a committee', value: String(laneDueBeforeIC), sub: laneNextIC ? `soonest ${laneNextIC.company}, ${laneNextIC.daysToIC}d` : 'none inside three weeks' },
-      { key: 'lane-idle', label: 'Not started', value: String(laneNotStarted), sub: laneSplit.length ? `nothing recorded in ${laneSplit.map((s) => `${s.label} on ${s.notStarted}`).join(' · ')}` : (laneNotStarted ? 'no work recorded yet' : 'every lane has opened') },
-      { key: 'lane-open', label: `Deals with your ${seat.laneLabels.length > 1 ? 'lanes' : 'lane'} open`, value: String(laneOpen), sub: laneSplit.length ? `open in ${laneSplit.map((s) => `${s.label} on ${s.open}`).join(' · ')}` : `${laneDone} complete · of ${laneRows.length} carrying it` },
+      { key: 'lane-blocking', label: 'Blocking IC', value: String(laneBlocking), sub: laneBlocking ? `${lane} still open` : 'not blocking anything' },
+      { key: 'lane-due', label: 'Needed before the next IC', value: String(laneDueBeforeIC), sub: laneNextIC ? `soonest: ${laneNextIC.company}, IC in ${laneNextIC.daysToIC} days` : 'none inside three weeks' },
+      { key: 'lane-idle', label: 'Not started', value: String(laneNotStarted), sub: laneSplit.length ? `at least one of yours untouched — ${laneSplit.map((s) => `${s.label} on ${s.notStarted}`).join(', ')}` : (laneNotStarted ? 'no work recorded yet' : 'every workstream has opened') },
+      { key: 'lane-open', label: `Deals with your ${seat.laneLabels.length > 1 ? 'workstreams' : 'workstream'} open`, value: String(laneOpen), sub: laneSplit.length ? `${laneSplit.map((s) => `${s.label} on ${s.open}`).join(', ')} — counted once per deal` : `${laneDone} complete · of ${laneRows.length} carrying it` },
     ];
   } else if (seat.kind === 'committee') {
     kpis = [
-      { key: 'ready', label: 'Ready to table', value: String(icReady), sub: 'papers on record, nothing blocking' },
+      { key: 'ready', label: 'Ready for IC', value: String(icReady), sub: 'papers on record, nothing blocking' },
       { key: 'notready', label: 'Not IC-ready', value: String(notReady), sub: `of ${diligenceCount} in diligence` },
       // Labelled for what it is. "Conditional" reads to a chair as a gate outcome —
       // approved subject to conditions — and every deal in this bucket is already
       // through committee. Six signed companies with an open obligation is a different
       // management problem from a live deal awaiting approval.
-      { key: 'obligations', label: 'Deals with obligations open', value: String(openObligations), sub: `${openConditionCount} condition${openConditionCount === 1 ? '' : 's'} or compliance check${openConditionCount === 1 ? '' : 's'} not yet cleared` },
-      { key: 'ic', label: 'Next committee', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
+      { key: 'obligations', label: 'Deals with conditions open', value: String(openObligations), sub: `${openConditionCount} condition${openConditionCount === 1 ? '' : 's'} or compliance check${openConditionCount === 1 ? '' : 's'} not yet cleared` },
+      { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
     ];
   } else if (seat.kind === 'deal-lead') {
     const soon = list.filter((d) => typeof d.daysToIC === 'number' && d.daysToIC >= 0 && d.daysToIC <= 21 && awaitingCommittee(d)).length;
     kpis = [
-      { key: 'to-gate', label: 'Committee inside 3 weeks', value: String(soon), sub: nearest ? `soonest ${nearest.company}, ${nearest.daysToIC}d` : 'none scheduled' },
-      { key: 'notready', label: 'Not yet tabl-able', value: String(notReady), sub: `${icReady} ready to table` },
-      { key: 'commitments', label: 'Untracked commitments', value: String(workiq.total), sub: workiq.total ? `across ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'}` : 'nothing outstanding' },
+      { key: 'to-gate', label: 'IC within 3 weeks', value: String(soon), sub: nearest ? `soonest ${nearest.company}, ${nearest.daysToIC}d` : 'none scheduled' },
+      { key: 'notready', label: 'Not yet ready for IC', value: String(notReady), sub: `${icReady} ready for IC` },
+      { key: 'commitments', label: 'Untracked follow-ups', value: String(workiq.total), sub: workiq.total ? `across ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'}` : 'nothing outstanding' },
       { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
     ];
   } else if (seat.kind === 'lp') {
@@ -975,8 +975,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     kpis = [
       { key: 'capital', label: 'Enterprise value', value: money(capital), sub: `${list.length} deal${list.length === 1 ? '' : 's'} · ${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
       { key: 'owned', label: 'Completed', value: String(val?.count || 0), sub: val ? `${money(val.capital)} now in value creation` : 'none completed yet' },
-      { key: 'obligations', label: 'Deals with obligations open', value: String(openObligations), sub: `${openConditionCount} outstanding on signed or completed deals` },
-      { key: 'ic', label: 'Next committee', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
+      { key: 'obligations', label: 'Deals with conditions open', value: String(openObligations), sub: `${openConditionCount} outstanding on signed or completed deals` },
+      { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
     ];
   } else if (seat.kind === 'screening') {
     const orig = phases.find((p) => p.key === 'origination')?.count || 0;
@@ -985,7 +985,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
       { key: 'origination', label: 'In origination', value: String(orig), sub: 'screened, not yet launched' },
       { key: 'diligence', label: 'In diligence', value: String(dil), sub: 'live workstreams' },
       { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
-      { key: 'ic', label: 'Next committee', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
+      { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
     ];
   } else if (seat.kind === 'value') {
     const val = phases.find((p) => p.key === 'value');
@@ -993,7 +993,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     kpis = [
       { key: 'owned', label: 'Owned companies', value: String(val?.count || 0), sub: val ? `${money(val.capital)} of enterprise value` : 'none in the value phase' },
       { key: 'closing', label: 'Closing soon', value: String(exe?.count || 0), sub: 'about to become yours' },
-      { key: 'obligations', label: 'Deals with obligations open', value: String(openObligations), sub: `${openConditionCount} carried past the committee gate` },
+      { key: 'obligations', label: 'Deals with conditions open', value: String(openObligations), sub: `${openConditionCount} carried past IC` },
       { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
     ];
   }
@@ -1005,19 +1005,19 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   const suggestions = [];
   if (isLaneSeat) {
     const lane = laneName(seat.laneLabels);
-    if (attention[0]) suggestions.push(`What is outstanding in my ${lane} lane on ${attention[0].company}?`);
-    suggestions.push(`Which deals is my ${lane} lane holding up?`);
-    if (laneNextIC) suggestions.push(`What does ${laneNextIC.company} need from me before committee?`);
+    if (attention[0]) suggestions.push(`What is outstanding in my ${lane} workstream on ${attention[0].company}?`);
+    suggestions.push(`Which deals is my ${lane} workstream holding up?`);
+    if (laneNextIC) suggestions.push(`What does ${laneNextIC.company} need from me before IC?`);
     suggestions.push(`Summarise my ${lane} findings across every deal`);
   } else if (seat.kind === 'committee') {
-    if (icReady) suggestions.push('What is ready to table at the next committee?');
-    if (openObligations) suggestions.push('Which committee conditions are still open, and who owns them?');
+    if (icReady) suggestions.push('What is ready for the next IC?');
+    if (openObligations) suggestions.push('Which IC conditions are still open, and who owns them?');
     if (attention[0]) suggestions.push(`Why is ${attention[0].company} not ready?`);
     suggestions.push('What changed across my deals this week?');
   } else if (seat.kind === 'deal-lead') {
-    if (nearest) suggestions.push(`What is still missing for ${nearest.company}'s committee papers?`);
-    suggestions.push('Which lanes are blocking my deals, and who owns them?');
-    if (workiq.total) suggestions.push('Show me commitments made in my deal channels that nobody is tracking');
+    if (nearest) suggestions.push(`What is still missing for ${nearest.company}'s IC papers?`);
+    suggestions.push('Which workstreams are blocking my deals, and who owns them?');
+    if (workiq.total) suggestions.push('Show me follow-ups raised in my deal channels with no task against them');
     suggestions.push('What changed across my deals this week?');
   } else if (seat.kind === 'value') {
     const ownedP = phases.find((p) => p.key === 'value');
@@ -1040,7 +1040,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     if (nearest) suggestions.push(`What is still missing for ${nearest.company}'s IC?`);
     suggestions.push('Which deals should I prioritise today?');
   }
-  if (workiq.total) suggestions.push('Show me untracked commitments across all deals');
+  if (workiq.total) suggestions.push('Show me untracked follow-ups across all deals');
 
   return {
     generatedAt: new Date().toISOString(),
@@ -1076,9 +1076,9 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
         // IT for diligence content. An observer seat is also frequently the CORRECT
         // seat: a junior, an LP-side observer, someone conflicted off a deal. The page
         // should not be advising them to escalate their own permissions.
-        ? `Your seat shows deal status, not the workstreams underneath, so there is nothing here to rank. On what you can see: ${observerNearCommittee} committee${observerNearCommittee === 1 ? '' : 's'} inside 14 days and ${observerOverdue} target date${observerOverdue === 1 ? '' : 's'} already passed. Diligence detail is granted by the deal lead.`
+        ? `Your access shows deal status, not the workstreams underneath, so there is nothing here to rank. On what you can see: ${observerNearCommittee} IC meeting${observerNearCommittee === 1 ? '' : 's'} inside 14 days and ${observerOverdue} target date${observerOverdue === 1 ? '' : 's'} already passed. Diligence detail is granted by the deal lead.`
         : isLaneSeat && !laneOpen
-          ? `No deal in your view has an open ${seat.laneLabels.join(' or ').toLowerCase()} lane.`
+          ? `No deal in your view has an open ${seat.laneLabels.join(' or ').toLowerCase()} workstream.`
           : ranked.length === 0 && list.length
             ? 'The deals in your view have no workstream records yet, so there is nothing to rank.'
             : 'Nothing is flagged right now — every deal in your view is on track or IC-ready.',

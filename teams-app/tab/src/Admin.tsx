@@ -298,7 +298,7 @@ function PersonasEditor({ data, busy, setBusy, post, reload }: any) {
   const actionLabels: Record<string, string> = Object.fromEntries(data.actions.map((a: Action) => [a.id, a.label]));
   const pOf = (p: Persona): Persona => draft[p.id] || p;
   const edit = (id: string, patch: Partial<Persona>) => setDraft((d: any) => ({ ...d, [id]: { ...(d[id] || data.personas.find((x: Persona) => x.id === id)), ...patch } }));
-  const laneLabel = (k: string | null) => (k ? (data.lanes[k] || k) : 'no lane');
+  const laneLabel = (k: string | null) => (k ? (data.lanes[k] || k) : 'no workstream');
 
   const save = async (p: Persona) => {
     setBusy(true);
@@ -330,7 +330,7 @@ function PersonasEditor({ data, busy, setBusy, post, reload }: any) {
             <input placeholder="persona id (e.g. esg-lead)" value={newP.id} onChange={(e) => setNewP({ ...newP, id: e.target.value })} />
             <input placeholder="label" value={newP.label} onChange={(e) => setNewP({ ...newP, label: e.target.value })} />
             <select value={newP.lane} onChange={(e) => setNewP({ ...newP, lane: e.target.value })}>
-              <option value="">(no lane)</option>
+              <option value="">(no workstream)</option>
               {Object.entries(data.lanes).map(([k, v]) => <option key={k} value={k}>{v as string}</option>)}
             </select>
             <button className="adm-btn primary" disabled={busy || !newP.id.trim()} onClick={addP}>Create</button>

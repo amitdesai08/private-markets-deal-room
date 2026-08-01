@@ -158,7 +158,7 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
       <div className="dd-tabs" style={{ margin: 0 }}>
         {(['pipeline', 'framework', 'research', 'signals'] as SubTab[]).map((t) => (
           <button key={t} className={`dd-tab${sub === t ? ' on' : ''}`} onClick={() => setSub(t)}>
-            {t === 'pipeline' ? 'Pipeline' : t === 'framework' ? 'Sourcing framework' : t === 'research' ? 'Market research' : 'Signals'}
+            {t === 'pipeline' ? 'Pipeline' : t === 'framework' ? 'Sourcing framework' : t === 'research' ? 'Market research' : 'Emails & news'}
           </button>
         ))}
       </div>
@@ -332,8 +332,8 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
       {sub === 'signals' && (
         <>
           <section className="panel">
-            <div className="panel-h">CxO signals<span className="muted">M365 mailbox · {(mailbox?.emails || []).length} emails</span></div>
-            {!mailbox ? <div className="empty-panel">Loading signals…</div> : !(mailbox.emails || []).length ? <div className="empty-panel">No mailbox signals.</div> : (
+            <div className="panel-h">Emails from company executives<span className="muted">Microsoft 365 mailbox · {(mailbox?.emails || []).length} emails</span></div>
+            {!mailbox ? <div className="empty-panel">Loading…</div> : !(mailbox.emails || []).length ? <div className="empty-panel">Nothing inbound.</div> : (
               <div className="cand-list">
                 {(mailbox.emails || []).map((e) => (
                   <div className="cand" key={e.id}>
@@ -349,9 +349,9 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
           </section>
 
           <section className="panel">
-            <div className="panel-h">News & filings desk<span className="muted">{(desk?.companies || []).length} companies · {(desk?.catalysts || []).length} catalysts</span></div>
+            <div className="panel-h">News & filings<span className="muted">{(desk?.companies || []).length} companies · {(desk?.catalysts || []).length} catalysts</span></div>
             {desk?.catalysts?.length ? <div className="cand-tags" style={{ padding: '10px 16px 0' }}>{(desk.catalysts || []).map((c) => <span className="chip" key={c.id}>{c.icon ? `${c.icon} ` : ''}{c.label}</span>)}</div> : null}
-            {!desk ? <div className="empty-panel">Loading news desk…</div> : !(desk.companies || []).length ? <div className="empty-panel">No news companies.</div> : (
+            {!desk ? <div className="empty-panel">Loading news…</div> : !(desk.companies || []).length ? <div className="empty-panel">No news companies.</div> : (
               <div className="cand-list">
                 {(desk.companies || []).map((co) => (
                   <div className="cand" key={co.id}>

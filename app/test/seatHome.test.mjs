@@ -74,7 +74,7 @@ test('a lane seat is told about ITS lane, and the numbers on the tiles match the
   const hd = build('supply-md');
   assert.equal(hd.seat.kind, 'lane');
   assert.deepEqual(hd.seat.laneLabels, ['Operations']);
-  assert.match(text(hd), /you own the operations lane/i);
+  assert.match(text(hd), /you own the operations workstream/i);
 
   // Every row in a lane seat's queue is about that lane, never about someone else's.
   for (const a of hd.attention) {
@@ -87,7 +87,7 @@ test('a lane seat is told about ITS lane, and the numbers on the tiles match the
   assert.equal(open.value, String(hd.counts.laneOpen));
   assert.equal(idle.value, String(hd.counts.laneNotStarted));
   assert.match(text(hd), new RegExp(`${hd.counts.laneOpen} still ha(?:s|ve) it open`, 'i'));
-  assert.match(text(hd), new RegExp(`${hd.counts.laneNotStarted} not started`, 'i'));
+  assert.match(text(hd), new RegExp(`${hd.counts.laneNotStarted} of those not yet started`, 'i'));
   // The sentence must reconcile: the deals carrying the lane are exactly the open ones
   // plus the complete ones. It used to read "open on 8 of the 19 — 5 not started, 7
   // complete", where 5 + 7 = 12 and 8 + 7 = 15, and neither is 19.
@@ -120,14 +120,14 @@ test('the sourcing seat surfaces origination, which the portfolio ranking buries
 test('a viewer with no persona is TOLD the page is not tailored, rather than shown a generic one silently', () => {
   const hd = build(null);
   assert.equal(hd.seat.tailored, false);
-  assert.match(text(hd), /no specialist seat is assigned to you yet/i);
+  assert.match(text(hd), /no specialist role is assigned to you yet/i);
 });
 
 test('an administrator is told the view is unweighted instead of being given a fake desk', () => {
   const hd = buildHomeDesk(deals, { role: 'admin', roleLabel: 'Administrator', persona: null, rawFor: (d) => getDealRaw(d.id) });
   assert.equal(hd.seat.kind, 'oversight');
   assert.match(text(hd), /administrator's view/i);
-  assert.doesNotMatch(text(hd), /no specialist seat is assigned/i);
+  assert.doesNotMatch(text(hd), /no specialist role is assigned/i);
 });
 
 test('every sentence still carries a source, for every seat', () => {
@@ -146,7 +146,7 @@ test('the suggested questions are the seat\'s questions, not everyone\'s', () =>
   const supply = build('supply-md');
   const chair = build('partner', 'partner');
   assert.ok(supply.briefing.suggestions.some((s) => /operations/i.test(s)), 'a lane owner should be offered questions about their lane');
-  assert.ok(chair.briefing.suggestions.some((s) => /committee|table|conditions/i.test(s)), 'an IC chair should be offered questions about the gate');
+  assert.ok(chair.briefing.suggestions.some((s) => /IC|conditions/.test(s)), 'an IC chair should be offered questions about the gate');
   assert.notDeepEqual(supply.briefing.suggestions, chair.briefing.suggestions);
 });
 
@@ -166,7 +166,7 @@ test('an empty queue explains ITSELF, and never claims health it did not measure
   assert.doesNotMatch(obs.attentionEmpty, /on track|IC-ready/i, 'must not assert health it could not measure');
   assert.match(obs.attentionEmpty, /not the workstreams underneath/i, 'must say why it cannot rank');
   // It must report the facts it DOES hold rather than only apologising...
-  assert.match(obs.attentionEmpty, /committee/i);
+  assert.match(obs.attentionEmpty, /\bIC\b/);
   // ...and it must not tell the reader to go and get their permissions widened.
   assert.doesNotMatch(obs.attentionEmpty, /administrator/i, 'access to a deal comes from the deal lead, not from IT');
 
@@ -217,7 +217,7 @@ test('post-committee obligations are not labelled as deals awaiting approval', (
 test('an IC chair opens on the agenda, not on the fund size', () => {
   const chair = build('partner', 'partner');
   const first = chair.briefing.paragraphs[0].text;
-  assert.match(first, /committee/i, 'a chair\'s first sentence should be about the gate');
+  assert.match(first, /\bIC\b/, 'a chair\'s first sentence should be about the gate');
   assert.doesNotMatch(first, /enterprise value/i, 'enterprise value is a fundraising number, not a Monday morning');
 
   // And it is genuinely different from the seat that has no job-specific opener.
@@ -267,7 +267,7 @@ test('every queue row can explain why it is where it is', () => {
     const hd = build(p, p === 'partner' ? 'partner' : p === 'analyst' ? 'analyst' : 'deal-team');
     for (const a of hd.attention) {
       assert.ok(a.placedBy, `a row for ${a.company} cannot explain its position`);
-      assert.match(a.placedBy, /committee in \d+ days?|no committee date set/);
+      assert.match(a.placedBy, /IC in \d+ days?|no IC date set/);
     }
   }
 
@@ -338,11 +338,11 @@ test('an observer is never shown a verdict tile it could not compute', () => {
   const obs = build(null, 'member');
   assert.equal(obs.seat.kind, 'observer');
   for (const k of obs.kpis) {
-    assert.doesNotMatch(k.label, /IC-ready|Ready to table|Conditions outstanding|Blocking/i,
+    assert.doesNotMatch(k.label, /IC-ready|Ready for IC|Ready to table|Conditions outstanding|Blocking/i,
       `an observer cannot measure "${k.label}"`);
   }
   // It is still allowed to report what it CAN see.
-  assert.ok(obs.kpis.some((k) => /committee/i.test(k.label)));
+  assert.ok(obs.kpis.some((k) => /IC within 14 days/i.test(k.label)));
 });
 
 test('every seat the code can produce is reachable in the demo', async () => {
@@ -363,7 +363,7 @@ test('a tile and the sentence about the same thing never disagree', () => {
     // [profile, role, tile key, regex capturing the number in the prose]
     ['operating-partner', 'deal-team', 'closing', /(\d+) more signed and about to become yours/],
     ['operating-partner', 'deal-team', 'owned', /You own (\d+) compan/],
-    ['partner', 'partner', 'ready', /(\d+) deals? (?:is|are) ready to table/],
+    ['partner', 'partner', 'ready', /(\d+) deals? (?:is|are) ready for IC/],
     ['ir-lp', 'partner', 'owned', /of which (\d+) compan/],
   ];
   for (const [profile, role, key, re] of cases) {
@@ -502,7 +502,7 @@ test('the committee countdown includes the deal that is at committee', () => {
   const tile = hd.kpis.find((k) => k.key === 'ic');
   assert.ok(tile, 'the chair needs a committee date');
   assert.equal(tile.value, `${soonest}d`, 'the tile must show the soonest committee, including a deal already at the gate');
-  assert.match(text(hd), new RegExp(`next committee is in ${soonest} days?`, 'i'));
+  assert.match(text(hd), new RegExp(`next IC is in ${soonest} days?`, 'i'));
 });
 
 // A deal that is ready with an imminent committee is the most actionable row on the

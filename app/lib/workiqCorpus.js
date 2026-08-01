@@ -172,7 +172,7 @@ const LANE_VOICE = {
 const voiceFor = (lane) => LANE_VOICE[lane] || {
   work: 'the outstanding diligence items',
   artefact: 'lane summary',
-  risk: 'an unclosed gate ahead of committee',
+    risk: 'an open item ahead of IC',
 };
 
 function laneReport(rand, deal, w) {
@@ -246,7 +246,7 @@ function generatedChannel(deal) {
   // 1) The deal lead frames where the deal actually is.
   const openLines = [
     `${deal.company} — ${deal.stageName || deal.stage}${size ? `, ${size} EV` : ''}. ${
-      d == null ? 'No committee date is pending on this one.'
+      d == null ? 'No IC date is pending on this one.'
         : d < 0 ? `We are ${Math.abs(d)} days past the target IC date.`
         : `IC is ${d} days out.`
     } Lane owners, please post status here rather than by email so the record stays in one place.`,

@@ -72,8 +72,8 @@ export default function WorkIqPanel({ dealId, canWrite, onAsk }: { dealId: strin
     <section className="dd-panel wiq">
       <style>{CSS}</style>
       <div className="dd-panel-h">
-        <span>Work IQ · shared memory</span>
-        <span className="muted">{notes.length ? `${notes.length} note${notes.length > 1 ? 's' : ''} · resurfaces in later chats` : 'notes carry across seats & sessions'}</span>
+        <span>Shared deal notes</span>
+        <span className="muted">{notes.length ? `${notes.length} note${notes.length === 1 ? '' : 's'} · shown again in later chats` : 'notes carry across people & sessions'}</span>
       </div>
 
       <div className="wiq-body">
@@ -90,12 +90,12 @@ export default function WorkIqPanel({ dealId, canWrite, onAsk }: { dealId: strin
             ) : null}
           </div>
         )) : (
-          <div className="muted wiq-empty">No shared notes yet. When a specialist saves a conclusion from an assistant conversation, it lands here and grounds later conversations on this deal — even for a different persona.</div>
+          <div className="muted wiq-empty">No shared notes yet. When someone saves a conclusion from an assistant conversation, it lands here and is shown in later conversations on this deal — even for a colleague in a different role.</div>
         )}
 
         {canWrite ? (
           <div className="wiq-composer">
-            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Share a diligence conclusion or hand-off to another seat — it will surface in later conversations on this deal…" rows={3} />
+            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Share a diligence conclusion or hand it to a colleague — it will surface in later conversations on this deal…" rows={3} />
             <div className="wiq-share">
               <span className="muted">Share with:</span>
               {SHARE_OPTIONS.map((o) => (
@@ -104,11 +104,11 @@ export default function WorkIqPanel({ dealId, canWrite, onAsk }: { dealId: strin
             </div>
             <div className="wiq-actions">
               {err ? <span className="wiq-err">{err}</span> : <span />}
-              <button className="chbtn" disabled={busy || !text.trim()} onClick={post}>{busy ? 'Sharing…' : 'Share to Work IQ'}</button>
+              <button className="chbtn" disabled={busy || !text.trim()} onClick={post}>{busy ? 'Saving…' : 'Add to shared notes'}</button>
             </div>
           </div>
         ) : (
-          <div className="muted wiq-ro">Read-only — you can see the team's shared memory but not add to it.</div>
+          <div className="muted wiq-ro">Read-only — you can see the team's shared notes but not add to them.</div>
         )}
       </div>
     </section>
@@ -116,7 +116,7 @@ export default function WorkIqPanel({ dealId, canWrite, onAsk }: { dealId: strin
     {corpus && (corpus.channel || (corpus.files || []).length || (corpus.mail || []).length) ? (
       <section className="dd-panel wiq">
         <div className="dd-panel-h">
-          <span>Work IQ · deal corpus</span>
+          <span>Files, chats & email on this deal</span>
           <span className="muted">Microsoft 365 — Teams · SharePoint · Mail</span>
         </div>
         <div className="wiq-corpus">
@@ -129,14 +129,14 @@ export default function WorkIqPanel({ dealId, canWrite, onAsk }: { dealId: strin
                   <div className="wiq-cprev">{m.preview}</div>
                 </div>
               ))}
-              {onAsk ? <button type="button" className="wiq-ask" onClick={() => onAsk('Catch me up — use Work IQ to summarise the latest war-room discussion in this deal\u2019s Teams channel.')}>Ask the assistant to summarise this channel ▸</button> : null}
+              {onAsk ? <button type="button" className="wiq-ask" onClick={() => onAsk('Catch me up — summarise the latest discussion in this deal\u2019s Teams channel.')}>Ask the assistant to summarise this channel ▸</button> : null}
             </div>
           ) : null}
           {(corpus.files || []).length ? (
             <div className="wiq-cgroup">
               <div className="wiq-ch">Data room · files ({corpus.files!.length})</div>
               {corpus.files!.map((f, i) => (
-                <button type="button" className="wiq-file wiq-clk" key={i} onClick={() => onAsk?.(`Open the file “${f.name}” via Work IQ and give me its key points and any risks for this deal.`)} disabled={!onAsk}><span className="wiq-fname">{f.name}</span><span className="wiq-fsum">{f.summary}</span></button>
+                <button type="button" className="wiq-file wiq-clk" key={i} onClick={() => onAsk?.(`Open the file “${f.name}” and give me its key points and any risks for this deal.`)} disabled={!onAsk}><span className="wiq-fname">{f.name}</span><span className="wiq-fsum">{f.summary}</span></button>
               ))}
             </div>
           ) : null}

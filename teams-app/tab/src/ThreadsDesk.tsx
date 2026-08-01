@@ -117,8 +117,8 @@ export default function ThreadsDesk({
   if (!data.threads.length) {
     return (
       <div className="card">
-        <div className="hd"><h3>Work IQ threads</h3><Tag kind="new" /></div>
-        <div className="bd muted">No conversation is linked to this deal yet. Provision the deal's Teams channel to bring the war room in here.</div>
+        <div className="hd"><h3>Channel discussion</h3><Tag kind="new" /></div>
+        <div className="bd muted">No conversation is linked to this deal yet. Set up the deal's Teams channel to bring the discussion in here.</div>
       </div>
     );
   }
@@ -154,7 +154,7 @@ export default function ThreadsDesk({
                 if (!list.length) return null;
                 return (
                   <div key={g}>
-                    <div className="railgrp">{g}</div>
+                    <div className="railgrp">{g === 'Deal objects' ? 'Deal record' : g}</div>
                     {list.map((t) => (
                       <button key={t.id} className={`thrd${t.id === thread.id ? ' on' : ''}`} onClick={() => setActive(t.id)}>
                         <div className="k">{t.ref ? `${t.ref} · ` : ''}{t.title}</div>
@@ -171,10 +171,10 @@ export default function ThreadsDesk({
               {data.connected && data.asUser
                 ? `Live Microsoft Teams messages, read as you — you are seeing exactly what your own Microsoft 365 permissions allow, nothing more.${data.compose?.canSend ? ' You can reply from here, and it posts under your name.' : ''}`
                 : data.connected
-                  ? 'Live Microsoft Teams messages, read with the application’s consented Work IQ permission rather than your own — the deal team gate is what is limiting this view.'
+                  ? 'Live Microsoft Teams messages, read with the permission your organisation granted the app rather than your own — you are seeing only the channels this deal team can see.'
                   : data.origin?.channel === 'derived'
-                    ? 'No Teams channel is linked to this deal yet, so this conversation is composed from the deal record — the lanes, owners and dates it already holds.'
-                    : 'Showing the Work IQ demo corpus — no Teams channel is linked to this deal yet.'}
+                    ? 'No Teams channel is linked to this deal yet, so this conversation is composed from the deal record — the workstreams, owners and dates it already holds.'
+                    : 'Showing sample conversations — no Teams channel is linked to this deal yet.'}
             </div>
           </div>
         </div>
@@ -266,15 +266,15 @@ export default function ThreadsDesk({
                   disabled={!draft.trim() || sending}
                   onClick={() => { onAsk?.(`In the ${thread.anchor} thread on ${data.company}: ${draft.trim()}`); setDraft(''); }}
                 >
-                  Ask agent
+                  Ask the assistant
                 </button>
               </form>
               <div className="sub" style={{ marginTop: 6 }}>
                 {canSend
-                  ? 'Send to Teams posts as you — it lands in the channel under your name, with the same audit trail, retention and eDiscovery treatment as if you had typed it in Teams. The Deal Room never posts as itself. Ask agent keeps the question here.'
+                    ? 'Send to Teams posts as you — it lands in the channel under your name, with the same audit trail, retention and eDiscovery treatment as if you had typed it in Teams. The Deal Room never posts as itself. Ask the assistant keeps the question here.'
                   : sendBlockedReason
-                    ? `Reading only here — ${sendBlockedReason} Ask agent keeps the question in the Deal Room.`
-                    : 'Reading only here. Ask agent keeps the question in the Deal Room.'}
+                      ? `You can read this thread but not post to it: ${sendBlockedReason} Ask the assistant keeps the question in the Deal Room.`
+                      : 'You can read this thread but not post to it. Ask the assistant keeps the question in the Deal Room.'}
               </div>
             </div>
           </div>
@@ -307,12 +307,12 @@ export default function ThreadsDesk({
 
               {commitments.map((c) => (
                 <div className="callout" key={c.id}>
-                  <div style={{ fontWeight: 650, marginBottom: 4 }}>⚡ Commitment — no task exists</div>
+                      <div style={{ fontWeight: 650, marginBottom: 4 }}>⚡ Follow-up — no task exists</div>
                   <div>{c.headline}</div>
                   <div className="quote">“{c.quote}”</div>
                   <div className="prefill">
                     Owner: <b>{c.owner || c.author}</b> · Due: <b>{c.dueText || 'not stated'}</b>
-                    {c.laneLabel ? <> · Lane: <b>{c.laneLabel}</b></> : null}
+                      {c.laneLabel ? <> · Workstream: <b>{c.laneLabel}</b></> : null}
                   </div>
                   {canWrite ? (
                     <div className="acts">
@@ -347,7 +347,7 @@ export default function ThreadsDesk({
                 </div>
               ) : null}
             </div>
-            <div className="note">Backed by the deal issue log — every request already has an owner, a lane and a state.</div>
+                <div className="note">Backed by the deal issue log — every request already has an owner, a workstream and a state.</div>
           </div>
         </div>
       </div>

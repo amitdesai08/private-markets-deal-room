@@ -13,7 +13,7 @@ type CompareCol = { seat: string; label: string; text: string; role?: string; pe
 type Msg = { role: 'user' | 'agent'; text: string; source?: string; tools?: string[]; pending?: boolean; proposed?: ProposedAction[]; applied?: string[]; saved?: boolean; question?: string; compare?: CompareCol[] };
 
 const DEAL_STARTERS = [
-  'Give me the IC readiness verdict and what is blocking it.',
+  'Is this ready for IC, and what is blocking it?',
   'Show comparable deals and IC precedents.',
   'What are the top risks and the compliance status?',
 ];
@@ -223,7 +223,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
                     : (<div>{m.text}</div>)}
                 {m.role === 'agent' && !m.pending && !m.compare && m.text && dealId && canWrite && m.source !== 'error' && m.source !== 'applied' && m.source !== 'capabilities' ? (
                   <div className="msg-actions">
-                    {m.saved ? <span className="saved-tag">Saved to Work IQ ✓</span> : <button className="save-wiq" disabled={saving === String(i)} onClick={() => saveToWorkiq(i, m.text)}>{saving === String(i) ? 'Saving…' : '+ Save to Work IQ'}</button>}
+                    {m.saved ? <span className="saved-tag">Saved to shared notes ✓</span> : <button className="save-wiq" disabled={saving === String(i)} onClick={() => saveToWorkiq(i, m.text)}>{saving === String(i) ? 'Saving…' : '+ Save to shared notes'}</button>}
                   </div>
                 ) : null}
                 {m.proposed?.length ? (
@@ -250,7 +250,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
       <form className="composer" onSubmit={(e) => { e.preventDefault(); send(input); }}>
         {agent.kind === 'orchestrator' ? (
           <div className="cmpbar">
-            <button type="button" className={`cmp-toggle${compareOpen ? ' on' : ''}`} onClick={() => setCompareOpen((v) => !v)} title="Ask the same question as several seats side by side">{compareOpen ? 'Close compare' : 'Compare seats'}</button>
+            <button type="button" className={`cmp-toggle${compareOpen ? ' on' : ''}`} onClick={() => setCompareOpen((v) => !v)} title="Ask the same question as several roles side by side">{compareOpen ? 'Close compare' : 'Compare roles'}</button>
             {compareOpen ? (
               <div className="cmp-pick">
                 {COMPARE_SEATS.map((s) => (

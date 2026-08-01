@@ -100,7 +100,7 @@ export default function WorkflowDesk({
   }, [data, filter]);
 
   if (loading) return <div className="card"><div className="bd muted">Reading the workflow…</div></div>;
-  if (!data) return <div className="card"><div className="bd muted">The workflow desk is unavailable for this deal.</div></div>;
+  if (!data) return <div className="card"><div className="bd muted">Progress and blockers are unavailable for this deal.</div></div>;
 
   const canWrite = !!data.canWrite;
   const commitments = data.commitments.filter((c) => !dismissed.has(c.id));
@@ -136,7 +136,7 @@ export default function WorkflowDesk({
         <div className="card" style={{ borderColor: 'var(--warn-br)' }}>
           <div className="hd" style={{ background: 'var(--warn-bg)' }}>
             <span className="aibadge">✦ AI</span>
-            <h3>{commitments.length} untracked commitment{commitments.length === 1 ? '' : 's'} found in Work IQ</h3>
+            <h3>{commitments.length} follow-up{commitments.length === 1 ? '' : 's'} nobody is tracking</h3>
             <Tag kind="new" />
             <span className="spacer" />
             {canWrite ? <button className="btn link compact" onClick={() => setDismissed(new Set(data.commitments.map((c) => c.id)))}>Dismiss all</button> : null}
@@ -151,7 +151,7 @@ export default function WorkflowDesk({
                 <div className="quote">“{c.quote}”</div>
                 <div className="prefill">
                   Owner: <b>{c.owner || c.author}</b> · Due: <b>{c.due ? shortDate(c.due) : c.dueText || 'not stated'}</b>
-                  {c.laneLabel ? <> · Lane: <b>{c.laneLabel}</b></> : null}
+                    {c.laneLabel ? <> · Workstream: <b>{c.laneLabel}</b></> : null}
                   {c.stepTitle ? <> · Step: <b>{c.stepTitle}</b></> : null}
                   <div className="sub">Basis: {c.basis} · confidence {c.confidence}</div>
                 </div>

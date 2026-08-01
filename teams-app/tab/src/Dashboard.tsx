@@ -121,17 +121,17 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
     { label: 'Live deals', value: String(liveDeals), sub: `${inDiligence} in diligence` },
     { label: 'Pipeline value', value: money(pipelineValue), sub: liveDeals ? `avg ${money(avgCheck)} · ${sectors} sector${sectors === 1 ? '' : 's'}` : '—' },
     { label: 'Avg IC readiness', value: `${avgReadiness}%`, sub: `${icReady} ready for IC` },
-    { label: 'Next to committee', value: nearestIC ? `${nearestIC.daysToIC}d` : '—', sub: nearestIC ? nearestIC.company : 'none scheduled' },
+    { label: 'Next IC', value: nearestIC ? `${nearestIC.daysToIC}d` : '—', sub: nearestIC ? nearestIC.company : 'none scheduled' },
   ];
 
   // What needs action before it slips: approaching IC but not ready, or early / stalled.
   const priority = (d: Deal) => {
     const r = d.readiness ?? 0;
     const days = typeof d.daysToIC === 'number' ? d.daysToIC : 999;
-    if (days <= 21 && r < 80) return { rank: 0, tag: 'Approaching IC', cls: 'bad', why: `IC in ${days}d but only ${r}% ready — close diligence gaps before committee` };
+    if (days <= 21 && r < 80) return { rank: 0, tag: 'Approaching IC', cls: 'bad', why: `IC in ${days}d but only ${r}% ready — close the diligence gaps first` };
     if (r < 40) return { rank: 1, tag: 'Early', cls: 'warn', why: `${r}% IC-ready — needs diligence to progress` };
-    if (r >= 80) return { rank: 3, tag: 'IC-ready', cls: 'ok', why: 'Cleared the readiness bar' };
-    return { rank: 2, tag: 'On track', cls: 'ok', why: 'Progressing on plan' };
+    if (r >= 80) return { rank: 3, tag: 'IC-ready', cls: 'ok', why: `${r}% ready — nothing outstanding` };
+    return { rank: 2, tag: 'On track', cls: 'ok', why: 'No IC date close and nothing flagged' };
   };
   const attention = deals
     .map((d) => ({ d, p: priority(d) }))
@@ -201,12 +201,12 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
   //   no seat at all -> say so; do not let the generic view pass as a tailored one
   const seatLine = !seat ? null
     : seat.kind === 'oversight'
-      ? <>Administrator view — every deal in the platform, ranked by deal health rather than weighted to a desk</>
+      ? <>Administrator view — every deal in the platform, ranked by deal health rather than weighted to one role</>
       : seat.kind === 'observer'
-        ? <>Observer seat — deal status only, without the workstream detail underneath</>
+        ? <>Observer access — deal status only, without the workstream detail underneath</>
         : seat.tailored
-          ? <>Built for the <b>{seat.label}</b> desk{seat.laneLabels.length ? <> — you own the <b>{seat.laneLabels.join(' and ')}</b> lane</> : null}</>
-          : <>No specialist desk is assigned to you, so this is the general portfolio view</>;
+          ? <>Built for the <b>{seat.label}</b>{seat.laneLabels.length ? <> — you own the <b>{seat.laneLabels.join(' and ')}</b> workstream{seat.laneLabels.length > 1 ? 's' : ''}</> : null}</>
+          : <>No specialist role is assigned to you, so this is the general portfolio view</>;
 
   return (
     <div className="dash">
@@ -262,23 +262,22 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
               </div>
             ) : null}
             <div className="note">
-              Composed from the deal record, the IC readiness board and Work IQ — no model is called to build it,
-              and it never changes a deal's recorded status. Every claim carries the source it came from.
+            Composed from the deal record, the IC readiness board and your team's deal channels &mdash; no AI model writes it,
+            and it never changes a deal's recorded status. Where a source exists, it is shown.
             </div>
           </div>
 
-          {/* Work IQ across the portfolio: promises made in deal channels that are
-              not tracked anywhere. Proposed only — a task is created on the deal
-              that owns it, by a named person. */}
+          {/* Follow-ups promised in deal channels that are not tracked anywhere. Proposed
+              only — a task is created on the deal that owns it, by a named person. */}
           {home?.workiq?.total ? (
             <div className="card aicard">
               <div className="hd">
                 <span className="aibadge">✦ AI</span>
-                <h3>Untracked commitments</h3>
+                <h3>Untracked follow-ups</h3>
                 <Tag kind="new" />
                 <span className="spacer" />
                 <span className="chip">{home.workiq.total} across {home.workiq.deals} deal{home.workiq.deals === 1 ? '' : 's'}</span>
-                {home.workiq.yours ? <span className="chip warn">{home.workiq.yours} in your lane</span> : null}
+                {home.workiq.yours ? <span className="chip warn">{home.workiq.yours} yours</span> : null}
                 <button className="btn link compact" onClick={() => setShowWorkiq((v) => !v)}>{showWorkiq ? 'Hide' : 'Show'}</button>
               </div>
               {showWorkiq ? (
@@ -289,7 +288,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
                         <span className="name">{c.author}</span>
                         <span className="chip">{c.company}</span>
                         {c.laneLabel ? <span className="sub">{c.laneLabel}</span> : null}
-                        {c.yours ? <span className="chip warn">your lane</span> : null}
+                        {c.yours ? <span className="chip warn">yours</span> : null}
                         {c.dueText ? <span className="chip warn">📅 {c.dueText}</span> : null}
                       </div>
                       <div className="quote">“{c.quote || c.headline}”</div>
@@ -297,7 +296,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
                       <div className="acts">
                         <button className="btn" onClick={() => onOpen(c.dealId)}>Open {c.company} ▸</button>
                         {onAskQuestion ? (
-                          <button className="btn link" onClick={() => onAskQuestion(`On ${c.company}, is this commitment tracked: "${c.headline}"?`)}>Ask about it</button>
+                          <button className="btn link" onClick={() => onAskQuestion(`On ${c.company}, is this follow-up tracked: "${c.headline}"?`)}>Ask about it</button>
                         ) : null}
                       </div>
                     </div>
@@ -309,8 +308,8 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
                 </div>
               ) : (
                 <div className="note">
-                  Work IQ read {home.workiq.total} promise{home.workiq.total === 1 ? '' : 's'} out of deal channels that
-                  nobody has turned into a task. Show them to see who owes what, and when.
+                  {home.workiq.total} follow-up{home.workiq.total === 1 ? '' : 's'} {home.workiq.total === 1 ? 'was' : 'were'} promised in the deal channels and never
+                  turned into a task. Show them to see who owes what, and when.
                 </div>
               )}
             </div>
@@ -321,7 +320,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
         <div style={{ minWidth: 0 }}>
           <div className="card">
             <div className="hd">
-              <h3>{seat?.tailored && seat.laneLabels.length ? `What needs me in ${seat.laneLabels[0]}` : 'What needs my attention'}</h3>
+              <h3>{seat?.tailored && seat.laneLabels.length ? `What needs me in ${seat.laneLabels.join(' & ')}` : 'What needs my attention'}</h3>
               <Tag kind="ext" />
               <span className="spacer" />
               <span className="chip">{attentionRows.length} deal{attentionRows.length === 1 ? '' : 's'}</span>
@@ -329,9 +328,9 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
             <div className="legend">
               <span>
                 {seat?.tailored && seat.laneLabels.length
-                  ? <>Ranked by the state of <b>your {seat.laneLabels[0]} lane</b> on each deal you can see</>
+                  ? <>Ranked across <b>your {seat.laneLabels.join(' and ')} workstream{seat.laneLabels.length === 1 ? '' : 's'}</b>, on every deal you can see</>
                   : <>Ranked worst-first across every deal you can see</>}
-                {canWrite === false ? <> · <b>read-only seat</b></> : null}
+                {canWrite === false ? <> · <b>read-only access</b></> : null}
               </span>
             </div>
             {attentionRows.length === 0 ? (
@@ -357,16 +356,16 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
                 {a.impact ? <div className="impact">⚡ {a.impact}</div> : null}
                 {/* Why this row is where it is. A ranked list that cannot answer
                     "why is this above that?" does not survive its first partner. */}
-                {a.placedBy ? <div className="sub" style={{ marginTop: 6 }}>Placed here by: {a.placedBy}</div> : null}
+                {a.placedBy ? <div className="sub" style={{ marginTop: 6 }}>Why it is here: {a.placedBy}</div> : null}
                 {a.basis ? <div className="sub" style={{ marginTop: 2 }}>Basis: {a.basis}</div> : null}
                 <div className="acts">
                   <button className="btn primary" onClick={() => onOpen(a.dealId)}>Open deal ▸</button>
-                  <button className="btn link" onClick={() => onAsk(a.dealId)}>Ask agents</button>
+                  <button className="btn link" onClick={() => onAsk(a.dealId)}>Ask the assistant</button>
                 </div>
               </div>
             ))}
             <div className="note">
-              Opening a deal takes you into its own cockpit. Nothing here changes a deal — it only tells you where to look first.
+              Opening a deal takes you to that deal's own page. Nothing here changes a deal — it only tells you where to look first.
             </div>
           </div>
 
@@ -454,7 +453,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
         <div className="panel-h"><span>Pipeline deals</span><span className="muted">{deals.length} active{compare.length ? ` · ${compare.length} selected to compare` : ' · tick 2–4 to compare'}</span></div>
         {deals.length === 0 ? (
           <div className="empty-panel">
-            No deals are live yet. Sourced candidates that clear the screening gate appear here.
+            No deals are live yet. Sourced candidates that pass screening appear here.
             <button className="linkbtn" onClick={() => onAsk('')}>Ask what to source next →</button>
           </div>
         ) : (

@@ -349,7 +349,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     } else if (nbaDays != null && nbaDays >= 0 && nbaDays <= 21 && nbaReadiness < 80) {
       nba = { title: 'Close diligence gaps before IC', reason: `IC in ${nbaDays}d but only ${nbaReadiness}% ready${verdict?.state ? ` (${verdict.state})` : ''} — resolve the open items gating readiness.`, urgency: 'High', primaryLabel: 'Review IC readiness', primaryTab: 'ic' };
     } else if (nbaReadiness >= 80) {
-      nba = { title: 'Prepare for Investment Committee', reason: `${nbaReadiness}% ready${verdict?.state ? ` (${verdict.state})` : ''} — finalize the memo and decision artifacts.`, urgency: (nbaDays != null && nbaDays >= 0 && nbaDays <= 14) ? 'High' : 'Normal', primaryLabel: 'Open decision artifacts', primaryTab: 'artifacts' };
+      nba = { title: 'Prepare for Investment Committee', reason: `${nbaReadiness}% ready${verdict?.state ? ` (${verdict.state})` : ''} — finalise the memo and the returns, plan and risk pages.`, urgency: (nbaDays != null && nbaDays >= 0 && nbaDays <= 14) ? 'High' : 'Normal', primaryLabel: 'Open returns, plan & risk', primaryTab: 'artifacts' };
     } else if (nbaReadiness < 40) {
       nba = { title: 'Advance diligence', reason: `Early at ${nbaReadiness}% ready — run the diligence workstreams to progress.`, urgency: 'Normal', primaryLabel: 'Work the deal', primaryTab: 'stages' };
     } else {
@@ -413,7 +413,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
           <div className="drawer-title">{deal?.company || 'Loading…'}</div>
           {deal ? <button className="chbtn" onClick={dealChannel} disabled={busy === 'channel'} title="Create or open a Teams channel to converse about this deal">{deal.workspace?.teamsProvisioned ? '# Open channel ↗' : busy === 'channel' ? 'Creating…' : '# Deal channel'}</button> : null}
           {deal ? <button className="chbtn spo" onClick={openDataRoom} disabled={busy === 'dataroom'} title="Open the deal's SharePoint data room (VDR)">{deal.workspace?.sharePointProvisioned ? '📁 Data room ↗' : busy === 'dataroom' ? 'Opening…' : '📁 Data room'}</button> : null}
-          <button className={`askbtn${askOpen ? ' on' : ''}`} onClick={() => setAskOpen((v) => !v)}>💬 {askOpen ? 'Hide agents' : 'Ask agents'}</button>
+          <button className={`askbtn${askOpen ? ' on' : ''}`} onClick={() => setAskOpen((v) => !v)}>💬 {askOpen ? 'Hide the assistant' : 'Ask the assistant'}</button>
         </div>
 
         {askOpen && deal ? (
@@ -475,7 +475,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
             <div className="dd-tabs">
               {([...(cockpitOn ? ['cockpit', 'workflow', 'threads', 'docdesk'] as Tab[] : []), 'overview', 'stages', 'workspace', 'research', 'artifacts', 'documents', 'ic', 'activity'] as Tab[]).map((t) => (
                 <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>
-                  {t === 'cockpit' ? 'Cockpit' : t === 'workflow' ? 'Workflow & blockers' : t === 'threads' ? 'Work IQ threads' : t === 'docdesk' ? 'Documents' : t === 'stages' ? 'Deal workflow' : t === 'overview' ? 'Overview' : t === 'workspace' ? 'Workspace' : t === 'research' ? 'Market research' : t === 'artifacts' ? 'Decision artifacts' : t === 'documents' ? (cockpitOn ? 'Generate & export' : 'Documents') : t === 'activity' ? 'Activity' : 'IC readiness'}
+                  {t === 'cockpit' ? 'Briefing' : t === 'workflow' ? 'Progress & blockers' : t === 'threads' ? 'Channel discussion' : t === 'docdesk' ? 'Deal files' : t === 'stages' ? 'Stages & gates' : t === 'overview' ? 'Overview' : t === 'workspace' ? 'Workspace' : t === 'research' ? 'Market research' : t === 'artifacts' ? 'Returns, plan & risk' : t === 'documents' ? (cockpitOn ? 'Generate & export' : 'Documents') : t === 'activity' ? 'Activity' : 'IC readiness'}
                 </button>
               ))}
             </div>
@@ -734,7 +734,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           ))}
                         </div>
                       ) : (
-                        <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>{verdict?.state === 'READY' ? 'All required artifacts complete — ready for committee.' : 'IC readiness board populates once diligence is underway.'}</div>
+                        <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>{verdict?.state === 'READY' ? 'Everything required is on record — ready for IC.' : 'IC readiness board populates once diligence is underway.'}</div>
                       )}
                       {hasDeltaContent && delta ? (
                         <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border, #2a2a35)' }}>
@@ -779,7 +779,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   ) : null}
                   {deal.workstreams?.length ? (
                     <section className="dd-panel">
-                      <div className="dd-panel-h">Diligence lanes</div>
+                      <div className="dd-panel-h">Diligence workstreams</div>
                       <div className="dd-lanes">
                         {deal.workstreams.map((w, i) => (
                           <div className="dd-lane" key={i}>

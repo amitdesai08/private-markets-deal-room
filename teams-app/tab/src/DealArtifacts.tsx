@@ -106,7 +106,7 @@ export default function DealArtifacts({ dealId }: { dealId: string }) {
         </section>
       )}
 
-      {!returns && !vcp && !risk && <p className="muted">Loading decision artifacts…</p>}
+      {!returns && !vcp && !risk && <p className="muted">Loading…</p>}
     </div>
   );
 }

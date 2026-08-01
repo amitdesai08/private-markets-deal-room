@@ -47,7 +47,7 @@ function buildContext(deal) {
     `Deal size: ${deal.currency} ${deal.dealSize}M. Stage: ${deal.stage}.`,
     `Thesis: ${deal.thesis}`,
     `Key figures: ${figs}.`,
-    `Diligence lanes: ${lanes}.`
+    `Diligence workstreams: ${lanes}.`
   ].join('\n');
 }
 
@@ -131,7 +131,7 @@ const MOCKS = {
   }),
   'ic-readiness': (d) => ({
     heading: 'IC readiness check',
-    markdown: `**IC readiness — ${d.company}**\n\n- ✅ Commercial DD substantially complete\n- ⚠️ Tech/AI lane in progress — value plan drafted\n- ⛔ Operations lane not started — **gating item**\n- ⚠️ SFDR Article 8 assessment in progress\n- ⛔ ILPA mapping pending\n\n**Verdict:** ~2 gating items remain; on the current agent-accelerated pace the deal is **IC-ready ~9 days early**.\n\nSources: Live diligence record, Compliance tracker.`,
+    markdown: `**IC readiness — ${d.company}**\n\n- ✅ Commercial DD substantially complete\n- ⚠️ Tech/AI workstream in progress — value plan drafted\n- ⛔ Operations workstream not started — **gating item**\n- ⚠️ SFDR Article 8 assessment in progress\n- ⛔ ILPA mapping pending\n\n**Verdict:** ~2 gating items remain; on the current agent-accelerated pace the deal is **IC-ready ~9 days early**.\n\nSources: Live diligence record, Compliance tracker.`,
     compliance: true
   }),
   'ic-deck': (d) => ({
@@ -261,9 +261,9 @@ function stepMock(deal, step) {
     O2: `**${deal.company} — screening one-pager**\n\n${deal.sector} opportunity: revenue **${rev}**, EBITDA **${ebitda}** (${margin}).\n\n- **Sector hypothesis:** validated — structural growth tailwind.\n- **Technology lever:** data / AI upside identified.\n- **Supply-chain risk:** flagged for diligence.\n- Strategic fit: **8.4 / 10**.\n\nSources: CIM, Deal estate.`,
     O3: `**${deal.company} — triage: comps & fit**\n\n| Comp | EV/EBITDA | Growth |\n|---|---|---|\n| Leader | 9.6x | 3.4% |\n| Peer A | 8.1x | 2.8% |\n| **Target** | **${entry}** | — |\n\nStrategic-fit score **8.4 / 10** vs. pre-defined criteria — **prioritised** in the live pipeline.\n\nSources: Precedent transactions, Comps set.`,
     O4: `**${deal.company} — screening gate decision**\n\n**Decision: PURSUE.** The MD approves progression on the strength of the screen and comps.\n\n- CRM record updated to "pursue".\n- CIM requested; NDA initiated.\n- Diligence budget & timeline approved.\n\nSources: Screening one-pager, Comps, MD judgement.`,
-    D1: `**${deal.company} — diligence launch**\n\nCollaboration space provisioned and lanes assigned.\n\n- ✅ Teams workspace + SharePoint data room created (Power Automate).\n- ✅ DD checklist drafted from the playbook + 3 comparable deals.\n- ✅ Owners assigned: Commercial, Tech/AI, Operations.\n\nSources: DD playbook, Comparable deals.`,
+    D1: `**${deal.company} — diligence launch**\n\nCollaboration space set up and workstreams assigned.\n\n- ✅ Teams workspace + SharePoint data room created (Power Automate).\n- ✅ DD checklist drafted from the playbook + 3 comparable deals.\n- ✅ Owners assigned: Commercial, Tech/AI, Operations.\n\nSources: DD playbook, Comparable deals.`,
     D2: `**${deal.company} — diligence in progress**\n\nThree swimlanes running in parallel on the shared record:\n\n- **Commercial:** format growth 5.4% vs 3.1% market; pricing power validated.\n- **Tech / AI:** rich but siloed data — lakehouse is the gating investment.\n- **Operations:** tariff-exposed inputs; dual-sourcing halves EBITDA sensitivity.\n\nSources: Commercial / Tech-AI / Ops DD.`,
-    D3: `**${deal.company} — IC memo (synthesised)**\n\n**Recommendation:** proceed at ${entry}, subject to QoE and the data-foundation capex plan.\n\n- **Thesis:** ${deal.thesis.split('.')[0]}.\n- **Returns:** ~2.4x / 23% IRR over a 5-yr hold.\n- **Value plan:** ~230 bps margin uplift.\n- **Risks:** data readiness, integration, tariff — each mitigated.\n\nSources: CIM, Diligence lanes, Deal model.`,
+    D3: `**${deal.company} — IC memo (synthesised)**\n\n**Recommendation:** proceed at ${entry}, subject to QoE and the data-foundation capex plan.\n\n- **Thesis:** ${deal.thesis.split('.')[0]}.\n- **Returns:** ~2.4x / 23% IRR over a 5-yr hold.\n- **Value plan:** ~230 bps margin uplift.\n- **Risks:** data readiness, integration, tariff — each mitigated.\n\nSources: CIM, diligence workstreams, deal model.`,
     D4: `**${deal.company} — approval & execution**\n\n**IC outcome: APPROVED** with conditions.\n\n- ✅ SFDR / ILPA checks cleared.\n- ✅ CRM updated with decision + conditions.\n- ✅ Next steps (SPA, financing) triggered.\n\nSources: IC memo, Compliance tracker.`,
     D5: `**${deal.company} — archived**\n\nDeal closed out with a full, lineage-tracked record.\n\n- ✅ Data room archived to SharePoint.\n- ✅ Purview audit trail sealed (documents, decisions, lineage).\n- ✅ Post-close monitoring handed to the covenant agent.\n\nSources: SharePoint, Purview.`
   };
@@ -421,7 +421,7 @@ function demoChat(deal, persona, message) {
     return `Base case for **${deal.company}** is ~2.4x / 23% IRR over a 5-year hold; the ~230 bps margin plan is the primary driver, with entry at ${fig(deal, 'Entry') !== '—' ? fig(deal, 'Entry') : '~8.4x'}.\n\nSources: Deal model.`;
   }
   if (q.includes('ic') || q.includes('ready') || q.includes('committee')) {
-    return `**${deal.company}** is on an agent-accelerated path to IC. Remaining gating items are the operations lane and the SFDR/ILPA checks; on current pace it is **IC-ready ~9 days ahead** of the ${deal.baselineDays}-day baseline.\n\nSources: Live diligence record.`;
+    return `**${deal.company}** is on an agent-accelerated path to IC. Remaining gating items are the operations workstream and the SFDR/ILPA checks; on current pace it is **IC-ready ~9 days ahead** of the ${deal.baselineDays}-day baseline.\n\nSources: Live diligence record.`;
   }
   return `On **${deal.company}** (${deal.sector}): revenue ${fig(deal, 'Revenue')}, EBITDA ${fig(deal, 'EBITDA')} at ${fig(deal, 'EBITDA margin')}. Ask me about returns, risks, the value plan, or IC readiness — or run a quick-action to draft it to the record.\n\nSources: CIM, Deal model.`;
 }
