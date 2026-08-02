@@ -195,6 +195,94 @@ async function resolveActingAs(user) {
   } catch { return null; }
 }
 
+// The showcase roster, used to turn a spoken name into a profile.
+async function fetchRoster() {
+  const base = config.backend.url;
+  if (!base || !BOT_BACKEND_KEY) return [];
+  try {
+    const r = await fetch(`${base}/api/demo-profiles`, { headers: { 'x-bot-key': BOT_BACKEND_KEY } });
+    return r.ok ? await r.json() : [];
+  } catch { return []; }
+}
+
+async function writeActingAs(user, profileId) {
+  const base = config.backend.url;
+  if (!base || !BOT_BACKEND_KEY) return null;
+  const r = await fetch(`${base}/api/demo/acting-as`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-bot-key': BOT_BACKEND_KEY },
+    body: JSON.stringify({ requestingUser: { oid: user.oid, upn: user.upn }, as: profileId || '' }),
+  });
+  return r.ok ? await r.json() : null;
+}
+
+// Turn what someone typed ("act as the partner", "Eleanor", "fund-cfo") into one
+// profile. Exported so the matching can be exercised without a Teams channel.
+//
+// Exact id first, then a whole-word match on the name or title, so "partner" picks the
+// profile whose id IS 'partner' rather than one of the several whose titles happen to
+// contain the word. Anything still ambiguous is reported back rather than guessed at:
+// picking one at random is how a demo ends up showing the wrong person's numbers.
+export function matchProfile(phrase, roster = []) {
+  const q = String(phrase || '').trim().toLowerCase();
+  if (!q) return { match: null, options: [] };
+  const exact = roster.find((p) => String(p.id).toLowerCase() === q);
+  if (exact) return { match: exact, options: [] };
+  const word = new RegExp(`(^|[^a-z0-9])${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`, 'i');
+  const hits = roster.filter((p) => word.test(`${p.name || ''} ${p.title || ''} ${p.id || ''}`));
+  if (hits.length === 1) return { match: hits[0], options: [] };
+  return { match: null, options: hits };
+}
+
+// Switch profile, or ask who you are, without leaving the conversation. The tab's
+// switcher works too and they share one record — but a demo runs in the channel, and
+// alt-tabbing to a dashboard to change who is speaking breaks the story being told.
+// Returns true when the message was a command and has been answered.
+async function handleActingCommand(context, text, user) {
+  const setAs = /^\s*(?:act|speak|answer)\s+as\s+(.+?)\s*$/i.exec(text);
+  const asksWho = /^\s*(?:who\s+am\s+i|whoami)\s*\??\s*$/i.test(text);
+  if (!setAs && !asksWho) return false;
+
+  const roster = await fetchRoster();
+  if (!roster.length) {
+    // No roster means the showcase profiles are off — in a real tenant identity comes
+    // from Entra and there is nothing to switch to. Say so rather than failing silently.
+    await context.sendActivity('I answer as whoever you are signed in as — there are no showcase profiles to switch between here.');
+    return true;
+  }
+
+  if (asksWho) {
+    const cur = await resolveActingAs(user).catch(() => null);
+    await context.sendActivity(cur
+      ? `You are asking as **${cur.label || cur.as}**. Say “act as myself” to go back to ${user.name || 'your own account'}.`
+      : `You are asking as **${user.name || 'yourself'}**. Say “act as …” and a name to see the deals through someone else’s access.`);
+    return true;
+  }
+
+  const arg = setAs[1];
+  if (/^(me|myself|my ?self)$/i.test(arg)) {
+    await writeActingAs(user, null);
+    await context.sendActivity(`Back to **${user.name || 'your own account'}** — you will see what your own access allows.`);
+    return true;
+  }
+
+  const { match, options } = matchProfile(arg, roster);
+  if (!match) {
+    const list = (options.length ? options : roster).map((p) => `• ${p.name} — ${p.title || p.role}`).join('\n');
+    await context.sendActivity(options.length
+      ? `“${arg}” could be more than one person:\n\n${list}\n\nWhich one?`
+      : `I don’t have anyone called “${arg}”. You can ask as:\n\n${list}`);
+    return true;
+  }
+  const saved = await writeActingAs(user, match.id);
+  if (!saved) {
+    await context.sendActivity(`I couldn’t switch to ${match.name} just now — try again in a moment.`);
+    return true;
+  }
+  await context.sendActivity(`Now asking as **${match.name}** — ${match.title || match.role}. Their access decides what I can show you; say “act as myself” to switch back.`);
+  return true;
+}
+
 async function askAgent(message, deal, user, defaultPersona = null) {
   // What the message ASKS for wins; otherwise the seat the asker occupies answers. That
   // fallback is what makes switching profile change the reply: without it every question
@@ -246,15 +334,23 @@ async function handleDealMessage(context, TurnContext) {
   if (!base) { await context.sendActivity('The deal agent backend is not configured.'); return; }
   const deal = await resolveDeal(context.activity).catch(() => null);
   if (!text) {
-    await context.sendActivity(deal?.company
+    // An empty @mention is someone looking for the handles, so name the one that is
+    // least discoverable — you cannot guess that you are allowed to become someone else.
+    const canSwitch = (await fetchRoster().catch(() => [])).length > 0;
+    const aside = canSwitch ? '\n\nYou can also say “who am I” or “act as …” to ask through someone else’s access.' : '';
+    await context.sendActivity((deal?.company
       ? `Ask me about **${deal.company}** — e.g. “Summarise the diligence risks” or “What’s the IC readiness?”`
-      : 'Ask me about this deal — e.g. “What are the top risks?”');
+      : 'Ask me about this deal — e.g. “What are the top risks?”') + aside);
     return;
   }
   // The requesting user's Bot-Framework-authenticated identity drives RBAC server-side.
   const user = { oid: context.activity.from?.aadObjectId, name: context.activity.from?.name };
-  // In a demo, answer as whoever they have switched to in the tab — same person, same
-  // channel, but the seat they picked. Null in production, where there is no switcher.
+  // "Act as …" / "who am I" are handled here rather than sent to an agent: they change
+  // who is asking, so they must not be answered BY whoever is currently asking.
+  try { if (await handleActingCommand(context, text, user)) return; }
+  catch { /* fall through and answer the question normally */ }
+  // In a demo, answer as whoever they have switched to — same person, same channel, but
+  // the seat they picked. Null in production, where there is nothing to switch to.
   const acting = await resolveActingAs(user).catch(() => null);
   const asker = acting ? { name: acting.as } : user;
   try {
