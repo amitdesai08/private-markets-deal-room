@@ -126,7 +126,9 @@ import { readChannelMessages } from './lib/mcp/workiq.js';
 // The Work IQ dispatcher deliberately degrades a failed read to the demo corpus, which
 // is right for reads and catastrophic for writes: a send that quietly "succeeded" into
 // a fixture would tell someone their message reached the deal team when it did not.
-import { wiPostChannelMessage } from './lib/m365/workIqGraph.js';
+import { wiPostChannelMessage, wiSearchFiles, wiSearchMail } from './lib/m365/workIqGraph.js';
+// Email, channel discussion and files for one deal, merged into a single feed.
+import { buildRecentActivity, searchTermsFor } from './lib/dealActivity.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
@@ -807,16 +809,90 @@ api.post('/deals/:id/threads/message', async (req, res) => {
   res.json(r);
 });
 
-api.get('/deals/:id/doc-desk', (req, res) => {
+api.get('/deals/:id/doc-desk', async (req, res) => {
   const g = deskGate(req, res);
   if (!g) return;
   const corpus = corpusForDeal(g.raw);
+  // Real documents from SharePoint / OneDrive, read as the signed-in person so
+  // Microsoft 365 applies their own file permissions on top of our need-to-know
+  // model. Without a delegated token this is skipped rather than retried app-only:
+  // tenant-wide file search would show someone a document they cannot open.
+  let live = [];
+  const terms = requestingGraphToken(req) ? searchTermsFor(g.deal) : null;
+  if (terms) {
+    try {
+      const r = await wiSearchFiles(terms, { size: 20, userToken: requestingGraphToken(req) });
+      if (Array.isArray(r?.results)) live = r.results;
+    } catch { /* the composed data room still renders */ }
+  }
   const out = buildDocumentDesk(g.deal, {
     files: corpus.files || [],
     since: String(req.query.since || '') || null,
+    live,
   });
-  res.json({ ...out, origin: corpus.origin, canWrite: !!g.access?.canWrite, roleLabel: g.access?.roleLabel || null });
+  res.json({
+    ...out,
+    origin: corpus.origin,
+    liveFiles: live.length,
+    // Where the real paper lives. Offered so that when Microsoft 365 has not resolved
+    // individual documents for this person there is still one honest way through to
+    // the actual files, instead of a list that looks clickable and is not.
+    dataRoomUrl: g.raw.workspace?.sharePointProvisioned ? (g.raw.workspace?.sharePointUrl || null) : null,
+    canWrite: !!g.access?.canWrite,
+    roleLabel: g.access?.roleLabel || null,
+  });
 });
+
+// Everything that has happened on this deal in Microsoft 365 — email, the channel
+// discussion and the files — in one time-ordered list.
+//
+// The three already existed as three separate surfaces, and the email was not
+// surfaced at all, so working a deal meant remembering which of Outlook, Teams and
+// SharePoint held the thing you half-remembered. This answers "what has happened on
+// this deal" once.
+//
+// Reads run as the SIGNED-IN PERSON (delegated) or not at all. There is deliberately
+// no app-only fallback here: application permissions are tenant-wide, and a feed that
+// quietly showed someone another team's mail would be a data leak wearing the costume
+// of a feature. With no delegated token the composed corpus answers instead, and every
+// item says which it is.
+api.get('/deals/:id/recent', async (req, res) => {
+  const g = deskGate(req, res);
+  if (!g) return;
+  const userToken = requestingGraphToken(req);
+  const terms = searchTermsFor(g.deal);
+  const link = g.raw.teamsChannel;
+
+  // In parallel, because three sequential Graph round-trips is the difference between
+  // a panel that feels part of the page and one someone waits for. Each is settled
+  // independently: mailbox search being refused must not cost us the channel.
+  const [chan, files, mail] = await Promise.allSettled([
+    link?.teamId && link?.channelId
+      ? readChannelMessages({ team_id: link.teamId, channel_id: link.channelId, top: 25, userToken })
+      : Promise.resolve(null),
+    userToken && terms ? wiSearchFiles(terms, { size: 15, userToken }) : Promise.resolve(null),
+    userToken && terms ? wiSearchMail({ query: terms, top: 15, userToken }) : Promise.resolve(null),
+  ]);
+  const ok = (r) => (r.status === 'fulfilled' && r.value && !r.value.error ? r.value : null);
+
+  const out = buildRecentActivity(g.deal, {
+    corpus: corpusForDeal(g.raw),
+    liveChannel: ok(chan),
+    liveFiles: ok(files),
+    liveMail: ok(mail),
+    persona: actingPersona(req) || personaForIdentity(requestingIdentity(req)),
+    limit: Math.min(Number(req.query.limit) || 40, 60),
+  });
+  res.json({
+    ...out,
+    // Whether this person has connected their own Microsoft 365 yet. The interface
+    // uses it to offer the connection rather than to silently show less.
+    delegated: !!userToken,
+    channelLinked: !!(link?.teamId && link?.channelId),
+    dataRoomUrl: g.raw.workspace?.sharePointProvisioned ? (g.raw.workspace?.sharePointUrl || null) : null,
+  });
+});
+
 
 // Lifecycle-stage decision artifacts derived from the live deal record:
 // LBO/returns (Fund CFO), value-creation plan (Operating Partner), risk register.

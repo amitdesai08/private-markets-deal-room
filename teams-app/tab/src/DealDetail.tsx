@@ -7,6 +7,7 @@ import ChatPanel from './ChatPanel';
 import Cockpit from './Cockpit';
 import WorkflowDesk from './WorkflowDesk';
 import ThreadsDesk from './ThreadsDesk';
+import RecentActivity from './RecentActivity';
 import DocumentDesk from './DocumentDesk';
 import { renderMarkdown } from './md';
 import type { Agent, Deal } from './types';
@@ -503,6 +504,19 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
               ) : (
               <>
               {note ? <div className="dd-actionnote">{note}</div> : null}
+
+              {/* The deal's email, channel discussion and files, merged and ordered by
+                  time, on the tab people land on. It sits ABOVE the briefing on purpose:
+                  the first question on returning to a deal is "what happened while I was
+                  away", and until now answering it meant three tabs and then Outlook. */}
+              {(tab === 'cockpit' || (!cockpitOn && tab === 'overview')) && (
+                <RecentActivity
+                  dealId={dealId}
+                  compact
+                  onOpenTab={cockpitOn ? (t) => setTab(t as Tab) : undefined}
+                  onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}
+                />
+              )}
 
               {cockpitOn && tab === 'cockpit' && (
                 <Cockpit

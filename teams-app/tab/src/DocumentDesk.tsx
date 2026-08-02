@@ -17,6 +17,7 @@ type Doc = {
 };
 type Desk = {
   company: string; stageName?: string | null; since?: string | null; canWrite?: boolean;
+  dataRoomUrl?: string | null;
   changed: Doc[]; docs: Doc[];
   comments: { id: string; blocking: boolean; doc: string; ref: string; author: string; text: string; webUrl?: string | null }[];
   counts: { docs: number; models: number; legal: number; icPack: number; openComments: number; blockingComments: number };
@@ -106,6 +107,7 @@ export default function DocumentDesk({
             <h3>Deal documents</h3>
             <Tag kind="ext" />
             <span className="spacer" />
+            {data.dataRoomUrl ? <a className="btn compact" href={data.dataRoomUrl} target="_blank" rel="noreferrer">Open the data room ↗</a> : null}
             <span className="chip">{data.counts.docs}</span>
           </div>
           <div className="searchrow">
