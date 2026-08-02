@@ -177,6 +177,11 @@ export default function App() {
     (async () => {
       // Identity for deal need-to-know follows the demo "view as" selection + role.
       setAuthContext({ as: viewAs, viewAsRole });
+      // Record it server-side as well, so the assistant in the Teams channels answers as
+      // the same person. This runs on the initial selection too, not only on a change:
+      // the dropdown opens on the first profile without anyone touching it, and the tab
+      // and the channels disagreeing about who you are is exactly the bug being fixed.
+      void setActingAs(viewAs);
       const ctx = await fetch('/api/teams/context', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ as: viewAs, viewAsRole }) }).then((r) => r.json()).catch(() => null);
       applyAccess(ctx);
       // Re-pull the pipeline as the newly selected identity so status-only / hidden
@@ -224,6 +229,20 @@ export default function App() {
     setChatOpen(true);
   }
 
+  // Tell the server which showcase profile we have switched to, so the assistant in the
+  // Teams channels answers as that person too. Without this the switcher only changed
+  // the tab, and the same question asked in a channel came back in your own voice.
+  async function setActingAs(as: string) {
+    try {
+      const token = ssoToken || (await getSsoToken().catch(() => null)) || '';
+      await fetch('/api/teams/acting-as', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ as, ssoToken: token }),
+      });
+    } catch { /* the tab still switches; only the channel assistant lags */ }
+  }
+
   async function extendLease() {
     try {
       const s: PlatformStatus = await fetch('/api/platform/wake', {
@@ -258,7 +277,7 @@ export default function App() {
           {isDemoMode && persona?.name ? <span className="badge" title="The showcase profile you are signed in as">{persona.name}</span> : null}
           {roleLabel ? <span className="badge" title="Your role">{isAdmin ? '★ ' : ''}{roleLabel}</span> : null}
           {demoUsers.length ? (
-            <select className="viewas" value={viewAs} onChange={(e) => { setViewAsRole(''); setViewAs(e.target.value); }} title="Sign in as one of the showcase profiles to see their view and access">
+            <select className="viewas" value={viewAs} onChange={(e) => { setViewAsRole(''); setViewAs(e.target.value); }} title="Sign in as one of the showcase profiles to see their view and access — the assistant in your Teams channels answers as them too">
               {demoUsers.map((u) => (<option key={u.id} value={u.upn}>👤 {u.label}</option>))}
             </select>
           ) : null}

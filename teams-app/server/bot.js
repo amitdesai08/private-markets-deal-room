@@ -170,8 +170,36 @@ async function callBackend(path, payload, user) {
   return { r, data };
 }
 
-async function askAgent(message, deal, user) {
-  const persona = personaFor(message);
+// Who is this person currently acting as in the demo "view as" switcher?
+//
+// The switcher lives in the tab and used to be a per-request header, which a channel
+// message never carries: you could pick "Eleanor Bishop, Partner" and then get your own
+// answers from the bot, which makes the whole access model look like decoration. The
+// orchestrator records the choice (demo mode only, roster-validated) and both surfaces
+// read it from there.
+//
+// Asked fresh on every message rather than cached: the presenter switches profile
+// mid-demo and the very next question has to reflect it. Failure is not fatal — the bot
+// answers as the real signed-in person, which is the correct fallback.
+async function resolveActingAs(user) {
+  if (!user?.oid && !user?.name) return null;
+  const base = config.backend.url;
+  if (!base || !BOT_BACKEND_KEY) return null;
+  try {
+    const r = await fetch(`${base}/api/demo/acting-as`, {
+      headers: { 'x-bot-key': BOT_BACKEND_KEY, 'x-dr-user': JSON.stringify({ oid: user.oid, name: user.name }) },
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d?.as ? d : null;
+  } catch { return null; }
+}
+
+async function askAgent(message, deal, user, defaultPersona = null) {
+  // What the message ASKS for wins; otherwise the seat the asker occupies answers. That
+  // fallback is what makes switching profile change the reply: without it every question
+  // that did not happen to name a lead went to the analyst no matter who was asking.
+  const persona = personaFor(message) || defaultPersona;
   // Orchestration: route a persona-intent request to the MATCHING persona agent,
   // which the backend gates by the REQUESTING USER's role (RBAC) before doing any
   // lane-scoped write; everything else goes to the deal analyst. The Deal Room bot
@@ -225,12 +253,21 @@ async function handleDealMessage(context, TurnContext) {
   }
   // The requesting user's Bot-Framework-authenticated identity drives RBAC server-side.
   const user = { oid: context.activity.from?.aadObjectId, name: context.activity.from?.name };
+  // In a demo, answer as whoever they have switched to in the tab — same person, same
+  // channel, but the seat they picked. Null in production, where there is no switcher.
+  const acting = await resolveActingAs(user).catch(() => null);
+  const asker = acting ? { name: acting.as } : user;
   try {
     await context.sendActivities([{ type: 'typing' }]);
-    const { reply, persona, denied } = await askAgent(text, deal, user);
+    const { reply, persona, denied } = await askAgent(text, deal, asker, acting?.personaId || null);
     const label = PERSONA_LABEL[persona] || PERSONA_LABEL.analyst;
     // Subtle persona tag so the channel can see who's answering; denials stay plain.
-    const out = denied ? reply : `**${label.emoji} ${label.name}** \u00b7 _${label.subtitle}_\n\n${reply}`;
+    // Under a demo switch the tag names the PROFILE, because "who is answering" is the
+    // whole point of the switch and a generic role label would hide that it took effect.
+    const tag = acting
+      ? `**\u{1F464} ${acting.label || acting.as}**`
+      : `**${label.emoji} ${label.name}** \u00b7 _${label.subtitle}_`;
+    const out = denied ? reply : `${tag}\n\n${reply}`;
     await context.sendActivity(out);
   } catch (err) {
     await context.sendActivity(`The deal agent hit an error — ${String(err?.message || err).slice(0, 140)}`);

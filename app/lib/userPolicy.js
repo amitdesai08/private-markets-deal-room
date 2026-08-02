@@ -21,7 +21,7 @@ const listEnv = (name, dflt = '') =>
 // grants a role by demo name. When on, each role's id list is augmented with
 // its demo identity ids so the "view as" roster resolves out of the box.
 import { demoProfiles, demoRoleIds, demoProfileById } from '../data/demoProfiles.js';
-import { getRoleOverrides, getRoleAssignments, getDemoModeOverride, getDealGroups, getRegionGroups } from './accessConfig.js';
+import { getRoleOverrides, getRoleAssignments, getDemoModeOverride, getDealGroups, getRegionGroups, getActingAs } from './accessConfig.js';
 import { regionForDeal } from '../data/regions.js';
 export const demoProfilesEnabled = /^(1|true|yes|on)$/i.test(String(process.env.DEMO_PROFILES ?? ''));
 
@@ -198,6 +198,30 @@ export function personaForIdentity(identity = {}) {
   if (demoModeActive()) {
     const dkeys = [...keys, norm(identity.name)].filter(Boolean);
     for (const k of dkeys) { const p = demoProfileById[k]; if (p && p.personaId) { const v = valid(p.personaId); if (v) return v; } }
+  }
+  return null;
+}
+
+// The showcase profile a REAL person has chosen to act as in the demo "view as"
+// switcher, or null. Set from the tab and read by the CHANNEL BOT, so that switching
+// profile changes who answers in Teams as well as what the tab shows — otherwise the
+// presenter picks "Eleanor Bishop, Partner", asks the bot a question in a channel, and
+// gets their own answer back, which makes the access model look like decoration.
+//
+// Two deliberate restrictions:
+//   - demo mode only, so a production deploy has no impersonation primitive here at all;
+//   - keyed on oid / upn ONLY, never display name, because a display name is
+//     attacker-influenced and this swaps one identity for another.
+// The stored value is re-checked against the roster on every read, so a profile that
+// stops existing (or a hand-edited config document) resolves to nobody rather than to
+// something arbitrary.
+export function actingAsFor(identity = {}) {
+  if (!demoModeActive() || !identity) return null;
+  const map = getActingAs() || {};
+  const keys = [norm(identity.oid), norm(identity.upn), localPart(identity.upn)].filter(Boolean);
+  for (const k of keys) {
+    const id = norm(map[k]);
+    if (id && demoProfileById[id]) return id;
   }
   return null;
 }

@@ -22,7 +22,7 @@ let _cfg = emptyCfg();
 let _loaded = false;
 
 function emptyCfg() {
-  return { roles: {}, assignments: {}, personas: {}, personaActions: {}, personaStages: {}, settings: {}, dealGroups: {}, regionGroups: {}, docTemplate: {} };
+  return { roles: {}, assignments: {}, personas: {}, personaActions: {}, personaStages: {}, settings: {}, dealGroups: {}, regionGroups: {}, docTemplate: {}, actingAs: {} };
 }
 function normalize(rec) {
   const e = emptyCfg();
@@ -91,6 +91,27 @@ export async function setDocTemplate(patch) {
   return getDocTemplate();
 }
 export function getDemoModeOverride() { return _cfg.settings ? _cfg.settings.demoMode : undefined; }
+
+// Demo "view as" — which showcase profile a REAL person is currently acting as, keyed by
+// their own oid/upn: { 'amit@contoso.com': 'eleanor.bishop' }.
+//
+// It is stored here, on the orchestrator, rather than in the Teams app because the two
+// callers are different processes: the tab sets it, the CHANNEL BOT reads it, and the
+// Teams app scales to several replicas, so anything held in its memory would be set on
+// one replica and missing on the next. The orchestrator is the single policy source and
+// runs single-replica, so both paths see the same answer.
+//
+// Only ever consulted while demo mode is active (see actingAsFor in userPolicy.js).
+export function getActingAs() { return { ...(_cfg.actingAs || {}) }; }
+export async function setActingAs(key, profileId) {
+  const k = String(key || '').trim().toLowerCase();
+  if (!k) return null;
+  _cfg.actingAs = _cfg.actingAs || {};
+  if (profileId) _cfg.actingAs[k] = String(profileId).trim().toLowerCase();
+  else delete _cfg.actingAs[k];
+  await persist();
+  return _cfg.actingAs[k] || null;
+}
 export async function setDemoMode(on) {
   _cfg.settings = { ...(_cfg.settings || {}), demoMode: !!on };
   await persist();

@@ -138,6 +138,34 @@ app.post('/api/teams/context', async (req, res) => {
   });
 });
 
+// Record which showcase profile the signed-in person is acting as, so the CHANNEL BOT
+// answers as that seat too. The tab's switcher was a per-request header, which a bot
+// message never carries — picking "Eleanor Bishop, Partner" changed the tab and left
+// the bot answering as you.
+//
+// Deliberately NOT routed through forwardWithIdentity: that applies the x-dr-as override
+// the tab sends on every request, which would key the record by the profile currently
+// being impersonated instead of by the real person, and the switch would never be
+// reversible. This uses the SSO identity and nothing else.
+app.post('/api/teams/acting-as', async (req, res) => {
+  if (!isBackendLive()) return res.status(503).json({ error: 'backend not configured' });
+  const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  const identity = identityFromSsoToken(ssoToken);
+  if (!identity || !(identity.oid || identity.upn)) return res.status(401).json({ error: 'sign-in required' });
+  try {
+    const headers = { 'content-type': 'application/json' };
+    if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
+    const r = await fetch(`${config.backend.url}/api/demo/acting-as`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ requestingUser: { oid: identity.oid, upn: identity.upn }, as: req.body?.as || '' }),
+    });
+    res.status(r.status).json(await r.json().catch(() => ({})));
+  } catch (e) {
+    res.status(502).json({ error: String(e?.message || e) });
+  }
+});
+
 // Internal seam to post a notification card (Phase 2 / testing).
 app.post('/internal/notify', async (req, res) => {
   const result = await postDealEvent(req.body || {});

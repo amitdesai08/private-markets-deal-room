@@ -148,8 +148,8 @@ import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy
 import { buildCockpit } from './lib/cockpit.js';
 import { buildWorkflowDesk, buildThreads, buildDocumentDesk, detectCommitments } from './lib/dealDesk.js';
 import { buildHomeDesk } from './lib/homeDesk.js';
-import { personaForIdentity } from './lib/userPolicy.js';
-import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments, setDemoMode, getDocTemplate, setDocTemplate, DOC_TEMPLATE_DEFAULTS } from './lib/accessConfig.js';
+import { personaForIdentity, actingAsFor } from './lib/userPolicy.js';
+import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments, setDemoMode, setActingAs, getDocTemplate, setDocTemplate, DOC_TEMPLATE_DEFAULTS } from './lib/accessConfig.js';
 
 validateConfig({ strict: false });
 
@@ -1464,6 +1464,41 @@ api.all('/capabilities', (req, res) => {
 // Demo showcase roster — one named identity per role (empty unless DEMO_PROFILES is
 // enabled). Powers the "view as" switcher so the access model is demoable end-to-end.
 api.get('/demo-profiles', (_req, res) => res.json(describeDemoProfiles()));
+
+// Demo "view as" — the profile a real person is currently acting as.
+//
+// The tab's switcher was per-request (an x-dr-as header), which the CHANNEL BOT never
+// sees: a presenter could pick "Eleanor Bishop, Partner", ask the bot a question in a
+// channel, and get their own answer back. Recording the choice here lets both surfaces
+// agree, because both already go through this process and this one runs single-replica.
+//
+// The caller must be the trusted Teams app (bot key) AND demo mode must be on; there is
+// no way to reach this in a production deploy. The value is validated against the
+// roster, so it can only ever name a showcase profile.
+api.get('/demo/acting-as', (req, res) => {
+  const identity = requestingIdentity(req);
+  if (!identity) return res.status(403).json({ error: 'trusted caller only' });
+  const as = actingAsFor(identity);
+  const profile = as ? describeDemoProfiles().find((p) => p.id === as) : null;
+  res.json({ as: as || null, personaId: profile?.personaId || null, label: profile?.label || null, demoMode: demoModeActive() });
+});
+api.post('/demo/acting-as', async (req, res) => {
+  const identity = requestingIdentity(req);
+  if (!identity) return res.status(403).json({ error: 'trusted caller only' });
+  if (!demoModeActive()) return res.status(409).json({ error: 'demo mode is off' });
+  // Keyed on the REAL person's oid/upn. A display name is not accepted as a key: it is
+  // attacker-influenced, and this record decides whose answers someone receives.
+  const key = String(identity.oid || identity.upn || '').trim();
+  if (!key) return res.status(400).json({ error: 'an oid or upn is required' });
+  const want = String(req.body?.as || '').trim().toLowerCase();
+  const roster = describeDemoProfiles();
+  // Empty clears the override; anything not on the roster is refused rather than stored,
+  // so a stale or mistyped value can never sit in the config waiting to resolve.
+  if (want && !roster.some((p) => p.id === want)) return res.status(400).json({ error: 'unknown showcase profile' });
+  await setActingAs(key, want || null);
+  const profile = want ? roster.find((p) => p.id === want) : null;
+  res.json({ as: want || null, personaId: profile?.personaId || null, label: profile?.label || null });
+});
 
 // ---- Admin: in-app role builder / persona designer (administrator persona only) ----
 // Every route requires the VERIFIED caller to resolve to an admin role; a client can
