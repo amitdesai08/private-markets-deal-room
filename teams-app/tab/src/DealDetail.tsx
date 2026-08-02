@@ -8,6 +8,7 @@ import Cockpit from './Cockpit';
 import WorkflowDesk from './WorkflowDesk';
 import ThreadsDesk from './ThreadsDesk';
 import RecentActivity from './RecentActivity';
+import { downloadGeneratedDoc } from './docOpen';
 import DocumentDesk from './DocumentDesk';
 import { renderMarkdown } from './md';
 import type { Agent, Deal } from './types';
@@ -221,26 +222,22 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   async function genDoc(kind: 'ic-memo' | 'model' | 'returns' | 'ic-deck', dest: 'download' | 'sharepoint', live = false) {
     setDocsBusy(`${kind}:${dest}${live ? ':live' : ''}`); setNote('');
     try {
+      if (dest === 'download') {
+        // Same path any document name in the product now uses, so there is one
+        // implementation of "build it and hand it over" rather than two that drift.
+        const r = await downloadGeneratedDoc(dealId, kind, live);
+        if (!r.ok && r.error) setNote(r.error);
+        return;
+      }
       const sso = await getSsoToken();
       const headers: Record<string, string> = { 'content-type': 'application/json' };
       if (sso) headers['authorization'] = `Bearer ${sso}`;
       const r = await af(`/api/deals/${dealId}/documents/${kind}?dest=${dest}${live ? '&live=1' : ''}`, { method: 'POST', headers, body: '{}' });
-      if (dest === 'download') {
-        if (!r.ok) { const d = await r.json().catch(() => ({})); setNote(d?.reason || d?.error || 'Could not generate the document.'); return; }
-        const blob = await r.blob();
-        const cd = r.headers.get('content-disposition') || '';
-        const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(cd);
-        const name = m ? decodeURIComponent(m[1]) : (kind === 'ic-memo' ? 'IC Memo.docx' : kind === 'ic-deck' ? 'IC Deck.pptx' : 'Deal Model.xlsx');
-        const href = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = href; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-        URL.revokeObjectURL(href);
-      } else {
-        const d = await r.json().catch(() => ({}));
-        if (r.ok && d?.document?.webUrl) window.open(d.document.webUrl, '_blank', 'noopener');
-        else setNote(d?.reason || d?.error || 'Could not save the document.');
-        const lr = await af(`/api/deals/${dealId}/documents`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
-        if (lr) setDocs(lr);
-      }
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d?.document?.webUrl) window.open(d.document.webUrl, '_blank', 'noopener');
+      else setNote(d?.reason || d?.error || 'Could not save the document.');
+      const lr = await af(`/api/deals/${dealId}/documents`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+      if (lr) setDocs(lr);
     } catch (e: any) {
       setNote(`Could not generate the document (${String(e?.message || e)}).`);
     } finally { setDocsBusy(''); }

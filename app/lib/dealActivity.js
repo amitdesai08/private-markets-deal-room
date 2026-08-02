@@ -17,7 +17,11 @@
 //
 //   2. A LINK IS A PROMISE. `url` is only ever set to a URL Microsoft 365 gave us. A
 //      composed item has no URL and gets no "Open" button, because a button that
-//      opens nothing is worse than no button.
+//      opens nothing is worse than no button. Files carry an `open` descriptor from
+//      docOpen.js instead, so a document the platform can build is still one click
+//      away and one it cannot is honest about it.
+
+import { resolveDocOpen } from './docOpen.js';
 
 const KIND_RANK = { email: 0, message: 1, file: 2 };
 
@@ -77,6 +81,7 @@ function fileItem(f, { live }) {
     when,
     preview: clip(f.summary),
     url: safeUrl(f.webUrl),
+    open: resolveDocOpen({ name: f.name, webUrl: safeUrl(f.webUrl), summary: f.summary }),
     live,
   };
 }

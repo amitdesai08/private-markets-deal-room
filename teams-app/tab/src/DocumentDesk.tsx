@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { af } from './authFetch';
 import { Tag, ago } from './deskUi';
+import DocOpenButton from './DocOpenButton';
+import { type DocOpen } from './docOpen';
 
 // Documents — the deal's paper, ordered by what moved rather than by folder.
 //
@@ -14,6 +16,7 @@ type Doc = {
   id: string; name: string; kind: string; sensitivity: string; summary: string;
   lastModified?: string | null; webUrl?: string | null; changed?: boolean; live?: boolean;
   delta?: string; deltaTone?: string; author?: string; basis?: string;
+  open?: DocOpen;
 };
 type Desk = {
   company: string; stageName?: string | null; since?: string | null; canWrite?: boolean;
@@ -37,6 +40,7 @@ export default function DocumentDesk({
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
   const [q, setQ] = useState('');
+  const [note, setNote] = useState('');
 
   async function load() {
     setLoading(true);
@@ -68,6 +72,8 @@ export default function DocumentDesk({
     <div className="grid g2">
       <div style={{ minWidth: 0 }}>
 
+        {note ? <div className="dd-actionnote">{note}</div> : null}
+
         {/* ---------------- Change briefing ---------------- */}
         <div className="card aicard">
           <div className="hd">
@@ -92,7 +98,7 @@ export default function DocumentDesk({
                   {d.delta ? <div className={`delta ${d.deltaTone || 'warn'}`}>{d.delta}</div> : null}
                   {d.basis ? <div className="sub" style={{ marginTop: 4 }}>{d.basis}</div> : null}
                   <div className="acts">
-                    {d.webUrl ? <a className="btn compact" href={d.webUrl} target="_blank" rel="noreferrer">Open ↗</a> : null}
+                    <DocOpenButton dealId={dealId} name={d.name} open={d.open} onNote={setNote} />
                     <button className="btn compact" onClick={() => onAsk?.(`Summarise what changed in ${d.name} on ${data.company}.`)}>✦ Summarize</button>
                   </div>
                 </div>
@@ -135,7 +141,7 @@ export default function DocumentDesk({
                     <div className="sub" style={{ marginTop: 6 }}>{d.summary}</div>
                     <div className="sub" style={{ marginTop: 4 }}>Modified {ago(d.lastModified)}</div>
                     <div className="acts">
-                      {d.webUrl ? <a className="btn compact" href={d.webUrl} target="_blank" rel="noreferrer">Open ↗</a> : null}
+                      <DocOpenButton dealId={dealId} name={d.name} open={d.open} onNote={setNote} />
                       <button className="btn compact" onClick={() => onAsk?.(`What does ${d.name} tell us about ${data.company}?`)}>✦ Ask about this</button>
                     </div>
                   </div>

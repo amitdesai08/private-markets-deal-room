@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { af } from './authFetch';
 import { ago } from './deskUi';
+import DocOpenButton from './DocOpenButton';
+import { type DocOpen } from './docOpen';
 
 // Everything that has happened on this deal in Microsoft 365 — email, chat and
 // files — in one list.
@@ -19,6 +21,7 @@ type Item = {
   id: string; kind: 'email' | 'message' | 'file';
   title: string; who?: string | null; when?: string | null;
   preview?: string; url?: string | null; live?: boolean; forMe?: boolean;
+  open?: DocOpen;
 };
 type Feed = {
   company?: string | null;
@@ -48,6 +51,7 @@ export default function RecentActivity({
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
   const [expanded, setExpanded] = useState(false);
+  const [note, setNote] = useState('');
 
   useEffect(() => {
     let live = true;
@@ -115,6 +119,7 @@ export default function RecentActivity({
         </div>
       </div>
       <div className="bd" style={{ display: 'grid', gap: 8 }}>
+        {note ? <div className="dd-actionnote">{note}</div> : null}
         {shown.length === 0 ? (
           <div className="muted">Nothing of that kind on this deal.</div>
         ) : shown.map((it) => (
@@ -137,12 +142,12 @@ export default function RecentActivity({
               {it.preview ? <div style={{ fontSize: 12, marginTop: 4, color: 'var(--muted)' }}>{it.preview}</div> : null}
             </div>
             <div style={{ display: 'flex', gap: 6, flex: '0 0 auto' }}>
-              {it.url ? (
+              {it.kind === 'file' ? (
+                <DocOpenButton dealId={dealId} name={it.title} open={it.open} compact onNote={setNote} />
+              ) : it.url ? (
                 <a className="btn compact" href={it.url} target="_blank" rel="noreferrer">{OPEN[it.kind]} ↗</a>
-              ) : it.kind === 'file' && data.dataRoomUrl ? (
-                <a className="btn compact" href={data.dataRoomUrl} target="_blank" rel="noreferrer">Open the data room ↗</a>
-              ) : onOpenTab && it.kind !== 'email' ? (
-                <button className="chbtn" style={{ fontSize: 12 }} onClick={() => onOpenTab(it.kind === 'message' ? 'threads' : 'docdesk')}>Open ▸</button>
+              ) : onOpenTab && it.kind === 'message' ? (
+                <button className="chbtn" style={{ fontSize: 12 }} onClick={() => onOpenTab('threads')}>Open ▸</button>
               ) : null}
               {onAsk ? (
                 <button

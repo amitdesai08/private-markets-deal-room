@@ -129,6 +129,8 @@ import { readChannelMessages } from './lib/mcp/workiq.js';
 import { wiPostChannelMessage, wiSearchFiles, wiSearchMail } from './lib/m365/workIqGraph.js';
 // Email, channel discussion and files for one deal, merged into a single feed.
 import { buildRecentActivity, searchTermsFor } from './lib/dealActivity.js';
+// How a listed document opens: the real file, one we can build, or what we know.
+import { withOpen, documentBrief } from './lib/docOpen.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
@@ -832,6 +834,9 @@ api.get('/deals/:id/doc-desk', async (req, res) => {
   });
   res.json({
     ...out,
+    // Every document says how it opens, so no name in this list is a dead end.
+    docs: withOpen(out.docs, g.raw),
+    changed: withOpen(out.changed, g.raw),
     origin: corpus.origin,
     liveFiles: live.length,
     // Where the real paper lives. Offered so that when Microsoft 365 has not resolved
@@ -841,6 +846,23 @@ api.get('/deals/:id/doc-desk', async (req, res) => {
     canWrite: !!g.access?.canWrite,
     roleLabel: g.access?.roleLabel || null,
   });
+});
+
+// What the deal record holds about a document we cannot open — the diligence
+// findings that cite it, whose workstream it belongs to, and where the real file
+// lives. The answer to a click on a document the platform does not itself hold.
+api.get('/deals/:id/document-brief', (req, res) => {
+  const g = deskGate(req, res);
+  if (!g) return;
+  const name = String(req.query.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'bad-args', detail: 'Which document?' });
+  // Only describe a document this deal actually lists. Without this the route would
+  // answer for any string a caller invented, and a made-up name would come back
+  // dressed in real findings.
+  const corpus = corpusForDeal(g.raw);
+  const known = (corpus.files || []).find((f) => String(f.name).toLowerCase() === name.toLowerCase());
+  if (!known) return res.status(404).json({ error: 'not-found', detail: 'That document is not listed on this deal.' });
+  res.json(documentBrief(known, g.raw));
 });
 
 // Everything that has happened on this deal in Microsoft 365 — email, the channel
