@@ -350,7 +350,7 @@ export default function App() {
           ) : mainTab === 'overview' ? (
             <>
               <AgentGuide roleLabel={roleLabel} canViewStage2={canViewStage2} canWrite={canWrite} onAsk={() => setChatOpen(true)} />
-              <Dashboard pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} viewerKey={`${viewAs}|${viewAsRole}`} />
+              <Dashboard pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} viewerKey={`${viewAs}|${viewAsRole}`} layoutKey={viewAs} />
             </>
           ) : mainTab === 'sourcing' ? (
             <Stage1 deals={deals} onChanged={refreshData} onOpenDeal={setOpenDealId} />
@@ -613,6 +613,16 @@ details[open] > summary:before { content: "\\25BE "; }
 
 /* Dashboard */
 .dash { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+/* The standing line that says how the page is arranged and offers to change it. Kept
+   deliberately quiet — it is scaffolding, not content. */
+.dashbar { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; margin-bottom: -6px; }
+.modlist { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 16px; padding: 8px 10px 12px; }
+.modrow { display: flex; align-items: flex-start; gap: 10px; padding: 8px 8px; border-radius: 8px; cursor: pointer; }
+.modrow:hover { background: var(--chip); }
+.modrow input { margin: 2px 0 0; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex: none; }
+.modrow .modname { display: block; font-size: 12.5px; font-weight: 650; }
+.modrow .sub { display: block; }
+.modrow.off .modname, .modrow.off .sub { opacity: .5; }
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
 .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); }
 .kpi-v { font-size: 24px; font-weight: 700; }

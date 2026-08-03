@@ -10,9 +10,14 @@
 // The briefing and the queue come from GET /api/home-desk, which composes them from
 // records the platform already owns and scopes them to the deals THIS caller can see.
 // Everything below the hero is the existing operational detail, unchanged in behaviour.
+//
+// The page is assembled from named sections rather than written as one block, because
+// which of them are worth looking at depends entirely on the job the reader does. Each
+// one can be turned off, and the choice is kept per persona. See dashLayout.ts.
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
 import { Narrative, SourceList, Tag, clock, type Para } from './deskUi';
+import { DASH_MODULES, readHidden, writeHidden, rememberWho, type ModuleKey } from './dashLayout';
 import type { Pipeline, Deal, MarketIntel, BackendConfig } from './types';
 
 type HomeAttention = {
@@ -49,13 +54,17 @@ function money(n?: number): string {
   return `$${Math.round(n)}`;
 }
 
-export default function Dashboard({ pipeline, deals, market, config, onAsk, onAskQuestion, onOpen, canWrite, roleLabel, viewerKey }: {
+export default function Dashboard({ pipeline, deals, market, config, onAsk, onAskQuestion, onOpen, canWrite, roleLabel, viewerKey, layoutKey }: {
   pipeline: Pipeline | null; deals: Deal[]; market: MarketIntel | null;
   config: BackendConfig | null; onAsk: (dealId: string) => void; onAskQuestion?: (q: string) => void;
   onOpen: (dealId: string) => void; canWrite?: boolean; roleLabel?: string | null;
   // Identifies WHO the page is currently being rendered for, so the briefing can be
   // re-fetched on an identity switch rather than only on a change in deal count.
   viewerKey?: string;
+  // Which persona owns the arrangement of this page. Deliberately NOT viewerKey: that
+  // also carries the role override, so changing role would silently hand you a
+  // different page than the one you built.
+  layoutKey?: string;
 }) {
   const fabric = config?.fabric || market?.info;
   const comps = market?.comparableDeals || [];
@@ -73,6 +82,22 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
   // that justifies the card being on the page. Hiding stays available, it is just
   // not the default.
   const [showWorkiq, setShowWorkiq] = useState(true);
+
+  // Which sections this persona keeps, and the panel for changing that.
+  const [hidden, setHidden] = useState<ModuleKey[]>(() => readHidden(layoutKey));
+  const [customise, setCustomise] = useState(false);
+  // A different persona is a different job, so the arrangement is re-read rather than
+  // carried across — otherwise whoever you switch to inherits the last person's page.
+  useEffect(() => { rememberWho(layoutKey); setHidden(readHidden(layoutKey)); }, [layoutKey]);
+
+  const off = new Set<ModuleKey>(hidden);
+  const shows = (k: ModuleKey) => !off.has(k);
+  const toggle = (k: ModuleKey) => {
+    const next = off.has(k) ? hidden.filter((x) => x !== k) : [...hidden, k];
+    setHidden(next);
+    writeHidden(layoutKey, next);
+  };
+  const showEverything = () => { setHidden([]); writeHidden(layoutKey, []); };
 
   function loadHome() {
     setHomeLoading(true);
@@ -208,13 +233,70 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
           ? <>Built for the <b>{seat.label}</b>{seat.laneLabels.length ? <> — you own the <b>{seat.laneLabels.join(' and ')}</b> workstream{seat.laneLabels.length > 1 ? 's' : ''}</> : null}</>
           : <>No specialist role is assigned to you, so this is the general portfolio view</>;
 
+  // What actually reaches the screen: a section the person kept AND that has something
+  // to say. Working this out before the markup is what lets the hero collapse to a
+  // single full-width column instead of leaving an empty half.
+  const showBriefing = shows('briefing');
+  const showFollowups = shows('followups') && !!home?.workiq?.total;
+  const showAttention = shows('attention');
+  const showKpis = shows('kpis');
+  const heroLeft = showBriefing || showFollowups;
+  const heroRight = showAttention || showKpis;
+  const showFunnel = shows('funnel') && !!pipeline?.funnel?.length;
+  // Named for the person, so the customise panel can say whose arrangement this is.
+  const arrangementFor = seat?.label ? `the ${seat.label}` : 'you';
+
   return (
     <div className="dash">
+      {/* The way back from a hidden section. Without a standing affordance, turning one
+          off is a one-way door: the control that would bring it back went with it. */}
+      <div className="dashbar">
+        <span>
+          {hidden.length
+            ? `${hidden.length} of ${DASH_MODULES.length} sections hidden on this page`
+            : `Showing all ${DASH_MODULES.length} sections`}
+        </span>
+        <span className="spacer" />
+        <button className="askbtn" onClick={() => setCustomise((v) => !v)}>
+          {customise ? 'Done' : '⚙ Customise this page'}
+        </button>
+      </div>
+
+      {customise ? (
+        <section className="panel">
+          <div className="panel-h">
+            <span>Choose what this page shows</span>
+            <span className="muted" style={{ fontWeight: 400 }}>
+              <button className="askbtn" onClick={showEverything} disabled={!hidden.length}>Show everything</button>
+            </span>
+          </div>
+          <div className="modlist">
+            {DASH_MODULES.map((m) => (
+              <label key={m.key} className={`modrow${shows(m.key) ? '' : ' off'}`}>
+                <input type="checkbox" checked={shows(m.key)} onChange={() => toggle(m.key)} />
+                <span>
+                  <span className="modname">{m.label}</span>
+                  <span className="sub">{m.note}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <div className="note">
+            Kept in this browser for {arrangementFor}, so switching profile switches the page with it.
+            This changes what you see and nothing else — not what a deal records, and not who is allowed to see it.
+          </div>
+        </section>
+      ) : null}
+
       {/* ================= Portfolio cockpit =================
           Same shape as the deal cockpit: an AI-labelled briefing on the left, the
-          ranked queue of what needs a person on the right. */}
-      <div className="grid g2">
+          ranked queue of what needs a person on the right. Either side can be emptied
+          by choice, in which case the other takes the full width. */}
+      {heroLeft || heroRight ? (
+      <div className={heroLeft && heroRight ? 'grid g2' : 'grid'}>
+        {heroLeft ? (
         <div style={{ minWidth: 0 }}>
+          {showBriefing ? (
           <div className="card aicard">
             <div className="hd">
               <span className="aibadge">✦ AI</span>
@@ -266,10 +348,11 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
             and it never changes a deal's recorded status. Where a source exists, it is shown.
             </div>
           </div>
+          ) : null}
 
           {/* Follow-ups promised in deal channels that are not tracked anywhere. Proposed
               only — a task is created on the deal that owns it, by a named person. */}
-          {home?.workiq?.total ? (
+          {showFollowups && home?.workiq ? (
             <div className="card aicard">
               <div className="hd">
                 <span className="aibadge">✦ AI</span>
@@ -315,9 +398,12 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
             </div>
           ) : null}
         </div>
+        ) : null}
 
         {/* ---------------- Attention queue ---------------- */}
+        {heroRight ? (
         <div style={{ minWidth: 0 }}>
+          {showAttention ? (
           <div className="card">
             <div className="hd">
               <h3>{seat?.tailored && seat.laneLabels.length ? `What needs me in ${seat.laneLabels.join(' & ')}` : 'What needs my attention'}</h3>
@@ -368,9 +454,11 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
               Opening a deal takes you to that deal's own page. Nothing here changes a deal — it only tells you where to look first.
             </div>
           </div>
+          ) : null}
 
           {/* KPI row sits beside the queue so the headline numbers and the work to be
               done are read together rather than on separate screens. */}
+          {showKpis ? (
           <div className="kpis">
             {kpiRow.map((k) => (
               <div key={k.key || k.label} className="kpi">
@@ -380,10 +468,14 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
               </div>
             ))}
           </div>
+          ) : null}
         </div>
+        ) : null}
       </div>
+      ) : null}
 
       {/* Where the live capital sits in the process */}
+      {shows('phases') ? (
       <section className="panel">
         <div className="panel-h"><span>Deals by stage</span><span className="muted">{money(pipelineValue)} across {liveDeals} live deal{liveDeals === 1 ? '' : 's'}</span></div>
         <div className="funnel">
@@ -396,9 +488,10 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
           ))}
         </div>
       </section>
+      ) : null}
 
       {/* Origination funnel */}
-      {pipeline?.funnel?.length ? (
+      {showFunnel && pipeline?.funnel ? (
         <section className="panel">
           <div className="panel-h"><span>Origination funnel</span><span className="muted">{pipeline.fundName}</span></div>
           <div className="funnel">
@@ -449,6 +542,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
       ) : null}
 
       {/* Deals */}
+      {shows('deals') ? (
       <section className="panel">
         <div className="panel-h"><span>Pipeline deals</span><span className="muted">{deals.length} active{compare.length ? ` · ${compare.length} selected to compare` : ' · tick 2–4 to compare'}</span></div>
         {deals.length === 0 ? (
@@ -478,8 +572,10 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
           </div>
         )}
       </section>
+      ) : null}
 
       {/* Market intelligence — live Fabric */}
+      {shows('market') ? (
       <section className="panel">
         <div className="panel-h">
           <span>Market intelligence</span>
@@ -513,6 +609,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
           </div>
         </div>
       </section>
+      ) : null}
     </div>
   );
 }
