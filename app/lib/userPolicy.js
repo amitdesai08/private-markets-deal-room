@@ -205,7 +205,7 @@ export function personaForIdentity(identity = {}) {
 // The showcase profile a REAL person has chosen to act as in the demo "view as"
 // switcher, or null. Set from the tab and read by the CHANNEL BOT, so that switching
 // profile changes who answers in Teams as well as what the tab shows — otherwise the
-// presenter picks "Eleanor Bishop, Partner", asks the bot a question in a channel, and
+// presenter picks "Eleanor Shellstrop, Partner", asks the bot a question in a channel, and
 // gets their own answer back, which makes the access model look like decoration.
 //
 // Two deliberate restrictions:
@@ -330,7 +330,7 @@ export function describeAccess(identity, viewAsRole = null) {
 
 // The demo showcase roster (empty unless DEMO_PROFILES is enabled), each enriched
 // with the access its role confers so the "view as" switcher can show, e.g.,
-// "Eleanor Bishop · Partner · 5 agents" vs "Maya Olsen · Analyst · 1 agent".
+// "Eleanor Shellstrop · Partner · 5 agents" vs "Maya Olsen · Analyst · 1 agent".
 export function describeDemoProfiles() {
   if (!demoModeActive()) return [];
   return demoProfiles.map((p) => {

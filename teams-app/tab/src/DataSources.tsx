@@ -213,7 +213,12 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
           </select>
           <input className="ds-cfg-in" type="url" placeholder="Data source URL (optional)" value={form.endpoint} spellCheck={false}
             onChange={(e) => setForm((f) => ({ ...f, endpoint: e.target.value }))} />
-          <button className="ds-btn primary" disabled={adding || !form.name.trim()} onClick={addSource}>{adding ? 'Adding…' : 'Add source'}</button>
+          {/* A read-only Member was shown Add source, Connect and Disconnect fully
+            enabled, and only found out the server refuses them by pressing one and
+            getting a 401. Offering somebody a control that cannot work is worse than
+            not offering it: they assume they broke something. Test stays enabled --
+            checking whether a source is reachable harms nothing. */}
+        <button className="ds-btn primary" disabled={!isAdmin || adding || !form.name.trim()} title={!isAdmin ? 'Only an administrator can change data sources.' : undefined} onClick={addSource}>{adding ? 'Adding…' : 'Add source'}</button>
         </div>
         {addErr ? <p className="ds-add-err">{addErr}</p> : null}
       </div>
@@ -283,8 +288,8 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
                       ) : null}
                       {c.connectable && c.enabled ? (
                         c.configured
-                          ? <button className="ds-btn" disabled={!!busy[c.id]} onClick={() => disconnect(c)}>Disconnect</button>
-                          : <button className="ds-btn primary" onClick={() => connect(c)}>Connect</button>
+                      ? <button className="ds-btn" disabled={!isAdmin || !!busy[c.id]} title={!isAdmin ? 'Only an administrator can change data sources.' : undefined} onClick={() => disconnect(c)}>Disconnect</button>
+                      : <button className="ds-btn primary" disabled={!isAdmin} title={!isAdmin ? 'Only an administrator can change data sources.' : undefined} onClick={() => connect(c)}>Connect</button>
                       ) : null}
                       {c.custom && !c.approved && isAdmin ? <button className="ds-btn primary" disabled={!!busy[c.id]} onClick={() => approveSource(c)}>Approve</button> : null}
                       {c.custom ? <button className="ds-btn danger" disabled={!!busy[c.id]} onClick={() => removeSource(c)}>Remove</button> : null}

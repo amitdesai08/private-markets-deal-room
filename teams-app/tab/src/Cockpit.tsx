@@ -244,7 +244,7 @@ export default function Cockpit({
               <h3>Milestones &amp; dependencies</h3>
               <Tag kind="ext" />
               <span className="spacer" />
-              <span className="chip">{done} of {data.milestones.length} steps</span>
+                <span className="chip">{done} of {data.milestones.length} steps completed</span>
             </div>
             <div className="legend">
               <span><i style={{ background: 'var(--accent)' }} />Authoritative — deal record</span>

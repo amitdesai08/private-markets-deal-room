@@ -67,11 +67,25 @@ export default function Deals({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen:
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return inFlight.filter((d: any) => {
+    const out = inFlight.filter((d: any) => {
       if (needle && !`${d.company} ${d.sector || ''}`.toLowerCase().includes(needle)) return false;
       if (filter === 'all') return true;
       if (filter === 'attention') return d.icVerdict && (d.icVerdict.state === 'NOT-READY' || d.icVerdict.state === 'CONDITIONAL');
       return stageBucket(d) === filter;
+    });
+    // The list arrived in whatever order the record happened to be in, which asks a
+    // partner with nineteen deals to hold nineteen IC dates in their head to find the
+    // one that needs them this week. Soonest committee first. Deals already through
+    // committee sort to the bottom -- they are not urgent, and sorting on how long ago
+    // their IC was put a portfolio company approved three years back at the very top.
+    const rank = (d: any) => {
+      if (typeof d.daysToIC !== 'number') return 1e6;
+      return d.daysToIC >= 0 ? d.daysToIC : 1e5 - d.daysToIC;
+    };
+    return out.sort((a: any, b: any) => {
+      const r = rank(a) - rank(b);
+      if (r) return r;
+      return (b.dealSize || 0) - (a.dealSize || 0);
     });
   }, [inFlight, filter, q]);
 
@@ -141,7 +155,12 @@ export default function Deals({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen:
                       return g.length > 2 ? <>{head} <span className="dv-more">+{g.length - 2} more</span></> : head;
                     })()}
                   </span>
-                  <span className="dv-size">{d.locked ? '' : money(d.dealSize)}</span>
+                  {/* The row is now sorted by this, so it has to be readable on the row.
+                      "IC in 9d" is the single fact that decides whether a partner opens
+                      this deal today or next week. On a deal already through committee
+                      it is not a fact anybody needs -- "IC was 1080d ago" on a portfolio
+                      company is noise dressed as urgency -- so it says so instead. */}
+                  <span className="dv-size">{d.locked ? '' : money(d.dealSize)}{!d.locked && typeof d.daysToIC === 'number' ? <span className="muted"> · {d.daysToIC > 0 ? `IC in ${d.daysToIC}d` : d.daysToIC === 0 ? 'IC today' : 'past IC'}</span> : null}</span>
                   <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
                 </div>
               );

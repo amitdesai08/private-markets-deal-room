@@ -103,7 +103,7 @@ export default function PowerBI({ ssoToken, pipeline, deals, market, config, dea
             <div className="pbi-note">
               The report above is generated from the deal record. A fuller interactive version
               (Portfolio Overview · Sector &amp; Industry · Pipeline by Stage · Deal Value &amp;
-              Valuation · Time-based metrics) is available in Power BI — use <b>Open in Power BI</b>
+              Valuation · Time-based metrics) is available in Power BI — use <b>Open in Power BI</b>{' '}
               above. Embedding it here needs a Power BI sign-in.
             </div>
           ) : failed ? (

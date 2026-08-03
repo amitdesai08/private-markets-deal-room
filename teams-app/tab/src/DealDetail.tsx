@@ -11,6 +11,7 @@ import RecentActivity from './RecentActivity';
 import { downloadGeneratedDoc } from './docOpen';
 import DocumentDesk from './DocumentDesk';
 import { renderMarkdown } from './md';
+import { isPostIC } from './deskUi';
 import type { Agent, Deal } from './types';
 
 // Native Deal Workspace (single-deal scope) — brings the webapp's Stages,
@@ -68,7 +69,7 @@ const LANE_LABEL: Record<string, string> = {
   commercial: 'Commercial', financial: 'Financial', legal: 'Legal', tax: 'Tax',
   techai: 'Tech / AI', operations: 'Operations', esg: 'ESG',
 };
-const STATUS_LABEL: Record<string, string> = { not_started: 'Not started', in_progress: 'In progress', complete: 'Complete', blocked: 'Blocked' };
+const STATUS_LABEL: Record<string, string> = { not_started: 'Not started', in_progress: 'In progress', complete: 'Complete', blocked: 'Blocked', closed_at_ic: 'Closed at IC — no write-up on file' };
 // Workstream owners are stored as internal role keys. Printing them raw put
 // "retail-md", "finance-md", "legal-md" and "tax-md" on the investment case, next to
 // real people's names -- the same class of leak as the raw status enums. These are the
@@ -153,8 +154,14 @@ const POST_IC = new Set(['approved', 'signing', 'signed', 'closed', 'owned', 'ex
 // the Teams client, where a left rail takes another 68px, more would have gone. So the
 // second group is now a "More" menu: it always fits, and a hidden tab stops being an
 // invisible one. The investment case is promoted into the first six.
-const TABS_OFTEN: Tab[] = ['cockpit', 'overview', 'ic', 'workflow', 'docdesk', 'threads'];
-const TABS_RARELY: Tab[] = ['stages', 'workspace', 'artifacts', 'research', 'documents', 'activity'];
+// Round 7 pushed six tabs behind More to stop the strip overflowing. It over-corrected:
+// the strip is 1440px wide and the visible tabs ended at 797px, so 643px of a partner's
+// screen sat empty while the deal brief's own primary call to action -- "Go to Work the
+// deal" -- pointed into the hidden half. Work the deal and Diligence workstreams are
+// where the deal is actually worked; they come back into the strip, and four genuine
+// reference surfaces stay under More.
+const TABS_OFTEN: Tab[] = ['cockpit', 'overview', 'ic', 'workflow', 'stages', 'workspace', 'docdesk', 'threads'];
+const TABS_RARELY: Tab[] = ['artifacts', 'research', 'documents', 'activity'];
 // Without the brief, the four surfaces that depend on it are not rendered at all.
 const TABS_OFTEN_PLAIN: Tab[] = ['overview', 'ic', 'stages'];
 const TABS_RARELY_PLAIN: Tab[] = ['workspace', 'artifacts', 'research', 'documents', 'activity'];
@@ -516,6 +523,9 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     if (b) return { state: 'red', reason: (b.reasons && b.reasons[0]) || `${b.blockingIssues || b.openIssues || 0} blocking issue(s)` };
     if (w.status === 'blocked') return { state: 'red', reason: 'Workstream blocked' };
     if (w.status === 'complete' || (w.progress || 0) >= 80) return { state: 'green' };
+    // A lane closed out at IC is not a gap in this deal's diligence, so it does not
+    // get an amber flag and does not count toward "workstreams blocking".
+    if (w.status === 'closed_at_ic') return { state: 'green', reason: 'Closed at IC' };
     if (w.status === 'not_started' || (w.progress || 0) === 0) return { state: 'amber', reason: 'Not started' };
     return { state: 'amber', reason: `${w.progress || 0}% complete` };
   };
@@ -568,7 +578,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
               <div className="dd-sub">{[deal.sector, deal.subSector, deal.hq].filter(Boolean).join(' · ')}</div>
               <div className="dd-meta">
                 <span className="chip">{deal.stageName || deal.stage}</span>
-                <span className="chip">Step {deal.stepNumber}/{deal.totalSteps} · {STEP_LABEL[deal.currentStep || ''] || deal.currentStep}</span>
+                <span className="chip">Step {deal.stepNumber} of {deal.totalSteps} · {STEP_LABEL[deal.currentStep || ''] || deal.currentStep}</span>
                 <span className="chip">{money(deal.dealSize)}</span>
                 {/* A readiness percentage is a forecast of whether this deal can go to
                     committee. On a company the fund already owns it is not a forecast of
@@ -928,8 +938,13 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                     <div style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                         {verdict?.state ? <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: verdict.state === 'READY' ? 'var(--good)' : verdict.state === 'NOT-READY' ? 'var(--bad)' : 'var(--warn)', background: verdict.state === 'READY' ? 'var(--good-bg)' : verdict.state === 'NOT-READY' ? 'var(--bad-bg)' : 'var(--warn-bg)' }}>{verdict.state}</span> : null}
-                        <span style={{ fontWeight: 700 }}>{deal.readiness ?? 0}% ready</span>
-                        {typeof deal.daysToIC === 'number' && deal.daysToIC >= 0 ? <span className="muted">· IC in {deal.daysToIC}d</span> : null}
+                        {/* The header pill two inches above says "Approved at IC" and this
+                            said "68% ready" on the same deal. Readiness measures whether the
+                            papers are fit to put in front of committee; once committee has
+                            voted it is a grade for an exam already sat. The IC readiness tab
+                            got this fix; this embedded copy of it did not. */}
+                        <span style={{ fontWeight: 700 }}>{isPostIC((deal as any).status) ? 'Approved at IC' : `${deal.readiness ?? 0}% ready`}</span>
+                        {!isPostIC((deal as any).status) && typeof deal.daysToIC === 'number' && deal.daysToIC >= 0 ? <span className="muted">· IC in {deal.daysToIC}d</span> : null}
                         {verdict?.headline ? <span className="muted" style={{ fontSize: 12 }}>· {verdict.headline}</span> : null}
                       </div>
                       {blockers.length ? (
@@ -1011,7 +1026,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
               {tab === 'workspace' && (
                 <>
-                  <WorkIqPanel dealId={dealId} canWrite={!!canWrite} onAsk={(p) => { setChatSeed(p); setChatSeedNonce((n) => n + 1); setAskOpen(true); }} />
+                  {/* The tab is called "Diligence workstreams" and the workstreams used to
+                      start about 5,500 characters down, below the channel messages and the
+                      file list -- both of which already have their own tabs. A tab has to
+                      open on the thing it is named after. The duplicated material moved to
+                      the bottom; it is still one scroll away, nothing was removed. */}
                   {workbench.length ? (
                     <section className="dd-panel">
                       <div className="dd-panel-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1103,6 +1122,9 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                       </div>
                     </section>
                   ) : null}
+
+                  <div className="dd-panel-h" style={{ marginTop: 4 }}>Supporting material on this deal<span className="muted">also in Deal channel and Documents</span></div>
+                  <WorkIqPanel dealId={dealId} canWrite={!!canWrite} onAsk={(p) => { setChatSeed(p); setChatSeedNonce((n) => n + 1); setAskOpen(true); }} />
                 </>
               )}
 
@@ -1235,8 +1257,13 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           <span style={{ flex: '0 0 auto', width: 7, height: 7, marginTop: 5, borderRadius: 999, background: a.via === 'assistant' ? 'var(--accent, #6264A7)' : 'var(--muted, #8a8a94)' }} />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12.5 }}>{a.action}</div>
+                            {/* An audit trail is the product's whole claim to be trustworthy,
+                                and it was stamping entries "10h ago" and "yesterday". A
+                                relative stamp is fine on a chat message; on the record of
+                                who approved what it is useless the moment anyone needs to
+                                cite it. Absolute time, to the minute. */}
                             <div className="muted" style={{ fontSize: 11, marginTop: 1 }}>
-                              {a.actor || 'System'}{a.when ? ` · ${relTime(a.when) || new Date(a.when).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}
+                              {a.actor || 'System'}{a.when ? ` · ${new Date(a.when).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}
                               {a.via === 'assistant' ? <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999, color: 'var(--accent)', background: 'var(--chip)' }}>via assistant · you approved</span> : null}
                             </div>
                           </div>

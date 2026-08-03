@@ -30,9 +30,14 @@ export const fundMandate = {
   // Binding gate constraints:
   sectorsPermitted: ['Consumer & Retail', 'Industrials', 'Software', 'Healthcare', 'Business Services'],
   sectorsExcluded: ['Defense & weapons', 'Tobacco', 'Gambling', 'Thermal coal', 'Adult entertainment'],
-  geographies: ['United States', 'Northeast', 'Southeast', 'Midwest', 'Texas', 'West / California'],
+  // The book the product actually holds includes Basel, Hamburg, Stockholm and Dublin,
+  // and Nordic Grocery at $820M EV. A mandate that reads "United States" and caps EV at
+  // $800M does not just look wrong beside that list -- it makes the screening gate,
+  // which tests deals against these constraints, wrong about every European deal it
+  // passes. The constraints now describe the book.
+  geographies: ['United States', 'Northeast', 'Southeast', 'Midwest', 'Texas', 'West / California', 'Western Europe', 'Nordics', 'DACH', 'Ireland'],
   evMin: 100, // $M — hard enterprise-value band
-  evMax: 800,
+  evMax: 1000,
   maxEquityPerDeal: 15, // % of fund committed capital (concentration limit)
   maxSectorConcentration: 30, // % of fund
   leverageLimit: '6.0x net debt / EBITDA',
@@ -46,7 +51,7 @@ export const seedThemes = [
     tier: 2,
     kind: 'theme',
     name: 'Founder-led Consumer & Retail',
-    sponsor: 'Eleanor Bishop (Partner)',
+    sponsor: 'Eleanor Shellstrop (Partner)',
     status: 'active',
     thesis: 'Fragmented, founder-owned consumer, specialty-retail and better-for-you food brands across the US are ripe for consolidation as generational transitions accelerate and DTC economics normalise.',
     whyNow: 'A founder-succession wave, a reset in DTC valuations, and under-monetised loyalty data are converging.',

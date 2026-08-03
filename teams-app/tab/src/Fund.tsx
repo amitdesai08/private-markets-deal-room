@@ -262,7 +262,10 @@ export default function Fund() {
             <Kpi v={`${val.portfolio.grossMoic.toFixed(2)}x`} l="Portfolio gross MOIC" s={`${val.portfolio.grossIrrPct}% IRR`} />
             <Kpi v={String(val.portfolio.addOnsClosed)} l="Add-ons closed" s="buy-and-build" />
             <Kpi v={String(val.pipeline.dealsProcessed)} l="Active deals" s={`${val.pipeline.inDiligence} in diligence`} />
-            <Kpi v={`${val.pipeline.avgIcReadiness}%`} l="Avg IC readiness" s="across deals not yet through committee" />
+            {/* Same words, two numbers, before: this tile read 51% and the LP report 42%.
+                Both are now the same average over the same denominator, and the tile
+                states that denominator so nobody has to guess which deals are in it. */}
+            <Kpi v={`${val.pipeline.avgIcReadiness}%`} l="Avg IC readiness" s={`across ${(val.pipeline as any).preIcDeals ?? 0} deals not yet through committee${(val.pipeline as any).pastCommitteeDeals ? ` · excludes ${(val.pipeline as any).pastCommitteeDeals} already approved` : ''}`} />
           </div>
         </section>
       ) : null}

@@ -81,6 +81,10 @@ function blockingWorkstreams(deal, openIssues) {
   const lanes = deal.workstreams || [];
   const out = [];
   for (const w of lanes) {
+    // A lane recorded as closed out at committee is not an open gap in this deal's
+    // diligence -- it is a lane that never existed while the deal was being worked.
+    // Listing it as a blocker asks a partner to chase work that is not outstanding.
+    if (w.status === 'closed_at_ic') continue;
     const laneIssues = openIssues.filter((i) => i.lane === w.lane);
     const blockingIssues = laneIssues.filter((i) => BLOCKING_SEVERITIES.has(i.severity));
     const noEvidence = !(w.findings || []).length && !(w.contributions || []).length;

@@ -55,7 +55,7 @@ const SPEC = [
     blurb: 'The rigorous neuroscientist who needs the evidence. Deal lead / VP driving execution — IOI / LOI, the diligence plan and the path to IC. The assistant answers in the deal lead\'s voice — what\'s blocking IC and the next actions.' },
   { id: 'operating-partner', role: 'deal-team', personaId: 'operating-partner', name: 'Derek Hofstetler', title: 'Operating Partner — Value Creation', initials: 'DH', color: '#0f766e',
     blurb: 'Rebooted and improved a thousand times over. Value-creation lead — the 100-day plan, the EBITDA bridge and portfolio monitoring vs the underwriting. The assistant answers in the operating partner\'s voice.' },
-  { id: 'analyst', role: 'analyst', personaId: 'analyst', name: 'Chidi Anagonye', title: 'Analyst — Northeast desk', initials: 'CA', color: '#2563eb', regionScope: ['northeast'],
+  { id: 'analyst', role: 'analyst', personaId: 'analyst', name: 'Chidi Anagonye', title: 'Analyst — Northeast coverage', initials: 'CA', color: '#2563eb', regionScope: ['northeast'],
     blurb: 'The rigorous over-thinker who reads every source. Read-only analyst scoped to a SINGLE region (Northeast) — sources, screens and models Northeast deals in Stage 1; other territories and confidential deals stay hidden.' },
   { id: 'legal-gc', role: 'deal-team', personaId: 'legal-gc', name: 'Shawn Reese', title: 'General Counsel — Legal & Execution', initials: 'SR', color: '#4338ca',
     blurb: 'Runs the bad place with impeccable paperwork. Legal & execution lead: owns the Legal lane — SPA, reps & warranties, W&I insurance, KYC/AML and regulatory clearance. The assistant answers in the GC\'s voice — execution risk first.' },

@@ -241,7 +241,10 @@ export function executiveValue(pipelineStats = {}) {
       cycleReductionPct: pipelineStats.cycleReductionPct ?? 0,
       avgDaysSaved: pipelineStats.avgDaysSaved ?? 0,
       baselineDays: pipelineStats.baselineDays ?? 45,
-      avgIcReadiness: pipelineStats.avgReadiness ?? 0
+      avgIcReadiness: pipelineStats.avgReadiness ?? 0,
+      // Carried through so the tile can show its own denominator. See portfolioStats.
+      preIcDeals: pipelineStats.preIcDeals ?? 0,
+      pastCommitteeDeals: pipelineStats.pastCommitteeDeals ?? 0
     },
     portfolio: {
       companies: overview.capital.portfolioCompanies,

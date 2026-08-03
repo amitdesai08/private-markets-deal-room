@@ -38,7 +38,7 @@ export const seedDeals = [
       { label: 'Revenue (LTM)', value: '$1.94B', source: 'CIM p.12', confidence: 'high' },
       { label: 'EBITDA (LTM)', value: '$148M', source: 'CIM p.14 / QoE draft', confidence: 'high' },
       { label: 'EBITDA margin', value: '7.6%', source: 'Derived', confidence: 'high' },
-      { label: 'Entry multiple', value: '8.4x EV/EBITDA', source: 'Deal model v3', confidence: 'medium' },
+      { label: 'Entry multiple', value: '5.5x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'medium' },
       { label: 'Private-label mix', value: '21%', source: 'CIM p.31', confidence: 'high' },
       { label: 'Loyalty members', value: '3.1M', source: 'Data room / mgmt', confidence: 'medium' }
     ],
@@ -263,7 +263,7 @@ export const seedDeals = [
         { text: 'Utilisation resilient at 87% through the cycle; pricing power validated across pharma contracts.', severity: 'positive', source: 'Commercial DD' }
       ] },
       { lane: 'financial', owner: 'finance-md', status: 'complete', progress: 100, findings: [
-        { text: 'QoE supports $46M LTM EBITDA; $2.1M of add-backs disallowed, reflected in the 9.2x entry.', severity: 'medium', source: 'Financial / QoE' },
+        { text: 'QoE supports $46M LTM EBITDA; $2.1M of add-backs disallowed, reflected in the 7.8x entry.', severity: 'medium', source: 'Financial / QoE' },
         { text: 'Working-capital seasonality is real but self-funding across the year; no incremental facility required.', severity: 'positive', source: 'Financial / QoE' }
       ] },
       { lane: 'legal', owner: 'legal-md', status: 'complete', progress: 100, findings: [
@@ -290,7 +290,7 @@ export const seedDeals = [
       { key: 'market', title: 'Market & commercial', status: 'approved', content: 'Utilisation 87%; pharma tailwind.', citations: ['Commercial DD'] },
       { key: 'value-creation', title: 'Value creation plan', status: 'approved', content: 'Buy-and-build; energy hedging.', citations: ['Ops DD'] },
       { key: 'risks', title: 'Key risks & mitigants', status: 'approved', content: 'Energy costs hedged via PPAs.', citations: ['Ops DD'] },
-      { key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'Recommend proceed at 9.2x. Diligence complete across all three lanes; no unresolved risk-level findings.', citations: ['Deal model', 'Commercial DD', 'Tech / AI DD'] }
+      { key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'Recommend proceed at 7.8x. Diligence complete across all three lanes; no unresolved risk-level findings.', citations: ['Deal model', 'Commercial DD', 'Tech / AI DD'] }
     ],
     compliance: [
       { check: 'Sanctions / UBO screening', framework: 'KYC', status: 'passed' },
@@ -299,7 +299,7 @@ export const seedDeals = [
     ],
     activity: [
       { actor: 'Deal team — IC coordination', action: 'Assembled IC pack and circulated to committee', when: hoursAgo(10) },
-      { actor: 'Eleanor Bishop', action: 'Scheduled IC review', when: hoursAgo(6) }
+      { actor: 'Eleanor Shellstrop', action: 'Scheduled IC review', when: hoursAgo(6) }
     ],
     hoursSaved: 31
   },
@@ -313,10 +313,12 @@ export const seedDeals = [
     hq: 'Tallinn, Estonia',
     dealSize: 195,
     currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
-    stage: 'D5',
-    // D5 is Archive — the audit-trail close-out of the DILIGENCE stage, which is exactly
-    // where this deal sits: IC approved, record archived, not yet through E1 financing.
-    stageName: 'Diligence & Approval',
+    stage: 'E1',
+    // Status is 'signing', the row chip said "In execution", and the stage said
+    // "Diligence & Approval · step 5 of 5". Three surfaces putting one deal in two
+    // stages at once is the kind of thing that makes a partner stop trusting the stage
+    // column entirely. Signing IS execution: the deal sits at E1, where it belongs.
+    stageName: 'Execution & Closing',
     status: 'signing',
     sponsorPersona: 'partner',
     leadAnalyst: 'analyst',
@@ -327,7 +329,7 @@ export const seedDeals = [
     keyFigures: [
       { label: 'Revenue (LTM)', value: '$162M', source: 'QoE', confidence: 'high' },
       { label: 'EBITDA (LTM)', value: '$27M', source: 'QoE', confidence: 'high' },
-      { label: 'Entry multiple', value: '7.1x EV/EBITDA', source: 'Deal model', confidence: 'high' }
+      { label: 'Entry multiple', value: '7.2x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' }
     ],
     workstreams: [
       // Seven lanes, for the same reason as Atlas: this deal has SIGNED. A seed listing
@@ -369,7 +371,7 @@ export const seedDeals = [
       { check: 'Data-room sensitivity labelling', framework: 'Purview', status: 'passed' }
     ],
     activity: [
-      { actor: 'Deal team — records & compliance', action: 'Archived data room with Purview audit trail', when: hoursAgo(50) },
+      { actor: 'Deal team — records & compliance', action: 'Archived data room with Retained audit trail', when: hoursAgo(50) },
       { actor: 'Investment Committee', action: 'Approved the transaction', when: hoursAgo(72) }
     ],
     hoursSaved: 38
@@ -487,7 +489,7 @@ export const demoStageDeals = [
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Boston CRO carve-out with recurring biotech demand.', citations: ['CIM'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
-    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at screening', when: hoursAgo(60) }], hoursSaved: 6,
+    activity: [{ actor: 'Eleanor Shellstrop', action: 'PURSUE recorded at screening', when: hoursAgo(60) }], hoursSaved: 6,
   },
   {
     id: 'demo-lonestar', company: 'Lone Star Energy Services', region: 'southcentral', tags: [],
@@ -564,7 +566,7 @@ export const demoStageDeals = [
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Contracted solar-plus-storage backlog with IRA economics.', citations: ['Screen'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
-    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at screening', when: hoursAgo(72) }], hoursSaved: 4,
+    activity: [{ actor: 'Eleanor Shellstrop', action: 'PURSUE recorded at screening', when: hoursAgo(72) }], hoursSaved: 4,
   },
   // Top-of-funnel spread. Origination is mostly a CANDIDATE activity (see data/
   // candidates.js) — only pursued candidates become deals — but the funnel reads as
@@ -621,7 +623,7 @@ export const demoStageDeals = [
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Sunbelt DSO consolidation with a de-novo pipeline; reimbursement mix to be tested.', citations: ['Screen'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
-    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at screening', when: hoursAgo(20) }], hoursSaved: 3,
+    activity: [{ actor: 'Eleanor Shellstrop', action: 'PURSUE recorded at screening', when: hoursAgo(20) }], hoursSaved: 3,
   },
 
   {
@@ -644,12 +646,12 @@ export const demoStageDeals = [
     targetICDate: daysFromNow(-14),
     baselineDays: 45,
     thesis:
-      'Buy-and-build of a #2 European diagnostics lab network, approved at IC. Post-approval execution: debt package secured at 4.1x, SPA in signing with a locked-box mechanism; close targeted in three weeks.',
+      'Buy-and-build of a #2 European diagnostics lab network, approved at IC. Post-approval execution: debt package secured at 4.2x, SPA in signing with a locked-box mechanism; close targeted in three weeks.',
     keyFigures: [
       { label: 'Revenue (LTM)', value: '$418M', source: 'QoE final', confidence: 'high' },
       { label: 'EBITDA (LTM)', value: '$92M', source: 'QoE final', confidence: 'high' },
-      { label: 'Entry multiple', value: '7.9x EV/EBITDA', source: 'Signed structure', confidence: 'high' },
-      { label: 'Leverage', value: '4.1x net debt / EBITDA', source: 'Debt commitment', confidence: 'high' }
+      { label: 'Entry multiple', value: '7.0x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'Leverage', value: '4.2x net debt / EBITDA', source: 'Calculated: senior debt / EBITDA (LTM)', confidence: 'high' }
     ],
     workstreams: [
       { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [
@@ -664,16 +666,25 @@ export const demoStageDeals = [
     ],
     memoSections: [
       { key: 'thesis', title: 'Investment thesis', status: 'approved', content: 'Approved at IC 14 days ago. Consolidation of a fragmented lab network with a costed AI/LIMS margin programme.', citations: ['IC memo v5', 'QoE final'] },
-      { key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'IC approved with conditions: dual-source reagents (met) and leverage ≤ 4.25x (met at 4.1x).', citations: ['IC minutes — not on file in this system'] }
+      { key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'IC approved with conditions: dual-source reagents (met) and leverage ≤ 4.25x (met at 4.2x).', citations: ['IC minutes — not on file in this system'] }
     ],
     compliance: [
       { check: 'Antitrust / merger clearance (CH + EU)', framework: 'Regulatory', status: 'in_progress' },
       { check: 'Sanctions / UBO screening', framework: 'KYC', status: 'passed' },
       { check: 'Financing conditions precedent', framework: 'Legal', status: 'in_progress' }
     ],
+    // An audit trail with two entries, both attributed to a department rather than a
+    // person, is not an audit trail -- it is a decoration in the shape of one. This is
+    // the deal the product demonstrates on, and its record skipped the IC approval
+    // entirely. Named people, in order, covering the decision and what followed it.
     activity: [
-      { actor: 'Deal team — financing & structuring', action: 'Locked debt package at 4.1x; funds-flow drafted', when: hoursAgo(30) },
-      { actor: 'Deal team — legal', action: 'Circulated SPA v7 with the negotiated CP list', when: hoursAgo(10) }
+      { actor: 'Marcus Chen', action: 'Final QoE issued; $2.1M of add-backs disallowed', when: hoursAgo(214) },
+      { actor: 'Priya Ramanathan', action: 'Legal DD closed; CP list agreed with counsel', when: hoursAgo(190) },
+      { actor: 'Eleanor Shellstrop', action: 'IC memo circulated to committee', when: hoursAgo(168) },
+      { actor: 'Eleanor Shellstrop', action: 'IC approved with conditions: dual-source reagents, leverage ≤ 4.25x', when: hoursAgo(160) },
+      { actor: 'David Osei', action: 'Dual-source reagent condition evidenced and closed out', when: hoursAgo(96) },
+      { actor: 'David Osei', action: 'Locked debt package at 4.2x; funds-flow drafted', when: hoursAgo(30) },
+      { actor: 'Shawn Reese', action: 'Circulated SPA v7 with the negotiated CP list', when: hoursAgo(10) }
     ],
     hoursSaved: 34
   },

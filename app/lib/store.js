@@ -63,7 +63,13 @@ function ensureFirstClassLanes(d) {
   const have = new Set(d.workstreams.map((w) => w.lane));
   for (const def of WORKSTREAM_DEFAULTS) {
     if (!have.has(def.lane)) {
-      d.workstreams.push({ lane: def.lane, owner: def.owner, status: 'not_started', progress: 0, findings: [] });
+      // On a deal committee has already approved, a lane this backfill invents was
+      // never going to be opened -- the work finished before the lane existed. Calling
+      // it "Not started" put four 0% workstreams underneath a final QoE, a 100%
+      // checklist and a green risk register on the same screen, which reads as the
+      // product contradicting itself rather than as a gap in the record.
+      const closedAtIc = PAST_COMMITTEE.has(String(d.status || ''));
+      d.workstreams.push({ lane: def.lane, owner: def.owner, status: closedAtIc ? 'closed_at_ic' : 'not_started', progress: 0, findings: [] });
       changed = true;
     }
   }
@@ -361,7 +367,7 @@ function makeScreenedDeal(cand, when) {
       { key: 'recommendation', title: 'Recommendation', status: 'empty', content: '', citations: [] }
     ],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
-    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at the Screening Gate', when: when || new Date().toISOString() }],
+    activity: [{ actor: 'Eleanor Shellstrop', action: 'PURSUE recorded at the Screening Gate', when: when || new Date().toISOString() }],
     issues: [],
     conditions: [],
     assumptionSnapshots: [],
@@ -2809,11 +2815,21 @@ export async function runStep(id, stepKey) {
 // to a user-facing route unscoped. Doing exactly that is how the home page came to
 // show an analyst cleared for 4 deals a headline count of 19 and $8.1B: the tiles fell
 // back to these numbers whenever the scoped list was empty or still loading.
+// Statuses that mean committee has already voted. Readiness measures whether the
+// papers are fit to put in front of IC, so averaging it over deals that are already
+// approved, signing or owned is averaging a grade for an exam already sat.
+const PAST_COMMITTEE = new Set(['approved', 'signing', 'signed', 'closed', 'owned', 'exiting', 'exited']);
+
 export function portfolioStats(visible = null) {
   const list = Array.isArray(visible) ? visible.map((d) => (d.stage ? d : derive(d))) : deals.map(derive);
   const n = list.length;
   const totalHours = list.reduce((s, d) => s + (d.hoursSaved || 0), 0);
-  const avgReadiness = n ? Math.round(list.reduce((s, d) => s + d.readiness, 0) / n) : 0;
+  // Fund & Portfolio and the LP report showed 51% and 42% under the same words, both
+  // arithmetically defensible over different denominators. Two truthful numbers under
+  // one label is worse than one wrong number: it tells a partner the product does not
+  // know its own book. One definition now -- every deal committee has not yet voted on.
+  const preIc = list.filter((d) => !PAST_COMMITTEE.has(String(d.status || '')));
+  const avgReadiness = preIc.length ? Math.round(preIc.reduce((s, d) => s + (d.readiness || 0), 0) / preIc.length) : 0;
   const inDiligence = list.filter((d) => d.stage.startsWith('D')).length;
   const avgDaysSaved = n ? Math.round(list.reduce((s, d) => s + d.projectedDaysSaved, 0) / n) : 0;
   const baseline = list[0]?.baselineDays || 45;
@@ -2823,6 +2839,8 @@ export function portfolioStats(visible = null) {
     inDiligence,
     totalHoursSaved: totalHours,
     avgReadiness,
+    preIcDeals: preIc.length,
+    pastCommitteeDeals: n - preIc.length,
     avgDaysSaved,
     baselineDays: baseline,
     cycleReductionPct: cycleReduction,

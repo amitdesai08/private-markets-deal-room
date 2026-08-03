@@ -190,7 +190,7 @@ function workstreamFindings(deal) {
   add('legal', 'clear', 'No material undisclosed litigation or government investigation identified.', 'Clean — no legal deal-stopper.');
 
   // Tax.
-  add('tax', 'monitor', 'Multi-state sales/use-tax exposure identified; quantify and structure as a covered risk.', 'Backstopped by R&W insurance and addressed in deal structuring.');
+  add('tax', 'monitor', 'VAT and transfer-pricing exposure identified; quantify and structure as a covered risk.', 'Backstopped by W&I insurance and addressed in deal structuring.');
 
   // Operational.
   add('operational', 'monitor', `Cost-out opportunity identified in procurement & footprint (~${money(round(f.revenue * 0.02))} run-rate).`, 'Folded into the value-creation plan.');
@@ -331,7 +331,10 @@ export function buildExecutionPack(deal, { memo } = {}) {
   const debt = round(returns.scenarios.base.debt);
   const equity = round(returns.scenarios.base.equityIn);
   const fees = round(ev * 0.02);
-  const hsrRequired = ev >= HSR_THRESHOLD_USD_M;
+  // Non-US targets are not subject to HSR at any enterprise value.
+  const isUS = !/basel|zurich|geneva|switzerland|hamburg|berlin|munich|germany|stockholm|nordic|sweden|oslo|norway|copenhagen|denmark|helsinki|finland|dublin|ireland|baltic|riga|tallinn|vilnius|amsterdam|netherlands|paris|france|madrid|spain|milan|italy|london|united kingdom|europe/i.test([deal.region, deal.hq, deal.country, deal.location, deal.company, deal.thesis].filter(Boolean).join(' '));
+  const hsrRequired = isUS && ev >= HSR_THRESHOLD_USD_M;
+  const mergerControlLabel = isUS ? 'HSR antitrust clearance' : 'Merger control clearance (EU / national)';
 
   return {
     kind: 'execution',
@@ -345,13 +348,13 @@ export function buildExecutionPack(deal, { memo } = {}) {
       { term: 'Purchase price', detail: `${money(ev)} enterprise value at ${returns.entryMultiple}x adjusted EBITDA (cash-free / debt-free).` },
       { term: 'Price mechanism', detail: 'Completion accounts with a net-working-capital true-up to the agreed peg.' },
       { term: 'Reps & warranties', detail: 'Customary fundamental + business warranties; disclosure schedules from DD.' },
-      { term: 'Indemnity / escrow', detail: 'R&W insurance primary; ~0.5–1.0% escrow for fundamental/specific items.' },
+      { term: 'Indemnity / escrow', detail: 'W&I insurance primary; ~0.5–1.0% escrow for fundamental/specific items.' },
       { term: 'Earnout', detail: /founder/i.test(deal.ownership || '') ? 'Consider a modest earnout to bridge valuation with the founder.' : 'None contemplated.' },
       { term: 'Non-compete', detail: 'Seller/founder non-compete and non-solicit for the customary period.' }
     ],
     rwi: { used: true, premiumPct: '2.5–4.0% of limit', retentionPct: '~0.5% of EV', note: 'Standard in mid-market (used on 80–90%+ of larger buyouts).' },
     conditionsPrecedent: [
-      { item: 'HSR antitrust clearance', status: hsrRequired ? 'Required' : 'Not required', detail: hsrRequired ? `EV ${money(ev)} exceeds the ~$${HSR_THRESHOLD_USD_M}M US HSR Act filing threshold (${HSR_THRESHOLD_YEAR}; FTC-adjusted annually) — 30-day waiting period. US deals only; non-US targets follow local merger control.` : `EV ${money(ev)} is below the ~$${HSR_THRESHOLD_USD_M}M US HSR Act filing threshold (${HSR_THRESHOLD_YEAR}; US deals).` },
+      { item: mergerControlLabel, status: isUS ? (hsrRequired ? 'Required' : 'Not required') : 'Assess', detail: isUS ? (hsrRequired ? `EV ${money(ev)} exceeds the ~${HSR_THRESHOLD_USD_M}M US HSR Act filing threshold (${HSR_THRESHOLD_YEAR}; FTC-adjusted annually) — 30-day waiting period.` : `EV ${money(ev)} is below the ~${HSR_THRESHOLD_USD_M}M US HSR Act filing threshold (${HSR_THRESHOLD_YEAR}).`) : 'Non-US target: EU Merger Regulation and national turnover thresholds apply. Counsel to confirm which filings are triggered; HSR does not apply.' },
       { item: 'Third-party consents', status: 'Pending', detail: 'Change-of-control consents on material contracts (from legal DD).' },
       { item: 'Debt financing', status: 'Committed', detail: `Commitment letters for ~${money(debt)} of senior debt (Term Loan B + RCF).` },
       { item: 'Ordinary-course covenant', status: 'In effect', detail: 'Seller operates in the ordinary course through the gap period.' }
@@ -371,10 +374,10 @@ export function buildExecutionPack(deal, { memo } = {}) {
     compliance: [
       { check: 'KYC / AML / UBO screening', framework: 'KYC', status: 'cleared' },
       { check: 'Sanctions screening', framework: 'OFAC', status: 'cleared' },
-      { check: hsrRequired ? 'HSR filing' : 'HSR — not required', framework: 'Antitrust', status: hsrRequired ? 'filed' : 'n/a' },
+      { check: isUS ? (hsrRequired ? 'HSR filing' : 'HSR — not required') : 'Merger control assessment (EU / national)', framework: 'Antitrust', status: isUS ? (hsrRequired ? 'filed' : 'n/a') : 'with counsel' },
       { check: 'Fund concentration / LPA limits', framework: 'LPA', status: 'within limits' }
     ],
-    headline: `IC approved subject to conditions · ${money(ev)} EV · ${hsrRequired ? 'HSR required' : 'no HSR'} · R&W insurance placed.`
+    headline: `IC approved subject to conditions · ${money(ev)} EV · ${isUS ? (hsrRequired ? 'HSR required' : 'no HSR') : 'merger control with counsel'} · W&I insurance placed.`
   };
 }
 
@@ -607,7 +610,7 @@ export function buildLoi(deal) {
     keyTerms: [
       { term: 'Reps & warranties', detail: 'Customary fundamental + business warranties; W&I insurance primary.' },
       { term: 'Escrow / holdback', detail: '~0.5–1.0% for fundamental / specific items.' },
-      { term: 'Conditions', detail: 'Confirmatory DD, financing, HSR (if applicable), third-party consents.' },
+      { term: 'Conditions', detail: 'Confirmatory DD, financing, merger control clearance (if triggered), third-party consents.' },
       { term: 'Break provisions', detail: 'No-shop during exclusivity; expense reimbursement on a defined seller breach.' },
     ],
     binding: 'Non-binding except exclusivity, confidentiality and expenses.',

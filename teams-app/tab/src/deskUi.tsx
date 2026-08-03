@@ -89,7 +89,11 @@ export function ago(isoDate?: string | null): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.round(hrs / 24);
   if (days <= 7) return `${days}d ago`;
-  return new Date(t).toLocaleDateString([], { day: 'numeric', month: 'short' });
+  // Past a week, an absolute date. The locale default rendered US month-first ("Jul
+  // 22") with no year, in a product where everything else says "22 Jul 2026" -- and a
+  // document's modified date is exactly the field somebody checks when they suspect
+  // they are reading a stale version.
+  return new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export function clock(isoDate?: string | null): string {

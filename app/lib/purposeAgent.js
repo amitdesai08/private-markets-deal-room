@@ -25,6 +25,7 @@ import { screenText } from './contentSafety.js';
 import { dealAccessLevel } from './userPolicy.js';
 import { lensBlock } from './personaLens.js';
 import { workiqNotesContext } from './workiqMemory.js';
+import { houseStyle } from './ai.js';
 
 const PROJECT_ENDPOINT = config.foundry.projectEndpoint;
 const AGENT_MODEL = config.foundry.dealAgentModel;
@@ -112,7 +113,10 @@ async function postResponses(body) {
 }
 
 function extractOutputText(data) {
-  if (typeof data?.output_text === 'string' && data.output_text) return data.output_text;
+  // houseStyle strips internal tool names and non-dollar currency symbols the model
+  // invents. See the note on it in ai.js -- a prompt rule is a request; this is the
+  // guarantee, and the assistant panel is the screen a buyer is actually shown.
+  if (typeof data?.output_text === 'string' && data.output_text) return houseStyle(data.output_text);
   const parts = [];
   for (const item of data?.output || []) {
     if (item?.type !== 'message') continue;
@@ -121,7 +125,7 @@ function extractOutputText(data) {
       else if (typeof c?.text?.value === 'string') parts.push(c.text.value);
     }
   }
-  return parts.join('\n').trim();
+  return houseStyle(parts.join('\n').trim());
 }
 
 // One turn against a single agent (each purpose agent self-grounds via its hosted

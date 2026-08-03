@@ -38,7 +38,7 @@ export const MD_OPTIONS = [
   { id: 'legal-md', name: 'Marcus Webb', title: 'General Counsel' },
   { id: 'tax-md', name: 'Ana Torres', title: 'Tax Director' },
   { id: 'esg-md', name: 'Leah Okafor', title: 'ESG Lead' },
-  { id: 'partner', name: 'Eleanor Bishop', title: 'Partner / Deal Sponsor' }
+  { id: 'partner', name: 'Eleanor Shellstrop', title: 'Partner / Deal Sponsor' }
 ];
 
 export const mdName = (id) => (MD_OPTIONS.find((m) => m.id === id) || {}).name || 'Unassigned';

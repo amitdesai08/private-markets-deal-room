@@ -61,10 +61,26 @@ const OVERCONFIDENCE_CAVEAT = '\n\n_Language implying certainty was detected in 
 const OVERCONFIDENT_RE = /\b(guaranteed?|risk-?free|no risk|zero risk|certain to|will (?:definitely|certainly)|assured returns?|cannot fail|no downside)\b/i;
 function flagOverconfidence(md) { return OVERCONFIDENT_RE.test(String(md || '')); }
 
+// House style, appended to every system prompt. The model was re-denominating dollar
+// figures into euros ("QoE supports EUR 46M LTM EBITDA" against a record that says
+// $46M) and citing its own plumbing inline -- "(mcp_dealroom.get_deal;
+// mcp_dealroom.get_ic_readiness)" -- on the one screen a buyer is actually shown in a
+// demo. Every deterministic surface in the product obeys these rules; the assistant
+// was the only place they leaked.
+const HOUSE_STYLE = [
+  'HOUSE STYLE, no exceptions:',
+  '- All figures are US dollars. Never emit a euro, sterling, yen or franc symbol. Use $ only.',
+  '- Never mention, name or cite an internal tool, function or system. No "mcp_", no "get_deal", no parenthetical tool lists. Cite the human source instead ("the deal record", "the QoE", "the debt commitment").',
+  '- British spelling: analyse, normalise, recognised, artefact, programme.',
+  '- Use the profession\'s terms: MOIC (not MoIC), IC papers (not artifacts), workstream (not lane), data room, QoE, LP/GP, DD.',
+  '- Never assert a figure the record does not carry. Hedge instead.',
+].join('\n');
+
 const SYSTEM = `You are the Deal Orchestrator for "The Deal Room", an AI workspace for a private-equity firm.
 You draft concise, decision-grade content for an Investment Committee.
 Rules: be specific and quantitative; ground every figure in the provided record; never invent precise numbers that are not supported — hedge instead.
 Write in tight markdown with short paragraphs and bullets. End drafts with a "Sources:" line citing the record.
+${HOUSE_STYLE}
 ${INJECTION_GUARD}`;
 
 // Per-action seeded fallbacks (used in demo mode or if the live call fails).
@@ -265,7 +281,7 @@ function stepMock(deal, step) {
     D2: `**${deal.company} — diligence in progress**\n\nThree workstreams running in parallel on the shared record:\n\n- **Commercial:** format growth 5.4% vs 3.1% market; pricing power validated.\n- **Tech / AI:** rich but siloed data — lakehouse is the gating investment.\n- **Operations:** tariff-exposed inputs; dual-sourcing halves EBITDA sensitivity.\n\nSources: Commercial / Tech-AI / Ops DD.`,
     D3: `**${deal.company} — IC memo (synthesised)**\n\n**Recommendation:** proceed at ${entry}, subject to QoE and the data-foundation capex plan.\n\n- **Thesis:** ${deal.thesis.split('.')[0]}.\n- **Returns:** ~2.4x / 23% IRR over a 5-yr hold.\n- **Value plan:** ~230 bps margin uplift.\n- **Risks:** data readiness, integration, tariff — each mitigated.\n\nSources: CIM, diligence workstreams, deal model.`,
     D4: `**${deal.company} — approval & execution**\n\n**IC outcome: APPROVED** with conditions.\n\n- ✅ SFDR / ILPA checks cleared.\n- ✅ CRM updated with decision + conditions.\n- ✅ Next steps (SPA, financing) triggered.\n\nSources: IC memo, Compliance tracker.`,
-    D5: `**${deal.company} — archived**\n\nDeal closed out with a full, lineage-tracked record.\n\n- ✅ Data room archived to SharePoint.\n- ✅ Purview audit trail sealed (documents, decisions, lineage).\n- ✅ Post-close monitoring handed to the covenant agent.\n\nSources: SharePoint, Purview.`
+    D5: `**${deal.company} — archived**\n\nDeal closed out with a full, lineage-tracked record.\n\n- ✅ Data room archived to SharePoint.\n- ✅ Retained audit trail sealed (documents, decisions, lineage).\n- ✅ Post-close monitoring handed to the covenant agent.\n\nSources: SharePoint, Purview.`
   };
   return M[step.key] || `${step.title} completed for **${deal.company}**.\n\nSources: Live record.`;
 }

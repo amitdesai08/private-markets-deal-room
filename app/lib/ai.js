@@ -48,6 +48,29 @@ export function getModelInfo() {
   };
 }
 
+// House-style scrubber applied to EVERY model reply, on the way out.
+//
+// A prompt instruction is a request; this is the guarantee. The assistant was
+// printing "(mcp_dealroom.get_deal; mcp_dealroom.get_ic_readiness)" mid-sentence and
+// re-denominating dollar figures into euros -- on the one screen a buyer is actually
+// shown in a demo, and after every deterministic surface in the product had been
+// brought into line. Deal figures are US dollars; internal plumbing has no business
+// on a partner's screen under any circumstances.
+export function houseStyle(md) {
+  if (!md) return md;
+  let s = String(md);
+  // Parenthetical tool citations, e.g. "(mcp_dealroom.get_deal; mcp_x.get_y)".
+  s = s.replace(/\s*\((?:\s*(?:mcp|workiq)_[\w.]+\s*[;,]?)+\)/gi, '');
+  // Any bare internal tool name left in prose.
+  s = s.replace(/\b(?:mcp|workiq)_[\w.]+\b/gi, 'the deal record');
+  // One reporting currency. The records are dollars; a euro sign here is the model's
+  // invention, and an identical numeral under two symbols is worse than a wrong one.
+  s = s.replace(/[\u20ac\u00a3](?=\s?[\d.])/g, '$');
+  // The profession's spellings.
+  s = s.replace(/\bMoIC\b/g, 'MOIC').replace(/\bartifacts?\b/gi, (m) => (m[0] === 'A' ? 'IC papers' : 'IC papers'));
+  return s;
+}
+
 // Optional `dep` overrides the deployment for this call (defaults to the app model).
 export async function complete({ system, user, maxTokens = 700, temperature = 0.4, deployment: dep = deployment }) {
   const c = clientFor(dep);
@@ -66,5 +89,5 @@ export async function complete({ system, user, maxTokens = 700, temperature = 0.
       }
     : { model: dep, messages, temperature, max_tokens: maxTokens };
   const resp = await c.chat.completions.create(params);
-  return resp.choices?.[0]?.message?.content?.trim() || null;
+  return houseStyle(resp.choices?.[0]?.message?.content?.trim() || null);
 }

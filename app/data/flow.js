@@ -199,11 +199,11 @@ export const STEPS = [
     title: 'Archive',
     why: 'A complete, audit-ready record that protects the firm long after close.',
     what: 'The team archives the deal documents with a full, lineage-tracked audit trail for the regulated record.',
-    agent: 'Records & Compliance agents',
+    agent: 'Records & compliance checks',
     inputs: ['Approved memo', 'All deal artifacts'],
-    produces: ['Archived data room', 'Purview audit trail'],
+    produces: ['Archived data room', 'Retained audit trail'],
     m365: ['SharePoint', 'Purview'],
-    m365Action: 'Archive to SharePoint with a Purview audit trail',
+    m365Action: 'Archive to SharePoint with a Retained audit trail',
     owner: 'Analyst',
     actionLabel: 'Archive with full audit trail',
     panel: 'audit'
@@ -234,7 +234,7 @@ export const STEPS = [
     inputs: ['Final structure', 'Diligence findings', 'Draft SPA'],
     produces: ['Signed SPA', 'Reps & warranties schedule', 'Conditions precedent (CP) list'],
     m365: ['Word', 'Teams', 'SharePoint', 'Purview'],
-    m365Action: 'Co-author and redline the SPA in Word with a Purview audit trail',
+    m365Action: 'Co-author and redline the SPA in Word with a Retained audit trail',
     owner: 'General Counsel',
     actionLabel: 'Negotiate & sign the SPA',
     isGate: true

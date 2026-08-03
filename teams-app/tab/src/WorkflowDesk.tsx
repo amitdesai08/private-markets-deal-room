@@ -38,8 +38,11 @@ type Desk = {
 
 type Filter = 'all' | 'pending' | 'inProgress' | 'atRisk' | 'completed' | 'mine';
 
+// "Due: Wed, Aug 5" makes a partner work out which August, and reads US-first in a
+// product that is otherwise UK-format throughout. A due date is the one field on this
+// screen that has to be unambiguous.
 const shortDate = (v?: string | null) =>
-  v ? new Date(v).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) : 'no date';
+  v ? new Date(v).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'no date';
 
 export default function WorkflowDesk({
   dealId, onAsk,
@@ -123,7 +126,7 @@ export default function WorkflowDesk({
           <h3>Where the deal has got to</h3>
           <Tag kind="new" />
           <span className="spacer" />
-          <span className="chip">{data.counts.completed} of {data.counts.all} steps</span>
+          <span className="chip">{data.counts.completed} of {data.counts.all} steps completed</span>
           <button className="btn link compact" onClick={load}>↻ Refresh</button>
           <button className="btn link compact" onClick={() => setEvidence((v) => !v)}>🔍 Evidence</button>
         </div>

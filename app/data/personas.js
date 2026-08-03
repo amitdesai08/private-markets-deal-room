@@ -69,7 +69,7 @@ export const personas = [
   },
   {
     id: 'partner',
-    name: 'Eleanor Bishop',
+    name: 'Eleanor Shellstrop',
     title: 'Partner / MD — Deal Sponsor',
     short: 'Partner',
     color: '#b91c1c',

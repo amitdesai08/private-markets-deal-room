@@ -1625,7 +1625,7 @@ api.get('/demo-profiles', (_req, res) => res.json(describeDemoProfiles()));
 // Demo "view as" — the profile a real person is currently acting as.
 //
 // The tab's switcher was per-request (an x-dr-as header), which the CHANNEL BOT never
-// sees: a presenter could pick "Eleanor Bishop, Partner", ask the bot a question in a
+// sees: a presenter could pick "Eleanor Shellstrop, Partner", ask the bot a question in a
 // channel, and get their own answer back. Recording the choice here lets both surfaces
 // agree, because both already go through this process and this one runs single-replica.
 //
