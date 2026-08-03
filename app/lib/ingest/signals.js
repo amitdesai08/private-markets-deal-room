@@ -112,7 +112,7 @@ function enrich(name, text) {
   return { sector: guessSector(`${name} ${text}`), hq: '—', summary: '' };
 }
 
-// Parse one Graph message into a normalized email signal item (+ company).
+// Parse one Graph message into a normalised email signal item (+ company).
 export function parseMessage(msg) {
   const lines = bodyText(msg);
   const sig = parseSignature(lines);

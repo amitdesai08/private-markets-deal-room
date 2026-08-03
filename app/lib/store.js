@@ -839,7 +839,7 @@ export async function searchMoreNews({ focus } = {}) {
   } catch (err) {
     return { source: 'fallback', error: String(err?.message || err), ...findMoreNews() };
   }
-  // Entity resolution: match by a normalized key (strip legal suffixes,
+  // Entity resolution: match by a normalised key (strip legal suffixes,
   // parenthetical aliases, and punctuation) so re-discovered companies merge
   // instead of creating duplicate profiles. De-dupes against the desk (which is
   // rehydrated from Cosmos at boot) and within the incoming batch.
@@ -868,7 +868,7 @@ export async function searchMoreNews({ focus } = {}) {
   };
 }
 
-// Normalized entity-resolution key: lowercase, drop parenthetical aliases and
+// Normalised entity-resolution key: lowercase, drop parenthetical aliases and
 // anything after a slash, strip common legal/entity suffixes and punctuation.
 const LEGAL_SUFFIXES = /\b(plc|inc|ltd|llc|lp|llp|gmbh|ag|sa|sas|sarl|nv|bv|spa|srl|as|ab|oyj|oy|aps|kg|co|corp|corporation|company|group|holding|holdings|international|global|the)\b/g;
 function entityKey(name) {
@@ -1694,12 +1694,20 @@ export function getStage1Funnel() {
     // The words a sourcing analyst uses. "Gate-ready" and "Screening Gate" were the
     // workflow model showing through on the tile a partner glances at; the O-codes
     // stay beside them because a code next to a word is a cross-reference.
+    //
+    // When the numbers are inferred from the deals, only the ends of the funnel are
+    // knowable: every deal was sourced, and some are still awaiting a decision. Filling
+    // the middle with the same total claimed this fund shortlists 100% of everything it
+    // looks at, which an LP reads as no screening discipline at all. Say "not tracked".
     funnel: [
       { key: 'O1', step: 'Deal sourcing', label: 'Sourced', count: fromDeals ? nDeals : reachedAtLeast(2), active: activeAt('O2') },
-      { key: 'O2', step: 'Auto screen', label: 'Screened', count: fromDeals ? nDeals : reachedAtLeast(3), active: activeAt('O2') },
-      { key: 'O3', step: 'Shortlisting', label: 'Shortlisted', count: fromDeals ? nDeals : reachedAtLeast(4), active: activeAt('O3') },
+      { key: 'O2', step: 'Screening', label: 'Screened', count: fromDeals ? null : reachedAtLeast(3), active: activeAt('O2') },
+      { key: 'O3', step: 'Shortlisting', label: 'Shortlisted', count: fromDeals ? null : reachedAtLeast(4), active: activeAt('O3') },
       { key: 'O4', step: 'Go / no-go', label: 'Awaiting decision', count: fromDeals ? awaiting : reachedAtLeast(5), active: activeAt('O4') }
-    ]
+    ],
+    funnelNote: fromDeals
+      ? 'Screening and shortlist yield are not tracked in this instance — nothing has been screened through it yet. Sourced and awaiting-decision are counted from the deals themselves.'
+      : null
   };
 }
 
@@ -2440,7 +2448,7 @@ export function snapshotAssumptions(id, { label, by } = {}) {
     const figures = currentAssumptions(deal);
     const at = new Date().toISOString();
     deal.assumptionSnapshots = deal.assumptionSnapshots || [];
-    const snap = { label: label || `IC draft — ${new Date().toLocaleDateString()}`, at, by: by || null, figures };
+    const snap = { label: label || `IC draft — ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`, at, by: by || null, figures };
     deal.assumptionSnapshots.push(snap);
     deal.activity.unshift({ actor: by || 'Analyst', action: `Snapshotted assumptions: "${snap.label}"`, when: at });
     return { snapshot: snap, event: 'assumptions-snapshotted', detail: { label: snap.label } };

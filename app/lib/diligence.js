@@ -58,7 +58,7 @@ function dealAsCandidate(deal) {
 
 // The standard confirmatory-DD workstreams + the adviser a firm engages for each.
 const WORKSTREAMS = [
-  { key: 'financial', label: 'Financial / Quality of Earnings', adviser: 'Big-4 QoE (Deloitte / PwC / EY / KPMG)', scope: 'Normalize EBITDA, validate addbacks, revenue quality, NWC peg, net-debt items.', priorityBase: 5 },
+  { key: 'financial', label: 'Financial / Quality of Earnings', adviser: 'Big-4 QoE (Deloitte / PwC / EY / KPMG)', scope: 'Normalise EBITDA, validate addbacks, revenue quality, NWC peg, net-debt items.', priorityBase: 5 },
   { key: 'commercial', label: 'Commercial DD', adviser: 'Strategy consultant (Bain / BCG / L.E.K. / OC&C)', scope: 'Market size & growth, competitive position, customer concentration, voice-of-customer, pricing.', priorityBase: 5 },
   { key: 'legal', label: 'Legal DD', adviser: 'Deal counsel (Kirkland / Goodwin / DLA Piper)', scope: 'Corporate, material contracts, change-of-control, litigation, IP, employment, regulatory.', priorityBase: 4 },
   { key: 'tax', label: 'Tax DD & structuring', adviser: 'Tax adviser (Big-4 / RSM)', scope: 'Income + non-income taxes (sales/use, employment), NOLs, exposures, acquisition structure.', priorityBase: 3 },
@@ -282,7 +282,7 @@ export function buildFinalMemoBase(deal, { findings } = {}) {
     financials: {
       revenue: f.revenue, ebitda: f.ebitda, ebitdaMargin: f.ebitdaMargin,
       adjustedEbitda: round(f.ebitda * (f.ebitdaMargin < 15 ? 0.88 : 0.94)),
-      note: 'Adjusted EBITDA per QoE (normalized add-backs); the LBO is modelled off the adjusted figure.'
+      note: 'Adjusted EBITDA per QoE (normalised add-backs); the LBO is modelled off the adjusted figure.'
     },
     returns,
     synthesis,
@@ -546,9 +546,9 @@ export function buildRiskRegister(deal) {
     headline: counts.stopper
       ? `${counts.stopper} deal-stopper open — resolve or walk.`
       : counts.reprice
-        ? `${counts.reprice} repricing risk(s) to reflect before signing.`
+        ? `${counts.reprice} repricing risks to reflect before signing.`
         : risks.length
-          ? `${risks.length} open risk(s) tracked; none deal-stopping.`
+          ? `${risks.length} open risks tracked; none deal-stopping.`
           : 'No open risks recorded — run the diligence lanes.',
   };
 }
@@ -573,7 +573,7 @@ export function buildIoi(deal) {
     type: 'Non-binding Indication of Interest',
     valuation: { low: evLow, mid: evMid, high: evHigh, basis: `${r.entryMultiple}x EV/EBITDA on ~${money(f.ebitda)} adjusted EBITDA (cash-free / debt-free).` },
     structure: [
-      { term: 'Consideration', detail: 'All-cash on a cash-free / debt-free basis with a normalized NWC peg.' },
+      { term: 'Consideration', detail: 'All-cash on a cash-free / debt-free basis with a normalised NWC peg.' },
       { term: 'Financing', detail: `Sponsor equity + ~${r.leverage} senior leverage; no financing contingency.` },
       { term: 'Rollover', detail: founder ? 'Meaningful management/founder rollover encouraged.' : 'Management rollover / incentive plan post-close.' },
     ],

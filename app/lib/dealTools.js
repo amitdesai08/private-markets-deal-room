@@ -515,7 +515,7 @@ export const TOOL_DESCRIPTIONS = {
     'authorized, stage-valid moves.',
   get_ic_readiness:
     'Get the IC Readiness board for a deal — the decision-grade answer to the seven questions the ' +
-    'Investment Committee asks (required artifacts complete? blocking workstreams? changed assumptions? ' +
+    'Investment Committee asks (required papers complete? blocking workstreams? changed assumptions? ' +
     'unresolved risks? supporting sources? exact IC ask? conditions to approve?) plus an overall ' +
     'READY / CONDITIONAL / NOT-READY verdict, grounded in real Fabric comparable deals and IC precedents.',
   get_returns:

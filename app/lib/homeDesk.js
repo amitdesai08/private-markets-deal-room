@@ -264,7 +264,7 @@ function assessLane(deal, raw, lanes, laneLabels) {
   const highIssues = openIssues.filter((i) => /high|critical/i.test(String(i.severity || '')));
 
   // Same correction as in assess(): `icPending` is false the moment a deal reaches D4,
-  // the committee step itself, so a lane owner with open work on a deal sitting at the
+  // the committee step itself, so a workstream lead with open work on a deal sitting at the
   // gate would lose "and committee is 4 days out" from their row and drop a rank on the
   // day it matters most. This is inert on today's seed only because the one D4 deal has
   // no open lane; it is not inert in general.
@@ -432,7 +432,7 @@ function portfolioCommitments(deals, rawFor, limit = 6, laneLabels = []) {
     // it is an unknown one.
     if (d.accessLevel !== 'full') continue;
     let corpus;
-    // The corpus is composed from the FULL deal record (lane owners, sponsor,
+    // The corpus is composed from the FULL deal record (workstream leads, sponsor,
     // dates); a list summary has those stripped, which would leave every
     // commitment attributed to a lane instead of a person.
     try { corpus = corpusForDeal(rawFor(d) || d); } catch { continue; }
@@ -476,7 +476,7 @@ function portfolioCommitments(deals, rawFor, limit = 6, laneLabels = []) {
 
 // ---------------------------------------------------------------------------
 // `rawFor` resolves a list summary back to its full deal record, which the Work IQ
-// corpus needs (lane owners and sponsors are stripped from summaries). It defaults to
+// corpus needs (workstream leads and sponsors are stripped from summaries). It defaults to
 // the identity function so the builder stays testable with plain objects.
 export function buildHomeDesk(deals = [], { role = null, roleLabel = null, persona = null, rawFor = (d) => d } = {}) {
   const list = Array.isArray(deals) ? deals.filter(Boolean) : [];
@@ -574,7 +574,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   // ready to table is the same error as reporting an origination target as failing to
   // reach one — the tile would have read 5 when the true answer was 1.
   //
-  // These are portfolio facts and are computed for every seat, because a lane owner is
+  // These are portfolio facts and are computed for every seat, because a workstream lead is
   // still entitled to the state of the deals they work on. What changes per seat is
   // which of them is put on the front page.
   const verdicts = list.map((d) => {
@@ -919,7 +919,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   }
 
   // ---- the tiles -----------------------------------------------------------
-  // A lane owner leads with their lane; a committee seat leads with the gate; a
+  // A workstream lead leads with their lane; a committee seat leads with the gate; a
   // sourcing seat leads with what is early. Every tile is a count over the deals this
   // caller can see, so no tile can describe a deal they cannot open.
   const portfolioKpis = [

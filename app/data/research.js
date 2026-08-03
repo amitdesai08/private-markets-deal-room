@@ -23,7 +23,7 @@ export const researchByCompany = {
     thesis: 'Attractive pond (structural convenience growth) and a strong horse (#2 with the biggest private-label margin gap to close).',
     sector: {
       name: 'European convenience & private-label grocery',
-      market: '€310B',
+      market: '$310B',
       growth: '3.1% CAGR (convenience format +5.4%)',
       horizon: '5-yr',
       outlook: 'positive',
@@ -53,7 +53,7 @@ export const researchByCompany = {
     thesis: 'High-growth pond (grid modernisation) with a genuinely defensible horse (proprietary sensor data), but early-stage.',
     sector: {
       name: 'Grid-optimisation / energy-transition software',
-      market: '€14B',
+      market: '$14B',
       growth: '18–22% CAGR',
       horizon: '5-yr',
       outlook: 'positive',
@@ -83,7 +83,7 @@ export const researchByCompany = {
     thesis: 'Improving pond (reshoring tailwind) and a solid niche horse; customer concentration is the one thing to underwrite.',
     sector: {
       name: 'European precision components',
-      market: '€48B',
+      market: '$48B',
       growth: '4–6% CAGR',
       horizon: '5-yr',
       outlook: 'positive',
@@ -111,7 +111,7 @@ export const researchByCompany = {
     thesis: 'Scarce-capacity pond with pricing power; sponsor-era leverage is the underwriting question, not the demand.',
     sector: {
       name: 'Temperature-controlled logistics (cold-chain 3PL)',
-      market: '€26B',
+      market: '$26B',
       growth: '6–8% CAGR',
       horizon: '5-yr',
       outlook: 'positive',
@@ -139,7 +139,7 @@ export const researchByCompany = {
     thesis: 'Weakening pond (DTC normalisation) and a losing horse — this is a special-situations / value case, not a quality compounder.',
     sector: {
       name: 'DTC home goods',
-      market: '€90B',
+      market: '$90B',
       growth: '0–1% CAGR (post-COVID normalisation)',
       horizon: '3-yr',
       outlook: 'caution',
@@ -167,7 +167,7 @@ export const researchByCompany = {
     thesis: 'Flat-to-soft pond (beer volumes) offset by a strong regional-brand horse; premiumisation is the value lever.',
     sector: {
       name: 'European beer & regional brewing',
-      market: '€120B',
+      market: '$120B',
       growth: '0–2% CAGR (premium segment resilient)',
       horizon: '5-yr',
       outlook: 'neutral',
@@ -195,7 +195,7 @@ export const researchByCompany = {
     thesis: 'Strong tailwind pond (plastics substitution) and an ESG-aligned, improving horse — a clean quality profile.',
     sector: {
       name: 'Sustainable fibre-based packaging',
-      market: '€38B',
+      market: '$38B',
       growth: '7–9% CAGR',
       horizon: '5-yr',
       outlook: 'positive',

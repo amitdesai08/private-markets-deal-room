@@ -35,8 +35,8 @@ export const seedDeals = [
     thesis:
       'Buy-and-build of a #2 Nordic convenience grocer with a proven private-label margin engine and an under-monetised loyalty dataset. Thesis: accelerate own-brand penetration and stand up an AI-driven assortment & pricing capability to close a 230 bps EBITDA-margin gap vs. the regional leader.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '€1.94B', source: 'CIM p.12', confidence: 'high' },
-      { label: 'EBITDA (LTM)', value: '€148M', source: 'CIM p.14 / QoE draft', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$1.94B', source: 'CIM p.12', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$148M', source: 'CIM p.14 / QoE draft', confidence: 'high' },
       { label: 'EBITDA margin', value: '7.6%', source: 'Derived', confidence: 'high' },
       { label: 'Entry multiple', value: '8.4x EV/EBITDA', source: 'Deal model v3', confidence: 'medium' },
       { label: 'Private-label mix', value: '21%', source: 'CIM p.31', confidence: 'high' },
@@ -133,8 +133,8 @@ export const seedDeals = [
     thesis:
       'Carve-out of a fibre-based packaging leader riding the plastics-substitution regulatory wave. Thesis: consolidate fragmented EU converters and re-rate on ESG-aligned demand, with tariff-exposed input costs the central diligence question.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '€512M', source: 'Teaser', confidence: 'medium' },
-      { label: 'EBITDA (LTM)', value: '€61M', source: 'Teaser', confidence: 'medium' },
+      { label: 'Revenue (LTM)', value: '$512M', source: 'Teaser', confidence: 'medium' },
+      { label: 'EBITDA (LTM)', value: '$61M', source: 'Teaser', confidence: 'medium' },
       { label: 'EBITDA margin', value: '11.9%', source: 'Derived', confidence: 'medium' }
     ],
     workstreams: [
@@ -186,7 +186,7 @@ export const seedDeals = [
     thesis:
       'High-growth vertical-SaaS provider with an emerging AI product line. Thesis: a platform asset to anchor a digital value-creation roadmap; diligence confirmed net-revenue retention and proprietary-data defensibility — now synthesising the IC memo.',
     keyFigures: [
-      { label: 'ARR', value: '€58M', source: 'QoE', confidence: 'high' },
+      { label: 'ARR', value: '$58M', source: 'QoE', confidence: 'high' },
       { label: 'Growth (YoY)', value: '41%', source: 'QoE', confidence: 'high' },
       { label: 'NRR', value: '118%', source: 'Commercial DD', confidence: 'medium' }
     ],
@@ -249,8 +249,8 @@ export const seedDeals = [
     thesis:
       'Temperature-controlled logistics roll-up benefiting from pharma & grocery e-commerce. Thesis: scarce cold-chain capacity with proven pricing power and resilient utilisation — memo complete, routing to IC for approval.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '€288M', source: 'QoE', confidence: 'high' },
-      { label: 'EBITDA (LTM)', value: '€46M', source: 'QoE', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$288M', source: 'QoE', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$46M', source: 'QoE', confidence: 'high' },
       { label: 'EBITDA margin', value: '16.0%', source: 'QoE', confidence: 'high' }
     ],
     workstreams: [
@@ -263,7 +263,7 @@ export const seedDeals = [
         { text: 'Utilisation resilient at 87% through the cycle; pricing power validated across pharma contracts.', severity: 'positive', source: 'Commercial DD' }
       ] },
       { lane: 'financial', owner: 'finance-md', status: 'complete', progress: 100, findings: [
-        { text: 'QoE supports €46M LTM EBITDA; €2.1M of add-backs disallowed, reflected in the 9.2x entry.', severity: 'medium', source: 'Financial / QoE' },
+        { text: 'QoE supports $46M LTM EBITDA; $2.1M of add-backs disallowed, reflected in the 9.2x entry.', severity: 'medium', source: 'Financial / QoE' },
         { text: 'Working-capital seasonality is real but self-funding across the year; no incremental facility required.', severity: 'positive', source: 'Financial / QoE' }
       ] },
       { lane: 'legal', owner: 'legal-md', status: 'complete', progress: 100, findings: [
@@ -325,8 +325,8 @@ export const seedDeals = [
     thesis:
       'Founder-succession buyout of a precision-components supplier riding reshoring demand. IC approved; deal archived with a full lineage-tracked record.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '€162M', source: 'QoE', confidence: 'high' },
-      { label: 'EBITDA (LTM)', value: '€27M', source: 'QoE', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$162M', source: 'QoE', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$27M', source: 'QoE', confidence: 'high' },
       { label: 'Entry multiple', value: '7.1x EV/EBITDA', source: 'Deal model', confidence: 'high' }
     ],
     workstreams: [
@@ -646,8 +646,8 @@ export const demoStageDeals = [
     thesis:
       'Buy-and-build of a #2 European diagnostics lab network, approved at IC. Post-approval execution: debt package secured at 4.1x, SPA in signing with a locked-box mechanism; close targeted in three weeks.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '€418M', source: 'QoE final', confidence: 'high' },
-      { label: 'EBITDA (LTM)', value: '€92M', source: 'QoE final', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$418M', source: 'QoE final', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$92M', source: 'QoE final', confidence: 'high' },
       { label: 'Entry multiple', value: '7.9x EV/EBITDA', source: 'Signed structure', confidence: 'high' },
       { label: 'Leverage', value: '4.1x net debt / EBITDA', source: 'Debt commitment', confidence: 'high' }
     ],
@@ -697,14 +697,14 @@ export const demoStageDeals = [
     thesis:
       'Portfolio company, closed ~5 months ago. Value-creation plan in flight: network optimisation, an AI routing/pricing capability and a bolt-on pipeline to re-rate the 3PL platform.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '€1.12B', source: 'Board pack Q2', confidence: 'high' },
-      { label: 'EBITDA (LTM)', value: '€134M', source: 'Board pack Q2', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$1.12B', source: 'Board pack Q2', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$134M', source: 'Board pack Q2', confidence: 'high' },
       { label: 'EBITDA vs entry', value: '+9.4%', source: 'Value-creation tracker', confidence: 'high' },
       { label: 'Bolt-ons closed', value: '2 of 5', source: 'Pipeline tracker', confidence: 'high' }
     ],
     workstreams: [
       { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [
-        { text: 'Cross-sell into the acquired base is tracking ahead of plan (+€14M annualised).', severity: 'positive', source: 'VC lever 2' }
+        { text: 'Cross-sell into the acquired base is tracking ahead of plan (+$14M annualised).', severity: 'positive', source: 'VC lever 2' }
       ] },
       { lane: 'techai', owner: 'ai-md', status: 'in_progress', progress: 65, findings: [
         { text: 'AI routing pilot live in 3 hubs; ~7% cost-per-drop reduction, rolling to the network.', severity: 'positive', source: 'VC lever 3' }
@@ -797,8 +797,8 @@ export const demoStageDeals = [
     thesis:
       'Confidential public-to-private of a UK-listed payments processor under a standstill/NDA. Buy-and-build thesis in embedded finance; disciplined take-private before a rule-2.7 announcement.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '£612M', source: 'Broker model', confidence: 'medium' },
-      { label: 'EBITDA (LTM)', value: '£131M', source: 'Broker model', confidence: 'medium' },
+      { label: 'Revenue (LTM)', value: '$612M', source: 'Broker model', confidence: 'medium' },
+      { label: 'EBITDA (LTM)', value: '$131M', source: 'Broker model', confidence: 'medium' },
       { label: 'Take-private premium', value: '~34%', source: 'Offer model v1', confidence: 'medium' },
       { label: 'Net leverage at close', value: '4.1x', source: 'Financing plan', confidence: 'medium' }
     ],
@@ -853,9 +853,9 @@ export const demoStageDeals = [
     thesis:
       'Confidential corporate carve-out of a specialty-chemicals division. Complex transitional services (TSA) and clean-team protocol; standalone value-creation on separation and margin recovery.',
     keyFigures: [
-      { label: 'Revenue (carve-out)', value: '€840M', source: 'Carve-out P&L', confidence: 'high' },
-      { label: 'Adj. EBITDA', value: '€142M', source: 'Carve-out P&L', confidence: 'high' },
-      { label: 'One-time separation cost', value: '€47M', source: 'Separation plan', confidence: 'medium' },
+      { label: 'Revenue (carve-out)', value: '$840M', source: 'Carve-out P&L', confidence: 'high' },
+      { label: 'Adj. EBITDA', value: '$142M', source: 'Carve-out P&L', confidence: 'high' },
+      { label: 'One-time separation cost', value: '$47M', source: 'Separation plan', confidence: 'medium' },
       { label: 'TSA duration', value: '18 months', source: 'TSA schedule', confidence: 'high' }
     ],
     workstreams: [

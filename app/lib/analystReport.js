@@ -166,7 +166,7 @@ function fallbackReport(target, filings, kind, quality) {
 }
 
 // Generate a grounded analyst note for a target. `filings`/`kind`/`quality` are the
-// already-fetched detail inputs. Returns a normalized report object (never throws).
+// already-fetched detail inputs. Returns a normalised report object (never throws).
 export async function generateAnalystReport(target, { filings = [], kind = 'none', quality = null } = {}) {
   let parsed = null;
   let modelError = null;

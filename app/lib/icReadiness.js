@@ -2,7 +2,7 @@
 // decision-grade board. Given a live deal record, computeICReadiness answers the
 // seven questions an Investment Committee actually asks before it will convene:
 //
-//   1. Required artifacts complete?      -> requiredArtifacts[]
+//   1. Required papers complete?      -> requiredArtifacts[]
 //   2. Which workstreams are blocking?   -> blockingWorkstreams[]
 //   3. Which assumptions changed since    -> changedAssumptions[]
 //      the last IC draft?
@@ -33,7 +33,7 @@ const BLOCKING_SEVERITIES = new Set(['risk', 'negative']);
 
 const laneLabel = (l) => LANE_LABEL[l] || l;
 
-// ---- 1. Required artifacts -------------------------------------------------
+// ---- 1. Required papers -------------------------------------------------
 function requiredArtifacts(deal) {
   const arts = deal.artifacts || {};
   // `artifacts` is the AI generator's CACHE — it is populated when somebody presses
@@ -55,7 +55,7 @@ function requiredArtifacts(deal) {
     // now read out verbatim in the gating sentence on the home queue and the deal row,
     // where "D2" means nothing to a partner.
     { key: 'D1', label: 'Diligence plan', complete: onRecord('D1'), detail: onRecord('D1') ? 'Plan on record.' : 'Not yet on record.' },
-    { key: 'D2', label: 'Findings / red-flag report', complete: onRecord('D2'), detail: onRecord('D2') ? 'Findings synthesized.' : 'Not yet on record.' },
+    { key: 'D2', label: 'Findings / red-flag report', complete: onRecord('D2'), detail: onRecord('D2') ? 'Findings synthesised.' : 'Not yet on record.' },
     { key: 'D3', label: 'Final IC memo', complete: onRecord('D3'), detail: onRecord('D3') ? 'Memo drafted.' : 'Not yet on record.' },
     { key: 'memo', label: 'IC memo sections approved', complete: memo.length > 0 && memoApproved === memo.length, detail: `${memoApproved}/${memo.length} sections approved.` },
     { key: 'recommendation', label: 'Recommendation drafted', complete: !!recSection && recSection.status !== 'empty', detail: recSection ? `Status: ${recSection.status}.` : 'No recommendation section.' },
@@ -201,7 +201,7 @@ export function dealPhase(deal) {
   // D5 is the diligence stage's ARCHIVE / close-out step, which a deal only reaches after
   // the committee has sat. Reading it as diligence made `baltic-precision` — stage D5,
   // status `signing`, thesis "IC approved; deal archived" — report "IC-ready: required
-  // artifacts complete, no blocking workstreams". A signed and archived deal presented as
+  // papers complete, no blocking workstreams". A signed and archived deal presented as
   // ready to be tabled. The regex above was written for E and V and simply did not reach it.
   if (/^d5/i.test(stage)) return 'post-committee';
   // The status field can also say it outright, whatever the stage letter is.
@@ -209,7 +209,7 @@ export function dealPhase(deal) {
   return 'diligence';
 }
 
-// Gating strings NAME what is outstanding. A bare count ("3 required artifacts
+// Gating strings NAME what is outstanding. A bare count ("3 required papers
 // incomplete") tells a partner there is a problem without telling them which one, so
 // the first thing they do is open the deal to find out — which is the click the whole
 // surface exists to save.
@@ -287,7 +287,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
     headline = `IC-ready, subject to ${openConditions.length} condition(s) to close.`;
   } else {
     state = 'READY';
-    headline = 'IC-ready — required artifacts complete, no blocking workstreams or unresolved risks.';
+    headline = 'IC-ready — required papers complete, no blocking workstreams or unresolved risks.';
   }
   return { state, headline, gating, openConditions: openConditions.length, phase };
 }

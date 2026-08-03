@@ -652,12 +652,12 @@ export async function buildIcDeckPptx(deal, extras = {}) {
       const open = (artifacts.items || []).filter((a) => !a.complete);
       const gating = verdict.gating || [];
       const list = open.length ? open.map((a) => a.label) : gating;
-      return list.length ? list.slice(0, 6).map((t) => bulletPara(t, { size: 13 })) : [{ text: 'All required artifacts complete \u2014 ready for committee.', size: 13, color: P_GREEN }];
+      return list.length ? list.slice(0, 6).map((t) => bulletPara(t, { size: 13 })) : [{ text: 'All required papers complete \u2014 ready for committee.', size: 13, color: P_GREEN }];
     })() },
     { kind: 'rect', x: 0.64, y: 5.85, w: 12.05, h: 0.9, fill: 'F4F7FB' },
     { kind: 'text', x: 0.85, y: 5.98, w: 11.6, h: 0.7, valign: 'ctr', paras: [{ runs: [
       { text: 'Recommendation:  ', size: 13, bold: true, color: P_INK },
-      { text: (rec && rec.content) ? String(rec.content).slice(0, 300) : (returns.meetsHurdle && verdict.state === 'READY' ? 'Proceed to IC \u2014 returns clear the hurdle and required artifacts are complete.' : verdict.state === 'NOT-READY' ? 'Not yet ready \u2014 close the outstanding items above before scheduling IC.' : 'Advance to IC subject to closing the outstanding items above.'), size: 12.5, color: '2B2B2B' },
+      { text: (rec && rec.content) ? String(rec.content).slice(0, 300) : (returns.meetsHurdle && verdict.state === 'READY' ? 'Proceed to IC \u2014 returns clear the hurdle and required papers are complete.' : verdict.state === 'NOT-READY' ? 'Not yet ready \u2014 close the outstanding items above before scheduling IC.' : 'Advance to IC subject to closing the outstanding items above.'), size: 12.5, color: '2B2B2B' },
     ] }] },
   ]);
 

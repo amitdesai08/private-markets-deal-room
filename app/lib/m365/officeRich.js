@@ -61,7 +61,7 @@ const clip = (s, n) => {
   const cut = t.slice(0, n); const sp = cut.lastIndexOf(' ');
   return (sp > n * 0.6 ? cut.slice(0, sp) : cut).replace(/[\s.,;:—–-]+$/, '') + '…';
 };
-// Normalize workstream keys to one consistent label set across every document, so the
+// Normalise workstream keys to one consistent label set across every document, so the
 // two internal taxonomies (e.g. 'tech'/'techai', 'operational'/'operations') never read
 // inconsistently in the memo, models and deck.
 const WS_LABELS = {
@@ -83,7 +83,7 @@ function prettyWorkstream(v) {
   if (/\s/.test(s) || /[A-Z]/.test(s)) return s;
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
-// Normalize status tokens (e.g. 'in_progress') to readable labels.
+// Normalise status tokens (e.g. 'in_progress') to readable labels.
 function prettyStatus(v) {
   if (v == null || v === '') return 'In progress';
   const s = String(v).trim().replace(/[_-]+/g, ' ');
@@ -401,7 +401,7 @@ export async function buildIcMemoDocx(deal, extras = {}) {
     sectionHeading('10. IC readiness'),
     body('This memorandum, together with the accompanying returns and value-creation models, constitutes the draft IC paper and recommendation for this transaction. The checklist below tracks the items still outstanding to reach a formal IC-ready status.'),
     callout(verdict.state || 'PENDING', verdict.headline || `Diligence progress ${pct(deal.readiness)}.`, verdict.state === 'READY' ? GREEN : verdict.state === 'NOT-READY' ? AMBER : ACCENT),
-    ...(outstandingArt.length ? [subHead('Outstanding to reach IC-ready'), dataTable(['Item', 'Status', 'Detail'], outstandingArt.map((a) => [a.label, 'Open', a.detail || '']), [40, 18, 42])] : [body('All required artifacts complete — ready for committee.')]),
+    ...(outstandingArt.length ? [subHead('Outstanding to reach IC-ready'), dataTable(['Item', 'Status', 'Detail'], outstandingArt.map((a) => [a.label, 'Open', a.detail || '']), [40, 18, 42])] : [body('All required papers complete — ready for committee.')]),
     ...(blocking.length ? [subHead('Blocking workstreams'), ...bullets(blocking.map((b) => `${b.label || b.lane || b.name || 'Workstream'}${b.reason ? ` — ${b.reason}` : ''}`))] : []),
 
     sectionHeading('11. Recommendation & IC ask'),
@@ -1089,7 +1089,7 @@ export async function buildIcDeckPptx(deal, extras = {}) {
     { kind: 'text', x: 0.68, y: 2.6, w: 5.8, h: 0.4, paras: [{ text: 'REQUIRED ARTIFACTS', size: 11, bold: true, color: P_ACCENT }] },
     { kind: 'text', x: 0.68, y: 3.0, w: 5.8, h: 3.2, valign: 't', paras: (reqItems.length ? reqItems : [{ label: 'Artifacts populate from the deal.', complete: false }]).slice(0, 7).map((a) => ({ runs: [{ text: (a.complete || MEMO_FULFILS.has(a.key)) ? '✓  ' : '○  ', size: 13, bold: true, color: (a.complete || MEMO_FULFILS.has(a.key)) ? P_GREEN : P_AMBER }, { text: a.label, size: 12.5, color: '2B2B2B' }], spaceAfter: 7 })) },
     { kind: 'text', x: 6.9, y: 2.6, w: 5.8, h: 0.4, paras: [{ text: 'OUTSTANDING FOR IC', size: 11, bold: true, color: P_ACCENT }] },
-    { kind: 'text', x: 6.9, y: 3.0, w: 5.8, h: 2.6, valign: 't', paras: (artifacts.length ? artifacts : ['All required artifacts complete — ready for committee.']).slice(0, 6).map((t) => bulletPara(t, { size: 12.5 })) },
+    { kind: 'text', x: 6.9, y: 3.0, w: 5.8, h: 2.6, valign: 't', paras: (artifacts.length ? artifacts : ['All required papers complete — ready for committee.']).slice(0, 6).map((t) => bulletPara(t, { size: 12.5 })) },
     { kind: 'rect', x: 0.64, y: 6.0, w: 12.05, h: 0.85, fill: 'F4F7FB' },
     { kind: 'rect', x: 0.64, y: 6.0, w: 0.09, h: 0.85, fill: (Number(deal.readiness) || 0) >= 60 ? P_GREEN : P_ACCENT },
     { kind: 'text', x: 0.9, y: 6.12, w: 11.6, h: 0.65, valign: 'ctr', paras: [{ runs: [{ text: 'Recommendation:  ', size: 13, bold: true, color: P_INK }, { text: A.ask, size: 12.5, color: '2B2B2B' }] }] },

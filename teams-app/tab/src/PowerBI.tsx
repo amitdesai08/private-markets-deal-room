@@ -99,7 +99,7 @@ export default function PowerBI({ ssoToken, analytics, pipeline, deals, market, 
               Sign-in to Power BI is required to embed the live report here. Use <b>Open in Power BI</b> above to
               view the full interactive report (Portfolio Overview · Sector &amp; Industry · Pipeline by Stage ·
               Deal Value &amp; Valuation · Time-based metrics). The at-a-glance summary below is generated live from
-              the Deal Room backend.
+              the live deal record.
             </div>
           ) : failed ? (
             // When the embed call failed, `info` stayed null forever - so the branch

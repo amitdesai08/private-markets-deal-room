@@ -24,7 +24,7 @@ export function companyId(input) {
   return `co-${slugify(input.name)}`;
 }
 
-// Build (or normalize) a canonical company document. `patch` may carry any
+// Build (or normalise) a canonical company document. `patch` may carry any
 // subset; unknown fields pass through. Intelligence arrays default to empty.
 export function makeCompany(patch = {}) {
   const now = new Date().toISOString();

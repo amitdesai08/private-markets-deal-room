@@ -1,6 +1,6 @@
 // News Scout — server-side client for the standalone Bing-grounded Foundry agent
 // (deal-room-news-scout). Invokes the agent via the project's OpenAI-compatible
-// Responses API using managed identity, and normalizes its grounded JSON into
+// Responses API using managed identity, and normalises its grounded JSON into
 // the desk-company shape the O1 News & Filings desk renders.
 //
 // gpt-4o is retired in this environment (mid-2026); the agent runs on gpt-5-mini.
@@ -174,7 +174,7 @@ function buildQuery(mandate, focus) {
   ].join(' ');
 }
 
-// Invoke the news scout for the given fund mandate; returns normalized desk
+// Invoke the news scout for the given fund mandate; returns normalised desk
 // companies (may be empty). Throws on hard failure so the caller can fall back.
 export async function scoutNews({ mandate, focus } = {}) {
   if (!newsAgentConfigured()) throw new Error('news agent not configured');

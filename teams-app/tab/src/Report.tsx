@@ -4,7 +4,7 @@
 // portfolio mode summarizes the whole pipeline; ?deal=<id> narrows to one deal.
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
-import { STATUS_TEXT } from './deskUi';
+import { STATUS_TEXT, isPostIC } from './deskUi';
 import type { Analytics, Pipeline, Deal, MarketIntel, BackendConfig } from './types';
 
 function money(n?: number): string {
@@ -16,7 +16,7 @@ function money(n?: number): string {
 
 const TODAY = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 
-export default function Report({ analytics, pipeline, deals, market, config, dealId, canCertify = true }: {
+export default function Report({ pipeline, deals, market, config, dealId, canCertify = true }: {
   analytics: Analytics | null; pipeline: Pipeline | null; deals: Deal[]; market: MarketIntel | null;
   config: BackendConfig | null; dealId?: string;
   // The certify button was always enabled and only revealed "restricted to a Partner
@@ -51,11 +51,27 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
     setCertBusy('archive:' + id); setCertNote('');
     try { const r = await af(`/api/fund/report/certifications/${id}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); if (r.status === 403) setCertNote('Archiving is restricted to a Partner or Administrator.'); else if (r.ok) loadCerts(); } catch { /* ignore */ } finally { setCertBusy(''); }
   }
+  // Every headline number on this page is now derived from the deals THIS reader can
+  // open. It used to mix the two: pipeline value was access-scoped while live deals,
+  // deals in diligence and average readiness came from an unfiltered fund-wide call.
+  // An analyst with four deals therefore read "19 live deals ... $1.8B" in one strip,
+  // on the document the product invites you to certify and send to an LP.
+  const scopedDeals = deals.length;
+  const scopedInDD = deals.filter((d) => /diligence|approval/i.test(`${(d as any).stage || ''} ${(d as any).stageName || ''}`)).length;
+  const scopedPreIC = deals.filter((d) => !isPostIC((d as any).status));
+  const scopedReadiness = scopedPreIC.length
+    ? Math.round(scopedPreIC.reduce((s, d) => s + ((d as any).readiness || 0), 0) / scopedPreIC.length)
+    : 0;
   const comps = market?.comparableDeals || [];
   const precedents = market?.icPrecedents || [];
+  // This document reports the PIPELINE -- live deals, origination, IC readiness. It
+  // does not contain NAV, TVPI, DPI, net IRR or a single owned company; those live on
+  // Fund & Portfolio under "LP report summary". Calling it a Portfolio Report on the
+  // artefact with "Certify for LP use" attached told an LP the GP does not know the
+  // difference between its pipeline and its portfolio.
   const title = focus
     ? `${focus.company} — Deal Report`
-    : `${pipeline?.fundName || 'Deal Room'} — Portfolio Report`;
+    : `${pipeline?.fundName || 'The Deal Room'} — Pipeline Report`;
 
   // LP-grade lineage: every headline metric traces to a source system + as-of date +
   // method.
@@ -74,17 +90,18 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
     : { label: 'Market data: seeded', cls: 'warn' };
   const lineage: { metric: string; value: string; source: string; asOf: string; method: string }[] = focus
     ? [
-        { metric: 'Stage', value: focus.stageName || focus.stage || '—', source: 'Deal Room record', asOf: TODAY, method: 'Current workflow stage of record' },
-        { metric: 'IC readiness', value: `${focus.readiness ?? 0}%`, source: 'IC readiness engine', asOf: TODAY, method: 'Required artifacts + blocking workstreams + open risks' },
-        { metric: 'Days to IC', value: String(focus.daysToIC ?? '—'), source: 'Deal Room record', asOf: TODAY, method: 'Target IC date minus today' },
-        { metric: 'Deal size', value: money(focus.dealSize), source: 'Deal Room record', asOf: TODAY, method: 'Enterprise value on the deal record' },
+        { metric: 'Stage', value: focus.stageName || focus.stage || '—', source: 'Deal record', asOf: TODAY, method: 'Current workflow stage of record' },
+        { metric: 'IC readiness', value: `${focus.readiness ?? 0}%`, source: 'IC readiness board', asOf: TODAY, method: 'Required papers, blocking workstreams and open risks' },
+        { metric: 'Days to IC', value: String(focus.daysToIC ?? '—'), source: 'Deal record', asOf: TODAY, method: 'Target IC date minus today' },
+        { metric: 'Deal size', value: money(focus.dealSize), source: 'Deal record', asOf: TODAY, method: 'Enterprise value on the deal record' },
       ]
     : [
-        { metric: 'Live deals', value: String(analytics?.deals ?? deals.length), source: 'Deal Room store', asOf: TODAY, method: 'Count of active deals in scope' },
-        { metric: 'In diligence', value: String(analytics?.inDiligence ?? 0), source: 'Deal Room store', asOf: TODAY, method: 'Deals in Diligence & Approval stages' },
-        { metric: 'Avg IC readiness', value: `${analytics?.avgReadiness ?? 0}%`, source: 'IC readiness engine', asOf: TODAY, method: 'Mean readiness across live deals' },
-        { metric: 'Pipeline value', value: money(deals.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6), source: 'Deal Room store', asOf: TODAY, method: 'Sum of enterprise values in flight' },
-        { metric: 'Comps · IC precedents', value: `${comps.length} · ${precedents.length}`, source: srcLabel, asOf, method: 'Market comparables & IC precedents' },
+        { metric: 'Live deals', value: String(scopedDeals), source: 'Deal record', asOf: TODAY, method: 'Deals you can open' },
+        { metric: 'In diligence', value: String(scopedInDD), source: 'Deal record', asOf: TODAY, method: 'Deals in Diligence & Approval stages, within your access' },
+        { metric: 'Avg IC readiness (pre-IC deals)', value: `${scopedReadiness}%`, source: 'IC readiness board', asOf: TODAY, method: 'Mean readiness across deals not yet through committee, within your access' },
+        { metric: 'Pipeline value', value: money(deals.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6), source: 'Deal record', asOf: TODAY, method: 'Sum of enterprise values in flight, within your access' },
+        { metric: 'Comparables', value: String(comps.length), source: srcLabel, asOf, method: 'Market comparable transactions' },
+        { metric: 'IC precedents', value: String(precedents.length), source: srcLabel, asOf, method: 'Prior committee decisions in the same sectors' },
       ];
 
   return (
@@ -105,7 +122,7 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>Report certification</div>
-              <div className="rpt-sub">{currentCert ? `Certified ${new Date(currentCert.at).toLocaleString()} · ${currentCert.by}` : 'Draft — not yet certified for LP distribution.'}</div>
+              <div className="rpt-sub">{currentCert ? `Certified ${new Date(currentCert.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${currentCert.by}` : 'Draft — not yet certified for LP distribution.'}</div>
             </div>
             {canCertify
               ? <button className="rpt-print" disabled={!!certBusy} onClick={doCertify}>{certBusy === 'certify' ? 'Certifying…' : '✓ Certify for LP use'}</button>
@@ -120,8 +137,8 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
                   <td>{c.snapshotId}</td>
                   <td><span className={`rpt-mode ${c.state === 'certified' ? 'ok' : 'warn'}`}>{c.state}</span></td>
                   <td>{c.by}</td>
-                  <td>{new Date(c.at).toLocaleDateString()}</td>
-                  <td>{c.state === 'certified' && canCertify ? <button className="rpt-print" style={{ padding: '2px 8px', fontSize: 11 }} disabled={!!certBusy} onClick={() => doArchive(c.snapshotId)}>Archive</button> : (c.archivedAt ? `archived ${new Date(c.archivedAt).toLocaleDateString()}` : '')}</td>
+                  <td>{new Date(c.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                  <td>{c.state === 'certified' && canCertify ? <button className="rpt-print" style={{ padding: '2px 8px', fontSize: 11 }} disabled={!!certBusy} onClick={() => doArchive(c.snapshotId)}>Archive</button> : (c.archivedAt ? `archived ${new Date(c.archivedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : '')}</td>
                 </tr>
               ))}</tbody>
             </table>
@@ -147,9 +164,9 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
         <>
           <section className="rpt-section">
             <div className="rpt-kpis">
-              <div className="rpt-kpi"><div className="v">{analytics?.deals ?? deals.length}</div><div className="l">Live deals</div></div>
-              <div className="rpt-kpi"><div className="v">{analytics?.inDiligence ?? 0}</div><div className="l">In diligence</div></div>
-              <div className="rpt-kpi"><div className="v">{analytics?.avgReadiness ?? 0}%</div><div className="l">Avg IC readiness</div></div>
+              <div className="rpt-kpi"><div className="v">{scopedDeals}</div><div className="l">Live deals</div></div>
+              <div className="rpt-kpi"><div className="v">{scopedInDD}</div><div className="l">In diligence</div></div>
+              <div className="rpt-kpi"><div className="v">{scopedReadiness}%</div><div className="l">Avg IC readiness (pre-IC deals)</div></div>
               <div className="rpt-kpi"><div className="v">{money(deals.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6)}</div><div className="l">Pipeline value</div></div>
               <div className="rpt-kpi"><div className="v">{comps.length}</div><div className="l">Comparables</div></div>
               <div className="rpt-kpi"><div className="v">{precedents.length}</div><div className="l">IC precedents</div></div>
@@ -161,14 +178,14 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
               <h2 className="rpt-h">Origination funnel</h2>
               <div className="rpt-funnel">
                 {pipeline.funnel.map((f) => (
-                  <div key={f.key} className="rpt-fstep"><div className="c">{f.count}</div><div className="fl">{f.label}</div></div>
+                  <div key={f.key} className="rpt-fstep"><div className="c">{f.count == null ? '—' : f.count}</div><div className="fl">{f.label}</div></div>
                 ))}
               </div>
             </section>
           ) : null}
 
           <section className="rpt-section">
-            <h2 className="rpt-h">Pipeline deals <span className="rpt-mut">{deals.length} active</span></h2>
+            <h2 className="rpt-h">Deals in flight <span className="rpt-mut">{deals.length} live · pipeline, not portfolio holdings</span></h2>
             {deals.length === 0 ? (
               <p className="rpt-note">No deals are live yet. Sourced candidates that pass screening appear here.</p>
             ) : (
@@ -183,7 +200,7 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
                       <td>{d.sector || '—'}</td>
                       <td>{d.stageName || d.stage || '—'}</td>
                       <td>{STATUS_TEXT[String(d.status || '')] || d.status || '—'}</td>
-                      <td className="num">{d.readiness ?? 0}%</td>
+                      <td className="num">{isPostIC(d.status) ? 'Approved' : `${d.readiness ?? 0}%`}</td>
                       {/* dealSize is stored in millions. The two other call sites in this file
                           already scale it; this one did not, so an $380M deal printed as "$380"
                           in a table headed Size, four lines under a KPI tile reading $8.1B. */}
@@ -215,7 +232,7 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
             ))}
           </tbody>
         </table>
-        <p className="rpt-note">Every figure above traces to a source system and as-of date. {currentCert ? `Certified for LP distribution on ${new Date(currentCert.at).toLocaleDateString()} by ${currentCert.by}.` : 'This package has not been certified — certify it above before sending it to an LP.'} {fabric?.mode === 'live' ? 'External market sources are live and within SLA.' : 'External market sources are seeded, not live.'}</p>
+        <p className="rpt-note">Every figure above traces to a source system and as-of date. {currentCert ? `Certified for LP distribution on ${new Date(currentCert.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} by ${currentCert.by}.` : 'This package has not been certified — certify it above before sending it to an LP.'} {fabric?.mode === 'live' ? 'External market sources are live and within SLA.' : 'External market sources are seeded, not live.'}</p>
       </section>
 
       <footer className="rpt-foot">

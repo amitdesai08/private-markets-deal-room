@@ -19,6 +19,18 @@ export const STATUS_TEXT: Record<string, string> = {
   exiting: 'Exiting', exited: 'Exited', passed: 'Passed', on_hold: 'On hold',
 };
 
+// Statuses that sit past the investment committee.
+//
+// "IC readiness" forecasts whether a deal can be taken to committee. Once it has been,
+// the number is a forecast of the past: the product was printing "Owned - IC readiness
+// 58%" and "Exiting - IC readiness 50%" on companies the fund already holds, and then
+// averaging those into a headline that appears on the LP-facing report. Past the
+// committee, report the outcome; average over the deals the average is about.
+export const POST_IC = new Set(['approved', 'signing', 'signed', 'closed', 'owned', 'exiting', 'exited']);
+export const isPostIC = (status: unknown) => POST_IC.has(String(status || ''));
+export const readinessText = (d: { status?: unknown; readiness?: number | null }) =>
+  isPostIC(d.status) ? 'Approved at IC' : `IC readiness ${d.readiness ?? 0}%`;
+
 // These were "review tags" from the design mockup - `live today` / `extend` / `new`
 // beside about fifteen card headings, so a partner read "What needs my attention
 // extend" and "Portfolio briefing new". They were there to stop a DEMO implying that

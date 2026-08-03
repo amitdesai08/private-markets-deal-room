@@ -200,7 +200,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
       <div className="scopebar">
         <span className="scope-l">Focus</span>
         <select value={dealId} onChange={(e) => setDealId(e.target.value)} className="scope">
-          <option value="">Whole portfolio</option>
+          <option value="">All deals you can see</option>
           {deals.map((d) => (<option key={d.id} value={d.id}>{d.company}{d.stageName ? ` · ${d.stageName}` : ''}</option>))}
         </select>
       </div>

@@ -16,7 +16,7 @@
 // one can be turned off, and the choice is kept per persona. See dashLayout.ts.
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
-import { Narrative, SourceList, Tag, clock, STATUS_TEXT, type Para } from './deskUi';
+import { Narrative, SourceList, Tag, clock, STATUS_TEXT, isPostIC, readinessText, type Para } from './deskUi';
 import { DASH_MODULES, readHidden, writeHidden, rememberWho, type ModuleKey } from './dashLayout';
 import type { Pipeline, Deal, MarketIntel, BackendConfig } from './types';
 
@@ -132,15 +132,19 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
   const inDiligenceRe = /diligence|approval/i;
   const liveDeals = deals.length;
   const inDiligence = deals.filter((d) => inDiligenceRe.test(`${d.stage || ''} ${d.stageName || ''}`)).length;
-  const avgReadiness = deals.length
-    ? Math.round(deals.reduce((s, d) => s + (d.readiness || 0), 0) / deals.length)
+  // Readiness measures whether a deal can go to committee, so averaging in the deals
+  // that already went is meaningless -- and it dragged the headline down with numbers
+  // that were never forecasts. Average over the pre-IC deals only, and say so.
+  const preIC = deals.filter((d) => !isPostIC((d as any).status));
+  const avgReadiness = preIC.length
+    ? Math.round(preIC.reduce((s, d) => s + (d.readiness || 0), 0) / preIC.length)
     : 0;
 
   // Day-to-day PE headline data, derived from the deals THIS caller can see.
   const pipelineValue = deals.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6; // total EV in flight
   const avgCheck = deals.length ? pipelineValue / deals.length : 0;
   const sectors = new Set(deals.map((d) => d.sector).filter(Boolean)).size;
-  const icReady = deals.filter((d) => (d.readiness ?? 0) >= 80).length;
+  const icReady = preIC.filter((d) => (d.readiness ?? 0) >= 80).length;
   // "Next to committee" = the soonest UPCOMING IC among pre-IC deals (never a past-IC,
   // owned/exiting deal — which would show negative days).
   const withIC = deals.filter((d) => typeof d.daysToIC === 'number' && (d.daysToIC as number) >= 0 && /diligence|approval|screen|origin|sourc/i.test(`${d.stage || ''} ${d.stageName || ''}`));
@@ -149,7 +153,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
   const kpis = [
     { label: 'Live deals', value: String(liveDeals), sub: `${inDiligence} in diligence` },
     { label: 'Pipeline value', value: money(pipelineValue), sub: liveDeals ? `avg ${money(avgCheck)} · ${sectors} sector${sectors === 1 ? '' : 's'}` : '—' },
-    { label: 'Avg IC readiness', value: `${avgReadiness}%`, sub: `${icReady} ready for IC` },
+    { label: 'Avg IC readiness', value: `${avgReadiness}%`, sub: `${icReady} of ${preIC.length} pre-IC deals ready` },
     { label: 'Next IC', value: nearestIC ? `${nearestIC.daysToIC}d` : '—', sub: nearestIC ? nearestIC.company : 'none scheduled' },
   ];
 
@@ -168,7 +172,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
     .sort((a, b) => a.p.rank - b.p.rank || ((a.d.daysToIC ?? 999) - (b.d.daysToIC ?? 999)))
     .slice(0, 6);
 
-  // Prefer the server's queue — it reasons over the full deal record (lane owners,
+  // Prefer the server's queue — it reasons over the full deal record (workstream leads,
   // step position) that the list summary doesn't carry. The local derivation stays
   // as the fallback so the page is never empty just because one call failed.
   const attentionRows: HomeAttention[] = home?.attention?.length
@@ -189,15 +193,28 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
     }));
 
   // Where the live capital sits in the deal process.
+  // The header claimed "$8.1B across 19 live deals" and then showed three columns
+  // adding to $7.1B across 15. The four deals screened but not yet launched matched
+  // none of the three patterns and were dropped silently, so the reader was left
+  // hunting for a billion dollars. Every deal counted in the header now appears in a
+  // column, including any whose stage nobody anticipated.
   const PHASES = [
+    { key: 'origination', label: 'Origination & Screening', re: /sourc|screen|shortlist|triage|origination/i },
     { key: 'diligence', label: 'Diligence & Approval', re: /diligence|approval/i },
     { key: 'execution', label: 'Execution & Closing', re: /execution|closing|signing/i },
     { key: 'value', label: 'Value & Exit', re: /value|exit|owned|monitor/i },
   ];
-  const byPhase = PHASES.map((ph) => {
-    const ds = deals.filter((d) => ph.re.test(`${d.stage || ''} ${d.stageName || ''}`));
-    return { key: ph.key, label: ph.label, count: ds.length, capital: ds.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6 };
-  });
+  const phaseOf = (d: Deal) => PHASES.find((ph) => ph.re.test(`${d.stage || ''} ${d.stageName || ''}`));
+  const byPhase = [
+    ...PHASES.map((ph) => {
+      const ds = deals.filter((d) => phaseOf(d)?.key === ph.key);
+      return { key: ph.key, label: ph.label, count: ds.length, capital: ds.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6 };
+    }),
+    (() => {
+      const ds = deals.filter((d) => !phaseOf(d));
+      return { key: 'other', label: 'Not yet staged', count: ds.length, capital: ds.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6 };
+    })(),
+  ].filter((ph) => ph.count > 0);
 
   // Side-by-side comparison: pick 2–4 deals and scan the same decision fields at once.
   const [compare, setCompare] = useState<string[]>([]);
@@ -229,7 +246,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
   // What this page is, in the viewer's own terms. Four distinct states, because they
   // are four different truths and running them together is how the old legend came to
   // claim the queue was "weighted for Deal Team" when nothing weighted it at all:
-  //   a lane owner   -> which desk, and which lane it owns
+  //   a workstream lead   -> which desk, and which lane it owns
   //   a wider seat   -> which desk (IC chair, sourcing, value creation)
   //   admin/observer -> why the page is deliberately NOT weighted to a desk
   //   no seat at all -> say so; do not let the generic view pass as a tailored one
@@ -309,7 +326,10 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
           <div className="card aicard">
             <div className="hd">
               <span className="aibadge">✦ AI</span>
-              <h3>Portfolio briefing</h3>
+              {/* Called "Portfolio briefing", but the product uses "portfolio" for three
+            different things -- the six companies the fund owns, the whole pipeline, and
+            this. It is the thing you read each morning, so name it after that. */}
+        <h3>Daily briefing</h3>
               <Tag kind="new" />
               <span className="spacer" />
               <button className="btn link compact" onClick={loadHome}>↻ Refresh</button>
@@ -322,7 +342,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
                   <div className="muted">Building your briefing…</div>
                 ) : !home ? (
                   <div className="muted">
-                    The portfolio briefing is unavailable right now — the deal detail below is still live.
+                    The daily briefing is unavailable right now — the deal detail below is still live.
                     <button className="btn link compact" onClick={loadHome}>Retry</button>
                   </div>
                 ) : (
@@ -553,7 +573,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
           <div className="funnel">
             {pipeline.funnel.map((f) => (
               <div key={f.key} className="fstep">
-                <div className="fcount">{f.count}</div>
+                <div className="fcount">{f.count == null ? '—' : f.count}</div>
                 <div className="flabel">{f.label}</div>
                 {/* The bare step code was a fourth line of text under every tile with no
                     word beside it to decode it. It is a cross-reference, and Home is not
@@ -634,7 +654,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
                       and out the other side, so a card read "IC in -1080d" -- a three-year
                       overdue committee presented as a countdown. The Next IC tile above
                       already guards for this; the cards did not. */}
-                  <span className="muted">IC readiness {d.readiness ?? 0}%{typeof d.daysToIC === 'number' ? (d.daysToIC > 0 ? ` · IC in ${d.daysToIC}d` : d.daysToIC === 0 ? ' · IC today' : ' · IC date passed') : ''}</span>
+                  <span className="muted">{readinessText(d as any)}{!isPostIC((d as any).status) && typeof d.daysToIC === 'number' ? (d.daysToIC > 0 ? ` · IC in ${d.daysToIC}d` : d.daysToIC === 0 ? ' · IC today' : ' · IC date passed') : ''}</span>
                   <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <button className={`askbtn${compare.includes(d.id) ? ' on' : ''}`} title="Add to comparison" onClick={(e) => { e.stopPropagation(); toggleCompare(d.id); }}>{compare.includes(d.id) ? '✓ Compare' : '+ Compare'}</button>
                     <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>

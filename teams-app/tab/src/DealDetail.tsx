@@ -69,6 +69,17 @@ const LANE_LABEL: Record<string, string> = {
   techai: 'Tech / AI', operations: 'Operations', esg: 'ESG',
 };
 const STATUS_LABEL: Record<string, string> = { not_started: 'Not started', in_progress: 'In progress', complete: 'Complete', blocked: 'Blocked' };
+// Workstream owners are stored as internal role keys. Printing them raw put
+// "retail-md", "finance-md", "legal-md" and "tax-md" on the investment case, next to
+// real people's names -- the same class of leak as the raw status enums. These are the
+// titles the product already uses in its own sign-in list.
+const OWNER_LABEL: Record<string, string> = {
+  'retail-md': 'Commercial Partner', 'finance-md': 'Finance Partner', 'legal-md': 'General Counsel',
+  'tax-md': 'Finance Partner — tax', 'ai-md': 'AI Partner', 'supply-md': 'Supply Chain Partner',
+  'esg-md': 'Operating Partner — ESG', 'ops-md': 'Operating Partner', 'analyst': 'Analyst',
+  'partner': 'Partner', 'principal': 'Principal', 'deal-lead': 'Deal lead',
+};
+const ownerName = (o?: string) => (o ? OWNER_LABEL[o] || o : 'Unassigned');
 const VERDICT_CLASS: Record<string, string> = { READY: 'ok', CONDITIONAL: 'warn', 'NOT-READY': 'bad' };
 
 function relTime(iso?: string | null): string | null {
@@ -88,7 +99,7 @@ function relTime(iso?: string | null): string | null {
 function sourceHint(src?: string): string {
   if (!src) return '';
   const s = src.toLowerCase();
-  if (/10-k|10-q|8-k|sec|edgar|form d/.test(s)) return 'As reported by the company in this SEC filing (as-filed figure, not modeled).';
+  if (/10-k|10-q|8-k|sec|edgar|form d/.test(s)) return 'As reported by the company in this SEC filing (as-filed figure, not modelled).';
   if (s.includes('screen')) return 'From the screening model (pre-diligence estimate).';
   if (s.includes('cim')) return 'From the confidential information memorandum.';
   if (s.includes('deriv')) return 'Derived from other figures on the record.';
@@ -127,18 +138,28 @@ const TAB_LABEL: Record<Tab, string> = {
   activity: 'Audit trail',
 };
 
+// Statuses that sit past the investment committee. A deal here has already been
+// approved, so readiness-to-go-to-committee is a number about the past.
+const POST_IC = new Set(['approved', 'signing', 'signed', 'closed', 'owned', 'exiting', 'exited']);
+
 // Twelve tabs of equal weight is a wall, and the order was never designed — the
 // four newest were concatenated onto the front of the original eight, which is a
-// record of how the product was built rather than of how it is read. These are the
-// six a deal team opens in a normal week, then a hairline, then the six they open
-// rarely. Nothing is hidden and nothing moved further than one click away.
-const TABS_OFTEN: Tab[] = ['cockpit', 'threads', 'workflow', 'ic', 'stages', 'docdesk'];
-const TABS_RARELY: Tab[] = ['workspace', 'artifacts', 'research', 'documents', 'overview', 'activity'];
+// record of how the product was built rather than of how it is read.
+//
+// The hairline split was not enough: at 1440px the strip was 1626px wide, so the last
+// two tabs were simply off the screen with no chevron and nothing to suggest they
+// existed. One of them was "Thesis & key figures" — the investment case, the most
+// partner-relevant tab in the product — and the other was the compliance record. In
+// the Teams client, where a left rail takes another 68px, more would have gone. So the
+// second group is now a "More" menu: it always fits, and a hidden tab stops being an
+// invisible one. The investment case is promoted into the first six.
+const TABS_OFTEN: Tab[] = ['cockpit', 'overview', 'ic', 'workflow', 'docdesk', 'threads'];
+const TABS_RARELY: Tab[] = ['stages', 'workspace', 'artifacts', 'research', 'documents', 'activity'];
 // Without the brief, the four surfaces that depend on it are not rendered at all.
 const TABS_OFTEN_PLAIN: Tab[] = ['overview', 'ic', 'stages'];
 const TABS_RARELY_PLAIN: Tab[] = ['workspace', 'artifacts', 'research', 'documents', 'activity'];
 
-export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, onClose, backLabel }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string }) {
+export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
   const [ic, setIc] = useState<ICReadiness | null>(null);
   const [flow, setFlow] = useState<Flow | null>(null);
@@ -153,6 +174,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   // as a fault. Starting here means the async call can only ever demote the tab (on an
   // instance that has turned the brief off), never yank it.
   const [tab, setTab] = useState<Tab>('cockpit');
+  const [moreOpen, setMoreOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
   const [chatSeed, setChatSeed] = useState('');
   const [chatSeedNonce, setChatSeedNonce] = useState(0);
@@ -268,7 +290,16 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   // (re-fetch each open so newly applied assistant actions show up immediately).
   useEffect(() => {
     if (tab !== 'activity') return;
-    af(`/api/deals/${dealId}/activity`).then((r) => (r.ok ? r.json() : null)).then((d) => setActivity(d?.activity || [])).catch(() => setActivity([]));
+    af(`/api/deals/${dealId}/activity`).then((r) => (r.ok ? r.json() : null)).then((d) => {
+      // The one screen whose entire value is defensible chronology was rendering in
+      // whatever order the store happened to return -- 7m ago, then 10h ago, then 6h
+      // ago. And the demo reseed sat at the top of it, telling anyone doing operational
+      // diligence that the most recent governance event on the deal was somebody
+      // discarding its history. Sort it, and keep the reseed out of the record.
+      const rows = (d?.activity || []).filter((a: ActivityEntry) => !/reset to its starting state|demo fixture/i.test(String(a.action || '')));
+      rows.sort((a: ActivityEntry, b: ActivityEntry) => new Date(b.when || 0).getTime() - new Date(a.when || 0).getTime());
+      setActivity(rows);
+    }).catch(() => setActivity([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, dealId]);
 
@@ -346,7 +377,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   async function dealChannel() {
     const url = deal?.workspace?.teamsUrl;
     if (deal?.workspace?.teamsProvisioned && url) { window.open(url, '_blank', 'noopener'); return; }
-    if (cfg?.m365 && cfg.m365.connected === false) { setNote('Connect M365 (from the Deal Dashboard) to create a deal channel where the team can converse.'); return; }
+    if (cfg?.m365 && cfg.m365.connected === false) { setNote('Connect M365 (from Settings) to create a deal channel where the team can converse.'); return; }
     setBusy('channel'); setNote('');
     try {
       const r = await af(`/api/deals/${dealId}/teams/ensure`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
@@ -452,7 +483,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     }
   }
 
-  // Top IC blockers for the Overview breakdown: missing required artifacts, else gating
+  // Top IC blockers for the Overview breakdown: missing required papers, else gating
   // reasons. Each carries a resolve TARGET so "Resolve" jumps to exactly where the work is
   // done (the workflow step that produces the artifact, the diligence workbench, etc.).
   const artifactTarget = (key: string): ResolveTarget => {
@@ -502,9 +533,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     <div className="dealpage">
       <aside className="drawer">
         <div className="drawer-head">
-          <button className="backbtn" onClick={onClose}>
-            <span aria-hidden="true">←</span> {backLabel || 'Back'}
-          </button>
+          {/* The breadcrumb above this header already carries "← <where you came
+              from> / <deal name>". A second identical back control 50px below it, next
+              to a second copy of the deal name, gave the page two of everything and
+              neither looked authoritative. The breadcrumb wins: it says where back
+              goes, not just that back exists. */}
           <div className="drawer-title">{deal?.company || 'Loading…'}</div>
           {/* Gated on !statusOnly. The body below already tells a restricted viewer that
               this deal is closed to them and to ask to be added; offering them the two
@@ -512,7 +545,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
               the two was lying. They pressed it, got a server rejection, and stopped
               believing the access message. */}
           {deal && !statusOnly ? <button className="chbtn" onClick={dealChannel} disabled={busy === 'channel'} title="Create or open a Teams channel to converse about this deal">{deal.workspace?.teamsProvisioned ? '# Open channel ↗' : busy === 'channel' ? 'Creating…' : '# Deal channel'}</button> : null}
-          {deal && !statusOnly ? <button className="chbtn spo" onClick={openDataRoom} disabled={busy === 'dataroom'} title="Open the deal's SharePoint data room (VDR)">{deal.workspace?.sharePointProvisioned ? '📁 Data room ↗' : busy === 'dataroom' ? 'Opening…' : '📁 Data room'}</button> : null}
+          {/* Labelled "📁 Data room", which is not the name of anywhere you can get to from
+            here -- the tab is called Documents, and this button leaves the product for
+            SharePoint. Two names for one place is how people conclude they have missed a
+            screen. Same words as the destination, and an arrow to say you are leaving. */}
+        {deal && !statusOnly ? <button className="chbtn spo" onClick={openDataRoom} disabled={busy === 'dataroom'} title="Open this deal's SharePoint data room in a new tab">{deal.workspace?.sharePointProvisioned ? '📁 Documents in SharePoint ↗' : busy === 'dataroom' ? 'Opening…' : '📁 Documents in SharePoint'}</button> : null}
           <button className={`askbtn${askOpen ? ' on' : ''}`} onClick={() => setAskOpen((v) => !v)}>💬 {askOpen ? 'Hide the assistant' : 'Ask the assistant'}</button>
         </div>
 
@@ -532,7 +569,13 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                 <span className="chip">{deal.stageName || deal.stage}</span>
                 <span className="chip">Step {deal.stepNumber}/{deal.totalSteps} · {STEP_LABEL[deal.currentStep || ''] || deal.currentStep}</span>
                 <span className="chip">{money(deal.dealSize)}</span>
-                <span className="chip">IC readiness {deal.readiness ?? 0}%</span>
+                {/* A readiness percentage is a forecast of whether this deal can go to
+                    committee. On a company the fund already owns it is not a forecast of
+                    anything -- and "Owned · IC readiness 58%" is the kind of number that
+                    ends a demo. Past the committee, report the outcome instead. */}
+                {POST_IC.has(String(deal.status || ''))
+                  ? <span className="chip">Approved at IC</span>
+                  : <span className="chip">IC readiness {deal.readiness ?? 0}%</span>}
                 {(deal as any).region ? <span className="chip" title="Territory — visible to your regional deal team">◧ {REGION_LABEL[(deal as any).region] || (deal as any).region}</span> : null}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, alignItems: 'center' }}>
@@ -578,11 +621,24 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                 <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>{TAB_LABEL[t]}</button>
               ))}
               <span className="dd-tabdiv" aria-hidden="true" />
-              {(cockpitOn ? TABS_RARELY : TABS_RARELY_PLAIN).map((t) => (
-                <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>
-                  {t === 'documents' && !cockpitOn ? 'Documents' : TAB_LABEL[t]}
+              <div className="dd-more" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setMoreOpen(false); }}>
+                <button
+                  className={`dd-tab${(cockpitOn ? TABS_RARELY : TABS_RARELY_PLAIN).includes(tab) ? ' on' : ''}`}
+                  aria-expanded={moreOpen}
+                  onClick={() => setMoreOpen((v) => !v)}
+                >
+                  {(cockpitOn ? TABS_RARELY : TABS_RARELY_PLAIN).includes(tab) ? TAB_LABEL[tab] : 'More'} ▾
                 </button>
-              ))}
+                {moreOpen ? (
+                  <div className="dd-more-menu" role="menu">
+                    {(cockpitOn ? TABS_RARELY : TABS_RARELY_PLAIN).map((t) => (
+                      <button key={t} role="menuitem" className={`dd-more-item${tab === t ? ' on' : ''}`} onClick={() => { setTab(t); setMoreOpen(false); }}>
+                        {t === 'documents' && !cockpitOn ? 'Documents' : TAB_LABEL[t]}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
             )}
 
@@ -677,12 +733,20 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                     {docs?.folderUrl ? <a className="btn ghost" href={docs.folderUrl} target="_blank" rel="noopener">Open data room ↗</a> : null}
                   </div>
                   {note ? <div className="muted" style={{ marginBottom: 6 }}>{note}</div> : null}
+                  {/* This used to open on "⏳ Setting up this deal's Teams channel &
+                      SharePoint data room… this takes about a minute", for something
+                      nobody asked for, on a tab whose job is generating an IC memo. When
+                      Microsoft 365 is not connected it never resolves, so the partner
+                      who arrived here under time pressure got a spinner that spins for
+                      ever. Setting up a workspace belongs next to the control that does
+                      it, on Diligence workstreams. Here we state the position and move
+                      on -- the generate-and-download buttons above work regardless. */}
                   {docs?.provisioning ? (
-                    <div className="muted" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>⏳ Setting up this deal’s Teams channel &amp; SharePoint data room… this takes about a minute, and it will appear here automatically.</div>
+                    <div className="muted">The shared Teams channel and data room are still being set up. You can generate and download any document above in the meantime.</div>
                   ) : docs?.notConnected ? (
-                    <div className="muted">Generate and download any document above now. This deal’s shared SharePoint data room is being set up and will appear here automatically.</div>
+                    <div className="muted">No Microsoft 365 data room is linked to this deal yet, so nothing can be saved to one. Generating and downloading documents above works as normal.</div>
                   ) : docs?.error ? (
-                    <div className="muted">The shared data room is still being prepared — you can generate and download documents above in the meantime.</div>
+                    <div className="muted">The shared data room could not be read just now — you can generate and download documents above in the meantime.</div>
                   ) : !docs ? (
                     <div className="muted">Loading data room…</div>
                   ) : (
@@ -712,7 +776,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           <a key={f.id} href={f.webUrl} target="_blank" rel="noopener" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8, textDecoration: 'none', color: 'inherit' }}>
                             <span style={{ fontSize: 18 }}>{/\.docx?$/i.test(f.name) ? '📝' : /\.xlsx?$/i.test(f.name) ? '📊' : '📄'}</span>
                             <span style={{ fontWeight: 600, flex: 1 }}>{f.name}</span>
-                            <span className="muted">{f.modified ? new Date(f.modified).toLocaleDateString() : ''}</span>
+                            <span className="muted">{f.modified ? new Date(f.modified).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</span>
                           </a>
                         )) : (
                           // This list is documents generated here. The folder grid above counts
@@ -778,7 +842,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                     <div className="dd-panel-h">{STEP_LABEL[viewStep] || viewStep} — deliverable{viewProduces.length ? <span className="muted" style={{ fontWeight: 400 }}> · {viewProduces.join(' · ')}</span> : null}</div>
                     {stepRun?.markdown ? (
                       <div style={{ padding: '12px 16px' }}>
-                        {stepRun.when ? <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>Generated {new Date(stepRun.when).toLocaleString()}{stepRun.artifacts?.length ? ` · ${stepRun.artifacts.join(', ')}` : ''}</div> : null}
+                        {stepRun.when ? <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>Generated {new Date(stepRun.when).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}{stepRun.artifacts?.length ? ` · ${stepRun.artifacts.join(', ')}` : ''}</div> : null}
                         <div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(stepRun.markdown) }} />
                       </div>
                     ) : artifact ? (
@@ -919,7 +983,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           </div>
                         ))}
                       </div>
-                      <div className="dd-note">Hover a figure to see where it came from. Figures sourced from an SEC form are the values the company reported in that filing (as-filed, not modeled).</div>
+                      <div className="dd-note">Hover a figure to see where it came from. Figures sourced from an SEC form are the values the company reported in that filing (as-filed, not modelled).</div>
                     </section>
                   ) : null}
                   {deal.workstreams?.length ? (
@@ -935,7 +999,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           <div className="dd-lane" key={i}>
                             <div className="lane-top"><span className="lane-name">{LANE_LABEL[w.lane] || w.lane}</span><span className="lane-status">{STATUS_LABEL[w.status || ''] || w.status || '—'}</span></div>
                             <div className="lane-bar"><span style={{ width: `${Math.max(0, Math.min(100, w.progress ?? 0))}%` }} /></div>
-                            <div className="lane-owner">{w.owner || 'unassigned'}{w.findings?.length ? ` · ${w.findings.length} finding(s)` : ''}</div>
+                            <div className="lane-owner">{ownerName(w.owner)}{w.findings?.length ? ` · ${w.findings.length} finding${w.findings.length === 1 ? '' : 's'}` : ''}</div>
                           </div>
                         ))}
                       </div>
@@ -958,7 +1022,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderTop: i ? '1px solid var(--border, #23232c)' : 'none' }}>
                             <span style={{ flex: '0 0 auto', width: 9, height: 9, borderRadius: 999, background: RYG_DOT[state] }} title={state.toUpperCase()} />
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13, fontWeight: 600 }}>{LANE_LABEL[w.lane] || w.lane}<span className="muted" style={{ fontWeight: 400 }}> · {STATUS_LABEL[w.status || 'not_started'] || w.status}{w.owner ? ` · ${w.owner}` : ''}</span></div>
+                              <div style={{ fontSize: 13, fontWeight: 600 }}>{LANE_LABEL[w.lane] || w.lane}<span className="muted" style={{ fontWeight: 400 }}> · {STATUS_LABEL[w.status || 'not_started'] || w.status}{w.owner ? ` · ${ownerName(w.owner)}` : ''}</span></div>
                               {reason ? <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>{state === 'red' ? '⚠ ' : ''}{reason}</div> : null}
                             </div>
                             <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -978,12 +1042,17 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                       <button className="wsp-link teams" disabled={!!busy} onClick={() => (ws.teamsProvisioned && ws.teamsUrl) ? window.open(ws.teamsUrl, '_blank', 'noopener') : dealChannel()}>{ws.teamsProvisioned ? 'Open in Teams ↗' : busy === 'channel' ? 'Creating…' : 'Create Teams space ↗'}</button>
                       <button className="wsp-link spo" disabled={!!busy} onClick={openDataRoom}>{ws.sharePointProvisioned ? 'Open data room ↗' : busy === 'dataroom' ? 'Opening…' : 'Data room ↗'}</button>
                     </div>
+                    {/* These two rows said "not set up" while the screen below them showed 5
+                        messages, 9 files and 14 folders. Both statements are true of
+                        different things -- no Microsoft 365 channel is linked, but the deal
+                        record has content -- and the reader cannot tell which to believe, so
+                        they distrust the numbers. Say which of the two you are looking at. */}
                     <div className="ws-grid">
-                      <div className="ws-row"><span>Teams channel</span><span>{ws.teamsProvisioned ? (ws.teamsChannelName || 'active') : 'not set up'}</span></div>
-                      <div className="ws-row"><span>Data room (VDR)</span><span>{ws.sharePointProvisioned ? `${(ws.folders || []).length} folders · live` : 'not set up'}</span></div>
+                      <div className="ws-row"><span>Teams channel</span><span>{ws.teamsProvisioned ? (ws.teamsChannelName || 'active') : 'not linked \u00b7 messages below are on the deal record'}</span></div>
+                      <div className="ws-row"><span>Documents</span><span>{ws.sharePointProvisioned ? `${(ws.folders || []).length} folders \u00b7 in SharePoint` : `${(ws.folders || []).length} folders \u00b7 on the deal record`}</span></div>
                       <div className="ws-row"><span>DD checklist</span><span>{deal.workspace?.checklist ? `${(deal as any).checklistStats?.pct ?? 0}% · ${(deal as any).checklistStats?.total ?? (ws.checklist || []).reduce((n: number, s: any) => n + (s.items?.length || 0), 0)} items` : '—'}</span></div>
                       <div className="ws-row"><span>Templates</span><span>{(ws.templates || []).length} docs</span></div>
-                      <div className="ws-row"><span>IC date</span><span>{ws.icDate ? new Date(ws.icDate).toLocaleDateString() : '—'}</span></div>
+                      <div className="ws-row"><span>IC date</span><span>{ws.icDate ? new Date(ws.icDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span></div>
                     </div>
                     {!ws.teamsProvisioned || !ws.sharePointProvisioned ? (
                       <div className="orch-bar">
@@ -1013,7 +1082,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                       <div className="dd-lanes" style={{ padding: '0 14px 14px' }}>
                         {ws.swimlanes.map((s: any, i: number) => (
                           <div className="dd-lane" key={i}>
-                            <div className="lane-top"><span className="lane-name">{s.label || LANE_LABEL[s.lane] || s.lane}</span><span className="lane-status">{s.advisor || s.md || s.owner || 'unassigned'}</span></div>
+                            <div className="lane-top"><span className="lane-name">{s.label || LANE_LABEL[s.lane] || s.lane}</span><span className="lane-status">{s.advisor || s.md || ownerName(s.owner)}</span></div>
                             {s.channelUrl ? <a className="lane-owner" href={s.channelUrl} target="_blank" rel="noreferrer">Teams channel ↗</a> : null}
                           </div>
                         ))}
@@ -1093,7 +1162,12 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   </section>
 
                   <section className="dd-panel">
-                    <div className="dd-panel-h">Source-citation audit<span className={`chip ${citations?.clean ? 'ok' : 'warn'}`}>{citations ? `${citations.score ?? 0}% traceable` : citationsFailed ? 'unavailable' : '…'}</span></div>
+                    {/* This said "Source-citation audit · 100% traceable", which is a claim the
+                      product cannot stand behind: the score counts figures that carry a
+                      source tag, not figures anyone has checked. An LP who tests one
+                      unsourced number stops trusting the other ninety-nine. Say what is
+                      actually on offer -- you can see where each figure came from. */}
+                  <div className="dd-panel-h">Where these figures come from<span className={`chip ${citations?.clean ? 'ok' : 'warn'}`}>{citations ? `${citations.score ?? 0}% carry a source` : citationsFailed ? 'unavailable' : '…'}</span></div>
                     {!citations ? (
                       citationsFailed
                         ? <div className="dd-empty-p">The source audit could not be run just now. <button className="askbtn" onClick={() => { setCitationsFailed(false); af(`/api/deals/${dealId}/citations`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).then(setCitations).catch(() => setCitationsFailed(true)); }}>Try again</button></div>
@@ -1161,7 +1235,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12.5 }}>{a.action}</div>
                             <div className="muted" style={{ fontSize: 11, marginTop: 1 }}>
-                              {a.actor || 'System'}{a.when ? ` · ${relTime(a.when) || new Date(a.when).toLocaleString()}` : ''}
+                              {a.actor || 'System'}{a.when ? ` · ${relTime(a.when) || new Date(a.when).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}
                               {a.via === 'assistant' ? <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999, color: 'var(--accent)', background: 'var(--chip)' }}>via assistant · you approved</span> : null}
                             </div>
                           </div>

@@ -21,7 +21,7 @@ export const WORKIQ_SEED_NOTES = [
     text: 'Ops DD: reagent supply is concentrated in 2 vendors (~68% of consumables spend). SPA has a dual-sourcing clause but no signed second-source yet. Qualified Vendor B at +6% unit cost / 8-week lead time — closes the concentration risk and unlocks the COGS-out lever Priya flagged.',
     sharedWith: ['ai-md', 'operating-partner'], createdAt: '2026-07-24T14:40:00Z' },
   { id: 'wiq-seed-helv-3', dealId: 'demo-helvetia', author: 'David Osei', personaId: 'fund-cfo', personaLabel: 'Finance Partner — Fund CFO', role: 'deal-team',
-    text: 'Financing: senior package ~€384m at ~4.2x confirmed with the lead bank; FX hedge on the CHF/EUR exposure priced. Base case holds 22.5% IRR / 2.76x only if the digital uplift is phased (0% base, 25–50% conditional). Do NOT underwrite full uplift into the entry model.',
+    text: 'Financing: senior package ~$384m at ~4.2x confirmed with the lead bank; FX hedge on the CHF/EUR exposure priced. Base case holds 22.5% IRR / 2.76x only if the digital uplift is phased (0% base, 25–50% conditional). Do NOT underwrite full uplift into the entry model.',
     sharedWith: ['partner', 'operating-partner'], createdAt: '2026-07-26T11:05:00Z' },
 
   // Meridian Logistics — value-creation seat picks up the diligence trail post-close.
@@ -49,7 +49,7 @@ const CHANNELS = [
   { deal: 'demo-helvetia', channel: 'Helvetia Diagnostics — Deal Room', messages: [
     { from: 'Dr. Priya Nair', created: '2026-07-22T09:16:00Z', preview: 'Uploaded the AI-readiness scorecard to the data room. Headline: LIMS fragmentation is the gating item for the digital-margin thesis — see /Diligence/Tech.' },
     { from: 'Diego Marquez', created: '2026-07-24T14:41:00Z', preview: 'Vendor B second-source qualified (+6% unit cost, 8-wk lead). Sending the supply-risk memo + tariff exposure model to the channel now.' },
-    { from: 'David Osei', created: '2026-07-26T11:06:00Z', preview: 'Financing package confirmed with the lead bank — €384m senior at ~4.2x. Reminder: phase the digital uplift in the entry model, do not bank 100%.' },
+    { from: 'David Osei', created: '2026-07-26T11:06:00Z', preview: 'Financing package confirmed with the lead bank — $384m senior at ~4.2x. Reminder: phase the digital uplift in the entry model, do not bank 100%.' },
     { from: 'Eleanor Bishop', created: '2026-07-26T18:02:00Z', preview: 'Good progress. For IC I want the base case with 0% AI uplift and a clearly labelled conditional case. Marcus to own the memo spine.' },
   ] },
   { deal: 'screened-1-cand-new-2', channel: 'Sound United — Deal Room', messages: [
@@ -68,7 +68,7 @@ const FILES = [
   { deal: 'demo-helvetia', name: 'Helvetia — AI & Data Readiness Scorecard.xlsx', type: 'driveItem', summary: 'LIMS fragmentation across 3 sites; ~40% telemetry uncaptured; digital-margin thesis gating items.', lastModified: '2026-07-22T09:14:00Z' },
   { deal: 'demo-helvetia', name: 'Helvetia — Quality of Earnings (Draft).pdf', type: 'driveItem', summary: 'QoE normalisations; reagent COGS bridge; one-off adjustments to LTM EBITDA.', lastModified: '2026-07-25T17:20:00Z' },
   { deal: 'demo-helvetia', name: 'Helvetia — Supply Risk & Dual-Sourcing Memo.docx', type: 'driveItem', summary: 'Reagent concentration 68% two-vendor; Vendor B qualification +6% / 8-wk; tariff exposure.', lastModified: '2026-07-24T14:38:00Z' },
-  { deal: 'demo-helvetia', name: 'Helvetia — Sources & Uses + Debt Term Sheet.xlsx', type: 'driveItem', summary: '€384m senior at ~4.2x; sponsor equity; CHF/EUR hedge; base/downside returns.', lastModified: '2026-07-26T11:00:00Z' },
+  { deal: 'demo-helvetia', name: 'Helvetia — Sources & Uses + Debt Term Sheet.xlsx', type: 'driveItem', summary: '$384m senior at ~4.2x; sponsor equity; CHF/EUR hedge; base/downside returns.', lastModified: '2026-07-26T11:00:00Z' },
   { deal: 'screened-1-cand-new-2', name: 'Sound United — CIM.pdf', type: 'driveItem', summary: 'Confidential information memorandum; consumer-audio brand portfolio; LTM rev $375M / EBITDA $36M.', lastModified: '2026-07-18T12:00:00Z' },
   { deal: 'screened-1-cand-new-2', name: 'Sound United — Returns Model v3.xlsx', type: 'driveItem', summary: 'Entry EV $300M / 8.3x; 5.0x leverage; base 22.5% IRR / 2.76x; base/bull/bear sensitivity.', lastModified: '2026-07-27T15:45:00Z' },
   { deal: 'demo-sterling', name: 'Project Sterling — Commercial DD (Merchant Concentration).pptx', type: 'driveItem', summary: 'Top-10 merchant 34% of net revenue; largest contract renewal in 14 months; pricing power.', lastModified: '2026-07-25T13:25:00Z' },
@@ -77,7 +77,7 @@ const FILES = [
 
 // Mailbox — banker / LP / advisor correspondence.
 const MAIL = [
-  { deal: 'demo-helvetia', subject: 'Helvetia — revised debt commitment + hedge indication', from: 'coverage@lead-bank.example', received: '2026-07-26T10:40:00Z', preview: 'Attaching the updated senior commitment (€384m, ~4.2x) and an indicative CHF/EUR hedge. Happy to walk the covenant headroom on a call.' },
+  { deal: 'demo-helvetia', subject: 'Helvetia — revised debt commitment + hedge indication', from: 'coverage@lead-bank.example', received: '2026-07-26T10:40:00Z', preview: 'Attaching the updated senior commitment ($384m, ~4.2x) and an indicative CHF/EUR hedge. Happy to walk the covenant headroom on a call.' },
   { deal: 'demo-helvetia', subject: 'LP query — SFDR / ILPA reporting for Helvetia', from: 'ir@northstar-lp.example', received: '2026-07-28T08:05:00Z', preview: 'Ahead of the quarter, could you confirm the SFDR classification and the ILPA-aligned reporting template you\'ll use for this position?' },
   { deal: 'screened-1-cand-new-2', subject: 'Sound United — management presentation scheduling', from: 'advisor@sellside-bank.example', received: '2026-07-19T16:30:00Z', preview: 'Proposing two slots for the mgmt session next week. Data-room access refreshed; QoE draft to follow from the accountants.' },
   { deal: 'demo-sterling', subject: 'Project Sterling — top merchant renewal timeline', from: 'partner@advisor.example', received: '2026-07-25T12:15:00Z', preview: 'Confirmed the largest merchant contract renews in ~14 months. Recommend making a pre-signing renewal discussion a condition.' },

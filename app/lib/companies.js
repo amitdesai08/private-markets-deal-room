@@ -34,7 +34,7 @@ export function companyId(rec) {
 const isSourced = (rec) => rec && rec.estimated === false;
 const firstNum = (...vals) => { for (const v of vals) if (v != null && v !== '') return v; return null; };
 
-// Normalize one feed record to the canonical shape (funnel/signals filled per feed).
+// Normalise one feed record to the canonical shape (funnel/signals filled per feed).
 function toCanonical(rec, feed) {
   const name = rec.name || rec.company || '';
   const base = {

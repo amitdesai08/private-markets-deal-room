@@ -8,7 +8,7 @@
 
 // Source of record for all fund figures: the governed deal record (positions, entry/
 // exit marks, cash flows) plus the fund configuration (committed capital, LPA limits).
-export const SOURCE_OF_RECORD = 'Governed deal record (Cosmos) + fund configuration';
+export const SOURCE_OF_RECORD = 'Governed deal record + fund configuration';
 export const REFRESH_CADENCE = 'Recomputed live from the governed record on every read (write-through); no cached rollups.';
 
 export const FUND_METRICS = [

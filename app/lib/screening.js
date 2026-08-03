@@ -381,7 +381,7 @@ function valueCreationThesis(c) {
 }
 function memoRisks(c, returns) {
   const risks = [];
-  if (c.ebitdaMargin < 15) risks.push({ risk: `Thin ${c.ebitdaMargin}% EBITDA margin`, mitigant: 'QoE + margin-bridge diligence to confirm normalized profitability.' });
+  if (c.ebitdaMargin < 15) risks.push({ risk: `Thin ${c.ebitdaMargin}% EBITDA margin`, mitigant: 'QoE + margin-bridge diligence to confirm normalised profitability.' });
   if ((c.growth ?? 0) < 5) risks.push({ risk: `Modest ${c.growth}% growth`, mitigant: 'Commercial DD to validate the demand and pipeline.' });
   if (/founder|family/i.test(c.ownership || '')) risks.push({ risk: 'Founder/key-person dependency', mitigant: 'Management diligence + retention/incentive structuring.' });
   if (!returns.meetsHurdle) risks.push({ risk: 'Base-case returns below hurdle on paper', mitigant: 'Negotiate entry multiple or identify additional value levers.' });
@@ -390,7 +390,7 @@ function memoRisks(c, returns) {
 }
 function diligencePriorities(c) {
   return [
-    'Quality of Earnings — normalize EBITDA, confirm addbacks and working capital.',
+    'Quality of Earnings — normalise EBITDA, confirm addbacks and working capital.',
     'Commercial DD — market size, growth durability, competitive position.',
     'Customer concentration & contract quality (retention, pricing).',
     /founder|family/i.test(c.ownership || '') ? 'Management depth & founder-transition/retention plan.' : 'Management assessment & incentive alignment.',

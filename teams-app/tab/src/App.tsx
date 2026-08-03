@@ -291,7 +291,10 @@ export default function App() {
         <div className="brand">
           <div className="logo">◆</div>
           <div>
-            <div className="brand-t">Deal Dashboard</div>
+            {/* The product answered to four names -- "Deal Dashboard" here, "THE DEAL ROOM"
+            on the report, "Deal Room Report", "Deal Room Assistant". People cannot tell
+            a colleague what to open. One name, and it is the one on the LP document. */}
+        <div className="brand-t">The Deal Room</div>
             <div className="brand-s">Deal flow, market intel and your team’s AI assistant — in one place</div>
           </div>
         </div>
@@ -357,8 +360,24 @@ export default function App() {
 
       {/* Opening a deal REPLACES the workspace rather than floating a modal over it.
           A deal is the main thing you work on, not an interruption to something else —
-          so it gets the whole canvas, the tab bar it came from is preserved, and the
-          way back is an explicit breadcrumb rather than a dismiss. */}
+          so it gets the whole canvas, and the way back is an explicit breadcrumb.
+
+          The five main tabs stay mounted. They used to be deleted the moment a deal
+          opened, which made the deal page — the screen an analyst lives on all day, and
+          the one a Teams link drops you into — the only screen in the product with no
+          way to reach the other four. Getting from a deal to Fund & Portfolio meant
+          going back to the list first and waiting for it to rebuild. People stopped
+          moving between contexts and opened a second browser tab instead, which is how
+          you end up with two personas and two stale sessions at once. */}
+      <nav className="maintabs">
+        {mainTabs.map(([k, label]) => (
+          <button
+            key={k}
+            className={`maintab${!settingsOpen && mainTab === k && !openDealId ? ' on' : ''}`}
+            onClick={() => { setSettingsOpen(false); setOpenDealId(''); setMainTab(k); }}
+          >{label}</button>
+        ))}
+      </nav>
       {openDealId ? (
         <nav className="crumbs" aria-label="Breadcrumb">
           <button className="crumb-back" onClick={() => setOpenDealId('')}>
@@ -367,13 +386,7 @@ export default function App() {
           <span className="crumb-sep" aria-hidden="true">/</span>
           <span className="crumb-now" aria-current="page">{openDealName || 'Deal'}</span>
         </nav>
-      ) : (
-        <nav className="maintabs">
-          {mainTabs.map(([k, label]) => (
-            <button key={k} className={`maintab${!settingsOpen && mainTab === k ? ' on' : ''}`} onClick={() => { setSettingsOpen(false); setMainTab(k); }}>{label}</button>
-          ))}
-        </nav>
-      )}
+      ) : null}
 
       {dealsError ? (
         <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 12px', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--bad-br)', background: 'var(--bad-bg)', fontSize: 13 }}>
@@ -483,7 +496,7 @@ cite:has(button):hover, cite:focus-within { background: var(--ai); color: var(--
 
 /* Whose desk this page was built for. Sits directly above the briefing because it
    is the precondition for reading it: the same records say different things to a
-   lane owner and to an IC chair, and the reader is entitled to know which one the
+   workstream lead and to an IC chair, and the reader is entitled to know which one the
    page assumed they were. */
 .seatline { margin: 0 0 10px; padding: 7px 10px; border-left: 3px solid var(--accent); background: var(--accent-bg, rgba(99,102,241,.08)); border-radius: 0 6px 6px 0; font-size: 12px; color: var(--text); }
 .seatline b { font-weight: 650; }
@@ -928,6 +941,13 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
    a hairline rather than a heading because the reader should feel the ranking, not
    have to read it. */
 .dd-tabdiv { flex: 0 0 auto; align-self: center; width: 1px; height: 18px; background: var(--border); margin: 0 8px; }
+/* The overflow menu for the tabs a deal team opens rarely. A dropdown always fits;
+   a twelve-item strip does not, at any width this product is actually read at. */
+.dd-more { position: relative; flex: 0 0 auto; }
+.dd-more-menu { position: absolute; top: 100%; right: 0; z-index: 40; min-width: 220px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 4px; display: flex; flex-direction: column; }
+.dd-more-item { text-align: left; border: none; background: none; color: var(--fg); font: inherit; padding: 8px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.dd-more-item:hover { background: var(--chip); }
+.dd-more-item.on { color: var(--accent); font-weight: 600; }
 .dd-actionnote { background: var(--chip); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; margin-bottom: 12px; }
 .stage-group { margin-bottom: 14px; }
 .stage-name { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-bottom: 6px; }

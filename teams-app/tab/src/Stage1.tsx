@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Deal } from './types';
+import { readinessText } from './deskUi';
 import StageGuide from './StageGuide';
 
 // Deal sizes are carried in millions. Blank, not "—", when we do not have one:
@@ -26,8 +27,8 @@ type Candidate = {
   matchedScreen?: { id: string; name: string } | null; keywords?: string[]; sources?: string[];
   assessment?: Assessment | null;
 };
-type FunnelStage = { key: string; step?: string; label?: string; count?: number; active?: boolean };
-type Funnel = { fundName?: string; fundStrategy?: string; discovered?: number; funnel?: FunnelStage[] };
+type FunnelStage = { key: string; step?: string; label?: string; count?: number | null; active?: boolean };
+type Funnel = { fundName?: string; fundStrategy?: string; discovered?: number; funnel?: FunnelStage[]; funnelNote?: string | null };
 type Pipeline = { fundName?: string; funnel?: FunnelStage[]; candidates?: Candidate[] };
 
 type Fund = { name?: string; strategy?: string; sectors?: string[]; geographies?: string[]; evMin?: number; evMax?: number; fundSize?: number | string };
@@ -215,7 +216,7 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
                     </div>
                     <div className="dc-meta">{[(d as any).sector, (d as any).stageName || 'Origination & Screening'].filter(Boolean).join(' · ')} · Step {(d as any).stepNumber ?? 1}/{(d as any).totalSteps ?? 16}</div>
                     <div className="dc-foot">
-                      <span className="muted">IC readiness {(d as any).readiness ?? 0}%</span>
+                      <span className="muted">{readinessText(d as any)}</span>
                       <button className="askbtn" onClick={(e) => { e.stopPropagation(); onOpenDeal((d as any).id); }}>Open deal →</button>
                     </div>
                   </div>
@@ -228,12 +229,16 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
             <div className="funnel">
               {(funnel?.funnel || []).map((s) => (
                 <button key={s.key} className={`fstep${stageFilter === s.key ? ' on' : ''}`} onClick={() => setStageFilter(s.key === 'O1' ? 'all' : s.key)} title="Filter the pipeline to this stage">
-                  <div className="fcount">{s.count ?? 0}</div>
+                  <div className="fcount">{s.count == null ? '—' : s.count}</div>
                   <div className="flabel">{s.label || STAGE_LABEL[s.key] || s.key}</div>
                   <div className="fkey">{s.key}{s.step ? ` · ${s.step}` : ''}</div>
                 </button>
               ))}
             </div>
+            {/* Filling the middle of the funnel with the deal total claimed this fund
+                shortlists everything it sources, which an LP reads as no screening
+                discipline. Where the yield is not measured, say it is not measured. */}
+            {funnel?.funnelNote ? <div className="muted" style={{ padding: '0 12px 10px' }}>{funnel.funnelNote}</div> : null}
           </section>
           <section className="panel">
             <div className="panel-h">

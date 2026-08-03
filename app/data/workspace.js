@@ -96,7 +96,7 @@ const CHECKLIST = [
     items: [
       { id: 'fin-1', text: 'Audited financials — P&L, BS, CF (last 5 FY)' },
       { id: 'fin-2', text: 'Monthly management accounts (last 24 months)' },
-      { id: 'fin-3', text: 'EBITDA bridge: reported → normalized, add-backs itemized' },
+      { id: 'fin-3', text: 'EBITDA bridge: reported → normalised, add-backs itemized' },
       { id: 'fin-4', text: 'Working-capital analysis (AR/AP/inventory aging)' },
       { id: 'fin-5', text: 'Debt schedule — facility, maturity, covenants' }
     ]
@@ -171,7 +171,7 @@ const SWIMLANE_DEFAULTS = [
     lane: 'financial', label: 'Financial / QoE', md: 'finance-md',
     advisor: 'EY (Ernst & Young)', advisorType: 'Quality of Earnings (QoE)',
     scope: ['EBITDA bridge & add-back review', 'Revenue recognition & quality', 'Net working capital & debt-like items', 'Management-accounts reliability'],
-    deliverable: 'QoE report + normalized EBITDA'
+    deliverable: 'QoE report + normalised EBITDA'
   },
   {
     lane: 'legal', label: 'Legal DD', md: 'legal-md',
@@ -253,7 +253,7 @@ export function buildWorkspace(deal, opts = {}) {
 
   return {
     createdAt: opts.createdAt || new Date().toISOString(),
-    provisionedBy: 'Deal team — deal setup · Power Automate',
+    provisionedBy: 'Deal team — deal setup ',
     icDate: deal.targetICDate,
     teamsUrl,
     teamsProvisioned: false,

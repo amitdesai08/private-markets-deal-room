@@ -7,7 +7,7 @@
 // empty channel, which made a working capability look broken.
 //
 // This module closes that gap by COMPOSING a per-deal corpus from the deal
-// record itself — its lanes, lane owners, findings, key figures, IC date and
+// record itself — its lanes, workstream leads, findings, key figures, IC date and
 // stage. Nothing is invented about the deal: every generated sentence restates
 // a fact the platform already holds, attributed to the persona who actually
 // owns that lane. The result is:
@@ -76,7 +76,7 @@ function speaker(personaId, lane) {
   };
 }
 
-// The fund-level seats that appear on every deal regardless of lane ownership,
+// The fund-level seats that appear on every deal regardless of workstream leadship,
 // so no persona is ever left without Work IQ material to look at.
 const HOUSE_SEATS = ['partner', 'principal', 'fund-cfo', 'legal-gc', 'ir-lp', 'operating-partner', 'analyst'];
 
@@ -100,7 +100,7 @@ function participantsFor(deal) {
 // ---------------------------------------------------------------------------
 //  Channel messages
 // ---------------------------------------------------------------------------
-// The shape of a deal war room: the lead frames the gate, each lane owner
+// The shape of a deal war room: the lead frames the gate, each workstream lead
 // reports against its OWN recorded progress, someone makes a commitment with a
 // date (so commitment detection has something real to find), and the sponsor
 // closes with a decision (so decision detection does too).
@@ -110,7 +110,7 @@ function participantsFor(deal) {
 
 const money = (n, ccy = 'USD') => {
   if (n == null) return null;
-  const sym = ccy === 'EUR' ? '€' : ccy === 'GBP' ? '£' : ccy === 'CHF' ? 'CHF ' : '$';
+  const sym = ccy === 'EUR' ? '$' : ccy === 'GBP' ? '$' : ccy === 'CHF' ? 'CHF ' : '$';
   return n >= 1000 ? `${sym}${(n / 1000).toFixed(1)}B` : `${sym}${Math.round(n)}M`;
 };
 
@@ -212,7 +212,7 @@ function commitmentMessage(rand, deal, w) {
   const who = speaker(w.owner, w.lane);
   const when = pick(rand, ['by Thursday', 'by Friday', 'by end of Monday', 'in 3 days', 'next week']);
   const text = pick(rand, [
-    `Taking the action on ${laneLabel(w.lane)} — I'll circulate the ${v.artefact} ${when} so the lane stops gating the pack.`,
+    `Taking the action on ${laneLabel(w.lane)} — I'll circulate the ${v.artefact} ${when} so it stops holding up the pack.`,
     `I'll run ${v.work} and send the ${v.artefact} to the channel ${when}.`,
     `Happy to own this one: I'll draft the ${v.artefact} covering ${v.work} ${when}.`,
   ]);
@@ -227,7 +227,7 @@ function decisionMessage(rand, deal) {
     : ` IC is ${d} days out.`;
   const text = pick(rand, [
     `Agreed — we go to committee on the base case only, with any upside shown as a clearly labelled conditional case.${clock}`,
-    `Decided: lane owners confirm their dates in this channel, and we do not move the gate without a written reason.${clock}`,
+    `Decided: workstream leads confirm their dates in this channel, and we do not move an IC date without a written reason.${clock}`,
     `Signed off on the approach below. Nothing goes in the pack that is not sourced to the record.${clock}`,
   ]);
   return { from: sponsor.name, personaId: sponsor.id, created: at(0, 8, 15), preview: text };
@@ -256,7 +256,7 @@ function generatedChannel(deal) {
   ];
   messages.push({ from: lead.name, personaId: lead.id, created: at(4, 8, 40), preview: pick(rand, openLines) });
 
-  // 2) Each lane owner reports against its own recorded progress.
+  // 2) Each workstream lead reports against its own recorded progress.
   lanes.forEach((w, i) => {
     const who = speaker(w.owner, w.lane);
     messages.push({
@@ -397,7 +397,7 @@ function generatedMail(deal) {
       received: at(2, 11, 15),
       preview: pick(rand, [
         'Returning the mark-up with the warranty package and a first cut of the change-of-control consent list. Two consents look time-critical.',
-        'Attached the revised SPA with our comments on the indemnity cap and the consent schedule. Suggest we walk it before the next lane call.',
+        'Attached the revised SPA with our comments on the indemnity cap and the consent schedule. Suggest we walk it before the next deal-team call.',
       ]),
     });
   }

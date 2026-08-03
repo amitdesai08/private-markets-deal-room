@@ -29,7 +29,7 @@ function ago(iso: string): string {
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.round(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
-  return new Date(iso).toLocaleDateString();
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export default function WorkIqPanel({ dealId, canWrite, onAsk }: { dealId: string; canWrite: boolean; onAsk?: (prompt: string) => void }) {
