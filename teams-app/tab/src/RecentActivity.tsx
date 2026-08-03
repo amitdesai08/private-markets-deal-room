@@ -143,7 +143,7 @@ export default function RecentActivity({
             </div>
             <div style={{ display: 'flex', gap: 6, flex: '0 0 auto' }}>
               {it.kind === 'file' ? (
-                <DocOpenButton dealId={dealId} name={it.title} open={it.open} compact onNote={setNote} />
+                <DocOpenButton dealId={dealId} name={it.title} open={it.open} compact onNote={setNote} dataRoomUrl={data?.dataRoomUrl} />
               ) : it.url ? (
                 <a className="btn compact" href={it.url} target="_blank" rel="noreferrer">{OPEN[it.kind]} ↗</a>
               ) : onOpenTab && it.kind === 'message' ? (

@@ -17,6 +17,7 @@ import ExcelJS from 'exceljs';
 import { renderPptx } from './pptx.js';
 import { buildLiveModelXlsx, buildModelHtml, buildModelCsv, OFFICE_MIME } from './office.js';
 import { getDocTemplate } from '../accessConfig.js';
+import { renderPdf } from '../pdf.js';
 
 export { buildLiveModelXlsx, buildModelHtml, buildModelCsv, OFFICE_MIME };
 
@@ -486,8 +487,8 @@ export async function buildDocumentBriefDocx(deal, brief = {}) {
 
   const facts = [
     ['Deal', co],
-    ['Workstream', brief.lane || 'Not attributed'],
-    ['Owner', brief.owner || 'Unassigned'],
+    ['Workstream', brief.laneName || brief.lane || 'Not attributed'],
+    ['Owner', brief.ownerName || brief.owner || 'Unassigned'],
     ['Workstream status', brief.laneStatus || 'Not recorded'],
   ];
 
@@ -527,12 +528,76 @@ export async function buildDocumentBriefDocx(deal, brief = {}) {
     sectionHeading('Getting hold of the original'),
     body(brief.dataRoomUrl
       ? `The deal's data room is at ${brief.dataRoomUrl}. If the document has been uploaded it will be filed there under its workstream.`
-      : `This deal has no shared data room yet, so there is no single place to send you for the file. ${brief.owner ? `${brief.owner} owns this workstream and is the person to ask.` : 'Ask the workstream owner.'}`),
+      : `This deal has no shared data room yet, so there is no single place to send you for the file. ${brief.ownerName || brief.owner ? `${brief.ownerName || brief.owner} owns this workstream and is the person to ask.` : 'Ask the workstream owner.'}`),
     new Paragraph({ spacing: { before: 240 }, children: [new TextRun({ text: DISCLAIMER, italics: true, color: MUTE, size: 18 })] }),
   );
 
   const doc = new Document({ creator: BRAND, title: `Briefing — ${name}`, company: BRAND, styles: { default: { document: { run: { font: 'Calibri', size: 21, color: '2B2B2B' } } } }, sections: [{ properties: { page: { margin: { top: 1200, bottom: 1200, left: 1200, right: 1200 } } }, footers: { default: footer }, children }] });
   return Packer.toBuffer(doc);
+}
+
+/**
+ * The same briefing as a PDF.
+ *
+ * This is the copy a person actually reads, because a PDF renders in the browser and
+ * in Teams the instant it arrives — no download, no Word, no leaving the deal. The
+ * Word version above exists for the case where they want to edit or forward it.
+ */
+export async function buildDocumentBriefPdf(deal, brief = {}) {
+  applyBrand();
+  const co = (deal && (deal.company || deal.id)) || 'this deal';
+  const name = String(brief.name || 'Document');
+  const findings = Array.isArray(brief.findings) ? brief.findings : [];
+
+  const blocks = [
+    { t: 'eyebrow', text: `${BRAND.toUpperCase()} · DOCUMENT BRIEFING`, color: ACCENT },
+    { t: 'title', text: name },
+    { t: 'meta', text: `Prepared ${dateStr(new Date())} from the ${co} deal record` },
+    { t: 'rule', color: ACCENT, thickness: 1.6 },
+    {
+      t: 'note',
+      color: ACCENT,
+      text: `The original has not been shared into the deal room, so this is not a copy of it. Everything below is drawn from the ${co} deal record: what the deal says this document is, whose workstream it sits in, and the diligence findings recorded against it.`,
+    },
+  ];
+
+  if (brief.summary) blocks.push({ t: 'h', text: 'What this document is' }, { t: 'p', text: brief.summary });
+
+  blocks.push({ t: 'h', text: 'Where it sits' }, {
+    t: 'kv',
+    rows: [
+      ['Deal', co],
+      ['Workstream', brief.laneName || brief.lane || 'Not attributed'],
+      ['Owner', brief.ownerName || brief.owner || 'Unassigned'],
+      ['Workstream status', brief.laneStatus || 'Not recorded'],
+    ],
+  });
+
+  blocks.push({ t: 'h', text: 'Diligence findings recorded against it' });
+  if (!findings.length) {
+    blocks.push({ t: 'p', text: 'Nothing in the diligence findings refers to this document yet.', color: '6B7280' });
+  } else {
+    blocks.push({ t: 'p', text: 'Each finding notes why it appears here: either it names this document as its source, or it belongs to the same workstream.', color: '6B7280' });
+    for (const f of findings) {
+      blocks.push({ t: 'p', text: String(f.text || '') });
+      blocks.push({
+        t: 'p',
+        color: '6B7280',
+        text: `${SEV_WORD[String(f.severity)] || 'Note'} · ${f.basis || ''}${f.source ? ` · ${f.source}` : ''}`,
+      });
+    }
+  }
+
+  blocks.push({ t: 'h', text: 'Getting hold of the original' }, {
+    t: 'p',
+    text: brief.dataRoomUrl
+      ? `The deal's data room is at ${brief.dataRoomUrl}. If the document has been uploaded it will be filed there under its workstream.`
+      : `This deal has no shared data room yet, so there is no single place to send you for the file. ${brief.ownerName || brief.owner ? `${brief.ownerName || brief.owner} owns this workstream and is the person to ask.` : 'Ask the workstream owner.'}`,
+  });
+
+  blocks.push({ t: 'rule' }, { t: 'meta', text: `${FOOTER_CONF} · ${BRAND} · Briefing assembled from the deal record — not the original document` });
+
+  return renderPdf({ title: `Briefing — ${name}`, author: BRAND, blocks });
 }
 
 // =============================================================================

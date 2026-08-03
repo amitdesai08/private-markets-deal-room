@@ -130,7 +130,7 @@ import { wiPostChannelMessage, wiSearchFiles, wiSearchMail } from './lib/m365/wo
 // Email, channel discussion and files for one deal, merged into a single feed.
 import { buildRecentActivity, searchTermsFor } from './lib/dealActivity.js';
 // How a listed document opens: the real file, one we can build, or what we know.
-import { withOpen, documentBrief } from './lib/docOpen.js';
+import { withOpen, documentBrief, mergeLiveFiles } from './lib/docOpen.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
@@ -143,7 +143,7 @@ import { askFabricDataAgent, fabricDataAgentInfo } from './lib/fabricDataAgent.j
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import m365LoginRouter from './lib/m365/loginRoutes.js';
 import { m365Configured, m365Connected, m365Ready, m365AppOnly, m365FilesScope, listDealDocuments, saveDealDocument, M365NotConnectedError } from './lib/m365/graph.js';
-import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml, buildModelCsv, buildReturnsXlsx, buildIcDeckPptx, buildDocumentBriefDocx, OFFICE_MIME } from './lib/m365/officeRich.js';
+import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml, buildModelCsv, buildReturnsXlsx, buildIcDeckPptx, buildDocumentBriefDocx, buildDocumentBriefPdf, OFFICE_MIME } from './lib/m365/officeRich.js';
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
@@ -827,19 +827,20 @@ api.get('/deals/:id/doc-desk', async (req, res) => {
       if (Array.isArray(r?.results)) live = r.results;
     } catch { /* the composed data room still renders */ }
   }
+  // A document the deal lists and a file Microsoft 365 holds are often the same
+  // paper under different punctuation. Fold them together before building the desk,
+  // or the reader sees it twice and cannot tell which copy is the real one.
+  const { files: mergedFiles, extra } = mergeLiveFiles(corpus.files || [], live);
   const out = buildDocumentDesk(g.deal, {
-    files: corpus.files || [],
+    files: mergedFiles,
     since: String(req.query.since || '') || null,
-    live,
+    live: extra,
   });
   res.json({
     ...out,
-    // Every document says how it opens, so no name in this list is a dead end. The
-    // live results are passed in as well: a document the deal lists and a file
-    // Microsoft 365 holds are often the same paper under different punctuation, and
-    // until they are matched the real one never reaches the name you clicked.
-    docs: withOpen(out.docs, g.raw, live),
-    changed: withOpen(out.changed, g.raw, live),
+    // Every document says how it opens, so no name in this list is a dead end.
+    docs: withOpen(out.docs, g.raw),
+    changed: withOpen(out.changed, g.raw),
     origin: corpus.origin,
     liveFiles: live.length,
     // Where the real paper lives. Offered so that when Microsoft 365 has not resolved
@@ -864,6 +865,16 @@ function listedDocument(raw, name) {
   return (corpusForDeal(raw).files || []).find((f) => String(f.name).toLowerCase() === wanted) || null;
 }
 
+// Deal document names are full of em dashes and ampersands, and an HTTP header may
+// only carry ASCII — a raw em dash here throws. So: a flattened name every client
+// understands, plus the real one in the encoded form that modern clients prefer.
+function dispositionFor(docName, suffix, disposition) {
+  const stem = String(docName || 'Document').replace(/\.[a-z0-9]{2,5}$/i, '').trim();
+  const file = `${stem} - ${suffix}`;
+  const ascii = file.replace(/[^\x20-\x7E]/g, '-').replace(/"/g, '');
+  return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(file)}`;
+}
+
 api.get('/deals/:id/document-brief', (req, res) => {
   const g = deskGate(req, res);
   if (!g) return;
@@ -885,14 +896,28 @@ api.get('/deals/:id/document-brief.docx', async (req, res) => {
   if (!known) return res.status(404).json({ error: 'not-found', detail: 'That document is not listed on this deal.' });
   try {
     const buf = await buildDocumentBriefDocx(g.raw, documentBrief(known, g.raw));
-    const stem = String(known.name).replace(/\.[a-z0-9]{2,5}$/i, '').trim();
-    const file = `${stem} - briefing.docx`;
-    // Deal documents are full of em dashes and ampersands, and a header may only
-    // carry ASCII. So: a plain ASCII name every browser understands, plus the real
-    // one in the encoded form that browsers prefer when they see it.
-    const ascii = file.replace(/[^\x20-\x7E]/g, '-').replace(/"/g, '');
     res.setHeader('Content-Type', OFFICE_MIME.docx);
-    res.setHeader('Content-Disposition', `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(file)}`);
+    res.setHeader('Content-Disposition', dispositionFor(known.name, 'briefing.docx', 'attachment'));
+    res.send(buf);
+  } catch (e) {
+    res.status(500).json({ error: 'build-failed', detail: String(e?.message || e) });
+  }
+});
+
+// And as a PDF, served inline — which is the copy a person actually reads, because
+// the browser and the Teams client both render a PDF where it stands. No download,
+// no Word, no leaving the deal to look at a document that belongs to it.
+api.get('/deals/:id/document-brief.pdf', async (req, res) => {
+  const g = deskGate(req, res);
+  if (!g) return;
+  const name = String(req.query.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'bad-args', detail: 'Which document?' });
+  const known = listedDocument(g.raw, name);
+  if (!known) return res.status(404).json({ error: 'not-found', detail: 'That document is not listed on this deal.' });
+  try {
+    const buf = await buildDocumentBriefPdf(g.raw, documentBrief(known, g.raw));
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', dispositionFor(known.name, 'briefing.pdf', 'inline'));
     res.send(buf);
   } catch (e) {
     res.status(500).json({ error: 'build-failed', detail: String(e?.message || e) });

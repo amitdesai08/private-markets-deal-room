@@ -98,7 +98,7 @@ export default function DocumentDesk({
                   {d.delta ? <div className={`delta ${d.deltaTone || 'warn'}`}>{d.delta}</div> : null}
                   {d.basis ? <div className="sub" style={{ marginTop: 4 }}>{d.basis}</div> : null}
                   <div className="acts">
-                    <DocOpenButton dealId={dealId} name={d.name} open={d.open} onNote={setNote} />
+                    <DocOpenButton dealId={dealId} name={d.name} open={d.open} onNote={setNote} dataRoomUrl={data.dataRoomUrl} />
                     <button className="btn compact" onClick={() => onAsk?.(`Summarise what changed in ${d.name} on ${data.company}.`)}>✦ Summarize</button>
                   </div>
                 </div>
@@ -141,7 +141,7 @@ export default function DocumentDesk({
                     <div className="sub" style={{ marginTop: 6 }}>{d.summary}</div>
                     <div className="sub" style={{ marginTop: 4 }}>Modified {ago(d.lastModified)}</div>
                     <div className="acts">
-                      <DocOpenButton dealId={dealId} name={d.name} open={d.open} onNote={setNote} />
+                      <DocOpenButton dealId={dealId} name={d.name} open={d.open} onNote={setNote} dataRoomUrl={data.dataRoomUrl} />
                       <button className="btn compact" onClick={() => onAsk?.(`What does ${d.name} tell us about ${data.company}?`)}>✦ Ask about this</button>
                     </div>
                   </div>

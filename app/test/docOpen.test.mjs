@@ -106,6 +106,44 @@ test('an unrecognised document is given no lane rather than a wrong one', () => 
   assert.deepEqual(b.findings, []);
 });
 
+test('the briefing reads in words, not in the keys the record stores', () => {
+  // This paper can be saved and forwarded to a lender. "fund-cfo", "financial" and
+  // "in_progress" are how the record talks to itself, not how a partner writes.
+  const b = documentBrief({ name: 'Vendor QoE Report.pdf' }, {
+    ...DEAL,
+    workstreams: [{ ...DEAL.workstreams[0], status: 'in_progress' }],
+  });
+  assert.equal(b.laneName, 'Financial / QoE');
+  assert.equal(b.ownerName, 'David Osei');
+  assert.equal(b.laneStatus, 'In progress');
+  // The keys themselves stay, because code still matches on them.
+  assert.equal(b.lane, 'financial');
+  assert.equal(b.owner, 'fund-cfo');
+});
+
+test('a document nobody owns claims no owner and no workstream', () => {
+  const b = documentBrief({ name: 'Photographs of the depot.zip' }, DEAL);
+  assert.equal(b.laneName, null);
+  assert.equal(b.ownerName, null);
+  assert.equal(b.laneStatus, null);
+});
+
+test('the briefing does not print the same sentence twice', () => {
+  // Stored summaries end with the workstream's headline finding, which the briefing
+  // also lists in full further down the page.
+  const b = documentBrief({
+    name: 'Vendor QoE Report.pdf',
+    summary: 'Sell-side quality of earnings. Workstream 45% complete — Adjusted EBITDA overstated by 1.2m.',
+  }, DEAL);
+  assert.equal(b.summary, 'Sell-side quality of earnings. Workstream 45% complete');
+  assert.ok(b.findings.some((f) => f.text.includes('EBITDA overstated')), 'the finding itself must survive');
+});
+
+test('a summary that is only a finding does not become an empty heading', () => {
+  const b = documentBrief({ name: 'Vendor QoE Report.pdf', summary: 'Adjusted EBITDA overstated by 1.2m.' }, DEAL);
+  assert.equal(b.summary, null);
+});
+
 test('the brief points at the data room only when there is one', () => {
   assert.equal(
     documentBrief({ name: 'x.pdf' }, DEAL).dataRoomUrl,

@@ -42,6 +42,8 @@
 // match a document this platform actually knows how to build. Everything else is a
 // brief, and a brief never pretends to be the document.
 
+import { laneLabel, ownerLabel } from './cockpit.js';
+
 // Documents this platform builds from the live record. Order matters: "Returns
 // Model" and "Deal Model" both contain the word model, so the specific patterns are
 // tested before the general one.
@@ -148,6 +150,30 @@ export function matchLiveFile(name, live = []) {
   return live.find((f) => isHttps(f?.webUrl) && sameDocument(name, f?.name)) || null;
 }
 
+/**
+ * Fold what Microsoft 365 returned into the documents the deal lists.
+ *
+ * Returns the listed documents with a real link attached wherever one was found, and
+ * separately the live files that matched nothing so they can still be shown. Without
+ * this the same paper appears twice — once as the name the deal knows it by and once
+ * as the file SharePoint knows it by — and the reader cannot tell which to trust.
+ */
+export function mergeLiveFiles(files = [], live = []) {
+  const listed = Array.isArray(files) ? files : [];
+  const found = Array.isArray(live) ? live : [];
+  const claimed = new Set();
+  const merged = listed.map((f) => {
+    if (isHttps(f?.webUrl)) return f;
+    const hit = found.find((l) => !claimed.has(l) && isHttps(l?.webUrl) && sameDocument(f?.name, l?.name));
+    if (!hit) return f;
+    claimed.add(hit);
+    // The deal's own name for the document wins: it is the one used in the findings,
+    // the emails and the channel. What we take from Microsoft 365 is the way in.
+    return { ...f, webUrl: hit.webUrl, lastModified: hit.lastModified || hit.modified || f.lastModified };
+  });
+  return { files: merged, extra: found.filter((l) => !claimed.has(l)) };
+}
+
 // The lane a document belongs to, inferred from its name. Deliberately keyword-based
 // and deliberately incomplete: an unmatched document gets no lane rather than a
 // wrong one, because attributing counsel's mark-up to the finance workstream sends
@@ -208,14 +234,54 @@ export function documentBrief(doc = {}, deal = null) {
 
   return {
     name,
-    summary: doc?.summary || null,
+    summary: withoutRepeats(doc?.summary, findings),
     lane,
     owner: ws?.owner || null,
-    laneStatus: ws?.status || null,
+    // The same two facts as a person would say them. The raw keys stay above
+    // because code matches on them; a briefing that may be forwarded to a lender
+    // should not read "fund-cfo" or "techai".
+    laneName: lane ? laneLabel(lane) : null,
+    ownerName: ws?.owner ? ownerLabel(ws.owner, lane) : null,
+    laneStatus: readable(ws?.status),
     findings,
     // Where the real file lives, when the deal has a data room to point at.
     dataRoomUrl: deal?.workspace?.sharePointProvisioned ? (deal?.workspace?.sharePointUrl || null) : null,
   };
+}
+
+/**
+ * A stored status as a person would write it.
+ *
+ * The record keeps `in_progress` because that is what code compares against; a
+ * document that a partner may forward to a lender should not show the machine's
+ * spelling of it.
+ */
+function readable(v) {
+  const s = String(v || '').trim();
+  if (!s) return null;
+  const words = s.replace(/[_-]+/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * The summary with any finding it already quotes taken back out.
+ *
+ * A document's stored summary tends to end with the workstream's headline finding,
+ * which is fine in a one-line list. The briefing prints the findings in full a few
+ * lines further down, so left alone the same sentence appears twice on one page and
+ * the paper reads as though nobody proof-read it. The finding stays; the copy of it
+ * goes.
+ */
+function withoutRepeats(summary, findings = []) {
+  let s = String(summary || '').trim();
+  if (!s) return null;
+  for (const f of findings) {
+    const t = String(f.text || '').trim();
+    // Short texts can legitimately recur; only lift out something substantial.
+    if (t.length > 24 && s.includes(t)) s = s.replace(t, '');
+  }
+  s = s.replace(/\s+/g, ' ').replace(/[\s—–-]+$/, '').trim();
+  return s || null;
 }
 
 /**

@@ -80,24 +80,29 @@ export async function downloadDocBrief(dealId: string, name: string): Promise<{ 
   }
 }
 
+/**
+ * The same briefing as a PDF, ready to render.
+ *
+ * Fetched rather than linked because the request has to carry the caller's identity,
+ * and handed back as an object URL so the browser's own PDF viewer draws it in
+ * place. The caller owns the URL and must release it.
+ */
+export async function openDocBriefPdf(dealId: string, name: string): Promise<{ url?: string; error?: string }> {
+  try {
+    const r = await af(`/api/deals/${dealId}/document-brief.pdf?name=${encodeURIComponent(name)}`);
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({} as any));
+      return { error: d?.detail || 'That document is not listed on this deal.' };
+    }
+    const blob = await r.blob();
+    return { url: URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: 'application/pdf' })) };
+  } catch (e: any) {
+    return { error: `Could not open that document (${String(e?.message || e)}).` };
+  }
+}
+
 // How a document opens, as the server resolved it. Mirrors app/lib/docOpen.js.
 export type DocOpen =
   | { mode: 'external'; url: string; label: string; reason: string }
   | { mode: 'generate'; kind: DocKind; ext: string; label: string; reason: string }
   | { mode: 'brief'; label: string; reason: string };
-
-export type DocBrief = {
-  name: string;
-  summary?: string | null;
-  lane?: string | null;
-  owner?: string | null;
-  laneStatus?: string | null;
-  findings: { text: string; severity?: string | null; source?: string | null; basis: string }[];
-  dataRoomUrl?: string | null;
-};
-
-export async function fetchDocBrief(dealId: string, name: string): Promise<DocBrief | null> {
-  return af(`/api/deals/${dealId}/document-brief?name=${encodeURIComponent(name)}`)
-    .then((r) => (r.ok ? r.json() : null))
-    .catch(() => null);
-}

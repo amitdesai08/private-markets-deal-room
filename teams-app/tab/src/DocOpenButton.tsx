@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { downloadGeneratedDoc, downloadDocBrief, fetchDocBrief, type DocOpen, type DocBrief } from './docOpen';
+import { useEffect, useState } from 'react';
+import { downloadGeneratedDoc, downloadDocBrief, openDocBriefPdf, type DocOpen } from './docOpen';
 
 // The control that makes a document name in this product open the document.
 //
@@ -12,39 +12,38 @@ import { downloadGeneratedDoc, downloadDocBrief, fetchDocBrief, type DocOpen, ty
 //   generate — the platform can write this document from the live deal record.
 //              Build it and hand it over; it is a real .docx / .xlsx / .pptx and it
 //              is current by construction.
-//   brief    — nobody has shared the original with us. Open everything the deal
-//              record genuinely holds against that name, say plainly that it is not
-//              a copy of the document, and let it be taken away as a Word file.
+//   brief    — nobody has shared the original with us. Build a PDF of everything the
+//              deal record holds against that name and render it here, in place.
 //
 // The third case is the one worth defending. The tempting design is to hide the
 // button when we cannot open the file itself, but then most of the documents on
 // screen are inert, the list looks half-built, and the person goes back to hunting
 // through email for the attachment — which is the exact chasing about this product
-// exists to remove. So every document says Open, and what opens is the best thing we
-// honestly have.
-
-// Findings carry severity in two vocabularies depending on where they were authored
-// — high/medium/low alongside positive/caution/negative. Both are mapped so a real
-// finding never renders as an unstyled chip.
-const SEV_TONE: Record<string, string> = {
-  positive: 'good', low: 'good',
-  caution: 'warn', medium: 'warn',
-  negative: 'bad', high: 'bad',
-};
+// exists to remove.
+//
+// It is a PDF and not a panel of fields because a PDF is a document: it renders
+// natively in the browser and in Teams, it reads like the thing it describes, and it
+// can be saved or forwarded without the platform being involved. The first line of
+// it says plainly that it is not the original.
 
 export default function DocOpenButton({
-  dealId, name, open, compact = false, onNote,
+  dealId, name, open, compact = false, onNote, dataRoomUrl,
 }: {
   dealId: string;
   name: string;
   open?: DocOpen;
   compact?: boolean;
   onNote?: (msg: string) => void;
+  dataRoomUrl?: string | null;
 }) {
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [brief, setBrief] = useState<DocBrief | null>(null);
-  const [showing, setShowing] = useState(false);
+  const [pdf, setPdf] = useState<string | null>(null);
+
+  // A blob URL is a live handle on memory, so it is released when the reader closes
+  // and again if this control ever unmounts with one still open.
+  useEffect(() => () => { if (pdf) URL.revokeObjectURL(pdf); }, [pdf]);
+  const close = () => { if (pdf) URL.revokeObjectURL(pdf); setPdf(null); };
 
   if (!open) return null;
   const cls = compact ? 'chbtn' : 'btn compact';
@@ -77,94 +76,46 @@ export default function DocOpenButton({
         title={open.reason}
         onClick={async () => {
           setBusy(true);
-          const b = await fetchDocBrief(dealId, name);
+          const r = await openDocBriefPdf(dealId, name);
           setBusy(false);
-          if (!b) { onNote?.('Nothing further is recorded about that document.'); return; }
-          setBrief(b);
-          setShowing(true);
+          if (!r.url) { onNote?.(r.error || 'Could not open that document.'); return; }
+          setPdf(r.url);
         }}
       >{busy ? 'Opening…' : open.label}</button>
 
-      {showing && brief ? (
-        <div
-          className="drawer-scrim"
-          onClick={() => setShowing(false)}
-          style={{ alignItems: 'center' }}
-        >
+      {pdf ? (
+        <div className="drawer-scrim" onClick={close} style={{ alignItems: 'center' }}>
           <div
             className="card"
             onClick={(e) => e.stopPropagation()}
-            style={{ width: 'min(680px, 94vw)', maxHeight: '82vh', overflowY: 'auto', margin: 'auto' }}
+            style={{ width: 'min(940px, 96vw)', height: '90vh', margin: 'auto', display: 'flex', flexDirection: 'column' }}
           >
             <div className="hd">
-              <h3 style={{ margin: 0, minWidth: 0 }}>📄 {brief.name}</h3>
+              <h3 style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                📄 {name}
+              </h3>
               <span className="spacer" />
-              <button className="btn compact" onClick={() => setShowing(false)}>Close</button>
-            </div>
-            <div className="bd" style={{ display: 'grid', gap: 12 }}>
-              <div className="muted" style={{ fontSize: 12 }}>
-                Nobody has shared the original with the deal room, so this is not a copy of it.
-                It is everything the deal record holds against that name.
-              </div>
-
-              {brief.summary ? <div style={{ fontSize: 13 }}>{brief.summary}</div> : null}
-
-              {brief.owner || brief.lane ? (
-                <div style={{ fontSize: 12.5 }}>
-                  <span className="muted">Workstream: </span>
-                  {[brief.lane, brief.owner, brief.laneStatus].filter(Boolean).join(' · ')}
-                </div>
+              <a className="btn compact" href={pdf} target="_blank" rel="noreferrer">Full screen ↗</a>
+              <button
+                className="btn compact"
+                disabled={saving}
+                onClick={async () => {
+                  setSaving(true);
+                  const r = await downloadDocBrief(dealId, name);
+                  setSaving(false);
+                  if (!r.ok && r.error) onNote?.(r.error);
+                }}
+              >{saving ? 'Preparing…' : 'Save as Word'}</button>
+              {dataRoomUrl ? (
+                <a className="btn compact" href={dataRoomUrl} target="_blank" rel="noreferrer">Data room ↗</a>
               ) : null}
-
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
-                  What diligence has found against it
-                </div>
-                {brief.findings.length === 0 ? (
-                  <div className="muted" style={{ fontSize: 12.5 }}>
-                    Nothing in the diligence findings refers to this document yet.
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    {brief.findings.map((f, i) => (
-                      <div key={i} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: 12.5 }}>{f.text}</div>
-                        <div className="muted" style={{ fontSize: 11.5, marginTop: 3 }}>
-                          <span className={`chip ${SEV_TONE[String(f.severity)] || ''}`}>{f.severity || 'note'}</span>
-                          {' · '}{f.basis}{f.source ? ` · ${f.source}` : ''}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                <button
-                  className="btn compact"
-                  disabled={saving}
-                  onClick={async () => {
-                    setSaving(true);
-                    const r = await downloadDocBrief(dealId, brief.name);
-                    setSaving(false);
-                    if (!r.ok && r.error) onNote?.(r.error);
-                  }}
-                >{saving ? 'Preparing…' : 'Save as Word ↗'}</button>
-
-                {brief.dataRoomUrl ? (
-                  <a className="btn compact" href={brief.dataRoomUrl} target="_blank" rel="noreferrer">
-                    Open the data room ↗
-                  </a>
-                ) : null}
-              </div>
-
-              {brief.dataRoomUrl ? null : (
-                <div className="muted" style={{ fontSize: 12 }}>
-                  This deal has no shared data room yet, so there is nowhere to send you for the original.
-                  {brief.owner ? ` ${brief.owner} owns this workstream and is the person to ask.` : ''}
-                </div>
-              )}
+              <button className="btn compact" onClick={close}>Close</button>
             </div>
+            <iframe
+              title={name}
+              src={pdf}
+              style={{ flex: 1, width: '100%', border: 0, borderRadius: '0 0 10px 10px', background: '#525659' }}
+            />
           </div>
         </div>
       ) : null}

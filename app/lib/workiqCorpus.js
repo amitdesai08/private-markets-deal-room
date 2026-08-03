@@ -335,7 +335,7 @@ function generatedFiles(deal) {
       deal: deal.id,
       name: `${co} — ${f[0]}`,
       type: 'driveItem',
-      summary: `${f[1]} Lane at ${w.progress ?? 0}%${(w.findings || [])[0]?.text ? ` — ${w.findings[0].text}` : ''}`,
+      summary: `${f[1]} Workstream ${w.progress ?? 0}% complete${(w.findings || [])[0]?.text ? ` — ${w.findings[0].text}` : ''}`,
       lastModified: at(3 + i, 9 + i, 20),
     });
   });
