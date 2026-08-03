@@ -177,7 +177,10 @@ export default function Cockpit({
             </div>
             <div className="legend">
               <span>
-                Ranked by urgency{data.roleLabel ? <> · weighted for <b>{data.roleLabel}</b></> : null}
+                {/* An administrator and an observer see every deal ranked the same way --
+                    nothing weights the queue for them. The Home equivalent was corrected
+                    for exactly this reason; the deal-level line still made the claim. */}
+                Ranked by urgency{data.roleLabel && !/administrator|observer/i.test(data.roleLabel) ? <> · weighted for <b>{data.roleLabel}</b></> : null}
                 {canWrite ? ' · AI-detected items are labelled' : <> · <b>read-only access</b> — actions hidden</>}
               </span>
             </div>

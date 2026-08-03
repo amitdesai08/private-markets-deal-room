@@ -307,7 +307,13 @@ function buildBriefing(deal, board, attention, sinceIso) {
   const since = sinceIso ? new Date(sinceIso) : null;
 
   // What moved, from the audit trail.
+  //
+  // A demo reseed writes itself into the audit trail, correctly -- it discards state and
+  // that has to leave a trace. But it is an operator action on the platform, not news
+  // about the deal, and it was opening the brief with "Deal reset to its starting
+  // state", which is the first thing a partner read about their own transaction.
   const recent = (deal.activity || []).filter((a) => {
+    if (/reset to its starting state|demo fixture/i.test(String(a.action || ''))) return false;
     if (!since) return true;
     const t = new Date(a.when || a.at || 0).getTime();
     return !Number.isNaN(t) && t >= since.getTime();

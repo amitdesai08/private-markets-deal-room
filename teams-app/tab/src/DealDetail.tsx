@@ -430,15 +430,21 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   const nbaEvent = nbaDays != null && nbaDays >= 0 ? `IC in ${nbaDays}d` : null;
   // primaryLabel names the TAB it moves to, word for word, so the button and its
   // destination cannot drift apart.
-  let nba: { title: string; reason: string; urgency: 'High' | 'Normal'; primaryLabel: string; primaryTab: Tab } | null = null;
+  let nba: { title: string; reason: string; urgency: 'High' | 'Normal'; primaryLabel: string; primaryTab: Tab; secondaryLabel?: string; secondaryTab?: Tab } | null = null;
   if (deal && !statusOnly) {
     if (nbaPostIc) {
       const isValue = /value|exit|owned|monitor/i.test(nbaCtx);
       nba = { title: isValue ? 'Monitor value creation' : 'Drive to close', reason: isValue ? 'Post-IC — track the 100-day plan and KPIs vs the underwriting.' : 'Approved at IC — advance execution and closing.', urgency: 'Normal', primaryLabel: TAB_LABEL.stages, primaryTab: 'stages' };
     } else if (nbaDays != null && nbaDays >= 0 && nbaDays <= 21 && nbaReadiness < 80) {
-      nba = { title: 'Close diligence gaps before IC', reason: `IC in ${nbaDays}d but only ${nbaReadiness}% ready${verdict?.state ? ` (${verdict.state})` : ''} — resolve the open items gating readiness.`, urgency: 'High', primaryLabel: TAB_LABEL.ic, primaryTab: 'ic' };
+      // The verdict enum used to be spliced in here as "(READY)" / "(NOT-READY)", which
+      // is the raw state and is already rendered in English on the IC readiness tab.
+      nba = { title: 'Close diligence gaps before IC', reason: `IC in ${nbaDays}d but only ${nbaReadiness}% ready — resolve the open items holding readiness back.`, urgency: 'High', primaryLabel: TAB_LABEL.ic, primaryTab: 'ic' };
     } else if (nbaReadiness >= 80) {
-      nba = { title: 'Prepare for Investment Committee', reason: `${nbaReadiness}% ready${verdict?.state ? ` (${verdict.state})` : ''} — finalise the memo and the returns, plan and risk pages.`, urgency: (nbaDays != null && nbaDays >= 0 && nbaDays <= 14) ? 'High' : 'Normal', primaryLabel: TAB_LABEL.artifacts, primaryTab: 'artifacts' };
+      // This sentence names two pieces of work, and the banner only offered one of them.
+      // During IC week the memo is the thing a partner opens most, and it sits tenth of
+      // twelve in the rarely-used row -- exactly the wrong place for the one week it
+      // matters. It gets its own button while this banner is showing.
+      nba = { title: 'Prepare for Investment Committee', reason: `${nbaReadiness}% ready — finalise the memo and the returns, plan and risk pages.`, urgency: (nbaDays != null && nbaDays >= 0 && nbaDays <= 14) ? 'High' : 'Normal', primaryLabel: TAB_LABEL.artifacts, primaryTab: 'artifacts', secondaryLabel: 'Generate the IC memo', secondaryTab: 'documents' };
     } else if (nbaReadiness < 40) {
       nba = { title: 'Advance diligence', reason: `Early at ${nbaReadiness}% ready — run the diligence workstreams to progress.`, urgency: 'Normal', primaryLabel: TAB_LABEL.stages, primaryTab: 'stages' };
     } else {
@@ -560,6 +566,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                 </div>
                 <div style={{ display: 'flex', gap: 8, flex: '0 0 auto' }}>
                   <button className="chbtn" onClick={() => setTab(nba.primaryTab)}>Go to {nba.primaryLabel} ▸</button>
+                  {nba.secondaryTab ? <button className="chbtn" onClick={() => setTab(nba.secondaryTab as Tab)}>{nba.secondaryLabel} ▸</button> : null}
                   <button className="chbtn" onClick={() => setAskOpen(true)}>💬 Ask</button>
                 </div>
               </div>
@@ -707,7 +714,15 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                             <span style={{ fontWeight: 600, flex: 1 }}>{f.name}</span>
                             <span className="muted">{f.modified ? new Date(f.modified).toLocaleDateString() : ''}</span>
                           </a>
-                        )) : <div className="muted">No documents generated yet — use the buttons above, or drop files into the data-room folders.</div>}
+                        )) : (
+                          // This list is documents generated here. The folder grid above counts
+                          // everything in the data room, so "No documents generated yet" sat
+                          // directly under "IC Materials 4" and read as a contradiction. When
+                          // the folders hold files, say where they are.
+                          <div className="muted">{(docs.folders || []).some((fd: any) => fd.childCount)
+                            ? 'Nothing generated here yet. The files already in the data room are in the folders above.'
+                            : 'No documents generated yet — use the buttons above, or drop files into the data-room folders.'}</div>
+                        )}
                       </div>
                     </>
                   )}

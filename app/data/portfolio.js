@@ -42,7 +42,7 @@ export const seedPortfolio = [
     thesis: 'Buy-and-build of a Mountain-West specialty grocer; own-brand penetration and loyalty-data monetisation close a margin gap vs. national peers.',
     entry: { date: '2024-05-20', ebitda: 65, entryMultiple: 8.0, netDebt: 290 },
     current: { ebitda: 82, multiple: 8.5, netDebt: 230 },
-    realised: [{ date: '2025-09-10', type: 'Dividend recap', proceeds: 40 }],
+    realized: [{ date: '2025-09-10', type: 'Dividend recap', proceeds: 40 }],
     valueCreation: {
       hundredDayPct: 100,
       levers: [
@@ -72,7 +72,7 @@ export const seedPortfolio = [
     thesis: 'Reshoring-led consolidation of founder-owned precision machining suppliers into a scaled, qualified vendor for aerospace and medical OEMs.',
     entry: { date: '2024-08-12', ebitda: 45, entryMultiple: 7.5, netDebt: 190 },
     current: { ebitda: 54, multiple: 8.0, netDebt: 150 },
-    realised: [],
+    realized: [],
     valueCreation: {
       hundredDayPct: 100,
       levers: [
@@ -102,7 +102,7 @@ export const seedPortfolio = [
     thesis: 'Vertical-SaaS platform for logistics operators; proprietary labelled-data moat anchors an AI product roadmap and a durable land-and-expand motion.',
     entry: { date: '2024-06-28', ebitda: 40, entryMultiple: 12.0, netDebt: 220 },
     current: { ebitda: 58, multiple: 12.0, netDebt: 186 },
-    realised: [{ date: '2025-11-01', type: 'Dividend recap', proceeds: 30 }],
+    realized: [{ date: '2025-11-01', type: 'Dividend recap', proceeds: 30 }],
     valueCreation: {
       hundredDayPct: 100,
       levers: [
@@ -132,7 +132,7 @@ export const seedPortfolio = [
     thesis: 'De-novo and acquisition-led roll-up of specialty outpatient clinics; payer-mix optimisation and centralized RCM drive same-clinic margin expansion.',
     entry: { date: '2025-02-10', ebitda: 68, entryMultiple: 9.0, netDebt: 320 },
     current: { ebitda: 74, multiple: 9.0, netDebt: 300 },
-    realised: [],
+    realized: [],
     valueCreation: {
       hundredDayPct: 85,
       levers: [
@@ -162,7 +162,7 @@ export const seedPortfolio = [
     thesis: 'Tech-enabled outsourced back-office platform; automation and offshore delivery expand margins while a fragmented market fuels a bolt-on pipeline.',
     entry: { date: '2025-07-15', ebitda: 32.5, entryMultiple: 8.0, netDebt: 140 },
     current: { ebitda: 34, multiple: 8.0, netDebt: 132 },
-    realised: [],
+    realized: [],
     valueCreation: {
       hundredDayPct: 70,
       levers: [
@@ -192,7 +192,7 @@ export const seedPortfolio = [
     thesis: 'Specialty industrial-coatings platform; input-cost inflation and a soft construction cycle have pushed volumes below the underwriting case.',
     entry: { date: '2024-03-05', ebitda: 37.5, entryMultiple: 8.0, netDebt: 165 },
     current: { ebitda: 34, multiple: 7.5, netDebt: 168 },
-    realised: [],
+    realized: [],
     valueCreation: {
       hundredDayPct: 100,
       levers: [

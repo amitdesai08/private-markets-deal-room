@@ -103,8 +103,12 @@ export function seatFor({ role = null, persona = null } = {}) {
   // filed as a deal lead. The old `|| 'deal-lead'` meant any persona added later would
   // silently render someone else's home page — confidently, and wrongly. A null kind
   // makes the page admit it is not tailored, which is the honest failure.
+  // An administrator who is ALSO bound to a persona we do not model used to fall
+  // through to `unbound` and be told "no specialist role is assigned to you yet — ask
+  // an administrator", which is absurd advice to give the administrator. Role is the
+  // backstop when the persona does not resolve to a job we recognise.
   const kind = lanes.length ? 'lane'
-    : p ? (PERSONA_KIND[p.lane] || null)
+    : p ? (PERSONA_KIND[p.lane] || (role === 'admin' ? 'oversight' : role === 'member' ? 'observer' : null))
     : role === 'admin' ? 'oversight'
     : role === 'member' ? 'observer'
     : null;
@@ -121,7 +125,12 @@ export function seatFor({ role = null, persona = null } = {}) {
     // True when we could not bind this viewer to a persona at all, OR when we bound one
     // whose job we do not model. Either way the home page says so out loud rather than
     // silently serving the generic portfolio view as if it were tailored.
-    unbound: !p || !kind,
+    // True when we could not work out what this viewer's home page should be built
+    // around. It used to also be true whenever no persona was bound -- which caught the
+    // administrator and the observer, both of whom have a perfectly well-defined view.
+    // The administrator was consequently told "no specialist role is assigned to you
+    // yet, ask an administrator to add you". Kind is the thing that decides this.
+    unbound: !kind,
   };
 }
 

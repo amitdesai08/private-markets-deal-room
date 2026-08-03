@@ -1667,26 +1667,38 @@ export function getStage1Funnel() {
   const all = candidates;
   const reachedAtLeast = (n) => all.filter((c) => reachedIndex(c) >= n).length;
   const activeAt = (s) => all.filter((c) => c.disposition === 'active' && c.stage === s).length;
+  // Every deal on the page reached the end of origination -- that is how it became a
+  // deal. When the candidate store is empty (nothing has been screened through this
+  // instance yet) the funnel read "0 sourced, 0 screened, 0 shortlisted" directly above
+  // a list naming nineteen of them, which makes the whole tile look broken. Count what
+  // is actually on the page instead of counting an empty table.
+  const fromDeals = !all.length;
+  const dealList = fromDeals ? (listDeals(null) || []) : [];
+  const nDeals = dealList.length;
+  const awaiting = dealList.filter((d) => ['sourced', 'screened', 'shortlisted'].includes(String(d.status || ''))).length;
   return {
     fundName: fund.name,
     fundStrategy: fund.strategy,
     selectedScreens: selectedScreens().length,
-    discovered: 0,
+    discovered: fromDeals ? nDeals : 0,
+    // True when the numbers are inferred from the deals rather than measured from a
+    // candidate pipeline. The tile says so rather than implying a screening run happened.
+    derivedFromDeals: fromDeals,
     counts: {
-      total: all.length,
+      total: fromDeals ? nDeals : all.length,
       active: all.filter((c) => c.disposition === 'active').length,
       passed: all.filter((c) => c.disposition === 'passed').length,
       parked: all.filter((c) => c.disposition === 'parked').length,
-      pursued: all.filter((c) => c.disposition === 'pursued').length
+      pursued: fromDeals ? nDeals : all.filter((c) => c.disposition === 'pursued').length
     },
     // The words a sourcing analyst uses. "Gate-ready" and "Screening Gate" were the
     // workflow model showing through on the tile a partner glances at; the O-codes
     // stay beside them because a code next to a word is a cross-reference.
     funnel: [
-      { key: 'O1', step: 'Deal sourcing', label: 'Sourced', count: reachedAtLeast(2), active: activeAt('O2') },
-      { key: 'O2', step: 'Auto screen', label: 'Screened', count: reachedAtLeast(3), active: activeAt('O2') },
-      { key: 'O3', step: 'Shortlisting', label: 'Shortlisted', count: reachedAtLeast(4), active: activeAt('O3') },
-      { key: 'O4', step: 'Go / no-go', label: 'Awaiting decision', count: reachedAtLeast(5), active: activeAt('O4') }
+      { key: 'O1', step: 'Deal sourcing', label: 'Sourced', count: fromDeals ? nDeals : reachedAtLeast(2), active: activeAt('O2') },
+      { key: 'O2', step: 'Auto screen', label: 'Screened', count: fromDeals ? nDeals : reachedAtLeast(3), active: activeAt('O2') },
+      { key: 'O3', step: 'Shortlisting', label: 'Shortlisted', count: fromDeals ? nDeals : reachedAtLeast(4), active: activeAt('O3') },
+      { key: 'O4', step: 'Go / no-go', label: 'Awaiting decision', count: fromDeals ? awaiting : reachedAtLeast(5), active: activeAt('O4') }
     ]
   };
 }
@@ -2621,7 +2633,10 @@ export function getCitationAudit(id) {
 
 // ---- Fabric / OneLake market intelligence (read-through to the snapshot) ----
 export function marketIntel() {
-  return getMarketIntel();
+  // Scope the portfolio-level feed to the sectors the fund is actually in, so the Home
+  // and Report panels stop offering comparables from industries nobody here invests in.
+  const sectors = [...new Set((listDeals(null) || []).map((d) => d.sector).filter(Boolean))];
+  return getMarketIntel(sectors);
 }
 export function fabricStatus() {
   return fabricInfo();

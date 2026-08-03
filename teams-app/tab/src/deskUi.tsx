@@ -7,6 +7,18 @@
 
 export type Para = { text: string; cites: number[] };
 
+// The deal `status` is a database enum. It was printed raw on the Home cards and in
+// the LP report, so the same row read "Diligence & Approval" in one column and
+// "in_diligence" in the next. It lives here rather than in either file because both
+// need it and they must not drift apart -- one of them can be certified and sent to
+// limited partners.
+export const STATUS_TEXT: Record<string, string> = {
+  sourced: 'Sourced', screened: 'Screened', shortlisted: 'Shortlisted',
+  in_diligence: 'In diligence', ic_ready: 'IC ready', approved: 'Approved',
+  signing: 'Signing', signed: 'Signed', closed: 'Closed', owned: 'Owned',
+  exiting: 'Exiting', exited: 'Exited', passed: 'Passed', on_hold: 'On hold',
+};
+
 // These were "review tags" from the design mockup - `live today` / `extend` / `new`
 // beside about fifteen card headings, so a partner read "What needs my attention
 // extend" and "Portfolio briefing new". They were there to stop a DEMO implying that

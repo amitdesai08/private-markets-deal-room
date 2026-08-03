@@ -289,15 +289,23 @@ export function fabricInfo() {
 }
 
 // Full market-intelligence view (safe read-only projection of the snapshot).
-export function getMarketIntel() {
+//
+// `sectors` narrows the comparables and precedents to the sectors the fund actually
+// holds. Without it the Home and Report panels showed the entire feed, which on this
+// data set meant a mid-market PE portfolio was offered Peloton, Wayfair and Allbirds.
+// The deal-level panel was scoped in the previous round; this is the same rule applied
+// one level up, and an empty result is still the honest answer.
+export function getMarketIntel(sectors) {
   if (!_snapshot) return null;
   const s = _snapshot;
+  const list = Array.isArray(sectors) ? sectors.filter(Boolean) : [];
+  const scope = (arr, fn) => (list.length ? list.flatMap(fn).filter((v, i, a) => a.indexOf(v) === i) : arr);
   return {
     info: fabricInfo(),
     companies: s.companies || [],
-    comparableDeals: s.comparableDeals || [],
+    comparableDeals: scope(s.comparableDeals || [], (sec) => getComparableDeals({ sector: sec, limit: 4 })),
     benchmarkFindings: s.benchmarkFindings || [],
-    icPrecedents: s.icPrecedents || [],
+    icPrecedents: scope(s.icPrecedents || [], (sec) => getICPrecedents(sec)),
     companyFinancials: s.companyFinancials || {}
   };
 }

@@ -144,7 +144,7 @@ function assess(deal, raw) {
     return {
       rank: 1, tag: 'Not IC-ready', tone: 'bad',
       why: `IC is ${icDays} day${icDays === 1 ? '' : 's'} out and the deal is not ready — ${gating.join('; ')}.`,
-      impact: 'Open gates become IC conditions, which is the slowest way to close them.',
+      impact: 'Open conditions become IC conditions, which is the slowest way to close them.',
       basis: 'IC readiness board',
       verdict: state, gating,
     };

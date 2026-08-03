@@ -30,7 +30,7 @@ type FunnelStage = { key: string; step?: string; label?: string; count?: number;
 type Funnel = { fundName?: string; fundStrategy?: string; discovered?: number; funnel?: FunnelStage[] };
 type Pipeline = { fundName?: string; funnel?: FunnelStage[]; candidates?: Candidate[] };
 
-type Fund = { name?: string; strategy?: string; sectors?: string[]; geographies?: string[]; evMin?: number; evMax?: number; fundSize?: number };
+type Fund = { name?: string; strategy?: string; sectors?: string[]; geographies?: string[]; evMin?: number; evMax?: number; fundSize?: number | string };
 type Screen = { id: string; name: string; sector?: string; regions?: string[]; keywords?: string[]; selected?: boolean };
 type Theme = { id: string; name: string; sponsor?: string; thesis?: string; whyNow?: string; screens?: Screen[] };
 type Framework = { fund?: Fund; themes?: Theme[]; screensWithoutTheme?: Screen[] };
@@ -73,7 +73,10 @@ const STAGE_ACTIONS: Record<string, { endpoint: string; actions: { k: string; la
   O4: { endpoint: 'gate', actions: [{ k: 'pursue', label: '⚡ Pursue →', cls: 'primary' }, { k: 'park', label: 'Park', cls: '' }, { k: 'pass', label: 'Pass', cls: 'ghost' }] },
 };
 
-const money = (n?: number) => (n == null ? '—' : n >= 1000 ? `$${(n / 1000).toFixed(1)}B` : `$${n}M`);
+// The mandate endpoint returns fundSize already formatted, as the string "$2.6B".
+// A string is never >= 1000, so it fell to the millions branch and rendered "$$2.6BM".
+// Anything already formatted is passed through untouched.
+const money = (n?: number | string) => (n == null ? '—' : typeof n !== 'number' ? String(n) : n >= 1000 ? `$${(n / 1000).toFixed(1)}B` : `$${n}M`);
 type SubTab = 'pipeline' | 'framework' | 'research' | 'signals';
 
 export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[]; onChanged: () => void; onOpenDeal: (id: string) => void }) {
@@ -85,6 +88,7 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
   const [mailbox, setMailbox] = useState<Mailbox | null>(null);
   const [desk, setDesk] = useState<NewsDesk | null>(null);
   const [research, setResearch] = useState<AnalystResearch | null>(null);
+  const [settled, setSettled] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [stageFilter, setStageFilter] = useState<string>('active');
   const [busy, setBusy] = useState<string>('');
@@ -108,18 +112,25 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
   useEffect(() => { setLoading(true); loadPipeline().finally(() => setLoading(false)); }, []);
 
   // Lazy-load framework + signals data the first time their sub-tab opens.
+  //
+  // Every one of these fetches used to swallow its failure: a non-200 called the setter
+  // with null and a network error called nothing at all, so both left the panel on
+  // "Loading…" indefinitely. `settled` records that we came back, whatever the answer,
+  // which is what lets the panels below tell "still fetching" apart from "nothing here"
+  // and from "we asked and it did not work".
+  const settle = (k: string) => setSettled((s) => (s.includes(k) ? s : [...s, k]));
   useEffect(() => {
     if (sub === 'framework' && !framework) {
-      fetch('/api/framework').then((r) => (r.ok ? r.json() : null)).then(setFramework).catch(() => {});
-      fetch('/api/targets/scored').then((r) => (r.ok ? r.json() : null)).then(setTargets).catch(() => {});
+      fetch('/api/framework').then((r) => (r.ok ? r.json() : null)).then(setFramework).catch(() => {}).finally(() => settle('framework'));
+      fetch('/api/targets/scored').then((r) => (r.ok ? r.json() : null)).then(setTargets).catch(() => {}).finally(() => settle('targets'));
     }
     if (sub === 'signals' && !mailbox) {
       fetch('/api/signals/mailbox').then((r) => (r.ok ? r.json() : null)).then(setMailbox).catch(() => {});
       fetch('/api/news/desk').then((r) => (r.ok ? r.json() : null)).then(setDesk).catch(() => {});
     }
     if (sub === 'research' && !research) {
-      fetch('/api/research').then((r) => (r.ok ? r.json() : null)).then(setResearch).catch(() => {});
-      if (!targets) fetch('/api/targets/scored').then((r) => (r.ok ? r.json() : null)).then(setTargets).catch(() => {});
+      fetch('/api/research').then((r) => (r.ok ? r.json() : null)).then(setResearch).catch(() => {}).finally(() => settle('research'));
+      if (!targets) fetch('/api/targets/scored').then((r) => (r.ok ? r.json() : null)).then(setTargets).catch(() => {}).finally(() => settle('targets'));
     }
   }, [sub, framework, mailbox, research, targets]);
 
@@ -314,12 +325,17 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
                   {(framework.fund.geographies || []).slice(0, 4).map((g, i) => <span className="chip" key={'g' + i}>{g}</span>)}
                 </div>
               </div>
-            ) : <div className="empty-panel">Loading…</div>}
+            ) : <div className="empty-panel">{!settled.includes('framework') ? 'Loading…' : 'The fund mandate could not be loaded. Refresh, or set it under Settings — the mandate is what every candidate is screened against.'}</div>}
           </section>
 
           <section className="panel">
               <div className="panel-h">Investment themes<span className="muted">{(framework?.themes || []).length} themes</span></div>
-              {!(framework?.themes || []).length ? <div className="empty-panel">Loading…</div> : (
+              {/* These three panels used the row count as the loading test, so a fetch that
+                  succeeded and returned nothing was indistinguishable from one still in
+                  flight. The header had already counted the rows -- "0 scored" -- while the
+                  body underneath still said "Loading…", and it said it for ever. Branch on
+                  whether the fetch has come back, not on how much it brought. */}
+              {!settled.includes('framework') ? <div className="empty-panel">Loading…</div> : !(framework?.themes || []).length ? <div className="empty-panel">No investment themes defined yet. Themes group the screens that candidates are scored against.</div> : (
               <div style={{ padding: '6px 16px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {(framework!.themes || []).map((t) => (
                   <div key={t.id} className="cand" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
@@ -335,7 +351,7 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
 
           <section className="panel">
               <div className="panel-h">Ranked targets<span className="muted">{(targets?.targets || []).length} scored{targets?.gatedCount ? ` · ${targets.gatedCount} outside the mandate` : ''}</span></div>
-              {!(targets?.targets || []).length ? <div className="empty-panel">Loading…</div> : (
+              {!settled.includes('targets') ? <div className="empty-panel">Loading…</div> : !(targets?.targets || []).length ? <div className="empty-panel">No targets scored yet. Targets appear here once companies have been screened against the mandate.</div> : (
               <div className="cand-list">
                 {(targets!.targets || []).slice(0, 25).map((t) => (
                   <TargetRow key={t.id} t={t} busy={busy} onScreen={() => sendToScreening(t.id, t.name)} />
@@ -353,11 +369,16 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
             <div className="rc-list">
               {(research!.companies || []).map((c) => <ResearchCard key={c.id} c={c} />)}
             </div>
-          ) : !targets ? (
+          ) : !settled.includes('research') || !settled.includes('targets') ? (
             <div className="empty-panel">Loading…</div>
+          ) : !(targets?.targets || []).filter((t) => !t.gated).length ? (
+            // Previously this branch rendered an empty list container, so the tab showed a
+            // heading and then nothing at all -- which reads as a broken build rather than
+            // an empty dataset. It is the only sub-tab that had no empty state.
+            <div className="empty-panel">No research on file. Research appears here once a target has been screened against the mandate.</div>
           ) : (
             <div className="rc-list">
-              {(targets.targets || []).filter((t) => !t.gated).slice(0, 12).map((t) => <GeneratedResearchCard key={t.id} t={t} />)}
+              {(targets!.targets || []).filter((t) => !t.gated).slice(0, 12).map((t) => <GeneratedResearchCard key={t.id} t={t} />)}
             </div>
           )}
         </section>

@@ -9,7 +9,7 @@ type Concentration = { name: string; equity: number; pctOfFund: number; pctOfInv
 type Overview = {
   fund: { name: string; strategy: string; vintageYear: number; investmentPeriod: string; fundSizeLabel: string };
   capital: { committed: number; invested: number; reserves: number; dryPowder: number; deployedPct: number; portfolioCompanies: number };
-  performance: { grossMoic: number; netMoic: number; grossIrrPct: number; netIrrPct: number; dpi: number; rvpi: number; tvpi: number; realised: number; unrealised: number; totalValue: number };
+  performance: { grossMoic: number; netMoic: number; grossIrrPct: number; netIrrPct: number; dpi: number; rvpi: number; tvpi: number; realized: number; unrealized: number; totalValue: number };
   concentration: { maxSectorPct: number; maxDealPct: number; bySector: Concentration[]; byRegion: Concentration[]; largestPosition: { company: string; pctOfFund: number; limitPct: number; status: string } };
   lpTerms: { preferredReturnPct: number; carryPct: number; managementFeePct: number; esgPolicy: string };
   ilpaSummary: string[];
@@ -20,7 +20,7 @@ type Company = {
   id: string; company: string; sector: string; subSector: string; hq: string; status: string; thesis: string;
   holdMonths: number; entryEV: number; entryEquity: number; entryMultiple: number; entryEbitda: number;
   currentEbitda: number; currentMultiple: number; currentEV: number; currentEquity: number; ebitdaGrowthPct: number;
-  realised: number; grossMoic: number; grossIrr: number; vcpProgress: number; hundredDayPct: number;
+  realized: number; grossMoic: number; grossIrr: number; vcpProgress: number; hundredDayPct: number;
   levers: Lever[]; kpis: Kpi[]; kpiVariancePct: number; addOns: { completed: number; pipeline: number };
 };
 type Portfolio = { count: number; statusCounts: { onTrack: number; watch: number; underperform: number }; addOnsClosed: number; addOnsPipeline: number; avgVcpProgress: number; companies: Company[] };
@@ -94,7 +94,7 @@ export default function Fund() {
 
       {method ? (
         <div className="fnd-method">
-          <span className="fnd-method-asof">As of {new Date(method.asOf).toLocaleString()} · {method.sourceOfRecord}</span>
+          <span className="fnd-method-asof">As of {new Date(method.asOf).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} · {method.sourceOfRecord}</span>
           <button className="fnd-method-btn" onClick={() => setShowMethod((v) => !v)}>{showMethod ? 'Hide methodology' : 'Methodology ▾'}</button>
           {showMethod ? (
             <div className="fnd-method-body">
@@ -117,7 +117,7 @@ export default function Fund() {
         <Kpi v={`${p.tvpi.toFixed(2)}x`} l="TVPI (gross)" s={`DPI ${p.dpi.toFixed(2)}x · RVPI ${p.rvpi.toFixed(2)}x`} />
         <Kpi v={`${p.grossMoic.toFixed(2)}x`} l="Gross MOIC" s={`Net ${p.netMoic.toFixed(2)}x`} />
         <Kpi v={`${p.grossIrrPct}%`} l="Gross IRR" s={`Net ${p.netIrrPct}%`} />
-        <Kpi v={usd(p.totalValue)} l="Total value" s={`${usd(p.unrealised)} unrealised · ${usd(p.realised)} realised`} />
+        <Kpi v={usd(p.totalValue)} l="Total value" s={`${usd(p.unrealized)} unrealised · ${usd(p.realized)} realised`} />
       </div>
 
       {/* Watchlist — deteriorating names that need action */}
@@ -217,7 +217,7 @@ export default function Fund() {
                         })}
                       </div>
                       <div className="c-marks">
-                        Entry {usd(c.entryEV)} EV / {usd(c.entryEquity)} equity → current {usd(c.currentEV)} EV / {usd(c.currentEquity)} equity{c.realised ? ` · ${usd(c.realised)} realised` : ''}
+                        Entry {usd(c.entryEV)} EV / {usd(c.entryEquity)} equity → current {usd(c.currentEV)} EV / {usd(c.currentEquity)} equity{c.realized ? ` · ${usd(c.realized)} realised` : ''}
                       </div>
                     </div>
                   </div>

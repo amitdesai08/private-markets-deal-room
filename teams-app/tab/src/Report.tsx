@@ -4,6 +4,7 @@
 // portfolio mode summarizes the whole pipeline; ?deal=<id> narrows to one deal.
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
+import { STATUS_TEXT } from './deskUi';
 import type { Analytics, Pipeline, Deal, MarketIntel, BackendConfig } from './types';
 
 function money(n?: number): string {
@@ -150,7 +151,8 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
               <div className="rpt-kpi"><div className="v">{analytics?.inDiligence ?? 0}</div><div className="l">In diligence</div></div>
               <div className="rpt-kpi"><div className="v">{analytics?.avgReadiness ?? 0}%</div><div className="l">Avg IC readiness</div></div>
               <div className="rpt-kpi"><div className="v">{money(deals.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6)}</div><div className="l">Pipeline value</div></div>
-              <div className="rpt-kpi"><div className="v">{comps.length}·{precedents.length}</div><div className="l">Comps · IC precedents</div></div>
+              <div className="rpt-kpi"><div className="v">{comps.length}</div><div className="l">Comparables</div></div>
+              <div className="rpt-kpi"><div className="v">{precedents.length}</div><div className="l">IC precedents</div></div>
             </div>
           </section>
 
@@ -180,9 +182,12 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
                       <td className="co">{d.company}</td>
                       <td>{d.sector || '—'}</td>
                       <td>{d.stageName || d.stage || '—'}</td>
-                      <td>{d.status || '—'}</td>
+                      <td>{STATUS_TEXT[String(d.status || '')] || d.status || '—'}</td>
                       <td className="num">{d.readiness ?? 0}%</td>
-                      <td className="num">{money(d.dealSize)}</td>
+                      {/* dealSize is stored in millions. The two other call sites in this file
+                          already scale it; this one did not, so an $380M deal printed as "$380"
+                          in a table headed Size, four lines under a KPI tile reading $8.1B. */}
+                      <td className="num">{money((d.dealSize || 0) * 1e6)}</td>
                     </tr>
                   ))}
                 </tbody>

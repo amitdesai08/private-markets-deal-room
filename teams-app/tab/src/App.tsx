@@ -167,7 +167,24 @@ export default function App() {
           setDemoUsers(ctx.demoUsers);
           // Demo mode: start the showcase as the first profile (Administrator) so the
           // full access model is visible; real Teams users keep their SSO identity.
-          if (ctx.demoUsers.length) setViewAs((v: string) => v || ctx.demoUsers[0].id);
+          //
+          // A reload used to dump you back to Administrator without saying so, which is
+          // disorienting mid-review -- controls appear and disappear and it looks like a
+          // permissions bug rather than a reset identity. Restore the last choice if it
+          // is still a valid profile.
+          if (ctx.demoUsers.length) {
+            let saved = '';
+            try { saved = localStorage.getItem('dr.viewAs') || ''; } catch { /* storage blocked */ }
+            const ok = !!saved && ctx.demoUsers.some((u: any) => u.id === saved || u.upn === saved);
+            const chosen = ok ? saved : ctx.demoUsers[0].id;
+            // Set the header BEFORE the state update. React runs child effects before
+            // parent ones, so the dashboard's first identity-aware fetch went out before
+            // the effect below had attached x-dr-as -- and the reply it cached was the
+            // anonymous one. That is why an administrator was told no role was assigned
+            // to them: the page was showing a briefing composed for nobody.
+            setAuthContext({ as: chosen });
+            setViewAs((v: string) => v || chosen);
+          }
         }
       }).catch(() => {});
     })();
@@ -282,7 +299,17 @@ export default function App() {
           {isDemoMode && persona?.name ? <span className="badge" title="The showcase profile you are signed in as">{persona.name}</span> : null}
           {roleLabel ? <span className="badge" title="Your role">{isAdmin ? '★ ' : ''}{roleLabel}</span> : null}
           {demoUsers.length ? (
-            <select className="viewas" value={viewAs} onChange={(e) => { setViewAsRole(''); setViewAs(e.target.value); }} title="Sign in as one of the showcase profiles to see their view and access — the assistant in your Teams channels answers as them too">
+            <select className="viewas" value={viewAs} onChange={(e) => {
+              // Changing who you are is not a filter, it is a different account. Leaving the
+              // open deal on screen meant the previous identity's page -- including its write
+              // controls -- stayed visible until something forced a re-fetch. Go back to the
+              // list and let the new identity open what it is allowed to open.
+              setViewAsRole('');
+              setOpenDealId('');
+              setAuthContext({ as: e.target.value, viewAsRole: '' });
+              try { localStorage.setItem('dr.viewAs', e.target.value); } catch { /* storage blocked */ }
+              setViewAs(e.target.value);
+            }} title="Sign in as one of the showcase profiles to see their view and access — the assistant in your Teams channels answers as them too">
               {demoUsers.map((u) => (<option key={u.id} value={u.upn}>👤 {u.label}</option>))}
             </select>
           ) : null}

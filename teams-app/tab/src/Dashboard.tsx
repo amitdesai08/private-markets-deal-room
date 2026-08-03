@@ -16,7 +16,7 @@
 // one can be turned off, and the choice is kept per persona. See dashLayout.ts.
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
-import { Narrative, SourceList, Tag, clock, type Para } from './deskUi';
+import { Narrative, SourceList, Tag, clock, STATUS_TEXT, type Para } from './deskUi';
 import { DASH_MODULES, readHidden, writeHidden, rememberWho, type ModuleKey } from './dashLayout';
 import type { Pipeline, Deal, MarketIntel, BackendConfig } from './types';
 
@@ -555,7 +555,10 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
               <div key={f.key} className="fstep">
                 <div className="fcount">{f.count}</div>
                 <div className="flabel">{f.label}</div>
-                <div className="fkey">{f.key}</div>
+                {/* The bare step code was a fourth line of text under every tile with no
+                    word beside it to decode it. It is a cross-reference, and Home is not
+                    where anyone cross-references; the sourcing funnel still carries it. */}
+                {f.step ? <div className="fkey">{f.step}</div> : null}
               </div>
             ))}
           </div>
@@ -624,10 +627,14 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
                   <div className="dc-co">{d.company}</div>
                   <div className="dc-size">{money(d.dealSize ? d.dealSize * 1e6 : undefined)}</div>
                 </div>
-                <div className="dc-meta">{d.sector || '—'} · {d.stageName || d.stage || '—'}{d.status ? ` · ${d.status}` : ''}</div>
+                <div className="dc-meta">{d.sector || '—'} · {d.stageName || d.stage || '—'}{d.status ? ` · ${STATUS_TEXT[String(d.status)] || d.status}` : ''}</div>
                 <div className="dc-bar"><span style={{ width: `${Math.max(0, Math.min(100, d.readiness ?? 0))}%` }} /></div>
                 <div className="dc-foot">
-                  <span className="muted">IC readiness {d.readiness ?? 0}%{typeof d.daysToIC === 'number' ? ` · IC in ${d.daysToIC}d` : ''}</span>
+                  {/* A deal whose target IC date has passed was counting down through zero
+                      and out the other side, so a card read "IC in -1080d" -- a three-year
+                      overdue committee presented as a countdown. The Next IC tile above
+                      already guards for this; the cards did not. */}
+                  <span className="muted">IC readiness {d.readiness ?? 0}%{typeof d.daysToIC === 'number' ? (d.daysToIC > 0 ? ` · IC in ${d.daysToIC}d` : d.daysToIC === 0 ? ' · IC today' : ' · IC date passed') : ''}</span>
                   <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <button className={`askbtn${compare.includes(d.id) ? ' on' : ''}`} title="Add to comparison" onClick={(e) => { e.stopPropagation(); toggleCompare(d.id); }}>{compare.includes(d.id) ? '✓ Compare' : '+ Compare'}</button>
                     <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
