@@ -135,6 +135,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   const [flow, setFlow] = useState<Flow | null>(null);
   const [market, setMarket] = useState<MarketIntel | null>(null);
   const [citations, setCitations] = useState<Citations | null>(null);
+  const [citationsFailed, setCitationsFailed] = useState(false);
   const [activity, setActivity] = useState<ActivityEntry[] | null>(null);
   const [loading, setLoading] = useState(true);
   // Start on the brief. This used to start on 'overview' and switch once
@@ -229,7 +230,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
         sector ? fetch(`/api/market-intel/comps?sector=${sector}`).then((r) => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null),
       ]).then(([mi, comps]) => setMarket({ ...(mi || {}), comparableDeals: (comps && comps.length ? comps : mi?.comparableDeals) || [] }));
     }
-    if (!citations) af(`/api/deals/${dealId}/citations`).then((r) => (r.ok ? r.json() : null)).then(setCitations).catch(() => {});
+    // A failed request left `citations` null, so the panel said "Auditing numeric
+    // claims…" for as long as the tab stayed open. On a panel whose whole job is to
+    // tell you how much to trust the numbers, a spinner that never resolves is worse
+    // than a blunt failure.
+    if (!citations) af(`/api/deals/${dealId}/citations`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).then(setCitations).catch(() => setCitationsFailed(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, dealId]);
 
@@ -708,7 +713,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                         {!deal.workspaceReady ? (
                           canViewStage2 ? (
                             <button className="btn primary" disabled={!!busy} onClick={() => act('launch', `/api/deals/${dealId}/launch`)}>{busy === 'launch' ? 'Launching…' : '▶ Launch the deal'}</button>
-                          ) : <span className="muted">🔒 Launching (Stage 2) is restricted to the deal team.</span>
+                          ) : <span className="muted">🔒 Launching a deal is restricted to the deal team.</span>
                         ) : (
                           <>
                             <button className="btn primary" disabled={!!busy} title={curProduces.length ? `Generates: ${curProduces.join(', ')}` : undefined} onClick={() => act('run', `/api/deals/${dealId}/steps/${deal.currentStep}/run`)}>{busy === 'run' ? 'Running…' : `⚙ Run ${STEP_LABEL[deal.currentStep || ''] || 'step'}`}</button>
@@ -759,7 +764,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           const on = s.key === viewStep;
                           const lockedStep = /^d/i.test(s.key) && !canViewStage2;
                           return (
-                            <button key={s.key} className={`fstep-btn${cur ? ' cur' : ''}${done ? ' done' : ''}${on ? ' on' : ''}`} disabled={lockedStep} title={lockedStep ? 'Stage 2 — deal team only' : ''} style={lockedStep ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} onClick={() => { if (!lockedStep) setSelStep(s.key); }}>
+                            <button key={s.key} className={`fstep-btn${cur ? ' cur' : ''}${done ? ' done' : ''}${on ? ' on' : ''}`} disabled={lockedStep} title={lockedStep ? 'Deal team only' : ''} style={lockedStep ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} onClick={() => { if (!lockedStep) setSelStep(s.key); }}>
                               <span className="fs-key">{lockedStep ? '🔒' : done ? '✓' : s.key}</span>
                               <span className="fs-label">{STEP_LABEL[s.key] || s.key}</span>
                             </button>
@@ -786,7 +791,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                         {busy === 'launch' ? 'Launching…' : '▶ Launch the deal'}
                       </button>
                       ) : (
-                        <span className="muted">🔒 Launching (Stage 2) is restricted to the deal team.</span>
+                        <span className="muted">🔒 Launching a deal is restricted to the deal team.</span>
                       )
                     ) : (
                       <>
@@ -959,7 +964,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
                   {Array.isArray(ws.swimlanes) && ws.swimlanes.length ? (
                     <section className="dd-panel">
-                      <div className="dd-panel-h">Diligence workstreams<span className="muted">{ws.swimlanes.length} workstreams</span></div>
+                      <div className="dd-panel-h">Every workstream on this deal<span className="muted">{ws.swimlanes.length} workstreams</span></div>
                       <div className="dd-lanes" style={{ padding: '0 14px 14px' }}>
                         {ws.swimlanes.map((s: any, i: number) => (
                           <div className="dd-lane" key={i}>
@@ -1043,8 +1048,12 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   </section>
 
                   <section className="dd-panel">
-                    <div className="dd-panel-h">Source-citation audit<span className={`chip ${citations?.clean ? 'ok' : 'warn'}`}>{citations ? `${citations.score ?? 0}% traceable` : '…'}</span></div>
-                    {!citations ? <div className="dd-empty-p">Auditing numeric claims…</div> : (
+                    <div className="dd-panel-h">Source-citation audit<span className={`chip ${citations?.clean ? 'ok' : 'warn'}`}>{citations ? `${citations.score ?? 0}% traceable` : citationsFailed ? 'unavailable' : '…'}</span></div>
+                    {!citations ? (
+                      citationsFailed
+                        ? <div className="dd-empty-p">The source audit could not be run just now. <button className="askbtn" onClick={() => { setCitationsFailed(false); af(`/api/deals/${dealId}/citations`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).then(setCitations).catch(() => setCitationsFailed(true)); }}>Try again</button></div>
+                        : <div className="dd-empty-p">Auditing numeric claims…</div>
+                    ) : (
                       <div style={{ padding: '10px 14px 14px' }}>
                         <div className="muted" style={{ marginBottom: 8 }}>{citations.summary}</div>
                         {(citations.keyFigures || []).length ? (

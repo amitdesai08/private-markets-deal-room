@@ -365,14 +365,14 @@ export default function App() {
           ) : mainTab === 'overview' ? (
             <>
               <AgentGuide roleLabel={roleLabel} canViewStage2={canViewStage2} canWrite={canWrite} onAsk={() => setChatOpen(true)} />
-              <Dashboard pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} viewerKey={`${viewAs}|${viewAsRole}`} layoutKey={viewAs} />
+                <Dashboard pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} viewerKey={`${viewAs}|${viewAsRole}`} layoutKey={viewAs} onGoSourcing={() => setMainTab('sourcing')} />
             </>
           ) : mainTab === 'sourcing' ? (
             <Stage1 deals={deals} onChanged={refreshData} onOpenDeal={setOpenDealId} />
           ) : mainTab === 'fund' ? (
             <Fund />
           ) : mainTab === 'report' ? (
-            <PowerBI ssoToken={ssoToken} analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId="" />
+            <PowerBI ssoToken={ssoToken} analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId="" canCertify={canWrite && /partner|admin/i.test(`${viewAsRole || ''} ${roleLabel || ''}`)} />
           ) : (
             <Deals deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
           )}

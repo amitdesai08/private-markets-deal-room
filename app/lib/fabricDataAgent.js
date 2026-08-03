@@ -73,12 +73,12 @@ async function askGrounded(question) {
     maxTokens: 500,
   }).catch(() => null);
   if (!answer) {
-    return { mode: 'unconfigured', answer: 'No Fabric Data Agent is bound and the Foundry model is unavailable, so natural-language querying is off. Bind a published Fabric Data Agent via FABRIC_DATA_AGENT_URL.', citations: [] };
+    return { mode: 'unconfigured', answer: 'The fund data warehouse is not connected, so questions in plain English are off. An administrator can connect it under Settings → Data sources.', citations: [] };
   }
   return {
     mode: 'grounded',
     answer,
-    citations: [{ label: `fabric:${fabricInfo().workspace}/${fabricInfo().lakehouse}`, note: 'grounded on the local market-intelligence snapshot' }],
+    citations: [{ label: 'Fund market data', note: 'grounded on the local market-intelligence snapshot' }],
     source: 'market-intel-snapshot',
   };
 }

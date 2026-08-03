@@ -21,7 +21,7 @@ export default function StageGuide({ stage }: { stage: string }) {
         <ol className="sg-list">
           {steps.map((s) => (
             <li key={s.key} className={`sg-item${s.isGate ? ' gate' : ''}`}>
-              <div className="sg-t">{s.title}{s.isGate ? <span className="sg-gate">gate</span> : null}</div>
+              <div className="sg-t">{s.title}{s.isGate ? <span className="sg-gate">decision point</span> : null}</div>
               <div className="sg-w">{s.what}</div>
               <div className="sg-m">👤 {s.owner}</div>
             </li>

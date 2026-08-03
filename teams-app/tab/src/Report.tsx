@@ -15,9 +15,13 @@ function money(n?: number): string {
 
 const TODAY = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 
-export default function Report({ analytics, pipeline, deals, market, config, dealId }: {
+export default function Report({ analytics, pipeline, deals, market, config, dealId, canCertify = true }: {
   analytics: Analytics | null; pipeline: Pipeline | null; deals: Deal[]; market: MarketIntel | null;
   config: BackendConfig | null; dealId?: string;
+  // The certify button was always enabled and only revealed "restricted to a Partner
+  // or Administrator" AFTER the press came back 403 — the same defect we removed from
+  // the deal page: a door offered to someone who is locked out of it.
+  canCertify?: boolean;
 }) {
   const focus = dealId ? deals.find((d) => d.id === dealId) : null;
   const fabric = config?.fabric || market?.info;
@@ -53,12 +57,20 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
     : `${pipeline?.fundName || 'Deal Room'} — Portfolio Report`;
 
   // LP-grade lineage: every headline metric traces to a source system + as-of date +
-  // method. Output mode reflects data certification (live external sources => LP-ready).
+  // method.
   const srcLabel = fabric?.source || (fabric?.mode === 'live' ? 'Market data (live)' : 'Deal Room record');
   const asOf = (fabric as any)?.freshness?.label || TODAY;
+  // "LP-ready" used to be granted by a live market-data feed, bypassing the approver,
+  // the frozen snapshot and the audit row sitting directly above it. A report could
+  // reach an LP's inbox stamped LP-ready that nobody had signed. Certification is now
+  // the only thing that sets this badge; how fresh the market data is says so on its
+  // own line, where it cannot be mistaken for an approval.
   const mode = currentCert
-    ? { label: 'LP-ready · certified', cls: 'ok' }
-    : fabric?.mode === 'live' ? { label: 'LP-ready', cls: 'ok' } : { label: 'Draft — not certified', cls: 'warn' };
+    ? { label: 'Certified for LP use', cls: 'ok' }
+    : { label: 'Draft — not certified', cls: 'warn' };
+  const dataMode = fabric?.mode === 'live'
+    ? { label: 'Market data: live', cls: 'ok' }
+    : { label: 'Market data: seeded', cls: 'warn' };
   const lineage: { metric: string; value: string; source: string; asOf: string; method: string }[] = focus
     ? [
         { metric: 'Stage', value: focus.stageName || focus.stage || '—', source: 'Deal Room record', asOf: TODAY, method: 'Current workflow stage of record' },
@@ -82,7 +94,7 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
         <div>
           <div className="rpt-kicker">The Deal Room</div>
           <h1 className="rpt-title">{title}</h1>
-          <div className="rpt-sub">{pipeline?.fundStrategy || 'Private markets deal flow'} · Generated {TODAY} · <span className={`rpt-mode ${mode.cls}`}>{mode.label}</span></div>
+          <div className="rpt-sub">{pipeline?.fundStrategy || 'Private markets deal flow'} · Generated {TODAY} · <span className={`rpt-mode ${mode.cls}`}>{mode.label}</span> · <span className={`rpt-mode ${dataMode.cls}`}>{dataMode.label}</span></div>
         </div>
         <button className="rpt-print" onClick={() => window.print()}>⤓ Print / Save as PDF</button>
       </header>
@@ -94,7 +106,9 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
               <div style={{ fontWeight: 700, fontSize: 15 }}>Report certification</div>
               <div className="rpt-sub">{currentCert ? `Certified ${new Date(currentCert.at).toLocaleString()} · ${currentCert.by}` : 'Draft — not yet certified for LP distribution.'}</div>
             </div>
-            <button className="rpt-print" disabled={!!certBusy} onClick={doCertify}>{certBusy === 'certify' ? 'Certifying…' : '✓ Certify for LP use'}</button>
+            {canCertify
+              ? <button className="rpt-print" disabled={!!certBusy} onClick={doCertify}>{certBusy === 'certify' ? 'Certifying…' : '✓ Certify for LP use'}</button>
+              : <span className="rpt-sub">Certifying an LP report is restricted to a Partner or Administrator.</span>}
           </div>
           {certNote ? <div className="rpt-sub" style={{ marginTop: 6 }}>{certNote}</div> : null}
           {certs.length ? (
@@ -106,7 +120,7 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
                   <td><span className={`rpt-mode ${c.state === 'certified' ? 'ok' : 'warn'}`}>{c.state}</span></td>
                   <td>{c.by}</td>
                   <td>{new Date(c.at).toLocaleDateString()}</td>
-                  <td>{c.state === 'certified' ? <button className="rpt-print" style={{ padding: '2px 8px', fontSize: 11 }} disabled={!!certBusy} onClick={() => doArchive(c.snapshotId)}>Archive</button> : (c.archivedAt ? `archived ${new Date(c.archivedAt).toLocaleDateString()}` : '')}</td>
+                  <td>{c.state === 'certified' && canCertify ? <button className="rpt-print" style={{ padding: '2px 8px', fontSize: 11 }} disabled={!!certBusy} onClick={() => doArchive(c.snapshotId)}>Archive</button> : (c.archivedAt ? `archived ${new Date(c.archivedAt).toLocaleDateString()}` : '')}</td>
                 </tr>
               ))}</tbody>
             </table>
@@ -196,7 +210,7 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
             ))}
           </tbody>
         </table>
-        <p className="rpt-note">Every figure above traces to a source system and as-of date. {mode.cls === 'ok' ? 'External market sources are live and within SLA — this package is certified for LP distribution.' : 'One or more external sources are seeded / not certified — mark as draft before LP distribution.'}</p>
+        <p className="rpt-note">Every figure above traces to a source system and as-of date. {currentCert ? `Certified for LP distribution on ${new Date(currentCert.at).toLocaleDateString()} by ${currentCert.by}.` : 'This package has not been certified — certify it above before sending it to an LP.'} {fabric?.mode === 'live' ? 'External market sources are live and within SLA.' : 'External market sources are seeded, not live.'}</p>
       </section>
 
       <footer className="rpt-foot">

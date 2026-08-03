@@ -3,17 +3,19 @@
 // place rather than re-implemented per tab:
 //
 //   * an AI-generated narrative always renders its citations, and the citation
-//     always resolves to a named source;
-//   * a surface always declares whether it is shipping today, an extension of
-//     something shipping, or net-new.
+//     always resolves to a named source.
 
 export type Para = { text: string; cites: number[] };
 
-// What a card is, honestly. The mockup calls these "review tags" — they stop a
-// demo from implying that everything on screen already exists in production.
-export function Tag({ kind }: { kind: 'live' | 'ext' | 'new' }) {
-  const label = kind === 'live' ? 'live today' : kind === 'ext' ? 'extend' : 'new';
-  return <span className={`tag ${kind}`}>{label}</span>;
+// These were "review tags" from the design mockup - `live today` / `extend` / `new`
+// beside about fifteen card headings, so a partner read "What needs my attention
+// extend" and "Portfolio briefing new". They were there to stop a DEMO implying that
+// everything on screen already ships; in the product they are a statement about our
+// roadmap printed next to the reader's headline, and the reader has no idea what
+// "extend" means. The component stays (every call site still passes its `kind`, and
+// the distinction is worth keeping in the source) but it renders nothing.
+export function Tag({ kind: _kind }: { kind: 'live' | 'ext' | 'new' }) {
+  return null;
 }
 
 // A cited narrative. Citations are real buttons: they are a drill-down control,

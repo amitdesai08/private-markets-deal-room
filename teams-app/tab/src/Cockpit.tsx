@@ -153,12 +153,15 @@ export default function Cockpit({
                     </div>
                   ) : null}
                 </div>
+                {/* The thumbs write to local state and nowhere else, so "this tunes what
+                    surfaces next visit" was a promise the product does not keep. Say what
+                    actually happens: it is recorded for the team that builds this. */}
                 <div className="vote">
                   Was this brief useful?
                   <button className={vote === 'up' ? 'on' : ''} aria-label="Useful" onClick={() => setVote('up')}>👍</button>
                   <button className={vote === 'down' ? 'on' : ''} aria-label="Not useful" onClick={() => setVote('down')}>👎</button>
                   <span className="spacer" />
-                  <span>{vote ? 'Noted — this tunes what surfaces next visit.' : 'Feedback tunes what surfaces next visit'}</span>
+                  <span>{vote ? 'Thanks — noted for this session.' : 'Tell us whether this was worth reading'}</span>
                 </div>
               </>
             ) : null}
@@ -210,7 +213,7 @@ export default function Cockpit({
               </div>
             ))}
             {canWrite ? (
-              <div className="note">Every action here routes through the existing approve-then-apply path — the agent proposes, a named person commits, and the audit trail records who and when.</div>
+              <div className="note">Every action here routes through the existing approve-then-apply path — the assistant proposes, a named person commits, and the audit trail records who and when.</div>
             ) : null}
           </div>
 
@@ -224,7 +227,7 @@ export default function Cockpit({
                 ))}
               </div>
               <form className="askbox" onSubmit={(e) => { e.preventDefault(); if (ask.trim()) { onAsk?.(ask.trim()); setAsk(''); } }}>
-                <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={`Ask anything about ${data.company}…`} aria-label="Ask the deal agent" />
+                <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={`Ask anything about ${data.company}…`} aria-label={`Ask the assistant about ${data.company}`} />
                 <button className="btn primary" type="submit" disabled={!ask.trim()}>Ask</button>
               </form>
             </div>

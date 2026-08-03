@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import type { Deal } from './types';
 import StageGuide from './StageGuide';
 
+// Deal sizes are carried in millions. Blank, not "—", when we do not have one:
+// a dash in an accent-coloured slot reads as a value.
+function dealSize(m?: number): string {
+  if (m == null || !Number.isFinite(m)) return '';
+  return m >= 1000 ? `$${(m / 1000).toFixed(1)}B` : `$${Math.round(m)}M`;
+}
+
 // Native Stage 1 — Origination & Screening. Three sub-surfaces over the shared
 // backend (single data source):
 //   • Pipeline   — sourcing funnel + candidate pipeline (screen/triage/gate)
@@ -187,9 +194,13 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
               <div className="deals">
                 {origDeals.map((d) => (
                   <div className="dealcard" key={(d as any).id} onClick={() => onOpenDeal((d as any).id)} style={{ cursor: 'pointer' }}>
+                    {/* This slot is the deal size everywhere else in the product, and it
+                        was showing the raw workflow code - "O2" in accent bold, the loudest
+                        thing on the card, meaning nothing to a partner. The step is already
+                        spelled out on the line below. */}
                     <div className="dc-top">
                       <span className="dc-co">{(d as any).company}</span>
-                      <span className="dc-size">{(d as any).stage}</span>
+                      <span className="dc-size">{dealSize((d as any).dealSize)}</span>
                     </div>
                     <div className="dc-meta">{[(d as any).sector, (d as any).stageName || 'Origination & Screening'].filter(Boolean).join(' · ')} · Step {(d as any).stepNumber ?? 1}/{(d as any).totalSteps ?? 16}</div>
                     <div className="dc-foot">
@@ -229,10 +240,16 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
             {loading ? (
               <div className="empty-panel">Loading…</div>
             ) : !candidates.length ? (
-              // The filter defaults to "Active (open)", so "No candidates for this
-              // filter" was read as "the pipeline is empty" by people who had never
-              // noticed the select. Name the way out.
-              <div className="empty-panel">Nothing at this step. <button className="askbtn" onClick={() => setStageFilter('all')}>Show every candidate</button></div>
+              // Two different situations were sharing one sentence. "Nothing at this
+              // step" plus a Show-every-candidate button is right when a filter is
+              // hiding rows - but with the filter already on All it was both untrue and
+              // a button that could not do anything, which is the exact thing we spent
+              // the last pass removing. Say which of the two it is.
+              all.length ? (
+                <div className="empty-panel">Nothing at this step. <button className="askbtn" onClick={() => setStageFilter('all')}>Show every candidate</button></div>
+              ) : (
+                <div className="empty-panel">No targets in the pipeline yet. They arrive from the sourcing steps, or add one from Emails &amp; news. <button className="askbtn" style={{ marginLeft: 8 }} onClick={() => setSub('signals')}>Open Emails &amp; news →</button></div>
+              )
             ) : (
               <div className="cand-list">
                 {candidates.map((c) => {

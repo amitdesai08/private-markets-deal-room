@@ -33,12 +33,13 @@ function loadPowerBiSdk(): Promise<any> {
   return sdkPromise;
 }
 
-export default function PowerBI({ ssoToken, analytics, pipeline, deals, market, config, dealId }: {
+export default function PowerBI({ ssoToken, analytics, pipeline, deals, market, config, dealId, canCertify }: {
   ssoToken?: string; analytics: Analytics | null; pipeline: Pipeline | null; deals: Deal[];
-  market: MarketIntel | null; config: BackendConfig | null; dealId?: string;
+  market: MarketIntel | null; config: BackendConfig | null; dealId?: string; canCertify?: boolean;
 }) {
   const [info, setInfo] = useState<EmbedInfo | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const host = useRef<HTMLDivElement | null>(null);
 
   // 1) Ask the backend for the embed config + a user-owns-data token (OBO).
@@ -49,7 +50,7 @@ export default function PowerBI({ ssoToken, analytics, pipeline, deals, market, 
       body: JSON.stringify({ ssoToken: ssoToken || undefined }),
     }).then((r) => r.json()).then((d: EmbedInfo) => { if (live) setInfo(d); }).catch(() => { if (live) setFailed(true); });
     return () => { live = false; };
-  }, [ssoToken]);
+  }, [ssoToken, attempt]);
 
   // 2) When a token is available, load the SDK and embed the report.
   useEffect(() => {
@@ -100,10 +101,19 @@ export default function PowerBI({ ssoToken, analytics, pipeline, deals, market, 
               Deal Value &amp; Valuation · Time-based metrics). The at-a-glance summary below is generated live from
               the Deal Room backend.
             </div>
+          ) : failed ? (
+            // When the embed call failed, `info` stayed null forever - so the branch
+            // above was skipped and "Loading..." printed permanently directly above a
+            // fully rendered report. Being told a page is still loading while you read
+            // it teaches people to distrust every other status the product shows them.
+            <div className="pbi-note">
+              The live Power BI report could not be reached. The summary below is generated from the Deal Room
+              record and is complete. <button className="pbi-retry" onClick={() => { setFailed(false); setInfo(null); setAttempt((n) => n + 1); }}>Try again</button>
+            </div>
           ) : (
             <div className="pbi-note">Loading the Power BI report…</div>
           )}
-          <Report analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId={dealId} />
+          <Report analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId={dealId} canCertify={canCertify} />
         </>
       )}
     </div>
@@ -120,4 +130,6 @@ const PBI_CSS = `
 .pbi-frame { flex: 1; min-height: 640px; border: none; }
 .pbi-frame iframe { border: none; }
 .pbi-note { margin: 16px 24px 0; padding: 12px 14px; background: #f2f2fb; border: 1px solid #e0e0f0; border-radius: 8px; color: #333; font-size: 13px; }
+.pbi-retry { border: 1px solid #6264A7; background: #fff; color: #4f5199; border-radius: 6px; padding: 3px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; margin-left: 6px; }
+.pbi-retry:hover { background: #f2f2fb; }
 `;

@@ -36,11 +36,14 @@ export const CONNECTORS = [
     primaryJob: 'The work already in Microsoft 365 — SharePoint files, Teams discussion & mailbox (read as you)',
     sweetSpot: 'Ground answers in a deal’s real documents, channel discussion & correspondence',
     // Endpoint is set at runtime from Settings (persisted); no fixed vendor URL.
-    configFields: [{ key: 'mcpUrl', label: 'Endpoint URL', placeholder: 'https://…/mcp', kind: 'url' }]
+    configFields: [{ key: 'mcpUrl', label: 'Endpoint URL', placeholder: 'https://your-provider.example.com/api', kind: 'url' }]
   },
   {
     id: 'web', name: 'Web', kind: 'web', role: 'discover',
-    primaryJob: 'Live web & news search (Bing-grounded agent)',
+    // These strings are rendered verbatim on the Data sources screen, so they follow
+    // the same rules as any other user-visible copy: name what the source gives the
+    // fund, not the technology we reached it with.
+    primaryJob: 'Live web & news search',
     sweetSpot: 'Earliest soft signals before they hit databases'
   },
   {
@@ -62,9 +65,9 @@ export const CONNECTORS = [
     mcpUrl: config.connectors.moodysMcpUrl
   },
   {
-    id: 'fabric-agent', name: 'Fabric Data Agent', kind: 'fabric-agent', role: 'quality',
-    primaryJob: 'Ask the fund’s Fabric lakehouse in natural language (Data Agent)',
-    sweetSpot: 'NL Q&A over comps, findings, IC precedents & financials'
+    id: 'fabric-agent', name: 'Fund data warehouse', kind: 'fabric-agent', role: 'quality',
+    primaryJob: 'Ask the fund’s own data in plain English',
+    sweetSpot: 'Questions over comps, findings, IC precedents & financials'
   },
   {
     id: 'edgar', name: 'SEC EDGAR', kind: 'edgar', role: 'confirm',
@@ -184,7 +187,7 @@ async function testWeb(c) {
     await fetch(url, { method: 'GET', signal: AbortSignal.timeout(8000) });
     const latencyMs = Date.now() - t0;
     markSync(c.id);
-    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Healthy · Bing-grounded agent reachable in ${latencyMs}ms` });
+      return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Healthy · web search reachable in ${latencyMs}ms` });
   } catch (e) {
     return result(c, { ok: false, status: 'disconnected', latencyMs: Date.now() - t0, message: `Unreachable · ${e.name || 'error'}` });
   }

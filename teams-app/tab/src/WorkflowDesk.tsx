@@ -114,11 +114,13 @@ export default function WorkflowDesk({
     <div>
       {note ? <div className="callout ai" style={{ marginBottom: 12 }}>{note}</div> : null}
 
-      {/* ---------------- Workflow progression ---------------- */}
+      {/* The tab is called "Tasks & blockers". These two panels called it "workflow",
+          which is our word for the model behind the screen, not the reader's word for
+          what they are looking at: where the deal has got to, and the list of steps. */}
       <div className="card aicard">
         <div className="hd">
           <span className="aibadge">✦ AI</span>
-          <h3>Workflow progression</h3>
+          <h3>Where the deal has got to</h3>
           <Tag kind="new" />
           <span className="spacer" />
           <span className="chip">{data.counts.completed} of {data.counts.all} steps</span>
@@ -171,10 +173,10 @@ export default function WorkflowDesk({
         </div>
       ) : null}
 
-      {/* ---------------- Workflow steps ---------------- */}
+      {/* ---------------- Steps ---------------- */}
       <div className="card">
         <div className="hd">
-          <h3>Workflow steps</h3>
+          <h3>Every step on this deal</h3>
           <Tag kind="ext" />
           <span className="spacer" />
           <span className="sub">Authoritative status comes from the deal record · AI overlays are labelled separately and never change status</span>
@@ -205,7 +207,7 @@ export default function WorkflowDesk({
             </div>
             <div className="att-l">
               {s.owner ? <span>👤 {s.owner}</span> : null}
-              {s.agent ? <span>🤖 {s.agent}</span> : null}
+              {s.agent ? <span>✦ Assistant: {s.agent}</span> : null}
               {s.produces.length ? <span>🔗 Produces: {s.produces.join(', ')}</span> : null}
             </div>
 

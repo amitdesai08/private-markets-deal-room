@@ -8,20 +8,45 @@
 
 type Cap = { agent: string; purpose: string; stage: string; needs: 'read' | 'stage2'; asks: string[]; skills: string[] };
 
+// The chips under each card were the directory names of the skill packs -
+// "dd-checklist", "3-statement-model", "citation-audit" - printed unaltered on the
+// panel a first-time partner is told to start with. They are useful (they say what
+// the thing will actually produce), so they stay; they just say it in English now.
+const SKILL_LABEL: Record<string, string> = {
+  'deal-sourcing': 'Target sourcing',
+  'market-map': 'Market map',
+  'competitive-analysis': 'Competitive analysis',
+  'deal-screening': 'Mandate screen',
+  'comps-analysis': 'Trading comparables',
+  'unit-economics': 'Unit economics',
+  'ai-readiness': 'AI readiness',
+  'dd-checklist': 'DD checklist',
+  'dd-meeting-prep': 'DD meeting prep',
+  'lbo-model': 'LBO model',
+  'dcf-model': 'DCF model',
+  '3-statement-model': 'Three-statement model',
+  'returns-analysis': 'Returns analysis',
+  'ic-memo': 'IC memo',
+  'deck-refresh': 'IC deck refresh',
+  'citation-audit': 'Source audit',
+  'value-creation-plan': 'Value-creation plan',
+  'portfolio-monitoring': 'Portfolio monitoring',
+};
+
 const CATALOG: Cap[] = [
   { agent: 'Sourcing', purpose: 'Find, map & qualify new targets from signals, news & filings', stage: 'Origination', needs: 'read', asks: ['What should we source next in industrials?'], skills: ['deal-sourcing', 'market-map', 'competitive-analysis'] },
   { agent: 'Screening', purpose: 'Screen a target against the fund mandate, comps & unit economics', stage: 'Screening', needs: 'read', asks: ['Screen this company against our mandate.'], skills: ['deal-screening', 'comps-analysis', 'unit-economics', 'ai-readiness'] },
-  { agent: 'Diligence', purpose: 'Plan & run diligence, surface red-flag risks by workstream', stage: 'Diligence · Stage 2', needs: 'stage2', asks: ['Build the diligence plan for this deal.'], skills: ['dd-checklist', 'dd-meeting-prep', 'competitive-analysis'] },
-  { agent: 'Modeling', purpose: 'Build the returns case — LBO, DCF, 3-statement & comps', stage: 'Diligence / Execution', needs: 'read', asks: ['Build the base / bull / bear LBO returns.'], skills: ['lbo-model', 'dcf-model', '3-statement-model', 'returns-analysis'] },
-  { agent: 'IC Memo', purpose: 'Draft the IC memo + deck, audit every figure to a source', stage: 'Approval · Stage 3', needs: 'stage2', asks: ['Draft the IC memo for this deal.'], skills: ['ic-memo', 'deck-refresh', 'citation-audit'] },
-  { agent: 'Value Creation & Portfolio', purpose: 'Own the value-creation plan & monitor the portfolio vs the underwriting', stage: 'Ownership · Stage 4', needs: 'read', asks: ['Draft the 100-day value-creation plan.'], skills: ['value-creation-plan', 'portfolio-monitoring', 'returns-analysis'] },
+  { agent: 'Diligence', purpose: 'Plan & run diligence, surface red-flag risks by workstream', stage: 'Diligence', needs: 'stage2', asks: ['Build the diligence plan for this deal.'], skills: ['dd-checklist', 'dd-meeting-prep', 'competitive-analysis'] },
+  { agent: 'Modeling', purpose: 'Build the returns case — LBO, DCF, 3-statement & comps', stage: 'Diligence & execution', needs: 'read', asks: ['Build the base / bull / bear LBO returns.'], skills: ['lbo-model', 'dcf-model', '3-statement-model', 'returns-analysis'] },
+  { agent: 'IC Memo', purpose: 'Draft the IC memo + deck, audit every figure to a source', stage: 'IC approval', needs: 'stage2', asks: ['Draft the IC memo for this deal.'], skills: ['ic-memo', 'deck-refresh', 'citation-audit'] },
+  { agent: 'Value Creation & Portfolio', purpose: 'Own the value-creation plan & monitor the portfolio vs the underwriting', stage: 'Ownership', needs: 'read', asks: ['Draft the 100-day value-creation plan.'], skills: ['value-creation-plan', 'portfolio-monitoring', 'returns-analysis'] },
 ];
 
 export default function AgentGuide({ roleLabel, canViewStage2, canWrite, onAsk }: {
   roleLabel?: string; canViewStage2: boolean; canWrite: boolean; onAsk?: () => void;
 }) {
   const limits: string[] = [];
-  if (!canViewStage2) limits.push('Stage-2 diligence detail (findings, terms, financing, valuations) is deal-team only — you see status, not the confidential detail.');
+  if (!canViewStage2) limits.push('Confidential diligence detail — findings, terms, financing, valuations — is deal-team only. You see where each deal stands, not the confidential detail.');
   if (!canWrite) limits.push('Read-only — the assistant analyses & recommends; the deal team records the formal actions.');
   limits.push('Confidential deals you are not on the team for stay hidden — the assistant never surfaces a deal or figure your role cannot access.');
 
@@ -44,11 +69,11 @@ export default function AgentGuide({ roleLabel, canViewStage2, canWrite, onAsk }
             const gated = c.needs === 'stage2' && !canViewStage2;
             return (
               <button key={c.agent} className="ag-card" onClick={onAsk} title={onAsk ? 'Open the assistant to ask' : undefined} type="button">
-                <div className="ag-stage">{c.stage}{gated ? <span className="ag-badge">status-only</span> : null}</div>
+                <div className="ag-stage">{c.stage}{gated ? <span className="ag-badge">status only</span> : null}</div>
                 <div className="ag-agent">{c.agent}</div>
                 <div className="ag-purpose">{c.purpose}</div>
                 <div className="ag-ask">e.g. “{c.asks[0]}”</div>
-                <div className="ag-skills">{c.skills.map((s) => <span key={s} className="ag-skill">{s}</span>)}</div>
+                <div className="ag-skills">{c.skills.map((s) => <span key={s} className="ag-skill">{SKILL_LABEL[s] || s}</span>)}</div>
               </button>
             );
           })}
@@ -59,8 +84,12 @@ export default function AgentGuide({ roleLabel, canViewStage2, canWrite, onAsk }
           <ul>{limits.map((l, i) => <li key={i}>{l}</li>)}</ul>
         </div>
 
+        {/* This line used to name the files our instructions live in - a note to a
+            platform engineer, sitting in the panel that tells a first-time partner
+            where to start. What they need to know is that it can be changed to fit
+            how their firm works; who edits which file is a conversation for later. */}
         <div className="ag-custom">
-          Each of these is a <strong>customisable pack</strong> — its instructions, tools and skills (shown above) live in editable <code>Agent.md</code> / <code>Skill.md</code> files, so a firm can tailor how the assistant sources, screens, models and writes without touching code.
+          How the assistant sources, screens, models and writes at each stage can be tailored to your firm’s own process — no code change needed.
         </div>
       </details>
     </div>

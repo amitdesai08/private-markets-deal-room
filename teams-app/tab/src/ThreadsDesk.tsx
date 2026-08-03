@@ -257,8 +257,8 @@ export default function ThreadsDesk({
                 <input
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
-                  placeholder={canSend ? `Message the ${data.company} channel…` : 'Ask the agent about this thread…'}
-                  aria-label={canSend ? 'Message the deal channel or ask the agent' : 'Ask about this thread'}
+              placeholder={canSend ? `Message the ${data.company} channel…` : 'Ask the assistant about this thread…'}
+              aria-label={canSend ? 'Message the deal channel or ask the assistant' : 'Ask about this thread'}
                 />
                 {canSend ? (
                   <button className="btn primary" type="button" disabled={!draft.trim() || sending} onClick={send}>

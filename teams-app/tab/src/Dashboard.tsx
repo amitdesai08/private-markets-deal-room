@@ -54,7 +54,7 @@ function money(n?: number): string {
   return `$${Math.round(n)}`;
 }
 
-export default function Dashboard({ pipeline, deals, market, config, onAsk, onAskQuestion, onOpen, canWrite, roleLabel, viewerKey, layoutKey }: {
+export default function Dashboard({ pipeline, deals, market, config, onAsk, onAskQuestion, onOpen, canWrite, roleLabel, viewerKey, layoutKey, onGoSourcing }: {
   pipeline: Pipeline | null; deals: Deal[]; market: MarketIntel | null;
   config: BackendConfig | null; onAsk: (dealId: string) => void; onAskQuestion?: (q: string) => void;
   onOpen: (dealId: string) => void; canWrite?: boolean; roleLabel?: string | null;
@@ -65,6 +65,10 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
   // also carries the role override, so changing role would silently hand you a
   // different page than the one you built.
   layoutKey?: string;
+  // Lets the empty-tenant card send someone to the screen where a deal comes from.
+  // A first-run message that names the next step but cannot take you there is only
+  // half an answer.
+  onGoSourcing?: () => void;
 }) {
   const fabric = config?.fabric || market?.info;
   const comps = market?.comparableDeals || [];
@@ -250,6 +254,46 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
   const showFunnel = shows('funnel') && !!pipeline?.funnel?.length;
   // Named for the person, so the customise panel can say whose arrangement this is.
   const arrangementFor = seat?.label ? `the ${seat.label}` : 'you';
+
+  // A brand-new fund, or anyone whose access resolves to nothing, used to meet eight
+  // sections of zeros: 0 live deals, $0 pipeline, 0% readiness, "—" next IC, three
+  // empty funnel tiles, "Nothing is flagged", "No comparables loaded". The most
+  // important screen in the product was the only one that did not say what to do
+  // next. It says it now — and it distinguishes an empty firm from an empty view,
+  // because "add your first deal" is the wrong sentence for an observer who simply
+  // cannot see the deals that already exist.
+  if (!deals.length) {
+    return (
+      <div className="dash">
+        <section className="panel">
+          <div className="panel-h">Nothing to show yet</div>
+          <div className="empty-panel" style={{ display: 'grid', gap: 10, textAlign: 'left', padding: '16px 18px' }}>
+            {canWrite ? (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>There are no live deals yet.</div>
+                <div>A deal reaches this page one of two ways: you pursue a target you have screened, or you enter one directly.</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                  {onGoSourcing ? <button className="linkbtn" onClick={onGoSourcing}>Go to Sourcing &amp; screening →</button> : null}
+                  {onAskQuestion ? <button className="linkbtn" onClick={() => onAskQuestion('What should we source next?')}>Ask what to source next →</button> : null}
+                </div>
+                <div className="muted" style={{ fontSize: 12 }}>Use <b>+ New deal</b> at the top of the window to enter one you already have.</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>No deals are visible to you.</div>
+                <div>
+                  {seat?.kind === 'observer'
+                    ? 'Your access shows deal status only, and no deal has been shared with you yet.'
+                    : 'Either no deals are live, or the ones that are live sit outside your territory or team.'}
+                  {' '}Ask an administrator to add you to a deal team or territory.
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="dash">
@@ -565,7 +609,17 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
         ) : (
           <div className="deals">
             {deals.map((d) => (
-              <div key={d.id} className="dealcard" onClick={() => onOpen(d.id)} role="button" tabIndex={0}>
+              // The card takes focus and announces itself as a button, so Enter and
+              // Space are the two keys anyone would try - and neither did anything.
+              <div
+                key={d.id}
+                className="dealcard"
+                onClick={() => onOpen(d.id)}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${d.company}`}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(d.id); } }}
+              >
                 <div className="dc-top">
                   <div className="dc-co">{d.company}</div>
                   <div className="dc-size">{money(d.dealSize ? d.dealSize * 1e6 : undefined)}</div>
@@ -591,7 +645,10 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
       <section className="panel">
         <div className="panel-h">
           <span>Market intelligence</span>
-          <span className="muted">{fabric?.source ? `${fabric.source}${fabric?.freshness?.label ? ` · ${fabric.freshness.label}` : ''}` : 'Live market data'}</span>
+          {/* This fell back to the words "Live market data" precisely when there was
+              no source to name — so the header claimed live data directly above "No
+              comparables loaded." If we cannot name the source, say so. */}
+          <span className="muted">{fabric?.source ? `${fabric.source}${fabric?.freshness?.label ? ` · ${fabric.freshness.label}` : ''}` : 'No market source connected'}</span>
         </div>
         <div className="mi">
           <div className="mi-col">

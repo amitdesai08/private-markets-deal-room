@@ -110,7 +110,13 @@ function buildSnapshot({ companies, comps, fcounts, samples, ic, sec }) {
   }
 
   return {
-    source: `fabric:${WORKSPACE}/${LAKEHOUSE}`,
+    // This string is printed as the source line under "Market intelligence" on the
+    // home page, so a partner was reading `fabric:Deal Room/deal_room_starter` — the
+    // platform and the storage path we happen to use, not a source they can judge.
+    // The workspace and lakehouse are still carried below for anyone debugging.
+    source: 'Fund market data',
+    workspace: WORKSPACE,
+    lakehouse: LAKEHOUSE,
     sqlEndpoint: SQL_ENDPOINT,
     capacity: 'dealroomfabric',
     extractedAt: new Date().toISOString(),
@@ -257,7 +263,12 @@ export function fabricInfo() {
     liveError: _liveError,
     workspace: WORKSPACE,
     lakehouse: LAKEHOUSE,
-    source: s?.source || null,
+    // `source` is printed as the source line under "Market intelligence" on the home
+    // page. Snapshots already cached in Cosmos carry the old `fabric:<workspace>/<lakehouse>`
+    // form, so normalising here — not only where the snapshot is built — is what stops
+    // a partner reading a storage path where they expect the name of a data source.
+    // The workspace and lakehouse are still returned above for anyone debugging.
+    source: (s?.source && !/^fabric:/i.test(s.source)) ? s.source : (s ? 'Fund market data' : null),
     sqlEndpoint: s?.sqlEndpoint || SQL_ENDPOINT || null,
     capacity: s?.capacity || 'dealroomfabric',
     extractedAt: s?.extractedAt || null,

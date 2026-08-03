@@ -51,16 +51,36 @@ export default function Fund() {
   const [method, setMethod] = useState<Methodology | null>(null);
   const [showMethod, setShowMethod] = useState(false);
   const [reporting, setReporting] = useState<{ status: string; staleSources: string[]; notice: string | null } | null>(null);
+  // Every request here used to swallow its error, so a failed call left `ov`/`pf` null
+  // and the whole tab said "Loading…" for ever — the partner is not waiting, they are
+  // stuck, and nothing on screen tells them so or offers a way out.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    fetch('/api/fund/overview').then((r) => (r.ok ? r.json() : null)).then(setOv).catch(() => {});
-    fetch('/api/fund/portfolio').then((r) => (r.ok ? r.json() : null)).then(setPf).catch(() => {});
-    fetch('/api/fund/value').then((r) => (r.ok ? r.json() : null)).then(setVal).catch(() => {});
-    fetch('/api/fund/methodology').then((r) => (r.ok ? r.json() : null)).then(setMethod).catch(() => {});
-    fetch('/api/fund/reporting-readiness').then((r) => (r.ok ? r.json() : null)).then(setReporting).catch(() => {});
-  }, []);
+    let live = true;
+    setLoadFailed(false);
+    const get = (url: string, set: (v: any) => void, required = false) =>
+      fetch(url).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((v) => { if (live) set(v); })
+        .catch(() => { if (live && required) setLoadFailed(true); });
+    get('/api/fund/overview', setOv, true);
+    get('/api/fund/portfolio', setPf, true);
+    get('/api/fund/value', setVal);
+    get('/api/fund/methodology', setMethod);
+    get('/api/fund/reporting-readiness', setReporting);
+    return () => { live = false; };
+  }, [attempt]);
 
-  if (!ov || !pf) return <div className="fnd-wrap"><style>{CSS}</style><p className="fnd-empty">Loading the fund &amp; portfolio lens…</p></div>;
+  if (loadFailed && (!ov || !pf)) return (
+    <div className="fnd-wrap"><style>{CSS}</style>
+      <p className="fnd-empty">
+        The fund and portfolio figures could not be loaded just now.{' '}
+        <button className="fnd-retry" onClick={() => { setOv(null); setPf(null); setAttempt((n) => n + 1); }}>Try again</button>
+      </p>
+    </div>
+  );
+  if (!ov || !pf) return <div className="fnd-wrap"><style>{CSS}</style><p className="fnd-empty">Loading…</p></div>;
 
   const p = ov.performance;
   return (
@@ -148,7 +168,7 @@ export default function Fund() {
         <div className="fnd-table">
           <div className="fnd-tr fnd-th">
             <span className="c-co">Company</span>
-            <span>Hold</span><span>Entry → now</span><span>EBITDA</span><span>MOIC</span><span>Gross IRR</span><span className="c-vcp">Value-creation plan</span><span>Status</span>
+            <span>Hold</span><span className="c-entry">Entry → now</span><span>EBITDA</span><span>MOIC</span><span>Gross IRR</span><span className="c-vcp">Value-creation plan</span><span>Status</span>
           </div>
           {pf.companies.map((c) => (
             <div key={c.id}>
@@ -158,7 +178,7 @@ export default function Fund() {
                   <span className="c-sub">{c.sector} · {c.subSector}</span>
                 </span>
                 <span>{Math.round(c.holdMonths)} mo</span>
-                <span>{c.entryMultiple.toFixed(1)}x → {c.currentMultiple.toFixed(1)}x</span>
+                <span className="c-entry">{c.entryMultiple.toFixed(1)}x → {c.currentMultiple.toFixed(1)}x</span>
                 <span className={c.ebitdaGrowthPct >= 0 ? 'pos' : 'neg'}>{c.ebitdaGrowthPct >= 0 ? '+' : ''}{c.ebitdaGrowthPct}%</span>
                 <span className={c.grossMoic >= 1 ? 'pos' : 'neg'}><strong>{c.grossMoic.toFixed(2)}x</strong></span>
                 <span className={c.grossIrr >= 0 ? 'pos' : 'neg'}>{c.grossIrr}%</span>
@@ -336,9 +356,22 @@ const CSS = `
 .conc-note { margin-top: 4px; font-size: 12.5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .fnd-ilpa { margin: 0; padding: 12px 16px 14px 34px; display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--fg); }
 .fnd-ilpa li { opacity: .9; }
+.fnd-retry { border: 1px solid var(--border); background: var(--card); color: var(--fg); border-radius: 6px; padding: 4px 12px; font: inherit; font-size: 12.5px; cursor: pointer; margin-left: 6px; }
+.fnd-retry:hover { background: var(--hover); }
+/* A half-height Teams window on a 1080p screen sits in the 861-1149px band, which
+   had no rules at all: eight equal columns squeezed until the value-creation cell
+   was unreadable. Drop that column first, as the wider breakpoint below does. */
+@media (max-width: 1149px) {
+  .fnd-tr { grid-template-columns: 1.7fr .7fr 1fr .8fr .8fr .9fr 1.2fr; }
+  .c-vcp { display: none; }
+}
 @media (max-width: 860px) {
-  .fnd-tr { grid-template-columns: 1.6fr .6fr 1fr .8fr .8fr 1.2fr; }
-  .fnd-tr .c-vcp, .fnd-th:nth-child(7) { display: none; }
+  .fnd-tr { grid-template-columns: 1.6fr .6fr .8fr .8fr .8fr 1.2fr; }
+  /* The old rule hid a cell in the data rows but tried to hide the matching heading
+     with an nth-child selector on .fnd-th - and .fnd-th IS a row, the table's first
+     child, so that selector matched nothing. Headings and columns drifted apart.
+     Both cells now carry the same class, so a column always leaves with its heading. */
+  .c-vcp, .c-entry { display: none; }
   .c-grid { grid-template-columns: 1fr; }
 }
 `;

@@ -16,16 +16,27 @@ export default function DealArtifacts({ dealId }: { dealId: string }) {
   const [risk, setRisk] = useState<Any | null>(null);
   const [ioi, setIoi] = useState<Any | null>(null);
   const [loi, setLoi] = useState<Any | null>(null);
+  // Every loader swallowed its error, so a failed request left all five null and the
+  // tab said "Loading…" for ever. "Settled" means all five have come back one way or
+  // another — after that, an empty screen is a fact about the deal, not about the
+  // network, and it should say which.
+  const [settled, setSettled] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    let live = true;
+    setSettled(false);
     const load = (u: string, set: (x: Any | null) => void) =>
-      af(u).then((r) => (r.ok ? r.json() : null)).then(set).catch(() => {});
-    load(`/api/deals/${dealId}/returns`, setReturns);
-    load(`/api/deals/${dealId}/value-creation`, setVcp);
-    load(`/api/deals/${dealId}/risk-register`, setRisk);
-    load(`/api/deals/${dealId}/ioi`, setIoi);
-    load(`/api/deals/${dealId}/loi`, setLoi);
-  }, [dealId]);
+      af(u).then((r) => (r.ok ? r.json() : null)).then((v) => { if (live) set(v); }).catch(() => {});
+    Promise.all([
+      load(`/api/deals/${dealId}/returns`, setReturns),
+      load(`/api/deals/${dealId}/value-creation`, setVcp),
+      load(`/api/deals/${dealId}/risk-register`, setRisk),
+      load(`/api/deals/${dealId}/ioi`, setIoi),
+      load(`/api/deals/${dealId}/loi`, setLoi),
+    ]).then(() => { if (live) setSettled(true); });
+    return () => { live = false; };
+  }, [dealId, attempt]);
 
   return (
     <div className="da-wrap">
@@ -106,7 +117,15 @@ export default function DealArtifacts({ dealId }: { dealId: string }) {
         </section>
       )}
 
-      {!returns && !vcp && !risk && <p className="muted">Loading…</p>}
+      {!returns && !vcp && !risk && !ioi && !loi ? (
+        settled ? (
+          <p className="muted">
+            Nothing here yet. The returns case, value-creation plan and risk register appear once the deal
+            reaches diligence — build them from Generate a document.{' '}
+            <button className="askbtn" onClick={() => setAttempt((n) => n + 1)}>Check again</button>
+          </p>
+        ) : <p className="muted">Loading…</p>
+      ) : null}
     </div>
   );
 }

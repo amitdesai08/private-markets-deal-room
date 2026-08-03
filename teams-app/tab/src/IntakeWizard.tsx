@@ -65,8 +65,17 @@ export default function IntakeWizard({ isAdmin, onClose, onCreated }: { isAdmin:
   const field: React.CSSProperties = { width: '100%', fontSize: 13, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)', color: 'inherit', boxSizing: 'border-box' };
   const label: React.CSSProperties = { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--muted)', marginBottom: 4, display: 'block' };
 
+  // Clicking the backdrop used to close the form outright, so three steps of typing
+  // could vanish on a stray click with nothing asked and nothing recoverable. Once
+  // anything has been entered, the backdrop asks first; an untouched form still
+  // closes on one click, because there is nothing to lose.
+  const dirty = company.trim().length > 0 || hq.trim().length > 0 || thesis.trim().length > 0 || dealSize.trim().length > 0 || tags.length > 0;
+  function closeFromScrim() {
+    if (!dirty || window.confirm('Discard this deal? What you have entered will not be saved.')) onClose();
+  }
+
   return (
-    <div className="drawer-scrim" onClick={onClose}>
+    <div className="drawer-scrim" onClick={closeFromScrim}>
       <aside className="drawer" style={{ maxWidth: 560, margin: '0 auto' }} onClick={(e) => e.stopPropagation()}>
         <div className="drawer-head">
           <button className="iconbtn" onClick={onClose} aria-label="Close">✕</button>
@@ -100,7 +109,7 @@ export default function IntakeWizard({ isAdmin, onClose, onCreated }: { isAdmin:
                 <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>Only your firm’s deal team for this territory will see the deal. Leave blank to set it from the HQ.</div>
               </div>
               <div>
-                <label style={label}>Deal groups (tags)</label>
+                <label style={label}>Deal groups</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
                   {tags.map((t) => (
                     <span key={t} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'var(--chip)', color: 'var(--accent)', display: 'inline-flex', gap: 4, alignItems: 'center' }}>

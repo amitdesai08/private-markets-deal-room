@@ -9,6 +9,23 @@
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
 
+// The stored role values are single words with a specific meaning to the sourcing
+// engine. On screen they were four unexplained uppercase chips.
+const ROLE_LABEL: Record<string, string> = {
+  discover: 'Finds targets', confirm: 'Confirms facts', quality: 'Checks quality', context: 'Adds context',
+  // The Microsoft 365 card carries a fifth value. It was the one chip still
+  // rendering its stored word, which is how a lone lowercase 'identity' ended up
+  // sitting beside four English phrases.
+  identity: 'Signs you in',
+};
+const ROLE_HINT: Record<string, string> = {
+  discover: 'Used to surface companies we are not already tracking',
+  confirm: 'Used to verify a fact we already have against an authoritative record',
+  quality: 'Used to judge how reliable a figure is before it reaches IC or LP material',
+  context: 'Used for background — market, sector and news colour around a target',
+  identity: 'Establishes who you are, so the other sources can be reached on your behalf',
+};
+
 type Connector = {
   id: string; name: string; kind: string; provider: string | null; role: string;
   loginUrl: string | null; primaryJob: string; sweetSpot: string;
@@ -165,11 +182,11 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
           <input className="ds-cfg-in" placeholder="What it provides (optional)" value={form.primaryJob} maxLength={200}
             onChange={(e) => setForm((f) => ({ ...f, primaryJob: e.target.value }))} />
-          <select className="ds-cfg-in" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} title="Where this source fits in sourcing">
-            <option value="discover">Discover</option>
-            <option value="confirm">Confirm</option>
-            <option value="quality">Quality</option>
-            <option value="context">Context</option>
+          <select className="ds-cfg-in" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} title="Where this source fits in sourcing" aria-label="Where this source fits in sourcing">
+            <option value="discover">Finds targets</option>
+            <option value="confirm">Confirms facts</option>
+            <option value="quality">Checks quality</option>
+            <option value="context">Adds context</option>
           </select>
           <input className="ds-cfg-in" type="url" placeholder="Data source URL (optional)" value={form.endpoint} spellCheck={false}
             onChange={(e) => setForm((f) => ({ ...f, endpoint: e.target.value }))} />
@@ -194,10 +211,16 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
                     <div className="ds-name">
                       {c.name}
                       {c.free ? <span className="ds-badge free">Free</span> : null}
-                      <span className="ds-role">{c.role}</span>
+                      {/* This printed the raw stored value - `discover`, `confirm`,
+                          `quality`, `context` - as an unexplained uppercase chip. The
+                          title says what the word is claiming about the source. */}
+                      <span className="ds-role" title={ROLE_HINT[c.role] || 'Where this source fits in sourcing'}>{ROLE_LABEL[c.role] || c.role}</span>
                     </div>
+                    {/* `title` on the label is not an accessible name for the input, so
+                        a screen reader announced this as an unlabelled checkbox on every
+                        card. Name the source it switches. */}
                     <label className="ds-switch" title={c.enabled ? 'Enabled' : 'Disabled'}>
-                      <input type="checkbox" checked={c.enabled} disabled={!!busy[c.id]} onChange={() => toggle(c)} />
+                      <input type="checkbox" checked={c.enabled} disabled={!!busy[c.id]} onChange={() => toggle(c)} aria-label={`${c.name} — ${c.enabled ? 'on, switch off' : 'off, switch on'}`} />
                       <span className="ds-slider" />
                     </label>
                   </div>
