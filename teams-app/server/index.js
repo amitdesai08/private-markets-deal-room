@@ -85,9 +85,13 @@ app.get('/api/teams/config', (_req, res) =>
     appBaseUrl: config.server.appBaseUrl || null,
     sso: isSsoConfigured(),
     bot: isBotConfigured(),
-    // Which parallel instance this is. 'beta' turns on the deal cockpit so the two
-    // instances can be compared side by side from the same image.
+    // Which parallel instance this is, for support and telemetry only.
     channel: process.env.DEAL_ROOM_CHANNEL || 'main',
+    // The deal cockpit. It was gated on the instance being the beta while it was
+    // being proved; it is now the way a deal is read, so it is on unless someone
+    // deliberately turns it off. Tying a product decision to the name of an
+    // environment meant promoting the build would silently have left it behind.
+    cockpit: process.env.DEAL_ROOM_COCKPIT !== 'false',
   })
 );
 

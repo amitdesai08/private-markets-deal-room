@@ -116,8 +116,9 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   const [dealGroups, setDealGroups] = useState<any[]>([]);
   const [newTag, setNewTag] = useState('');
   const [tagBusy, setTagBusy] = useState(false);
-  // The cockpit is the beta instance's headline surface. Gated on the instance
-  // flag so the same image runs unchanged in the main channel.
+  // The cockpit is how a deal is read. Off only if the instance explicitly disables
+  // it, and treated as on when the config call fails, so a blip cannot demote the
+  // main surface to a fallback tab.
   const [cockpitOn, setCockpitOn] = useState(false);
 
   async function load(setSel = false) {
@@ -162,11 +163,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     fetch('/api/teams/config')
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => {
-        const on = c?.channel === 'beta';
+        const on = c ? c.cockpit !== false : true;
         setCockpitOn(on);
         if (on) setTab('cockpit');
       })
-      .catch(() => {});
+      .catch(() => { setCockpitOn(true); setTab('cockpit'); });
     fetch('/api/deal-groups').then((r) => r.json()).then((d) => setDealGroups(d?.dealGroups || [])).catch(() => {});
     load(true).finally(() => setLoading(false));
   }, [dealId]);
