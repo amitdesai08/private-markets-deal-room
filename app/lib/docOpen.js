@@ -19,12 +19,23 @@
 //              product could write for you were two unrelated things on two
 //              different tabs. Clicking the name now builds the real Office file.
 //
-//   BRIEF    — a document that exists in the deal's world but not in ours: the
-//              vendor's QoE, counsel's mark-up, the seller's information memorandum.
-//              We will not fake an open. Instead we show what we genuinely hold
-//              about it — what it is, whose workstream it belongs to, and the
-//              diligence findings that cite it — so the click is still worth making
-//              and the person knows precisely where the real file lives.
+//   BRIEF    — a document nobody has given us a link to: the vendor's QoE, counsel's
+//              mark-up, the seller's information memorandum. We will not fake a copy
+//              of it. What we open instead is everything the deal record genuinely
+//              holds on it — what it is, whose workstream it belongs to, the
+//              diligence findings that cite it, and where the original lives — and
+//              you can take that away as a Word file.
+//
+// Every one of the three OPENS. That matters more than it sounds: a list where two
+// names are live and eight are inert reads as a broken product, and the person goes
+// back to hunting through email for the attachment. So the control on every document
+// says Open, and what opens is the best thing we honestly have.
+//
+// None of this turns on FILE FORMAT. A PDF opens exactly as readily as a Word
+// document; Microsoft 365 renders it in the browser. What decides the mode is
+// whether we hold a pointer to the actual file. Formats correlate only by accident:
+// the four documents this platform can write are a .docx, a .pptx and two .xlsx, so
+// a PDF is never a GENERATE — but plenty of Word and Excel files are briefs too.
 //
 // The rule that keeps this honest: a mode is only ever assigned from evidence. An
 // external link must be an https URL Microsoft 365 returned. A generate offer must
@@ -91,9 +102,50 @@ export function resolveDocOpen(doc = {}, _deal = null) {
   }
   return {
     mode: 'brief',
-    label: 'What we know',
-    reason: 'This document is held outside the platform, so we show what the deal record says about it rather than a copy of it.',
+    label: 'Open',
+    reason: 'Nobody has shared the original file with us yet. Opens everything the deal record holds on this document, and where the original lives.',
   };
+}
+
+// Two names, one document?
+//
+// A document listed on the deal and the real file sitting in SharePoint are usually
+// the same thing under slightly different punctuation — an em dash here, a version
+// suffix there. Until they are matched, the listed name stays unopenable while the
+// real file appears further down the page as a second, unexplained row.
+//
+// The bar is deliberately high, because a WRONG link is worse than no link: send
+// someone to the wrong QoE and they will read it. So: compare on letters and digits
+// only, require real substance, and accept a difference only where one name is the
+// other plus a suffix ("… v3", "… FINAL") and still most of the same name.
+const MIN_NAME = 8;
+const PREFIX_RATIO = 0.6;
+
+export function normaliseDocName(name) {
+  return String(name || '')
+    .replace(/\.[a-z0-9]{2,5}$/i, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+export function sameDocument(a, b) {
+  const x = normaliseDocName(a);
+  const y = normaliseDocName(b);
+  if (x.length < MIN_NAME || y.length < MIN_NAME) return false;
+  if (x === y) return true;
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  if (!long.startsWith(`${short} `)) return false;
+  return short.length >= long.length * PREFIX_RATIO;
+}
+
+/**
+ * The real Microsoft 365 file behind a listed document name, if it is among these
+ * search results. Only ever returns something with a usable https link.
+ */
+export function matchLiveFile(name, live = []) {
+  if (!name || !Array.isArray(live)) return null;
+  return live.find((f) => isHttps(f?.webUrl) && sameDocument(name, f?.name)) || null;
 }
 
 // The lane a document belongs to, inferred from its name. Deliberately keyword-based
@@ -166,7 +218,18 @@ export function documentBrief(doc = {}, deal = null) {
   };
 }
 
-/** Attach the open descriptor to a list of documents. */
-export function withOpen(docs = [], deal = null) {
-  return (Array.isArray(docs) ? docs : []).map((d) => ({ ...d, open: resolveDocOpen(d, deal) }));
+/**
+ * Attach the open descriptor to a list of documents.
+ *
+ * `live` is whatever Microsoft 365 returned for this deal. A listed document that we
+ * hold no link for is checked against it first, because the seller's memorandum sat
+ * in the data room all along — it was only ever the punctuation of the name that
+ * stopped us joining the two up.
+ */
+export function withOpen(docs = [], deal = null, live = []) {
+  return (Array.isArray(docs) ? docs : []).map((d) => {
+    const real = isHttps(d?.webUrl) ? null : matchLiveFile(d?.name, live);
+    const doc = real ? { ...d, webUrl: real.webUrl } : d;
+    return { ...doc, open: resolveDocOpen(doc, deal) };
+  });
 }

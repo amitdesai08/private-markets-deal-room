@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveDocOpen, documentBrief, withOpen } from '../lib/docOpen.js';
+import { resolveDocOpen, documentBrief, withOpen, matchLiveFile, sameDocument } from '../lib/docOpen.js';
 
 test('a real Microsoft 365 file opens where it lives', () => {
   const r = resolveDocOpen({ name: 'Anything.pdf', webUrl: 'https://contoso.sharepoint.com/a.pdf' });
@@ -132,4 +132,62 @@ test('every document in a list comes back with a way to open it', () => {
   ], DEAL);
   assert.deepEqual(out.map((d) => d.open.mode), ['generate', 'brief', 'external']);
   assert.equal(withOpen(null).length, 0);
+});
+
+// ---------------------------------------------------------------------------
+//  Joining a listed name to the real file
+// ---------------------------------------------------------------------------
+// The deal lists "Nordic Grocery Group — Information Memorandum.pdf"; SharePoint
+// holds "Nordic Grocery Group - Information Memorandum.pdf". Same paper, different
+// dash. Until they are matched the listed name stays inert while the real file sits
+// unexplained further down the page.
+
+test('a listed document is matched to the real file through punctuation and version suffixes', () => {
+  const live = [
+    { name: 'Nordic Grocery Group - Information Memorandum v3.pdf', webUrl: 'https://contoso.sharepoint.com/im.pdf' },
+  ];
+  const hit = matchLiveFile('Nordic Grocery Group — Information Memorandum.pdf', live);
+  assert.equal(hit?.webUrl, 'https://contoso.sharepoint.com/im.pdf');
+});
+
+test('the extension is never what decides a match', () => {
+  const live = [{ name: 'Meridian Legal DD Report.pdf', webUrl: 'https://contoso.sharepoint.com/l.pdf' }];
+  assert.ok(matchLiveFile('Meridian — Legal DD Report.docx', live));
+});
+
+test('a different document is never passed off as the one that was clicked', () => {
+  const live = [
+    { name: 'Nordic Grocery Group — Legal DD Report.pdf', webUrl: 'https://contoso.sharepoint.com/l.pdf' },
+    { name: 'Board pack.pdf', webUrl: 'https://contoso.sharepoint.com/b.pdf' },
+  ];
+  assert.equal(matchLiveFile('Nordic Grocery Group — Quality of Earnings.pdf', live), null);
+  // A short name is not enough to go on, however well it overlaps.
+  assert.equal(sameDocument('Q1.pdf', 'Q1.pdf'), false);
+  // One name being a prefix of a much longer one is a coincidence, not a match.
+  assert.equal(sameDocument('Tax Memo.docx', 'Tax Memo on the German holding structure and treaty position.docx'), false);
+});
+
+test('a match is only made when the real file can actually be opened', () => {
+  assert.equal(matchLiveFile('Meridian — Legal DD Report.docx', [{ name: 'Meridian — Legal DD Report.docx' }]), null);
+  assert.equal(matchLiveFile('Meridian — Legal DD Report.docx', [{ name: 'Meridian — Legal DD Report.docx', webUrl: 'javascript:alert(1)' }]), null);
+  assert.equal(matchLiveFile('x', null), null);
+});
+
+test('a PDF opens for real once Microsoft 365 has been searched', () => {
+  const live = [{ name: 'Meridian - Quality of Earnings.pdf', webUrl: 'https://contoso.sharepoint.com/qoe.pdf' }];
+  const [doc] = withOpen([{ name: 'Meridian — Quality of Earnings.pdf' }], DEAL, live);
+  assert.equal(doc.open.mode, 'external');
+  assert.equal(doc.open.url, 'https://contoso.sharepoint.com/qoe.pdf');
+  // Without the search result the same PDF still opens — just onto what we know.
+  const [alone] = withOpen([{ name: 'Meridian — Quality of Earnings.pdf' }], DEAL, []);
+  assert.equal(alone.open.mode, 'brief');
+});
+
+test('every document offers to open, whatever we hold', () => {
+  const out = withOpen([
+    { name: 'Meridian — IC Memo.docx' },
+    { name: 'Vendor Quality of Earnings.pdf' },
+    { name: 'Real.docx', webUrl: 'https://contoso.sharepoint.com/r.docx' },
+  ], DEAL);
+  assert.ok(out.every((d) => d.open.label.startsWith('Open')));
 });

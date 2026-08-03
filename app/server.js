@@ -143,7 +143,7 @@ import { askFabricDataAgent, fabricDataAgentInfo } from './lib/fabricDataAgent.j
 import connectorLoginRouter from './lib/mcp/loginRoutes.js';
 import m365LoginRouter from './lib/m365/loginRoutes.js';
 import { m365Configured, m365Connected, m365Ready, m365AppOnly, m365FilesScope, listDealDocuments, saveDealDocument, M365NotConnectedError } from './lib/m365/graph.js';
-import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml, buildModelCsv, buildReturnsXlsx, buildIcDeckPptx, OFFICE_MIME } from './lib/m365/officeRich.js';
+import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml, buildModelCsv, buildReturnsXlsx, buildIcDeckPptx, buildDocumentBriefDocx, OFFICE_MIME } from './lib/m365/officeRich.js';
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
@@ -834,9 +834,12 @@ api.get('/deals/:id/doc-desk', async (req, res) => {
   });
   res.json({
     ...out,
-    // Every document says how it opens, so no name in this list is a dead end.
-    docs: withOpen(out.docs, g.raw),
-    changed: withOpen(out.changed, g.raw),
+    // Every document says how it opens, so no name in this list is a dead end. The
+    // live results are passed in as well: a document the deal lists and a file
+    // Microsoft 365 holds are often the same paper under different punctuation, and
+    // until they are matched the real one never reaches the name you clicked.
+    docs: withOpen(out.docs, g.raw, live),
+    changed: withOpen(out.changed, g.raw, live),
     origin: corpus.origin,
     liveFiles: live.length,
     // Where the real paper lives. Offered so that when Microsoft 365 has not resolved
@@ -851,18 +854,49 @@ api.get('/deals/:id/doc-desk', async (req, res) => {
 // What the deal record holds about a document we cannot open — the diligence
 // findings that cite it, whose workstream it belongs to, and where the real file
 // lives. The answer to a click on a document the platform does not itself hold.
+//
+// Only ever describes a document this deal actually lists. Without that check the
+// route would answer for any string a caller invented, and a made-up name would come
+// back dressed in real findings.
+function listedDocument(raw, name) {
+  const wanted = String(name || '').trim().toLowerCase();
+  if (!wanted) return null;
+  return (corpusForDeal(raw).files || []).find((f) => String(f.name).toLowerCase() === wanted) || null;
+}
+
 api.get('/deals/:id/document-brief', (req, res) => {
   const g = deskGate(req, res);
   if (!g) return;
   const name = String(req.query.name || '').trim();
   if (!name) return res.status(400).json({ error: 'bad-args', detail: 'Which document?' });
-  // Only describe a document this deal actually lists. Without this the route would
-  // answer for any string a caller invented, and a made-up name would come back
-  // dressed in real findings.
-  const corpus = corpusForDeal(g.raw);
-  const known = (corpus.files || []).find((f) => String(f.name).toLowerCase() === name.toLowerCase());
+  const known = listedDocument(g.raw, name);
   if (!known) return res.status(404).json({ error: 'not-found', detail: 'That document is not listed on this deal.' });
   res.json(documentBrief(known, g.raw));
+});
+
+// The same briefing as a Word file, so what you read here can be forwarded to
+// whoever asked, rather than screenshotted.
+api.get('/deals/:id/document-brief.docx', async (req, res) => {
+  const g = deskGate(req, res);
+  if (!g) return;
+  const name = String(req.query.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'bad-args', detail: 'Which document?' });
+  const known = listedDocument(g.raw, name);
+  if (!known) return res.status(404).json({ error: 'not-found', detail: 'That document is not listed on this deal.' });
+  try {
+    const buf = await buildDocumentBriefDocx(g.raw, documentBrief(known, g.raw));
+    const stem = String(known.name).replace(/\.[a-z0-9]{2,5}$/i, '').trim();
+    const file = `${stem} - briefing.docx`;
+    // Deal documents are full of em dashes and ampersands, and a header may only
+    // carry ASCII. So: a plain ASCII name every browser understands, plus the real
+    // one in the encoded form that browsers prefer when they see it.
+    const ascii = file.replace(/[^\x20-\x7E]/g, '-').replace(/"/g, '');
+    res.setHeader('Content-Type', OFFICE_MIME.docx);
+    res.setHeader('Content-Disposition', `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(file)}`);
+    res.send(buf);
+  } catch (e) {
+    res.status(500).json({ error: 'build-failed', detail: String(e?.message || e) });
+  }
 });
 
 // Everything that has happened on this deal in Microsoft 365 — email, the channel

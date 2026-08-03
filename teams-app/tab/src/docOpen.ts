@@ -22,6 +22,23 @@ const FALLBACK_NAME: Record<DocKind, string> = {
   model: 'Deal Model.xlsx',
 };
 
+/** Hand a document response to the browser under the name the server gave it. */
+async function saveBlob(r: Response, fallback: string) {
+  const blob = await r.blob();
+  const cd = r.headers.get('content-disposition') || '';
+  // Deal document names are full of em dashes, so prefer the encoded form when the
+  // server sent one — the plain form is an ASCII flattening of the same name.
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+  const plain = /filename=["']?([^"';]+)/i.exec(cd);
+  let name = fallback;
+  try { name = utf8 ? decodeURIComponent(utf8[1]) : plain ? decodeURIComponent(plain[1]) : fallback; } catch { name = plain?.[1] || fallback; }
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = href; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(href);
+}
+
 /**
  * Build the document and hand it to the browser.
  *
@@ -44,18 +61,22 @@ export async function downloadGeneratedDoc(
       const d = await r.json().catch(() => ({} as any));
       return { ok: false, error: d?.reason || d?.error || 'Could not open the document.' };
     }
-    const blob = await r.blob();
-    const cd = r.headers.get('content-disposition') || '';
-    const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(cd);
-    const name = m ? decodeURIComponent(m[1]) : FALLBACK_NAME[kind];
-    const href = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = href; a.download = name;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(href);
+    await saveBlob(r, FALLBACK_NAME[kind]);
     return { ok: true };
   } catch (e: any) {
     return { ok: false, error: `Could not open the document (${String(e?.message || e)}).` };
+  }
+}
+
+/** The briefing on a document nobody has shared with us, as a Word file. */
+export async function downloadDocBrief(dealId: string, name: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const r = await af(`/api/deals/${dealId}/document-brief.docx?name=${encodeURIComponent(name)}`);
+    if (!r.ok) return { ok: false, error: 'Could not build the briefing.' };
+    await saveBlob(r, 'Document briefing.docx');
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: `Could not build the briefing (${String(e?.message || e)}).` };
   }
 }
 
@@ -70,6 +91,7 @@ export type DocBrief = {
   summary?: string | null;
   lane?: string | null;
   owner?: string | null;
+  laneStatus?: string | null;
   findings: { text: string; severity?: string | null; source?: string | null; basis: string }[];
   dataRoomUrl?: string | null;
 };

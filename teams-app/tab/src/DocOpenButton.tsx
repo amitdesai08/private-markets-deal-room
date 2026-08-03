@@ -1,23 +1,27 @@
 import { useState } from 'react';
-import { downloadGeneratedDoc, fetchDocBrief, type DocOpen, type DocBrief } from './docOpen';
+import { downloadGeneratedDoc, downloadDocBrief, fetchDocBrief, type DocOpen, type DocBrief } from './docOpen';
 
 // The control that makes a document name in this product open the document.
 //
 // One button, three behaviours, decided by the server from evidence rather than
 // guessed here:
 //
-//   external — Microsoft 365 holds the real file. Go there.
+//   external — Microsoft 365 holds the real file. Go there. Any format: Microsoft
+//              365 renders a PDF in the browser exactly as it does a Word document,
+//              so nothing here turns on the extension.
 //   generate — the platform can write this document from the live deal record.
 //              Build it and hand it over; it is a real .docx / .xlsx / .pptx and it
 //              is current by construction.
-//   brief    — the file lives outside the platform. Show what the deal record
-//              genuinely holds about it, and say where the real one is.
+//   brief    — nobody has shared the original with us. Open everything the deal
+//              record genuinely holds against that name, say plainly that it is not
+//              a copy of the document, and let it be taken away as a Word file.
 //
 // The third case is the one worth defending. The tempting design is to hide the
-// button when we cannot open something, but then half the documents on screen stay
-// dead and the person still has to go looking without knowing where. Saying "here
-// is what we know, and the file itself is in the data room" is a smaller promise
-// that is actually kept.
+// button when we cannot open the file itself, but then most of the documents on
+// screen are inert, the list looks half-built, and the person goes back to hunting
+// through email for the attachment — which is the exact chasing about this product
+// exists to remove. So every document says Open, and what opens is the best thing we
+// honestly have.
 
 // Findings carry severity in two vocabularies depending on where they were authored
 // — high/medium/low alongside positive/caution/negative. Both are mapped so a real
@@ -38,6 +42,7 @@ export default function DocOpenButton({
   onNote?: (msg: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [brief, setBrief] = useState<DocBrief | null>(null);
   const [showing, setShowing] = useState(false);
 
@@ -98,7 +103,8 @@ export default function DocOpenButton({
             </div>
             <div className="bd" style={{ display: 'grid', gap: 12 }}>
               <div className="muted" style={{ fontSize: 12 }}>
-                This document is held outside the platform, so this is what the deal record says about it — not a copy of it.
+                Nobody has shared the original with the deal room, so this is not a copy of it.
+                It is everything the deal record holds against that name.
               </div>
 
               {brief.summary ? <div style={{ fontSize: 13 }}>{brief.summary}</div> : null}
@@ -106,7 +112,7 @@ export default function DocOpenButton({
               {brief.owner || brief.lane ? (
                 <div style={{ fontSize: 12.5 }}>
                   <span className="muted">Workstream: </span>
-                  {[brief.lane, brief.owner].filter(Boolean).join(' · ')}
+                  {[brief.lane, brief.owner, brief.laneStatus].filter(Boolean).join(' · ')}
                 </div>
               ) : null}
 
@@ -133,13 +139,29 @@ export default function DocOpenButton({
                 )}
               </div>
 
-              {brief.dataRoomUrl ? (
-                <a className="btn compact" href={brief.dataRoomUrl} target="_blank" rel="noreferrer" style={{ justifySelf: 'start' }}>
-                  Open the data room ↗
-                </a>
-              ) : (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button
+                  className="btn compact"
+                  disabled={saving}
+                  onClick={async () => {
+                    setSaving(true);
+                    const r = await downloadDocBrief(dealId, brief.name);
+                    setSaving(false);
+                    if (!r.ok && r.error) onNote?.(r.error);
+                  }}
+                >{saving ? 'Preparing…' : 'Save as Word ↗'}</button>
+
+                {brief.dataRoomUrl ? (
+                  <a className="btn compact" href={brief.dataRoomUrl} target="_blank" rel="noreferrer">
+                    Open the data room ↗
+                  </a>
+                ) : null}
+              </div>
+
+              {brief.dataRoomUrl ? null : (
                 <div className="muted" style={{ fontSize: 12 }}>
-                  This deal has no shared data room yet, so there is nowhere to send you for the file itself.
+                  This deal has no shared data room yet, so there is nowhere to send you for the original.
+                  {brief.owner ? ` ${brief.owner} owns this workstream and is the person to ask.` : ''}
                 </div>
               )}
             </div>

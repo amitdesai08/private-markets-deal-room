@@ -467,6 +467,74 @@ export async function buildDataRoomGuideDocx(deal) {
   return Packer.toBuffer(doc);
 }
 
+// -----------------------------------------------------------------------------
+//  Document briefing
+// -----------------------------------------------------------------------------
+// For a document the deal talks about but nobody has shared with us — the vendor's
+// QoE, counsel's mark-up, the seller's memorandum. This is emphatically NOT a
+// reconstruction of that document, and the paper says so in the first line and again
+// in the footer, because a briefing that could be mistaken for the original is worse
+// than no briefing at all. What it is: everything the deal record holds against that
+// name, in something you can send to someone.
+const SEV_WORD = { high: 'High', medium: 'Medium', low: 'Low', negative: 'High', caution: 'Medium', positive: 'Positive' };
+
+export async function buildDocumentBriefDocx(deal, brief = {}) {
+  applyBrand();
+  const co = (deal && (deal.company || deal.id)) || 'this deal';
+  const name = String(brief.name || 'Document');
+  const footer = new Footer({ children: [new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 4, color: LINE } }, children: [new TextRun({ text: `${FOOTER_CONF} · ${BRAND} · Briefing assembled from the deal record — not the original document`, color: MUTE, size: 15 })] })] });
+
+  const facts = [
+    ['Deal', co],
+    ['Workstream', brief.lane || 'Not attributed'],
+    ['Owner', brief.owner || 'Unassigned'],
+    ['Workstream status', brief.laneStatus || 'Not recorded'],
+  ];
+
+  const findings = Array.isArray(brief.findings) ? brief.findings : [];
+  const children = [
+    new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: `${BRAND.toUpperCase()} · DOCUMENT BRIEFING`, bold: true, color: ACCENT, size: 16, characterSpacing: 20 })] }),
+    new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: name, bold: true, color: INK, size: 32 })] }),
+    new Paragraph({ children: [new TextRun({ text: `Prepared ${dateStr(new Date())} from the ${co} deal record`, color: MUTE, italics: true, size: 18 })] }),
+    rule(ACCENT, 10),
+    callout(
+      'What this is',
+      `The original ${name} has not been shared into the deal room, so this is not a copy of it. Everything below is drawn from the ${co} deal record: what the deal says this document is, whose workstream it sits in, and the diligence findings recorded against it.`,
+    ),
+  ];
+
+  if (brief.summary) {
+    children.push(sectionHeading('What this document is'), body(brief.summary));
+  }
+
+  children.push(sectionHeading('Where it sits'), kvTable(facts));
+
+  children.push(sectionHeading('Diligence findings recorded against it'));
+  if (!findings.length) {
+    children.push(body('Nothing in the diligence findings refers to this document yet.'));
+  } else {
+    children.push(
+      body('Each finding notes why it appears here: either it names this document as its source, or it belongs to the same workstream.'),
+      dataTable(
+        ['Finding', 'Severity', 'Why it is here'],
+        findings.map((f) => [String(f.text || ''), SEV_WORD[String(f.severity)] || '—', `${f.basis || ''}${f.source ? ` (${f.source})` : ''}`]),
+        [58, 14, 28],
+      ),
+    );
+  }
+
+  children.push(
+    sectionHeading('Getting hold of the original'),
+    body(brief.dataRoomUrl
+      ? `The deal's data room is at ${brief.dataRoomUrl}. If the document has been uploaded it will be filed there under its workstream.`
+      : `This deal has no shared data room yet, so there is no single place to send you for the file. ${brief.owner ? `${brief.owner} owns this workstream and is the person to ask.` : 'Ask the workstream owner.'}`),
+    new Paragraph({ spacing: { before: 240 }, children: [new TextRun({ text: DISCLAIMER, italics: true, color: MUTE, size: 18 })] }),
+  );
+
+  const doc = new Document({ creator: BRAND, title: `Briefing — ${name}`, company: BRAND, styles: { default: { document: { run: { font: 'Calibri', size: 21, color: '2B2B2B' } } } }, sections: [{ properties: { page: { margin: { top: 1200, bottom: 1200, left: 1200, right: 1200 } } }, footers: { default: footer }, children }] });
+  return Packer.toBuffer(doc);
+}
+
 // =============================================================================
 // EXCEL — deal model & LBO/returns model
 // =============================================================================
