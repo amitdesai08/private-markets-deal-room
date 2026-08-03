@@ -182,7 +182,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     } finally { setTagBusy(false); }
   }
   // Add a tag: reuse an existing deal group, or (admin) create a new one — which
-  // auto-provisions its Entra security group. Non-admins fall back to a plain tag.
+  // auto-provisions its Entra security group. A refused create is reported, not faked.
   async function addTag() {
     const label = newTag.trim(); if (!label) return;
     const cur = ((deal as any)?.tags || []) as string[];
@@ -190,7 +190,14 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     if (!id) {
       const cr = await af('/api/deal-groups', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ label }) }).catch(() => null);
       if (cr && cr.ok) { const dg = await cr.json(); id = dg.id; setDealGroups((prev) => [...prev.filter((x) => x.id !== dg.id), dg]); }
-      else id = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      else {
+        // Slugifying the label locally produced a chip identical to a real deal group
+        // that granted access to nobody. On a clean-team boundary that is the control
+        // lying about who can see the deal.
+        setNote(`Could not create the deal group “${label}” — ask an administrator to add it, then tag the deal.`);
+        setNewTag('');
+        return;
+      }
     }
     if (id && !cur.includes(id)) await saveTags([...cur, id]);
     setNewTag('');
@@ -259,7 +266,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
           if (cancelled) return;
           const d = await r.json().catch(() => ({}));
           if (r.ok && d?.provisioning) { setDocs({ provisioning: true, canWrite: d.canWrite }); timer = setTimeout(loadDocs, 8000); return; }
-          setDocs(r.ok ? d : { error: d?.error || `Failed (${r.status})`, notConnected: !!d?.notConnected });
+          setDocs(r.ok ? d : { error: d?.error || 'The document list could not be loaded. Try again.', notConnected: !!d?.notConnected });
         })
         .catch((e) => { if (!cancelled) setDocs({ error: String(e?.message || e) }); });
     };
@@ -301,8 +308,12 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
       const r = await af(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        if (r.status === 409) setNote(`Blocked: ${data?.headline || data?.reason || 'IC gate not satisfied (Partner override required).'}`);
-        else setNote(`Action failed (${r.status}).`);
+        // "Action failed (500)." told a partner recording an IC approval nothing they
+        // could act on -- not whether it had been recorded, not whether to retry, not
+        // whether to call someone. The status stays in the console for support.
+        if (r.status === 409) setNote(`Blocked: ${data?.headline || data?.reason || 'Not IC-ready — a Partner must override to proceed.'}`);
+        else if (r.status === 403) setNote('You do not have rights to do that on this deal.');
+        else { console.error('deal action failed', url, r.status, data); setNote('That did not go through — nothing has changed. Try again, or contact your administrator if it keeps failing.'); }
       }
       const d = await load(true);
       if (r.ok && d) { setSelStep(d.currentStep || selStep); onChanged?.(); }

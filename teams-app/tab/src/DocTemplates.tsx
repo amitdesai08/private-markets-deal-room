@@ -34,22 +34,28 @@ export default function DocTemplates({ ssoToken, viewAs }: { ssoToken?: string; 
   function set<K extends keyof Template>(k: K, v: Template[K]) { setTpl((t) => (t ? { ...t, [k]: v } : t)); }
   function setSection(k: keyof Sections, v: boolean) { setTpl((t) => (t ? { ...t, sections: { ...t.sections, [k]: v } } : t)); }
 
+  // Both writes below need a catch as well as an else. A thrown fetch used to leave
+  // the spinner stopping and the note empty, so pressing Save looked like nothing
+  // happened at all -- and the status code in the else told an administrator nothing
+  // they could act on.
   async function save() {
     if (!tpl) return;
     setBusy('save'); setNote('');
     try {
       const r = await fetch('/api/admin/doc-template', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...tpl, ssoToken, as: viewAs || undefined }) });
       if (r.ok) { const d = await r.json(); setTpl(d.template); setNote('Saved — all newly generated documents will use this template.'); }
-      else setNote(r.status === 403 ? 'Admins only.' : `Failed (${r.status}).`);
-    } finally { setBusy(''); }
+      else setNote(r.status === 403 ? 'Only an administrator can change the template.' : 'That did not save — the template is unchanged. Try again.');
+    } catch { setNote('That did not save — the template is unchanged. Try again.'); }
+    finally { setBusy(''); }
   }
   async function reset() {
     setBusy('reset'); setNote('');
     try {
       const r = await fetch('/api/admin/doc-template/reset', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ssoToken, as: viewAs || undefined }) });
       if (r.ok) { const d = await r.json(); setTpl(d.template); setNote('Reset to the built-in template.'); }
-      else setNote(r.status === 403 ? 'Admins only.' : `Failed (${r.status}).`);
-    } finally { setBusy(''); }
+      else setNote(r.status === 403 ? 'Only an administrator can reset the template.' : 'That did not go through — the template is unchanged. Try again.');
+    } catch { setNote('That did not go through — the template is unchanged. Try again.'); }
+    finally { setBusy(''); }
   }
 
   if (!tpl) return <div className="dt-wrap"><style>{CSS}</style><p className="dt-muted">Loading templates…</p></div>;

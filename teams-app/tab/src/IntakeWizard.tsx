@@ -5,6 +5,7 @@
 // Step 1 Details · Step 2 Territory & groups · Step 3 Review → POST /api/deals/create.
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
+import { useModalKeys } from './useModalKeys';
 import type { Region, DealGroup } from './types';
 
 const SECTORS = ['Consumer & Retail', 'Software', 'Healthcare', 'Industrials', 'Financials', 'Energy', 'Business Services', 'Other'];
@@ -38,7 +39,15 @@ export default function IntakeWizard({ isAdmin, onClose, onCreated }: { isAdmin:
     if (!id) {
       const cr = await af('/api/deal-groups', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ label }) }).catch(() => null);
       if (cr && cr.ok) { const dg = await cr.json(); id = dg.id; setDealGroups((p) => [...p.filter((x) => x.id !== dg.id), dg]); }
-      else id = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      else {
+        // A deal group is what grants access to the deal. When the create was refused
+        // we used to slugify the label locally and add the chip anyway, so it looked
+        // identical to a real group and granted nothing -- on a confidential carve-out
+        // that is a control lying about who can see the deal.
+        setErr(`Could not create the deal group “${label}” — ask an administrator to add it, then tag the deal.`);
+        setNewTag('');
+        return;
+      }
     }
     if (id && !tags.includes(id)) setTags((t) => [...t, id!]);
     setNewTag('');
@@ -51,7 +60,7 @@ export default function IntakeWizard({ isAdmin, onClose, onCreated }: { isAdmin:
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ company: company.trim(), sector, dealSize: Number(dealSize) || 0, hq: hq.trim(), thesis: thesis.trim(), region, tags, confidential }),
       });
-      if (!r.ok) { const e = await r.json().catch(() => ({})); setErr(e?.error === 'you cannot create deals' ? 'You don’t have rights to create deals.' : (e?.error || `Failed (${r.status})`)); return; }
+      if (!r.ok) { const e = await r.json().catch(() => ({})); setErr(e?.error === 'you cannot create deals' ? 'You don’t have rights to create deals.' : (e?.error || 'That did not go through — the deal was not created. Try again.')); return; }
       const d = await r.json();
       onCreated(d.id);
     } catch (e: any) { setErr(String(e?.message || e)); }
@@ -73,12 +82,26 @@ export default function IntakeWizard({ isAdmin, onClose, onCreated }: { isAdmin:
   function closeFromScrim() {
     if (!dirty || window.confirm('Discard this deal? What you have entered will not be saved.')) onClose();
   }
+  // The guard was only on the accidental path. The two deliberate ones -- the ✕ and
+  // Cancel -- still threw the form away without asking, which is the wrong way round:
+  // someone pressing ✕ to glance at the deal behind is not asking to lose three steps
+  // of typing. Escape now runs the same guard.
+  const panelRef = useModalKeys(closeFromScrim);
 
   return (
     <div className="drawer-scrim" onClick={closeFromScrim}>
-      <aside className="drawer" style={{ maxWidth: 560, margin: '0 auto' }} onClick={(e) => e.stopPropagation()}>
+      <aside
+        className="drawer"
+        style={{ maxWidth: 560, margin: '0 auto' }}
+        onClick={(e) => e.stopPropagation()}
+        ref={panelRef as React.RefObject<HTMLElement>}
+        role="dialog"
+        aria-modal="true"
+        aria-label="New deal — guided intake"
+        tabIndex={-1}
+      >
         <div className="drawer-head">
-          <button className="iconbtn" onClick={onClose} aria-label="Close">✕</button>
+          <button className="iconbtn" onClick={closeFromScrim} aria-label="Close">✕</button>
           <div className="drawer-title">New deal — guided intake</div>
         </div>
         <div className="drawer-body" style={{ padding: 16 }}>
@@ -143,7 +166,7 @@ export default function IntakeWizard({ isAdmin, onClose, onCreated }: { isAdmin:
           )}
 
           <div style={{ display: 'flex', gap: 8, marginTop: 18, justifyContent: 'space-between' }}>
-            <button className="btn ghost" onClick={step === 1 ? onClose : () => setStep((s) => s - 1)}>{step === 1 ? 'Cancel' : '‹ Back'}</button>
+            <button className="btn ghost" onClick={step === 1 ? closeFromScrim : () => setStep((s) => s - 1)}>{step === 1 ? 'Cancel' : '‹ Back'}</button>
             {step < 3 ? (
               <button className="btn" disabled={step === 1 && !canNext1} onClick={() => setStep((s) => s + 1)}>Next ›</button>
             ) : (

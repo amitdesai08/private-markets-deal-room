@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useModalKeys } from './useModalKeys';
 import { downloadGeneratedDoc, downloadDocBrief, openDocBriefPdf, type DocOpen } from './docOpen';
 
 // The control that makes a document name in this product open the document.
@@ -44,6 +45,9 @@ export default function DocOpenButton({
   // and again if this control ever unmounts with one still open.
   useEffect(() => () => { if (pdf) URL.revokeObjectURL(pdf); }, [pdf]);
   const close = () => { if (pdf) URL.revokeObjectURL(pdf); setPdf(null); };
+  // Only armed while the preview is on screen — this component renders a plain button
+  // the rest of the time, and Escape must not be swallowed then.
+  const panelRef = useModalKeys(close, !!pdf);
 
   if (!open) return null;
   const cls = compact ? 'chbtn' : 'btn compact';
@@ -85,9 +89,15 @@ export default function DocOpenButton({
 
       {pdf ? (
         <div className="drawer-scrim" onClick={close} style={{ alignItems: 'center' }}>
+          {/* Escape closes it and Tab stays inside it, as in every other Teams dialog. */}
           <div
             className="card"
             onClick={(e) => e.stopPropagation()}
+            ref={panelRef as React.RefObject<HTMLDivElement>}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Document preview"
+            tabIndex={-1}
             style={{ width: 'min(940px, 96vw)', height: '90vh', margin: 'auto', display: 'flex', flexDirection: 'column' }}
           >
             <div className="hd">

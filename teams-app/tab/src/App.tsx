@@ -838,8 +838,16 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 /* Deal detail — the deal REPLACES the workspace and fills the remaining canvas.
    .drawer-scrim is retained below because the admin and intake wizards are still
    genuine modals; only the deal graduated to being a place of its own.
-   The agent chat opens as a right-side sub-panel OVER the deal so it stays in focus. */
-.dealpage { flex: 1; min-height: 0; display: flex; }
+   The agent chat opens as a right-side sub-panel OVER the deal so it stays in focus.
+
+   min-width: 0 is load-bearing. As a flex item in a row, .dealpage defaults to a
+   min-width of auto, which means min-content, and its widest descendant is the
+   twelve-button tab strip. Without this the strip could not scroll inside itself,
+   so it pushed the deal page out to 1626px and the whole window scrolled sideways
+   at every viewport we support -- on the screen this product is opened in most.
+   Its sibling .main has always carried this, which is why the fault only ever
+   showed on a deal. */
+.dealpage { flex: 1; min-width: 0; min-height: 0; display: flex; }
 .dealpage > .drawer { width: 100%; border-left: none; border-right: none; box-shadow: none; }
 .drawer-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; display: flex; justify-content: center; }
 .drawer { width: min(1180px, 100vw); height: 100%; position: relative; background: var(--bg); border-left: 1px solid var(--border); border-right: 1px solid var(--border); display: flex; flex-direction: column; box-shadow: 0 0 44px rgba(0,0,0,.38); }

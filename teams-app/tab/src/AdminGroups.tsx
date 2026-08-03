@@ -4,6 +4,7 @@
 // Membership in these Entra groups is what grants deal / channel / SharePoint access.
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
+import { useModalKeys } from './useModalKeys';
 import type { Deal, Region, DealGroup } from './types';
 
 type RegionGroup = { id: string; label: string; regions: string[] };
@@ -31,12 +32,20 @@ export default function AdminGroups({ deals, onClose }: { deals: Deal[]; onClose
     try {
       const r = await af('/api/deal-groups', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ label }) });
       if (r.ok) { const dg = await r.json(); setDealGroups((p) => [...p.filter((x) => x.id !== dg.id), dg]); setNewLabel(''); setNote(dg.groupPending ? 'Deal group created — access group pending (connect M365 to set it up).' : 'Deal group and access group created.'); }
-      else setNote(r.status === 403 ? 'Admins only.' : `Failed (${r.status}).`);
-    } finally { setBusy(''); }
+      else setNote(r.status === 403 ? 'Only an administrator can create a deal group.' : 'That did not save — the deal group was not created. Try again.');
+    } catch { setNote('That did not save — the deal group was not created. Try again.'); }
+    finally { setBusy(''); }
   }
   async function del(id: string) {
-    setBusy(id);
-    try { await af(`/api/deal-groups/${encodeURIComponent(id)}`, { method: 'DELETE' }); setDealGroups((p) => p.filter((x) => x.id !== id)); }
+    setBusy(''); setBusy(id); setNote('');
+    // Deal groups grant access to a deal. Dropping the row from the list without
+    // checking the response told an administrator a boundary had been removed when
+    // it was still in force -- the most dangerous direction for this control to lie in.
+    try {
+      const r = await af(`/api/deal-groups/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (r.ok) setDealGroups((p) => p.filter((x) => x.id !== id));
+      else setNote(r.status === 403 ? 'Only an administrator can remove a deal group.' : 'That did not go through — the deal group is still in place.');
+    } catch { setNote('That did not go through — the deal group is still in place.'); }
     finally { setBusy(''); }
   }
   async function reconcile() {
@@ -47,10 +56,21 @@ export default function AdminGroups({ deals, onClose }: { deals: Deal[]; onClose
 
   const card: React.CSSProperties = { border: '1px solid var(--border)', borderRadius: 10, padding: 14, background: 'var(--card)' };
   const rGroupLabel = (id: string) => regions.find((r) => r.id === id)?.label || id;
+  const panelRef = useModalKeys(onClose);
 
   return (
     <div className="drawer-scrim" onClick={onClose}>
-      <aside className="drawer" style={{ maxWidth: 640, margin: '0 auto' }} onClick={(e) => e.stopPropagation()}>
+      {/* Escape closes it and Tab stays inside it, as in every other Teams dialog. */}
+      <aside
+        className="drawer"
+        style={{ maxWidth: 640, margin: '0 auto' }}
+        onClick={(e) => e.stopPropagation()}
+        ref={panelRef as React.RefObject<HTMLElement>}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Territories and deal groups"
+        tabIndex={-1}
+      >
         <div className="drawer-head">
           <button className="iconbtn" onClick={onClose} aria-label="Close">✕</button>
           <div className="drawer-title">Deal groups &amp; territories</div>

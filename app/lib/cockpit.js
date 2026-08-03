@@ -147,7 +147,10 @@ function buildAttention(deal, board, role) {
       why: `${named.join(', ')} — none has closed out yet.`,
       owner: ownerLabel(worst.owner, worstLane),
       due: null,
-      impact: `${preIC ? 'The IC gate stays shut' : 'The next gate stays shut'} until every workstream closes.`,
+      // "The IC gate stays shut" was the noun in the sentence telling a partner why
+      // their approval was refused, and it is not a word anyone in the industry uses.
+      // A deal is IC-ready or it is not.
+      impact: `${preIC ? 'This cannot go to IC' : 'The deal cannot advance'} until every workstream closes.`,
       basis: 'IC readiness board',
       score: 82 + Math.max(...blocking.map((w) => laneBoost(w.key || w.lane))),
       actions: [
@@ -168,7 +171,7 @@ function buildAttention(deal, board, role) {
       owner: ownerLabel(i.owner, i.lane),
       due: i.dueDate || null,
       dueLabel: dueLabel(i.dueDate),
-      impact: sevRank(i.severity) >= 4 ? 'Deal-stopper severity — must clear before signing.' : 'Tracked against the IC gate.',
+      impact: sevRank(i.severity) >= 4 ? 'Deal-stopper severity — must clear before signing.' : 'Counts against IC readiness.',
       basis: `Issue log · ${i.lane ? laneLabel(i.lane) : 'deal'}`,
       score: 50 + sevRank(i.severity) * 8 + laneBoost(i.lane) + (daysUntil(i.dueDate) != null && daysUntil(i.dueDate) < 2 ? 10 : 0),
       actions: [

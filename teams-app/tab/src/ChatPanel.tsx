@@ -137,7 +137,12 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) throw new Error(data?.detail || data?.error || 'save failed');
       setThreads((t) => { const arr = (t[threadKey] || []).slice(); const m = arr[msgIdx]; if (m) arr[msgIdx] = { ...m, saved: true }; return { ...t, [threadKey]: arr }; });
-    } catch { /* leave the button as-is on failure */ }
+    } catch {
+      // The whole point of saving out of a conversation is that the conclusion
+      // outlives it. Silently returning the button to its resting label let an
+      // analyst walk away believing a diligence finding was in the shared notes.
+      setThreads((t) => { const arr = (t[threadKey] || []).slice(); arr.push({ role: 'agent', text: 'That did not save to the shared notes — nothing has been recorded. Try again.', source: 'error' }); return { ...t, [threadKey]: arr }; });
+    }
     finally { setSaving(''); }
   }
 
@@ -177,7 +182,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
     <aside className="chatpanel">
       <style>{CHAT_EXTRA_CSS}</style>
       <div className="chat-head">
-        <div className="chat-title">{agents.length > 1 ? 'Ask the agents' : agent.label}</div>
+        <div className="chat-title">{agents.length > 1 ? 'Ask an assistant' : agent.label}</div>
         <button className="iconbtn" onClick={onClose} aria-label="Close chat">✕</button>
       </div>
 

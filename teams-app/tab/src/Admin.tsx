@@ -192,11 +192,18 @@ function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
   const [open, setOpen] = useState<string | null>(null);
   const [panel, setPanel] = useState<'' | 'add' | 'import'>('');
   const [newRole, setNewRole] = useState({ id: '', label: '', rank: 50 });
+  // post() throws when the server refuses. Nothing caught it, so a refused save just
+  // stopped the spinner and left the row still marked unsaved -- an administrator
+  // had no way to tell a rejection from a slow network. This is a local surface on
+  // purpose: the page-level error replaces the whole editor, which would throw away
+  // the edits we are trying to tell them we could not save.
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+  const fail = (e: any) => setSaveErr(/403/.test(String(e?.message || e)) ? 'You do not have rights to change access settings.' : 'That did not save — nothing has changed. Try again.');
   const roleOf = (r: Role): Role => draft[r.id] || r;
   const edit = (id: string, patch: Partial<Role>) => setDraft((d: any) => ({ ...d, [id]: { ...(d[id] || data.roles.find((x: Role) => x.id === id)), ...patch } }));
 
   const save = async (r: Role) => {
-    setBusy(true);
+    setBusy(true); setSaveErr(null);
     try {
       await post(`/roles/${r.id}`, {
         patch: { label: r.label, rank: Number(r.rank), personas: r.personas, write: r.write, stage2: r.stage2, advanceWorkflow: r.advanceWorkflow, allowedStages: r.allowedStages, regions: r.regions, appRoles: r.appRoles, groupIds: r.groupIds, persona: r.persona || '' },
@@ -204,21 +211,24 @@ function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
       });
       setDraft((d: any) => { const c = { ...d }; delete c[r.id]; return c; });
       await reload();
-    } finally { setBusy(false); }
+    } catch (e) { fail(e); }
+    finally { setBusy(false); }
   };
-  const del = async (id: string) => { setBusy(true); try { await post(`/roles/${id}/delete`); if (open === id) setOpen(null); await reload(); } finally { setBusy(false); } };
+  const del = async (id: string) => { setBusy(true); setSaveErr(null); try { await post(`/roles/${id}/delete`); if (open === id) setOpen(null); await reload(); } catch (e) { fail(e); } finally { setBusy(false); } };
   const addRole = async () => {
     if (!newRole.id.trim()) return;
-    setBusy(true);
+    setBusy(true); setSaveErr(null);
     try {
       const id = newRole.id.trim().toLowerCase();
       await post(`/roles/${id}`, { patch: { label: newRole.label || newRole.id, rank: Number(newRole.rank), personas: [], write: false, stage2: false, advanceWorkflow: false, allowedStages: [], regions: [], appRoles: [], groupIds: [], persona: '' } });
       setNewRole({ id: '', label: '', rank: 50 }); setPanel(''); await reload(); setOpen(id);
-    } finally { setBusy(false); }
+    } catch (e) { fail(e); }
+    finally { setBusy(false); }
   };
 
   return (
     <div>
+      {saveErr ? <p className="adm-err">{saveErr}</p> : null}
       <div className="adm-toolbar">
         <button className={`adm-tbtn${panel === 'add' ? ' on' : ''}`} onClick={() => setPanel(panel === 'add' ? '' : 'add')}>+ New role</button>
         <button className={`adm-tbtn${panel === 'import' ? ' on' : ''}`} onClick={() => setPanel(panel === 'import' ? '' : 'import')}>Import CSV…</button>
@@ -325,6 +335,9 @@ function PersonasEditor({ data, busy, setBusy, post, reload }: any) {
   const [open, setOpen] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newP, setNewP] = useState({ id: '', label: '', lane: '' });
+  // Same reason as RolesEditor above: post() throws on a refusal and nobody caught it.
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+  const fail = (e: any) => setSaveErr(/403/.test(String(e?.message || e)) ? 'You do not have rights to change job types.' : 'That did not save — nothing has changed. Try again.');
   const actionIds = data.actions.map((a: Action) => a.id);
   const actionLabels: Record<string, string> = Object.fromEntries(data.actions.map((a: Action) => [a.id, a.label]));
   const pOf = (p: Persona): Persona => draft[p.id] || p;
@@ -332,26 +345,29 @@ function PersonasEditor({ data, busy, setBusy, post, reload }: any) {
   const laneLabel = (k: string | null) => (k ? (data.lanes[k] || k) : 'no workstream');
 
   const save = async (p: Persona) => {
-    setBusy(true);
+    setBusy(true); setSaveErr(null);
     try {
       await post(`/personas/${p.id}`, { patch: { label: p.label, lane: p.lane || undefined }, actions: p.actions == null ? undefined : p.actions, stages: p.stages });
       setDraft((d: any) => { const c = { ...d }; delete c[p.id]; return c; });
       await reload();
-    } finally { setBusy(false); }
+    } catch (e) { fail(e); }
+    finally { setBusy(false); }
   };
-  const del = async (id: string) => { setBusy(true); try { await post(`/personas/${id}/delete`); if (open === id) setOpen(null); await reload(); } finally { setBusy(false); } };
+  const del = async (id: string) => { setBusy(true); setSaveErr(null); try { await post(`/personas/${id}/delete`); if (open === id) setOpen(null); await reload(); } catch (e) { fail(e); } finally { setBusy(false); } };
   const addP = async () => {
     if (!newP.id.trim()) return;
-    setBusy(true);
+    setBusy(true); setSaveErr(null);
     try {
       const id = newP.id.trim().toLowerCase();
       await post(`/personas/${id}`, { patch: { label: newP.label || newP.id, lane: newP.lane || undefined }, actions: [], stages: [] });
       setNewP({ id: '', label: '', lane: '' }); setShowAdd(false); await reload(); setOpen(id);
-    } finally { setBusy(false); }
+    } catch (e) { fail(e); }
+    finally { setBusy(false); }
   };
 
   return (
     <div>
+      {saveErr ? <p className="adm-err">{saveErr}</p> : null}
       <div className="adm-toolbar">
         <button className={`adm-tbtn${showAdd ? ' on' : ''}`} onClick={() => setShowAdd((v) => !v)}>+ New job type</button>
       </div>

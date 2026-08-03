@@ -208,7 +208,7 @@ async function runToolLoop({ scope, focusId, focusCompany, message, previousResp
 async function portfolioFallback(message, lens) {
   const deals = listAgentDeals();
   if (!deals.length) {
-    return 'The deal pipeline is currently **empty** — no deals have been launched yet. Once a screened candidate clears the gate and is launched, it will appear here and I can brief you on it.\n\nSources: live pipeline.';
+    return 'The deal pipeline is currently **empty** — no deals have been launched yet. Once a screened candidate is approved and launched, it will appear here and I can brief you on it.\n\nSources: live pipeline.';
   }
   // Persona-aware first: brief the reader through the working direct model with their
   // role lens, so the SAME question yields a different answer per role even when the

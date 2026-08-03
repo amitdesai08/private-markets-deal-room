@@ -70,15 +70,23 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
     setRows((prev) => (prev ? prev.map((c) => (c.id === id ? { ...c, ...fields } : c)) : prev));
   const setBusyFor = (id: string, v: boolean) => setBusy((b) => ({ ...b, [id]: v }));
 
+  // A refusal from the server has to reach the switch. fetch only rejects when the
+  // network drops -- a 403 or a 500 resolves normally -- so without the r.ok check
+  // below an enable that the server refused still sat on screen showing ON, and
+  // whoever turned it on walked away believing the source was live.
   const toggle = async (c: Connector) => {
     const enabled = !c.enabled;
+    const before = { enabled: c.enabled, status: c.status, message: c.message };
     patch(c.id, { enabled, status: enabled ? 'unknown' : 'disabled', message: null }); // optimistic
     setBusyFor(c.id, true);
     try {
-      await fetch(`/api/connectors/${c.id}/enable`, {
+      const r = await fetch(`/api/connectors/${c.id}/enable`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled }),
       });
-    } catch { /* keep optimistic */ }
+      if (!r.ok) {
+        patch(c.id, { ...before, message: r.status === 403 ? 'Only an administrator can change this.' : 'That did not save — the source is unchanged.' });
+      }
+    } catch { patch(c.id, { ...before, message: 'That did not save — the source is unchanged.' }); }
     finally { setBusyFor(c.id, false); }
   };
 
@@ -98,8 +106,14 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
   };
   const disconnect = async (c: Connector) => {
     setBusyFor(c.id, true);
-    try { await fetch(`/api/connectors/${c.id}/disconnect`, { method: 'POST' }); patch(c.id, { status: 'disconnected', message: null }); }
-    catch { /* ignore */ }
+    // Only report it disconnected if it actually disconnected. Showing the word
+    // regardless would tell an administrator a credential had been revoked when it
+    // is still live.
+    try {
+      const r = await fetch(`/api/connectors/${c.id}/disconnect`, { method: 'POST' });
+      if (r.ok) patch(c.id, { status: 'disconnected', message: null });
+      else patch(c.id, { message: r.status === 403 ? 'Only an administrator can disconnect this.' : 'That did not go through — the source is still connected.' });
+    } catch { patch(c.id, { message: 'That did not go through — the source is still connected.' }); }
     finally { setBusyFor(c.id, false); }
   };
 
@@ -109,13 +123,20 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
   const saveConfig = async (c: Connector) => {
     const config = { ...(c.config || {}), ...(cfgEdit[c.id] || {}) };
     setBusyFor(c.id, true);
+    // Clearing the edit buffer is what makes a save look committed. Do it only when
+    // the server took the settings -- otherwise the typed endpoint and keys vanished
+    // from the form while nothing had been stored.
     try {
-      await fetch(`/api/connectors/${c.id}/config`, {
+      const r = await fetch(`/api/connectors/${c.id}/config`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ config }),
       });
-      patch(c.id, { config });
-      setCfgEdit((p) => { const n = { ...p }; delete n[c.id]; return n; }); // committed
-    } catch { /* keep local edits */ }
+      if (r.ok) {
+        patch(c.id, { config, message: null });
+        setCfgEdit((p) => { const n = { ...p }; delete n[c.id]; return n; }); // committed
+      } else {
+        patch(c.id, { message: r.status === 403 ? 'Only an administrator can change these settings.' : 'Those settings did not save — what you typed is still here, try again.' });
+      }
+    } catch { patch(c.id, { message: 'Those settings did not save — what you typed is still here, try again.' }); }
     finally { setBusyFor(c.id, false); }
   };
 
@@ -138,10 +159,12 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
 
   const removeSource = async (c: Connector) => {
     setBusyFor(c.id, true);
+    // The row disappearing IS the confirmation, so it must not disappear on a refusal.
     try {
-      await fetch(`/api/connectors/${c.id}`, { method: 'DELETE' });
-      setRows((prev) => (prev ? prev.filter((x) => x.id !== c.id) : prev));
-    } catch { /* ignore */ }
+      const r = await fetch(`/api/connectors/${c.id}`, { method: 'DELETE' });
+      if (r.ok) setRows((prev) => (prev ? prev.filter((x) => x.id !== c.id) : prev));
+      else patch(c.id, { message: r.status === 403 ? 'Only an administrator can remove a source.' : 'That did not go through — the source is still here.' });
+    } catch { patch(c.id, { message: 'That did not go through — the source is still here.' }); }
     finally { setBusyFor(c.id, false); }
   };
 

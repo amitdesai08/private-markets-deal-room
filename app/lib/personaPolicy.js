@@ -70,7 +70,9 @@ export const ACTIONS = {
   snapshot_assumptions: { label: 'Snapshot the current key assumptions as an IC-draft baseline', personas: ['analyst', 'partner', 'principal', 'fund-cfo'] },
   assign_lane: { label: 'Assign a diligence lane to an MD', personas: ['analyst', 'partner', 'principal'] },
   advance_deal: { label: 'Advance the deal to the next diligence step', personas: ['analyst', 'partner', 'principal'] },
-  approve_ic: { label: 'Record the IC approval and advance past the IC gate (D4)', personas: ['partner'] }
+  // This label is printed in the Admin job-type grid, so it follows the same copy
+  // rules as the tab: no invented "gate" noun, and no internal stage code.
+  approve_ic: { label: 'Record the IC approval and move the deal into execution', personas: ['partner'] }
 };
 
 // Is `persona` allowed to perform `action`? For lane-scoped actions, `lane` must
