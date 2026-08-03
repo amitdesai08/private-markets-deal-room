@@ -33,7 +33,7 @@ function loadPowerBiSdk(): Promise<any> {
   return sdkPromise;
 }
 
-export default function PowerBI({ ssoToken, analytics, pipeline, deals, market, config, dealId, canCertify }: {
+export default function PowerBI({ ssoToken, pipeline, deals, market, config, dealId, canCertify }: {
   ssoToken?: string; analytics: Analytics | null; pipeline: Pipeline | null; deals: Deal[];
   market: MarketIntel | null; config: BackendConfig | null; dealId?: string; canCertify?: boolean;
 }) {
@@ -93,13 +93,18 @@ export default function PowerBI({ ssoToken, analytics, pipeline, deals, market, 
       {canEmbed ? (
         <div className="pbi-frame" ref={host} />
       ) : (
+        // The report tab opened by telling you to sign in to a different product before
+        // you reached the report that is already here and works. Nobody arriving on
+        // "Report" wants an errand. The report leads; the Power BI route is a footnote
+        // for the one reader in ten who wants the interactive version.
         <>
+          <Report pipeline={pipeline} deals={deals} market={market} config={config} dealId={dealId} canCertify={canCertify} />
           {info && !info.available ? (
             <div className="pbi-note">
-              Sign-in to Power BI is required to embed the live report here. Use <b>Open in Power BI</b> above to
-              view the full interactive report (Portfolio Overview · Sector &amp; Industry · Pipeline by Stage ·
-              Deal Value &amp; Valuation · Time-based metrics). The at-a-glance summary below is generated live from
-              the live deal record.
+              The report above is generated from the deal record. A fuller interactive version
+              (Portfolio Overview · Sector &amp; Industry · Pipeline by Stage · Deal Value &amp;
+              Valuation · Time-based metrics) is available in Power BI — use <b>Open in Power BI</b>
+              above. Embedding it here needs a Power BI sign-in.
             </div>
           ) : failed ? (
             // When the embed call failed, `info` stayed null forever - so the branch
@@ -107,13 +112,10 @@ export default function PowerBI({ ssoToken, analytics, pipeline, deals, market, 
             // fully rendered report. Being told a page is still loading while you read
             // it teaches people to distrust every other status the product shows them.
             <div className="pbi-note">
-              The live Power BI report could not be reached. The summary below is generated from the Deal Room
-              record and is complete. <button className="pbi-retry" onClick={() => { setFailed(false); setInfo(null); setAttempt((n) => n + 1); }}>Try again</button>
+              The interactive Power BI version could not be reached. The report above is generated
+              from the deal record and is complete. <button className="pbi-retry" onClick={() => { setFailed(false); setInfo(null); setAttempt((n) => n + 1); }}>Try again</button>
             </div>
-          ) : (
-            <div className="pbi-note">Loading the Power BI report…</div>
-          )}
-          <Report analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId={dealId} canCertify={canCertify} />
+          ) : null}
         </>
       )}
     </div>

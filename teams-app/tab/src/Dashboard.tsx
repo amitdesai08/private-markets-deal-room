@@ -325,7 +325,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
           {showBriefing ? (
           <div className="card aicard">
             <div className="hd">
-              <span className="aibadge">✦ AI</span>
+              <span className="aibadge">▤ Composed</span>
               {/* Called "Portfolio briefing", but the product uses "portfolio" for three
             different things -- the six companies the fund owns, the whole pipeline, and
             this. It is the thing you read each morning, so name it after that. */}
@@ -384,7 +384,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
           {showFollowups && home?.workiq ? (
             <div className="card aicard">
               <div className="hd">
-                <span className="aibadge">✦ AI</span>
+                <span className="aibadge">▤ Composed</span>
                 <h3>Untracked follow-ups</h3>
                 <Tag kind="new" />
                 <span className="spacer" />
@@ -466,7 +466,12 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
                 <div className="att-l">
                   {a.stageName ? <span>📍 {a.stageName}</span> : null}
                   <span>📊 {a.readiness}% IC-ready</span>
-                  {typeof a.icInDays === 'number' ? <span>📅 IC in {a.icInDays}d</span> : null}
+                    {/* Round 6 fixed the negative countdown on the deal cards and missed this
+                        list, so the highest-traffic panel in the product was still printing
+                        "IC in -14d". A negative countdown reads as broken arithmetic, and a
+                        partner who spots one discounts the other thirty-eight rows beside it.
+                        A date in the past is history; say so. */}
+                    {typeof a.icInDays === 'number' ? <span>📅 {a.icInDays > 0 ? `IC in ${a.icInDays}d` : a.icInDays === 0 ? 'IC today' : `IC was ${-a.icInDays}d ago`}</span> : null}
                 </div>
                 {a.impact ? <div className="impact">⚡ {a.impact}</div> : null}
                 {/* Why this row is where it is. A ranked list that cannot answer
@@ -643,18 +648,24 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
                 aria-label={`Open ${d.company}`}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(d.id); } }}
               >
+                {/* A restricted deal named the company, priced it and dated its committee
+                    readiness, all on a card that then said you may not open it. In a house
+                    with a public-markets wall, "which healthcare asset at what size is 30%
+                    through IC" IS the material fact -- the data room contents are not. A
+                    restriction that discloses the three things it exists to protect has
+                    restricted nothing. Sector stays; it signals coverage and prices nothing. */}
                 <div className="dc-top">
-                  <div className="dc-co">{d.company}</div>
-                  <div className="dc-size">{money(d.dealSize ? d.dealSize * 1e6 : undefined)}</div>
+                  <div className="dc-co">{d.company}{(d as any).locked ? ' \ud83d\udd12' : ''}</div>
+                  <div className="dc-size">{(d as any).locked ? '' : money(d.dealSize ? d.dealSize * 1e6 : undefined)}</div>
                 </div>
-                <div className="dc-meta">{d.sector || '—'} · {d.stageName || d.stage || '—'}{d.status ? ` · ${STATUS_TEXT[String(d.status)] || d.status}` : ''}</div>
-                <div className="dc-bar"><span style={{ width: `${Math.max(0, Math.min(100, d.readiness ?? 0))}%` }} /></div>
+                <div className="dc-meta">{d.sector || '—'}{(d as any).locked ? '' : ` \u00b7 ${d.stageName || d.stage || '—'}${d.status ? ` \u00b7 ${STATUS_TEXT[String(d.status)] || d.status}` : ''}`}</div>
+                {(d as any).locked ? null : <div className="dc-bar"><span style={{ width: `${Math.max(0, Math.min(100, d.readiness ?? 0))}%` }} /></div>}
                 <div className="dc-foot">
                   {/* A deal whose target IC date has passed was counting down through zero
                       and out the other side, so a card read "IC in -1080d" -- a three-year
                       overdue committee presented as a countdown. The Next IC tile above
                       already guards for this; the cards did not. */}
-                  <span className="muted">{readinessText(d as any)}{!isPostIC((d as any).status) && typeof d.daysToIC === 'number' ? (d.daysToIC > 0 ? ` · IC in ${d.daysToIC}d` : d.daysToIC === 0 ? ' · IC today' : ' · IC date passed') : ''}</span>
+                  <span className="muted">{(d as any).locked ? 'Restricted \u2014 you are not on this deal team. Ask the deal lead or an administrator for access.' : <>{readinessText(d as any)}{!isPostIC((d as any).status) && typeof d.daysToIC === 'number' ? (d.daysToIC > 0 ? ` · IC in ${d.daysToIC}d` : d.daysToIC === 0 ? ' · IC today' : ' · IC date passed') : ''}</>}</span>
                   <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <button className={`askbtn${compare.includes(d.id) ? ' on' : ''}`} title="Add to comparison" onClick={(e) => { e.stopPropagation(); toggleCompare(d.id); }}>{compare.includes(d.id) ? '✓ Compare' : '+ Compare'}</button>
                     <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>

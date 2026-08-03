@@ -267,7 +267,9 @@ test('every queue row can explain why it is where it is', () => {
     const hd = build(p, p === 'partner' ? 'partner' : p === 'analyst' ? 'analyst' : 'deal-team');
     for (const a of hd.attention) {
       assert.ok(a.placedBy, `a row for ${a.company} cannot explain its position`);
-      assert.match(a.placedBy, /IC in \d+ days?|no IC date set/);
+      // A committee date that has passed is a third, distinct answer -- the row used to
+      // claim "no IC date set" for it, which was simply untrue.
+      assert.match(a.placedBy, /IC in \d+ days?|IC was \d+ days? ago|no IC date set/);
     }
   }
 

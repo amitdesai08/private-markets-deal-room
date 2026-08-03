@@ -24,7 +24,7 @@ export const seedDeals = [
     subSector: 'Grocery / Convenience',
     hq: 'Stockholm, Sweden',
     dealSize: 820,
-    currency: 'EUR',
+    currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'D2',
     stageName: 'Diligence & Approval',
     status: 'in_diligence',
@@ -122,7 +122,7 @@ export const seedDeals = [
     subSector: 'Sustainable Packaging',
     hq: 'Rotterdam, Netherlands',
     dealSize: 410,
-    currency: 'EUR',
+    currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'D1',
     stageName: 'Diligence & Approval',
     status: 'in_diligence',
@@ -175,7 +175,7 @@ export const seedDeals = [
     subSector: 'Vertical SaaS / Data',
     hq: 'Dublin, Ireland',
     dealSize: 240,
-    currency: 'EUR',
+    currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'D3',
     stageName: 'Diligence & Approval',
     status: 'in_diligence',
@@ -238,7 +238,7 @@ export const seedDeals = [
     subSector: 'Temperature-controlled 3PL',
     hq: 'Hamburg, Germany',
     dealSize: 360,
-    currency: 'EUR',
+    currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'D4',
     stageName: 'Diligence & Approval',
     status: 'in_diligence',
@@ -312,7 +312,7 @@ export const seedDeals = [
     subSector: 'Precision Components',
     hq: 'Tallinn, Estonia',
     dealSize: 195,
-    currency: 'EUR',
+    currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'D5',
     // D5 is Archive — the audit-trail close-out of the DILIGENCE stage, which is exactly
     // where this deal sits: IC approved, record archived, not yet through E1 financing.
@@ -635,7 +635,7 @@ export const demoStageDeals = [
     subSector: 'Diagnostics / Lab Services',
     hq: 'Basel, Switzerland',
     dealSize: 640,
-    currency: 'EUR',
+    currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'E2',
     stageName: 'Signing (SPA)',
     status: 'signed',
@@ -686,7 +686,7 @@ export const demoStageDeals = [
     subSector: 'Contract Logistics / 3PL',
     hq: 'Lyon, France',
     dealSize: 550,
-    currency: 'EUR',
+    currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'V2',
     stageName: 'Value Creation',
     status: 'owned',
@@ -786,7 +786,7 @@ export const demoStageDeals = [
     subSector: 'Payments / Fintech',
     hq: 'London, United Kingdom',
     dealSize: 480,
-    currency: 'GBP',
+    currency: 'USD', // See the note above: one reporting currency until conversion is real.
     stage: 'D2',
     stageName: 'Diligence',
     status: 'in_diligence',
@@ -842,7 +842,7 @@ export const demoStageDeals = [
     subSector: 'Carve-out / Specialty Chemicals',
     hq: 'Rotterdam, Netherlands',
     dealSize: 610,
-    currency: 'EUR',
+    currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'E2',
     stageName: 'Signing (SPA)',
     status: 'signing',

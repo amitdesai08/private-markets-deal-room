@@ -184,7 +184,7 @@ function assess(deal, raw) {
       // NOT-READY diligence deals were pushed off the page. A pre-committee condition
       // still outranks a generic not-ready deal; a post-close obligation does not.
       rank: post ? 5 : 3,
-      tag: post ? (n ? 'Post-gate obligation' : 'Record incomplete') : 'Conditional', tone: 'warn',
+      tag: post ? (n ? 'Condition attached at approval' : 'Record incomplete') : 'Conditional', tone: 'warn',
       // Not "approved at committee" — nothing on the record is a committee decision. The
       // stage is where the deal sits, which is all this can honestly claim.
       why: post
@@ -545,10 +545,15 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
       // second axis the honest answer was "because of its position in a seed file".
       // Now the two things that decide it — the severity band and the committee date —
       // are stated on the row that they placed.
+      // The negative branch used to print "no IC date set" on deals that plainly had
+      // one -- the row said "no IC date set" while the deal's own record held
+      // 20 Jul 2026, fourteen days back. The date was not missing; it had passed. Say
+      // which of the two it is, because they call for different actions.
       placedBy: (() => {
-        const d = typeof r.deal.daysToIC === 'number' && r.deal.daysToIC >= 0 ? r.deal.daysToIC : null;
-        if (d === null) return `${r.a.tag} · no IC date set`;
-        return `${r.a.tag} · IC in ${d} day${d === 1 ? '' : 's'}`;
+        const n = typeof r.deal.daysToIC === 'number' ? r.deal.daysToIC : null;
+        if (n === null) return `${r.a.tag} · no IC date set`;
+        if (n < 0) return `${r.a.tag} · IC was ${-n} day${n === -1 ? '' : 's'} ago`;
+        return `${r.a.tag} · IC in ${n} day${n === 1 ? '' : 's'}`;
       })(),
 
       dealId: r.deal.id,

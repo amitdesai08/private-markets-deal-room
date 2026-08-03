@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
 import { STATUS_TEXT, isPostIC } from './deskUi';
-import type { Analytics, Pipeline, Deal, MarketIntel, BackendConfig } from './types';
+import type { Pipeline, Deal, MarketIntel, BackendConfig } from './types';
 
 function money(n?: number): string {
   if (n == null) return '—';
@@ -14,10 +14,12 @@ function money(n?: number): string {
   return `$${Math.round(n)}`;
 }
 
-const TODAY = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+// Five date formats appeared in one session. This one printed "August 3, 2026" in the
+// month-first American order on a document written in British English. One format.
+const TODAY = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 export default function Report({ pipeline, deals, market, config, dealId, canCertify = true }: {
-  analytics: Analytics | null; pipeline: Pipeline | null; deals: Deal[]; market: MarketIntel | null;
+  pipeline: Pipeline | null; deals: Deal[]; market: MarketIntel | null;
   config: BackendConfig | null; dealId?: string;
   // The certify button was always enabled and only revealed "restricted to a Partner
   // or Administrator" AFTER the press came back 403 — the same defect we removed from
@@ -88,6 +90,16 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
   const dataMode = fabric?.mode === 'live'
     ? { label: 'Market data: live', cls: 'ok' }
     : { label: 'Market data: seeded', cls: 'warn' };
+  // "Pipeline value" sat above the words "pipeline, not portfolio holdings" and then
+  // counted three companies the fund already owns -- $1.7B, a fifth of the total,
+  // double-counted against the portfolio NAV on the next tab. This screen carries a
+  // "Certify for LP use" button, so an LP reads it as future deployment capacity.
+  // Pre-completion deals only, and the tile says which are excluded.
+  const OWNED = new Set(['owned', 'exiting', 'exited']);
+  const preCompletion = deals.filter((d) => !OWNED.has(String((d as any).status || '')));
+  const pipelineValue = preCompletion.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6;
+  const excludedHoldings = deals.length - preCompletion.length;
+
   const lineage: { metric: string; value: string; source: string; asOf: string; method: string }[] = focus
     ? [
         { metric: 'Stage', value: focus.stageName || focus.stage || '—', source: 'Deal record', asOf: TODAY, method: 'Current workflow stage of record' },
@@ -99,7 +111,7 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
         { metric: 'Live deals', value: String(scopedDeals), source: 'Deal record', asOf: TODAY, method: 'Deals you can open' },
         { metric: 'In diligence', value: String(scopedInDD), source: 'Deal record', asOf: TODAY, method: 'Deals in Diligence & Approval stages, within your access' },
         { metric: 'Avg IC readiness (pre-IC deals)', value: `${scopedReadiness}%`, source: 'IC readiness board', asOf: TODAY, method: 'Mean readiness across deals not yet through committee, within your access' },
-        { metric: 'Pipeline value', value: money(deals.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6), source: 'Deal record', asOf: TODAY, method: 'Sum of enterprise values in flight, within your access' },
+        { metric: 'Pipeline value', value: money(pipelineValue), source: 'Deal record', asOf: TODAY, method: `Sum of enterprise values pre-completion, within your access${excludedHoldings ? ` (excludes ${excludedHoldings} owned or exiting)` : ''}` },
         { metric: 'Comparables', value: String(comps.length), source: srcLabel, asOf, method: 'Market comparable transactions' },
         { metric: 'IC precedents', value: String(precedents.length), source: srcLabel, asOf, method: 'Prior committee decisions in the same sectors' },
       ];
@@ -167,7 +179,7 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
               <div className="rpt-kpi"><div className="v">{scopedDeals}</div><div className="l">Live deals</div></div>
               <div className="rpt-kpi"><div className="v">{scopedInDD}</div><div className="l">In diligence</div></div>
               <div className="rpt-kpi"><div className="v">{scopedReadiness}%</div><div className="l">Avg IC readiness (pre-IC deals)</div></div>
-              <div className="rpt-kpi"><div className="v">{money(deals.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6)}</div><div className="l">Pipeline value</div></div>
+              <div className="rpt-kpi"><div className="v">{money(pipelineValue)}</div><div className="l">Pipeline value</div><div className="s">{preCompletion.length} pre-completion{excludedHoldings ? ` · excludes ${excludedHoldings} owned or exiting` : ''}</div></div>
               <div className="rpt-kpi"><div className="v">{comps.length}</div><div className="l">Comparables</div></div>
               <div className="rpt-kpi"><div className="v">{precedents.length}</div><div className="l">IC precedents</div></div>
             </div>

@@ -548,8 +548,9 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
           {/* Labelled "📁 Data room", which is not the name of anywhere you can get to from
             here -- the tab is called Documents, and this button leaves the product for
             SharePoint. Two names for one place is how people conclude they have missed a
-            screen. Same words as the destination, and an arrow to say you are leaving. */}
-        {deal && !statusOnly ? <button className="chbtn spo" onClick={openDataRoom} disabled={busy === 'dataroom'} title="Open this deal's SharePoint data room in a new tab">{deal.workspace?.sharePointProvisioned ? '📁 Documents in SharePoint ↗' : busy === 'dataroom' ? 'Opening…' : '📁 Documents in SharePoint'}</button> : null}
+            screen. "Data room" is the term a deal professional uses, so that is the term
+            everywhere; the arrow says you are leaving. */}
+        {deal && !statusOnly ? <button className="chbtn spo" onClick={openDataRoom} disabled={busy === 'dataroom'} title="Open this deal's data room in a new tab">{deal.workspace?.sharePointProvisioned ? '📁 Data room ↗' : busy === 'dataroom' ? 'Opening…' : '📁 Data room'}</button> : null}
           <button className={`askbtn${askOpen ? ' on' : ''}`} onClick={() => setAskOpen((v) => !v)}>💬 {askOpen ? 'Hide the assistant' : 'Ask the assistant'}</button>
         </div>
 
@@ -742,7 +743,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                       it, on Diligence workstreams. Here we state the position and move
                       on -- the generate-and-download buttons above work regardless. */}
                   {docs?.provisioning ? (
-                    <div className="muted">The shared Teams channel and data room are still being set up. You can generate and download any document above in the meantime.</div>
+                    <div className="muted">No shared channel or data room is linked to this deal yet. Generating and downloading any document above works as normal.</div>
                   ) : docs?.notConnected ? (
                     <div className="muted">No Microsoft 365 data room is linked to this deal yet, so nothing can be saved to one. Generating and downloading documents above works as normal.</div>
                   ) : docs?.error ? (
@@ -830,7 +831,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                             {deal.currentStep && /^d[34]/i.test(deal.currentStep) ? <button className="btn ghost" onClick={() => setTab('documents')}>📤 Generate IC deck / memo</button> : null}
                             <button className="btn ghost" disabled={!!busy} onClick={() => act('back', `/api/deals/${dealId}/back`)}>← Back a step</button>
                             {prevStage ? (
-                              <button className="btn ghost" disabled={!!busy} title={`Reopen this deal at the start of ${prevStage.name}`} onClick={() => { if (window.confirm(`Knock this deal back to “${prevStage.name}”?\n\nIt will reopen at the start of that stage and any later steps will be marked incomplete.`)) act('back-stage', `/api/deals/${dealId}/back-stage`); }}>{busy === 'back-stage' ? 'Knocking back…' : `⏮ Knock back to ${prevStage.name}`}</button>
+                              <button className="btn ghost" disabled={!!busy} title={`Reopen this deal at the start of ${prevStage.name}`} onClick={() => { if (window.confirm(`Return this deal to “${prevStage.name}”?\n\nIt will reopen at the start of that stage and any later steps will be marked incomplete.`)) act('back-stage', `/api/deals/${dealId}/back-stage`); }}>{busy === 'back-stage' ? 'Returning…' : `⏮ Return to ${prevStage.name}`}</button>
                             ) : null}
                           </>
                         )}

@@ -94,7 +94,7 @@ export default function Fund() {
 
       {method ? (
         <div className="fnd-method">
-          <span className="fnd-method-asof">As of {new Date(method.asOf).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} · {method.sourceOfRecord}</span>
+          <span className="fnd-method-asof">As of {new Date(method.asOf).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} · {method.sourceOfRecord}</span>
           <button className="fnd-method-btn" onClick={() => setShowMethod((v) => !v)}>{showMethod ? 'Hide methodology' : 'Methodology ▾'}</button>
           {showMethod ? (
             <div className="fnd-method-body">
@@ -262,7 +262,7 @@ export default function Fund() {
             <Kpi v={`${val.portfolio.grossMoic.toFixed(2)}x`} l="Portfolio gross MOIC" s={`${val.portfolio.grossIrrPct}% IRR`} />
             <Kpi v={String(val.portfolio.addOnsClosed)} l="Add-ons closed" s="buy-and-build" />
             <Kpi v={String(val.pipeline.dealsProcessed)} l="Active deals" s={`${val.pipeline.inDiligence} in diligence`} />
-            <Kpi v={`${val.pipeline.avgIcReadiness}%`} l="Avg IC readiness" s="across active deals" />
+            <Kpi v={`${val.pipeline.avgIcReadiness}%`} l="Avg IC readiness" s="across deals not yet through committee" />
           </div>
         </section>
       ) : null}
