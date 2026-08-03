@@ -174,7 +174,12 @@ export default function ThreadsDesk({
                   ? 'Live Microsoft Teams messages, read with the permission your organisation granted the app rather than your own — you are seeing only the channels this deal team can see.'
                   : data.origin?.channel === 'derived'
                     ? 'No Teams channel is linked to this deal yet, so this conversation is composed from the deal record — the workstreams, owners and dates it already holds.'
-                    : 'Showing sample conversations — no Teams channel is linked to this deal yet.'}
+                    : data.channelUrl
+                      // The deal HAS a channel — saying otherwise was flatly wrong once every
+                      // deal was linked to one, and it sent people looking for a channel they
+                      // already had. The honest gap is that we are not reading it yet.
+                      ? 'This deal has a Teams channel, but its messages are not being read here yet — what you see below is sample conversation. Open the channel to read the real one.'
+                      : 'Showing sample conversations — no Teams channel is linked to this deal yet.'}
             </div>
           </div>
         </div>
