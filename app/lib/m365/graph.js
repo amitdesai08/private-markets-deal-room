@@ -495,7 +495,22 @@ export async function provisionDealFolders(teamId, folderNames) {
 // the rest of Graph — so it runs on the signed-in user's M365 license. Each deal
 // gets its own folder in the library, created on demand (idempotent).
 
-const safeDocName = (s) => String(s || 'Deal').replace(/[\\/:*?"<>|#%]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'Deal';
+// A company name is used as the folder name for the deal's data room, so it has to
+// survive SharePoint's rules. Beyond the characters it forbids outright, SharePoint
+// rejects a name that ends in a period — which silently excluded every company
+// called "…, Inc." or "… Ltd." from ever getting a data room: the folder create came
+// back 400 invalidRequest and the deal showed an empty documents tab with no
+// explanation. Exported so the rule can be tested without a tenant.
+export const safeDocName = (s) => {
+  const cleaned = String(s || 'Deal')
+    .replace(/[\\/:*?"<>|#%]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120)
+    .replace(/[.\s]+$/, '')
+    .replace(/^[.\s]+/, '');
+  return cleaned || 'Deal';
+};
 
 async function dealDocFolder(deal) {
   const teamId = deal?.teamsChannel?.teamId;
