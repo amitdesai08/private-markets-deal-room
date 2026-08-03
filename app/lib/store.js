@@ -1677,11 +1677,14 @@ export function getStage1Funnel() {
       parked: all.filter((c) => c.disposition === 'parked').length,
       pursued: all.filter((c) => c.disposition === 'pursued').length
     },
+    // The words a sourcing analyst uses. "Gate-ready" and "Screening Gate" were the
+    // workflow model showing through on the tile a partner glances at; the O-codes
+    // stay beside them because a code next to a word is a cross-reference.
     funnel: [
-      { key: 'O1', step: 'Deal Sourcing', label: 'Sourced', count: reachedAtLeast(2), active: activeAt('O2') },
-      { key: 'O2', step: 'Auto Screen', label: 'Screened', count: reachedAtLeast(3), active: activeAt('O2') },
-      { key: 'O3', step: 'Triage', label: 'Triaged', count: reachedAtLeast(4), active: activeAt('O3') },
-      { key: 'O4', step: 'Screening Gate', label: 'Gate-ready', count: reachedAtLeast(5), active: activeAt('O4') }
+      { key: 'O1', step: 'Deal sourcing', label: 'Sourced', count: reachedAtLeast(2), active: activeAt('O2') },
+      { key: 'O2', step: 'Auto screen', label: 'Screened', count: reachedAtLeast(3), active: activeAt('O2') },
+      { key: 'O3', step: 'Shortlisting', label: 'Shortlisted', count: reachedAtLeast(4), active: activeAt('O3') },
+      { key: 'O4', step: 'Go / no-go', label: 'Awaiting decision', count: reachedAtLeast(5), active: activeAt('O4') }
     ]
   };
 }

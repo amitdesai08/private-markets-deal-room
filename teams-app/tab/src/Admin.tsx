@@ -55,14 +55,14 @@ export default function Admin({ ssoToken, viewAs }: { ssoToken?: string; viewAs?
       <style>{CSS}</style>
       <div className="adm-head">
         <h2>Access administration</h2>
-        <p>A person’s Entra ID app role or security group puts them in a Deal Room role; the role decides what they can see and do, and which seat their home page is built around. Select a row to expand and edit; changes persist and layer over the built-in defaults.</p>
+        <p>A person’s Entra ID app role or security group puts them in a Deal Room role; the role decides what they can see and do, and which job type their home page is built around. Select a row to expand and edit; changes persist and layer over the built-in defaults.</p>
       </div>
 
       {data.demoModeConfigurable ? (
         <div className="adm-demo">
           <div className="adm-demo-txt">
             <div className="adm-demo-t">Demo mode {data.demoMode ? <span className="adm-demo-on">On</span> : <span className="adm-demo-off">Off</span>}</div>
-            <div className="adm-demo-s">Shows the “View as” switcher and the showcase profiles so you can preview the access model from any seat. Turn this off for a production-style experience — every user then sees only their own role and identity.</div>
+            <div className="adm-demo-s">Shows the “View as” switcher and the showcase profiles so you can preview the access model from any job type. Turn this off for a production-style experience — every user then sees only their own role and identity.</div>
           </div>
           <label className="adm-toggle" title={data.demoMode ? 'Disable demo mode' : 'Enable demo mode'}>
             <input
@@ -83,7 +83,12 @@ export default function Admin({ ssoToken, viewAs }: { ssoToken?: string; viewAs?
 
       <nav className="adm-tabs">
         <button className={tab === 'roles' ? 'on' : ''} onClick={() => setTab('roles')}>Roles <span className="adm-count">{roleCount.total}</span></button>
-        <button className={tab === 'personas' ? 'on' : ''} onClick={() => setTab('personas')}>Seats <span className="adm-count">{pCount.total}</span></button>
+        {/* One concept, one word. This screen used to call it a "seat" on the tab, a
+            "persona" on the delete button inside that tab, and a "lane" on the field
+            inside that — three vocabularies in one expanded row, on the screen where a
+            customer decides whether the product is serious. The persona/lane object
+            keys and the /personas/:id route are untouched. */}
+        <button className={tab === 'personas' ? 'on' : ''} onClick={() => setTab('personas')}>Job types <span className="adm-count">{pCount.total}</span></button>
       </nav>
 
       {tab === 'roles'
@@ -246,7 +251,7 @@ function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
                 {dirty ? <span className="adm-dot" title="Unsaved changes">●</span> : null}
                 <span className="adm-sum-meta">
                   <Chip>rank {base.rank}</Chip>
-                  {base.persona ? <Chip>seat: {base.persona}</Chip> : null}
+                  {base.persona ? <Chip>job: {base.persona}</Chip> : null}
                   <Chip>{base.write ? 'write' : 'read-only'}</Chip>
                   {base.stage2 ? <Chip>Stage 2</Chip> : null}
                   <Chip>{base.regions.length ? base.regions.join(' / ') : 'all regions'}</Chip>
@@ -266,7 +271,7 @@ function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
                     </div>
                     <Field label="Assistants this role may use" col><CheckGrid options={personaIds} value={r.personas} onChange={(v) => edit(base.id, { personas: v })} /></Field>
                   </Section>
-                  <Section title="Microsoft Entra ID" hint="How people get this role, and the seat it puts them in">
+                  <Section title="Microsoft Entra ID" hint="How people get this role, and the job type it puts them in">
                     <Field label="App role values" hint="(the “roles” claim on the token; comma-separated)">
                       <input className="adm-text" value={r.appRoles.join(', ')} onChange={(e) => edit(base.id, { appRoles: splitCsv(e.target.value) })} placeholder="e.g. DealRoom.Partner" />
                     </Field>
@@ -278,9 +283,9 @@ function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
                         The deploy configuration also grants this role via {base.envAppRoleCount} app role(s) and {base.envGroupCount} group(s), which are read-only here.
                       </p>
                     ) : null}
-                    <Field label="Seat this role puts people in" hint="(their home page and default assistant; a per-user assignment still wins)">
-                      <select className="adm-text" value={r.persona || ''} onChange={(e) => edit(base.id, { persona: e.target.value || null })}>
-                        <option value="">No seat — untailored home page</option>
+                <Field label="Job type this role puts people in" hint="(their home page and default assistant; a per-user assignment still wins)">
+                  <select className="adm-text" value={r.persona || ''} onChange={(e) => edit(base.id, { persona: e.target.value || null })}>
+                    <option value="">No job type — untailored home page</option>
                         {data.personas.map((p: Persona) => (<option key={p.id} value={p.id}>{p.label || p.id}</option>))}
                       </select>
                     </Field>
@@ -348,12 +353,12 @@ function PersonasEditor({ data, busy, setBusy, post, reload }: any) {
   return (
     <div>
       <div className="adm-toolbar">
-        <button className={`adm-tbtn${showAdd ? ' on' : ''}`} onClick={() => setShowAdd((v) => !v)}>+ New seat</button>
+        <button className={`adm-tbtn${showAdd ? ' on' : ''}`} onClick={() => setShowAdd((v) => !v)}>+ New job type</button>
       </div>
       {showAdd ? (
         <div className="adm-panel">
           <div className="adm-addrow">
-            <input placeholder="seat id (e.g. esg-lead)" value={newP.id} onChange={(e) => setNewP({ ...newP, id: e.target.value })} />
+            <input placeholder="job id (e.g. esg-lead)" value={newP.id} onChange={(e) => setNewP({ ...newP, id: e.target.value })} />
             <input placeholder="label" value={newP.label} onChange={(e) => setNewP({ ...newP, label: e.target.value })} />
             <select value={newP.lane} onChange={(e) => setNewP({ ...newP, lane: e.target.value })}>
               <option value="">(no workstream)</option>
@@ -361,7 +366,7 @@ function PersonasEditor({ data, busy, setBusy, post, reload }: any) {
             </select>
             <button className="adm-btn primary" disabled={busy || !newP.id.trim()} onClick={addP}>Create</button>
           </div>
-          <p className="adm-panel-lead">New seats start with no workflow actions — expand the row to grant actions and stage limits.</p>
+          <p className="adm-panel-lead">New job types start with no workflow actions — expand the row to grant actions and stage limits.</p>
         </div>
       ) : null}
 
@@ -388,7 +393,7 @@ function PersonasEditor({ data, busy, setBusy, post, reload }: any) {
                 <div className="adm-body">
                   <Section title="Identity">
                     <Field label="Label"><input className="adm-text" value={p.label} onChange={(e) => edit(base.id, { label: e.target.value })} /></Field>
-                    <Field label="Diligence lane">
+                    <Field label="Diligence workstream">
                       <select className="adm-sel" value={p.lane || ''} onChange={(e) => edit(base.id, { lane: e.target.value || null })}>
                         <option value="">(none)</option>
                         {Object.entries(data.lanes).map(([k, v]) => <option key={k} value={k}>{v as string}</option>)}
@@ -398,13 +403,13 @@ function PersonasEditor({ data, busy, setBusy, post, reload }: any) {
                   <Section title="Workflow actions" hint={p.actions == null ? 'Built-in defaults — toggle any to start overriding' : 'Custom allowlist'}>
                     <CheckGrid options={actionIds} value={effActions} labels={actionLabels} onChange={(v) => edit(base.id, { actions: v })} />
                   </Section>
-                  <Section title="Stage restriction" hint="Limit this persona to acting only in these stages">
+                  <Section title="Stage restriction" hint="Limit this job type to acting only in these stages">
                     <Field label="Allowed stages" hint="(none = all)" col><CheckGrid options={data.stages} value={p.stages} onChange={(v) => edit(base.id, { stages: v })} /></Field>
                   </Section>
                   <div className="adm-foot">
                     <button className="adm-btn primary" disabled={busy || !dirty} onClick={() => save(p)}>Save changes</button>
                     <button className="adm-btn" disabled={busy || !dirty} onClick={() => setDraft((d: any) => { const c = { ...d }; delete c[base.id]; return c; })}>Reset</button>
-                    {!base.builtin ? <button className="adm-btn danger" disabled={busy} onClick={() => del(base.id)}>Delete persona</button> : null}
+                    {!base.builtin ? <button className="adm-btn danger" disabled={busy} onClick={() => del(base.id)}>Delete job type</button> : null}
                   </div>
                 </div>
               ) : null}

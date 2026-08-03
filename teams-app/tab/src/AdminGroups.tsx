@@ -79,7 +79,7 @@ export default function AdminGroups({ deals, onClose }: { deals: Deal[]; onClose
                   </div>
                 ))}
               </div>
-            ) : <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>No deal groups yet. Create one above; MDs can then tag deals into it from the deal cockpit.</div>}
+            ) : <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>No deal groups yet. Create one above; MDs can then tag deals into it from the deal’s page.</div>}
           </section>
 
           {/* Territories */}

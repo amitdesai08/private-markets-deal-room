@@ -99,7 +99,7 @@ export default function DocumentDesk({
                   {d.basis ? <div className="sub" style={{ marginTop: 4 }}>{d.basis}</div> : null}
                   <div className="acts">
                     <DocOpenButton dealId={dealId} name={d.name} open={d.open} onNote={setNote} dataRoomUrl={data.dataRoomUrl} />
-                    <button className="btn compact" onClick={() => onAsk?.(`Summarise what changed in ${d.name} on ${data.company}.`)}>✦ Summarize</button>
+                    <button className="btn compact" onClick={() => onAsk?.(`Summarise what changed in ${d.name} on ${data.company}.`)}>✦ Summarise</button>
                   </div>
                 </div>
               </div>

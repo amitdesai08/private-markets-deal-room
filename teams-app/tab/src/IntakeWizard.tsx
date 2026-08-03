@@ -111,7 +111,7 @@ export default function IntakeWizard({ isAdmin, onClose, onCreated }: { isAdmin:
                 <div style={{ display: 'flex', gap: 6 }}>
                   <input list="iw-groups" style={{ ...field, flex: 1 }} value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }} placeholder={isAdmin ? 'pick or create a deal group' : 'pick a deal group'} />
                   <datalist id="iw-groups">{dealGroups.map((g) => <option key={g.id} value={g.label} />)}</datalist>
-                  <button className="chbtn" disabled={!newTag.trim()} onClick={addTag}>add</button>
+                  <button className="chbtn" disabled={!newTag.trim()} onClick={addTag}>Add</button>
                 </div>
                 <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>Everyone in the deal group gets access to this deal’s workspace{isAdmin ? ' (access group created automatically)' : ''}.</div>
               </div>

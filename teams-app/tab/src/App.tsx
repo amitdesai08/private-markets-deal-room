@@ -289,9 +289,19 @@ export default function App() {
           {teamsInfo?.inTeams ? <a className="dashlink" href={cfg?.appBaseUrl || window.location.origin} target="_blank" rel="noopener noreferrer">Open web console ↗</a> : null}
             {canViewStage2 ? <button className="asktoggle on" onClick={() => setIntakeOpen(true)} title="Create a new deal via guided intake">+ New deal</button> : null}
           {isAdmin ? <button className="gearbtn" onClick={() => setAdminGroupsOpen(true)} title="Admin — deal groups &amp; territories" aria-label="Deal groups and territories"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle' }} aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></button> : null}
-          <button className={`asktoggle${chatOpen ? ' on' : ''}`} onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide the assistant' : '💬 Ask the assistant'}</button>
+          {/* Hidden while a deal is open, because the deal page has its own assistant
+              button and its own deal-scoped panel. Leaving this one on screen gave the
+              reader two identical buttons and, worse, once the portfolio panel stopped
+              rendering over a deal it would have been a button that visibly does
+              nothing. One assistant, one button, per screen. */}
+          {!openDealId ? <button className={`asktoggle${chatOpen ? ' on' : ''}`} onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide the assistant' : '💬 Ask the assistant'}</button> : null}
           <button className="gearbtn" onClick={() => setTheme(toggleTheme())} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label="Toggle light or dark theme">{theme === 'dark' ? '☀' : '🌙'}</button>
-          <button className={`gearbtn${settingsOpen ? ' on' : ''}`} onClick={() => setSettingsOpen((v) => !v)} title="Settings — data sources & administration" aria-label="Settings">⚙</button>
+          {/* Closing the deal on the way in. Settings renders in the branch this
+              ternary takes when no deal is open, so with a deal open the gear used to
+              light up accent-blue and change nothing on screen — a control that
+              asserts a state change that did not happen, which is the kind of thing
+              that makes people stop trusting every other control on the page. */}
+          <button className={`gearbtn${settingsOpen ? ' on' : ''}`} onClick={() => { setOpenDealId(''); setSettingsOpen((v) => !v); }} title="Settings — data sources & administration" aria-label="Settings">⚙</button>
         </div>
       </header>
 
@@ -368,7 +378,12 @@ export default function App() {
           )}
           </main>
         )}
-        {chatOpen ? <ChatPanel agents={visibleAgents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} viewAsRole={viewAsRole} canWrite={canWrite} demoMode={isDemoMode} seed={chatSeed} seedNonce={chatSeedNonce} /> : null}
+        {/* Not while a deal is open. The deal page carries its own assistant, already
+            scoped to that deal; this one is scoped to the whole portfolio. Both could
+            be on screen at once — measured at 459px + 380px of a 1440px window, two
+            conversations, two "Ask the assistant" buttons — and the reader could not
+            tell which thread they had asked. */}
+        {chatOpen && !openDealId ? <ChatPanel agents={visibleAgents} deals={deals} focusDealId={chatFocusDealId} onClose={() => setChatOpen(false)} viewAsRole={viewAsRole} canWrite={canWrite} demoMode={isDemoMode} seed={chatSeed} seedNonce={chatSeedNonce} /> : null}
       </div>
 
       {intakeOpen ? <IntakeWizard isAdmin={isAdmin} onClose={() => setIntakeOpen(false)} onCreated={(id) => { setIntakeOpen(false); refreshData(); setOpenDealId(id); }} /> : null}

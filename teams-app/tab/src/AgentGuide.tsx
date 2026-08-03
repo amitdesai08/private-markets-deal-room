@@ -60,7 +60,7 @@ export default function AgentGuide({ roleLabel, canViewStage2, canWrite, onAsk }
         </div>
 
         <div className="ag-custom">
-          Each agent is a <strong>customizable pack</strong> — its instructions, tools and skills (shown above) live in editable <code>Agent.md</code> / <code>Skill.md</code> files, so a firm can tailor how the assistant sources, screens, models and writes without touching code.
+          Each of these is a <strong>customisable pack</strong> — its instructions, tools and skills (shown above) live in editable <code>Agent.md</code> / <code>Skill.md</code> files, so a firm can tailor how the assistant sources, screens, models and writes without touching code.
         </div>
       </details>
     </div>

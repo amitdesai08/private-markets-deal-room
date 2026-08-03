@@ -17,14 +17,16 @@ export default function Settings({ isAdmin, ssoToken, viewAs, onClose }: {
     <div className="settings">
       <style>{CSS}</style>
       <div className="set-head">
-        <button className="set-back" onClick={onClose}>← Back to deals</button>
+        {/* Just "Back". It used to say "Back to deals" and returned you to whichever
+            main tab you came from — Home, Fund & Portfolio or Report. */}
+        <button className="set-back" onClick={onClose}>← Back</button>
         <h2>Settings</h2>
         <p>Data sources and access. Kept here so the deal views stay focused on your pipeline.</p>
       </div>
       <nav className="set-tabs">
-        <button className={tab === 'sources' ? 'on' : ''} onClick={() => setTab('sources')}>Data Sources</button>
+        <button className={tab === 'sources' ? 'on' : ''} onClick={() => setTab('sources')}>Data sources</button>
         {isAdmin ? <button className={tab === 'templates' ? 'on' : ''} onClick={() => setTab('templates')}>Document templates</button> : null}
-        {isAdmin ? <button className={tab === 'admin' ? 'on' : ''} onClick={() => setTab('admin')}>Access Administration</button> : null}
+        {isAdmin ? <button className={tab === 'admin' ? 'on' : ''} onClick={() => setTab('admin')}>Access administration</button> : null}
       </nav>
       <div className="set-body">
         {showAdmin ? <Admin ssoToken={ssoToken} viewAs={viewAs} /> : showTemplates ? <DocTemplates ssoToken={ssoToken} viewAs={viewAs} /> : <DataSources isAdmin={isAdmin} />}

@@ -124,7 +124,7 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
             <div className="rpt-kpi"><div className="v">{money(focus.dealSize)}</div><div className="l">Deal size</div></div>
           </div>
           <p className="rpt-note">
-            {focus.sector ? `Sector: ${focus.sector}. ` : ''}This one-page report summarizes the live deal
+            {focus.sector ? `Sector: ${focus.sector}. ` : ''}This one-page report summarises the live deal
             record. Open the deal in the Deal Room for full diligence detail, findings and documents.
           </p>
         </section>
@@ -154,7 +154,7 @@ export default function Report({ analytics, pipeline, deals, market, config, dea
           <section className="rpt-section">
             <h2 className="rpt-h">Pipeline deals <span className="rpt-mut">{deals.length} active</span></h2>
             {deals.length === 0 ? (
-              <p className="rpt-note">No deals are live yet. Sourced candidates that clear the screening gate appear here.</p>
+              <p className="rpt-note">No deals are live yet. Sourced candidates that pass screening appear here.</p>
             ) : (
               <table className="rpt-table">
                 <thead>

@@ -54,7 +54,11 @@ type TargetDetail = { id: string; name: string; ticker?: string | null; isPublic
 const BAND_CLASS: Record<string, string> = { strong: 'ok', moderate: 'warn', weak: 'bad', excluded: 'bad' };
 const OUTLOOK_CLASS: Record<string, string> = { positive: 'ok', neutral: 'warn', caution: 'bad', stable: 'warn' };
 const STANCE_CLASS: Record<string, string> = { positive: 'ok', neutral: 'warn', caution: 'bad' };
-const STAGE_LABEL: Record<string, string> = { O1: 'Sourced', O2: 'Screen', O3: 'Prioritize', O4: 'Gate', pursued: 'Pursued' };
+// The words, not the workflow codes. O1..O4 are still shown beside each funnel tile
+// as a reference, which is fine — a code next to a word is a cross-reference, a code
+// instead of a word is a quiz. "Gate" and "Prioritize" were the engineering model
+// showing through; nobody in origination says either.
+const STAGE_LABEL: Record<string, string> = { O1: 'Sourced', O2: 'Screening', O3: 'Shortlist', O4: 'Go / no-go', pursued: 'Pursued' };
 const INTENT_CLASS: Record<string, string> = { high: 'ok', medium: 'warn', low: 'bad' };
 const STAGE_ACTIONS: Record<string, { endpoint: string; actions: { k: string; label: string; cls: string }[] }> = {
   O2: { endpoint: 'screen', actions: [{ k: 'advance', label: 'Advance →', cls: 'primary' }, { k: 'pass', label: 'Pass', cls: 'ghost' }] },
@@ -138,7 +142,7 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
     try {
       const r = await fetch('/api/candidates/send-to-screening', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ deskId }) });
       const data = await r.json().catch(() => ({}));
-      if (r.ok && !data.error) { setNote(`${name} sent to the screening funnel (O2).`); await loadPipeline(); onChanged(); }
+      if (r.ok && !data.error) { setNote(`${name} is now in screening — see the Pipeline tab.`); await loadPipeline(); onChanged(); }
       else setNote(data.error === 'already-in-funnel' ? `${name} is already in the funnel.` : `Could not send ${name} to screening.`);
     } catch (e: any) { setNote(`Failed: ${String(e?.message || e)}`); }
     finally { setBusy(''); }
@@ -158,12 +162,22 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
       <div className="dd-tabs" style={{ margin: 0 }}>
         {(['pipeline', 'framework', 'research', 'signals'] as SubTab[]).map((t) => (
           <button key={t} className={`dd-tab${sub === t ? ' on' : ''}`} onClick={() => setSub(t)}>
-            {t === 'pipeline' ? 'Pipeline' : t === 'framework' ? 'Sourcing framework' : t === 'research' ? 'Market research' : 'Emails & news'}
+            {t === 'pipeline' ? 'Pipeline' : t === 'framework' ? 'Sourcing framework' : t === 'research' ? 'Analyst research' : 'Emails & news'}
           </button>
         ))}
       </div>
 
-      {note ? <div className="dd-actionnote">{note}</div> : null}
+      {/* A confirmation with no onward step is a full stop where the reader needed a
+          comma: sending a target to screening moved it to a different sub-tab and said
+          nothing about that, so the analyst had to guess where it went. The link offers
+          the move without performing it — yanking someone off a list they are working
+          through is worse than the guess. */}
+      {note ? (
+        <div className="dd-actionnote">
+          {note}
+          {sub !== 'pipeline' ? <button className="askbtn" style={{ marginLeft: 8 }} onClick={() => setSub('pipeline')}>Open the pipeline →</button> : null}
+        </div>
+      ) : null}
 
       {sub === 'pipeline' && (
         <>
@@ -204,18 +218,21 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
               Candidate pipeline
               <select className="scope" style={{ flex: '0 0 auto', maxWidth: 200 }} value={stageFilter} onChange={(e) => setStageFilter(e.target.value)}>
                 <option value="active">Active (open)</option>
-                <option value="O2">O2 — Screen</option>
-                <option value="O3">O3 — Prioritize</option>
-                <option value="O4">O4 — Gate</option>
-                <option value="pursued">Pursued → Stage 2</option>
+                <option value="O2">Screening</option>
+                <option value="O3">Shortlist</option>
+                <option value="O4">Go / no-go</option>
+                <option value="pursued">Pursued — now a live deal</option>
                 <option value="passed">Passed / Parked</option>
                 <option value="all">All</option>
               </select>
             </div>
             {loading ? (
-              <div className="empty-panel">Loading sourcing pipeline…</div>
+              <div className="empty-panel">Loading…</div>
             ) : !candidates.length ? (
-              <div className="empty-panel">No candidates for this filter.</div>
+              // The filter defaults to "Active (open)", so "No candidates for this
+              // filter" was read as "the pipeline is empty" by people who had never
+              // noticed the select. Name the way out.
+              <div className="empty-panel">Nothing at this step. <button className="askbtn" onClick={() => setStageFilter('all')}>Show every candidate</button></div>
             ) : (
               <div className="cand-list">
                 {candidates.map((c) => {
@@ -268,7 +285,7 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
       {sub === 'framework' && (
         <>
           <section className="panel">
-            <div className="panel-h">Fund mandate (GATE)<span className="muted">the hard box every target must fit</span></div>
+              <div className="panel-h">Fund mandate<span className="muted">the hard box every target must fit</span></div>
             {framework?.fund ? (
               <div style={{ padding: '12px 16px' }}>
                 <div style={{ fontWeight: 700 }}>{framework.fund.name}</div>
@@ -280,12 +297,12 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
                   {(framework.fund.geographies || []).slice(0, 4).map((g, i) => <span className="chip" key={'g' + i}>{g}</span>)}
                 </div>
               </div>
-            ) : <div className="empty-panel">Loading fund mandate…</div>}
+            ) : <div className="empty-panel">Loading…</div>}
           </section>
 
           <section className="panel">
-            <div className="panel-h">Investment themes (GUIDE)<span className="muted">{(framework?.themes || []).length} themes</span></div>
-            {!(framework?.themes || []).length ? <div className="empty-panel">Loading themes…</div> : (
+              <div className="panel-h">Investment themes<span className="muted">{(framework?.themes || []).length} themes</span></div>
+              {!(framework?.themes || []).length ? <div className="empty-panel">Loading…</div> : (
               <div style={{ padding: '6px 16px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {(framework!.themes || []).map((t) => (
                   <div key={t.id} className="cand" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
@@ -300,8 +317,8 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
           </section>
 
           <section className="panel">
-            <div className="panel-h">Ranked targets (RANK)<span className="muted">{(targets?.targets || []).length} scored{targets?.gatedCount ? ` · ${targets.gatedCount} gated` : ''}</span></div>
-            {!(targets?.targets || []).length ? <div className="empty-panel">Loading ranked targets…</div> : (
+              <div className="panel-h">Ranked targets<span className="muted">{(targets?.targets || []).length} scored{targets?.gatedCount ? ` · ${targets.gatedCount} outside the mandate` : ''}</span></div>
+              {!(targets?.targets || []).length ? <div className="empty-panel">Loading…</div> : (
               <div className="cand-list">
                 {(targets!.targets || []).slice(0, 25).map((t) => (
                   <TargetRow key={t.id} t={t} busy={busy} onScreen={() => sendToScreening(t.id, t.name)} />
@@ -320,7 +337,7 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
               {(research!.companies || []).map((c) => <ResearchCard key={c.id} c={c} />)}
             </div>
           ) : !targets ? (
-            <div className="empty-panel">Loading analyst research…</div>
+            <div className="empty-panel">Loading…</div>
           ) : (
             <div className="rc-list">
               {(targets.targets || []).filter((t) => !t.gated).slice(0, 12).map((t) => <GeneratedResearchCard key={t.id} t={t} />)}
@@ -333,7 +350,7 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
         <>
           <section className="panel">
             <div className="panel-h">Emails from company executives<span className="muted">Microsoft 365 mailbox · {(mailbox?.emails || []).length} emails</span></div>
-            {!mailbox ? <div className="empty-panel">Loading…</div> : !(mailbox.emails || []).length ? <div className="empty-panel">Nothing inbound.</div> : (
+            {!mailbox ? <div className="empty-panel">Loading…</div> : !(mailbox.emails || []).length ? <div className="empty-panel">No inbound approaches in the mailbox.</div> : (
               <div className="cand-list">
                 {(mailbox.emails || []).map((e) => (
                   <div className="cand" key={e.id}>
@@ -351,7 +368,7 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
           <section className="panel">
             <div className="panel-h">News & filings<span className="muted">{(desk?.companies || []).length} companies · {(desk?.catalysts || []).length} catalysts</span></div>
             {desk?.catalysts?.length ? <div className="cand-tags" style={{ padding: '10px 16px 0' }}>{(desk.catalysts || []).map((c) => <span className="chip" key={c.id}>{c.icon ? `${c.icon} ` : ''}{c.label}</span>)}</div> : null}
-            {!desk ? <div className="empty-panel">Loading news…</div> : !(desk.companies || []).length ? <div className="empty-panel">No news companies.</div> : (
+            {!desk ? <div className="empty-panel">Loading…</div> : !(desk.companies || []).length ? <div className="empty-panel">No news on any tracked company yet. Add a source under Settings → Data sources.</div> : (
               <div className="cand-list">
                 {(desk.companies || []).map((co) => (
                   <div className="cand" key={co.id}>
@@ -363,7 +380,7 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
                       ))}
                     </div>
                     <div className="cand-actions">
-                      <button className="btn" disabled={!!busy} title="Send to the screening funnel" onClick={() => sendToScreening(co.id, co.name)}>{busy === 'send' + co.id ? '…' : 'Screen →'}</button>
+                      <button className="btn" disabled={!!busy} title="Send to screening" onClick={() => sendToScreening(co.id, co.name)}>{busy === 'send' + co.id ? '…' : 'Screen →'}</button>
                     </div>
                   </div>
                 ))}
@@ -445,7 +462,7 @@ function TargetRow({ t, busy, onScreen }: { t: ScoredTarget; busy: string; onScr
         </div>
         <div className="cand-actions">
           {t.inFunnel ? <span className="muted">in funnel</span> : (
-            <button className="btn" disabled={!!busy || t.gated} title={t.gated ? 'Blocked by the fund gate' : 'Send to the screening funnel'} onClick={onScreen}>{busy === 'send' + t.id ? '…' : 'Screen →'}</button>
+                  <button className="btn" disabled={!!busy || t.gated} title={t.gated ? 'Outside the fund mandate' : 'Send to screening'} onClick={onScreen}>{busy === 'send' + t.id ? '…' : 'Screen →'}</button>
           )}
         </div>
       </div>

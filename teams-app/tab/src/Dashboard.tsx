@@ -209,10 +209,15 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
     { label: 'Priority', get: (d) => priority(d).tag },
     { label: 'Recommended action', get: (d) => priority(d).why },
   ];
+  // Copying to the clipboard is invisible, so the button reports on itself for two
+  // seconds. Without it the only way to know it worked was to go and paste.
+  const [copied, setCopied] = useState(false);
   const copyCompare = () => {
     const header = ['Field', ...compareDeals.map((d) => d.company)].join('\t');
     const rows = CMP_ROWS.map((r) => [r.label, ...compareDeals.map((d) => r.get(d))].join('\t'));
-    navigator.clipboard?.writeText([header, ...rows].join('\n')).catch(() => {});
+    navigator.clipboard?.writeText([header, ...rows].join('\n'))
+      .then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 2000); })
+      .catch(() => {});
   };
 
   const kpiRow = home?.kpis?.length ? home.kpis : kpis.map((k) => ({ key: k.label, ...k }));
@@ -519,7 +524,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
           <div className="panel-h">
             <span>Compare deals</span>
             <span className="muted" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button className="askbtn" onClick={copyCompare}>⧉ Copy table</button>
+              <button className="askbtn" onClick={copyCompare}>{copied ? '✓ Copied' : '⧉ Copy as text'}</button>
               <button className="askbtn" onClick={() => setCompare([])}>Clear</button>
             </span>
           </div>
@@ -551,7 +556,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
       {/* Deals */}
       {shows('deals') ? (
       <section className="panel">
-        <div className="panel-h"><span>Pipeline deals</span><span className="muted">{deals.length} active{compare.length ? ` · ${compare.length} selected to compare` : ' · tick 2–4 to compare'}</span></div>
+          <div className="panel-h"><span>Pipeline deals</span><span className="muted">{deals.length} active{compare.length ? ` · ${compare.length} selected to compare` : ' · pick 2–4 to compare'}</span></div>
         {deals.length === 0 ? (
           <div className="empty-panel">
             No deals are live yet. Sourced candidates that pass screening appear here.

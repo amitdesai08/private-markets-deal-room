@@ -316,7 +316,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     try {
       const r = await af(`/api/deals/${dealId}/teams/ensure`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
       const data = await r.json().catch(() => ({}));
-      if (r.status === 409) setNote('Launch the deal first (Stages → Launch), then create its channel.');
+      if (r.status === 409) setNote('Launch the deal first — see "Work the deal" — then create its channel.');
       else if (!r.ok || data.error) setNote(`Could not create the deal channel${data.error ? `: ${data.error}` : ''}.${cfg?.m365?.connected === false ? ' Connect M365 first.' : ''}`);
       else { await load(true); if (data.teamsUrl) window.open(data.teamsUrl, '_blank', 'noopener'); else setNote('Deal channel created.'); }
     } catch (e: any) { setNote(`Could not create the deal channel (${String(e?.message || e)}).`); }
@@ -330,18 +330,21 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     const url = ws0.sharePointUrl;
     // Live SharePoint VDR (M365 connected & provisioned) — open it in a new tab.
     if (ws0.sharePointProvisioned && url) { window.open(url, '_blank', 'noopener'); return; }
-    // Otherwise open the IN-APP data room (Documents tab): the deal's document set with
-    // generate/download for the IC memo, deal model, returns and IC deck — no M365
-    // required. This is the hosted-in-instance data room for demo & testing.
-    if (cfg?.m365 && cfg.m365.connected === false) { setTab('documents'); return; }
+    // Every fallback below lands on the tab labelled "Documents", which lists the
+    // deal's files. It used to land on 'documents' — the tab labelled "Generate a
+    // document" — so pressing "Data room" produced a screen with four IC-deck
+    // buttons and no file list on it, and people concluded the product had no data
+    // room and went to SharePoint in the browser instead.
+    const inAppRoom: Tab = cockpitOn ? 'docdesk' : 'documents';
+    if (cfg?.m365 && cfg.m365.connected === false) { setTab(inAppRoom); return; }
     setBusy('dataroom'); setNote('');
     try {
       const r = await af(`/api/deals/${dealId}/teams/ensure`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
       const data = await r.json().catch(() => ({}));
-      if (r.status === 409) { setNote('Launch the deal first to set up its data room — opening the in-app data room.'); setTab('documents'); }
-      else if (!r.ok || data.error) { setTab('documents'); }
-      else { const d = await load(true); const u = d?.workspace?.sharePointUrl; if (d?.workspace?.sharePointProvisioned && u) window.open(u, '_blank', 'noopener'); else setTab('documents'); }
-    } catch { setTab('documents'); }
+      if (r.status === 409) { setNote('This deal has no SharePoint data room yet — launch it first. Showing the documents already on the deal.'); setTab(inAppRoom); }
+      else if (!r.ok || data.error) { setTab(inAppRoom); }
+      else { const d = await load(true); const u = d?.workspace?.sharePointUrl; if (d?.workspace?.sharePointProvisioned && u) window.open(u, '_blank', 'noopener'); else setTab(inAppRoom); }
+    } catch { setTab(inAppRoom); }
     finally { setBusy(''); }
   }
 
@@ -462,8 +465,13 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
             <span aria-hidden="true">←</span> {backLabel || 'Back'}
           </button>
           <div className="drawer-title">{deal?.company || 'Loading…'}</div>
-          {deal ? <button className="chbtn" onClick={dealChannel} disabled={busy === 'channel'} title="Create or open a Teams channel to converse about this deal">{deal.workspace?.teamsProvisioned ? '# Open channel ↗' : busy === 'channel' ? 'Creating…' : '# Deal channel'}</button> : null}
-          {deal ? <button className="chbtn spo" onClick={openDataRoom} disabled={busy === 'dataroom'} title="Open the deal's SharePoint data room (VDR)">{deal.workspace?.sharePointProvisioned ? '📁 Data room ↗' : busy === 'dataroom' ? 'Opening…' : '📁 Data room'}</button> : null}
+          {/* Gated on !statusOnly. The body below already tells a restricted viewer that
+              this deal is closed to them and to ask to be added; offering them the two
+              doors they are locked out of, directly above that sentence, meant one of
+              the two was lying. They pressed it, got a server rejection, and stopped
+              believing the access message. */}
+          {deal && !statusOnly ? <button className="chbtn" onClick={dealChannel} disabled={busy === 'channel'} title="Create or open a Teams channel to converse about this deal">{deal.workspace?.teamsProvisioned ? '# Open channel ↗' : busy === 'channel' ? 'Creating…' : '# Deal channel'}</button> : null}
+          {deal && !statusOnly ? <button className="chbtn spo" onClick={openDataRoom} disabled={busy === 'dataroom'} title="Open the deal's SharePoint data room (VDR)">{deal.workspace?.sharePointProvisioned ? '📁 Data room ↗' : busy === 'dataroom' ? 'Opening…' : '📁 Data room'}</button> : null}
           <button className={`askbtn${askOpen ? ' on' : ''}`} onClick={() => setAskOpen((v) => !v)}>💬 {askOpen ? 'Hide the assistant' : 'Ask the assistant'}</button>
         </div>
 
@@ -500,7 +508,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   <>
                     <input list="dr-dealgroups" value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }} placeholder="+ tag / deal group" style={{ fontSize: 12, padding: '3px 9px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--card)', color: 'inherit', width: 150 }} />
                     <datalist id="dr-dealgroups">{dealGroups.map((g) => <option key={g.id} value={g.label} />)}</datalist>
-                    <button className="chbtn" disabled={tagBusy || !newTag.trim()} onClick={addTag}>add</button>
+                    <button className="chbtn" disabled={tagBusy || !newTag.trim()} onClick={addTag}>Add</button>
                   </>
                 ) : null}
               </div>
@@ -607,15 +615,22 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
               {tab === 'documents' && (
                 <div className="dd-panel">
-                  <div style={{ fontWeight: 700, marginBottom: 4 }}>📁 Deal documents <span className="muted" style={{ fontWeight: 400 }}>— generate a board-ready IC memo, model or IC deck from the live deal record</span></div>
+                  {/* This panel produces new deliverables. It used to be headed "Deal
+                      documents", which is what the OTHER document tab holds, so the two
+                      tabs on opposite sides of the divider both claimed the same job. */}
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>📝 Generate a document <span className="muted" style={{ fontWeight: 400 }}>— a board-ready IC memo, model or IC deck built from the live deal record. Files already on the deal live under Documents.</span></div>
                   {/* Download works for anyone with deal access — built on the requester's
-                      license, no M365 connection required. */}
+                      license, no M365 connection required.
+                      One filled button, not four. Four equal-weight primaries in a row is
+                      not a choice, it is a wall — and the person building the pack in the
+                      fortnight before committee pressed whichever word they recognised
+                      first and never found the rest. All seven are still one click. */}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
                     <button className="btn primary" disabled={!!docsBusy} onClick={() => genDoc('ic-deck', 'download')}>{docsBusy === 'ic-deck:download' ? 'Preparing…' : '🎤 IC deck (PowerPoint)'}</button>
-                    <button className="btn primary" disabled={!!docsBusy} onClick={() => genDoc('ic-memo', 'download')}>{docsBusy === 'ic-memo:download' ? 'Preparing…' : '📝 IC memo (Word)'}</button>
-                    <button className="btn primary" disabled={!!docsBusy} onClick={() => genDoc('model', 'download')}>{docsBusy === 'model:download' ? 'Preparing…' : '📊 Deal model (Excel)'}</button>
-                    <button className="btn primary" disabled={!!docsBusy} onClick={() => genDoc('returns', 'download')}>{docsBusy === 'returns:download' ? 'Preparing…' : '💰 Returns model (Excel)'}</button>
-                    <button className="btn" disabled={!!docsBusy} onClick={() => genDoc('model', 'download', true)}>{docsBusy === 'model:download:live' ? 'Preparing…' : '🔄 Deal Model - Live (Excel)'}</button>
+                    <button className="btn" disabled={!!docsBusy} onClick={() => genDoc('ic-memo', 'download')}>{docsBusy === 'ic-memo:download' ? 'Preparing…' : '📝 IC memo (Word)'}</button>
+                    <button className="btn" disabled={!!docsBusy} onClick={() => genDoc('model', 'download')}>{docsBusy === 'model:download' ? 'Preparing…' : '📊 Deal model (Excel)'}</button>
+                    <button className="btn" disabled={!!docsBusy} onClick={() => genDoc('returns', 'download')}>{docsBusy === 'returns:download' ? 'Preparing…' : '💰 Returns model (Excel)'}</button>
+                    <button className="btn" disabled={!!docsBusy} onClick={() => genDoc('model', 'download', true)}>{docsBusy === 'model:download:live' ? 'Preparing…' : '🔄 Deal model — live data (Excel)'}</button>
                     <a className="btn ghost" href={`/api/deals/${dealId}/model.csv`} target="_blank" rel="noopener">⬇ CSV (Excel)</a>
                     {docs?.folderUrl ? <a className="btn ghost" href={docs.folderUrl} target="_blank" rel="noopener">Open data room ↗</a> : null}
                   </div>
@@ -671,7 +686,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   <div className="orch-links">
                     <button className="wsp-link teams" disabled={!!busy} onClick={() => (ws.teamsProvisioned && ws.teamsUrl) ? window.open(ws.teamsUrl, '_blank', 'noopener') : dealChannel()}>{ws.teamsProvisioned ? 'Open Teams ↗' : '# Deal channel'}</button>
                     <button className="wsp-link spo" disabled={!!busy} onClick={openDataRoom}>{ws.sharePointProvisioned ? '📁 Data room ↗' : '📁 Data room'}</button>
-                    <button className="wsp-link mr" onClick={() => setTab('research')}>📊 Market comparisons →</button>
+                    <button className="wsp-link mr" onClick={() => setTab('research')}>📊 Comparables & precedents →</button>
                   </div>
                   {/* Guided "work the deal" hero — where you are in the process and the
                       single next action to move it forward, beginning to end. */}
@@ -686,7 +701,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                       </div>
                       <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
                         {!deal.workspaceReady
-                          ? 'Launch the deal to open its workspace, then work each step in order — the assistant drafts the deliverable, you review, and Advance to the next gate. Work it end-to-end to reach IC and close.'
+                          ? 'Launch the deal to open its workspace, then work each step in order — the assistant drafts the deliverable, you review, and Advance to the next step. Work it end-to-end to reach IC and close.'
                           : (<>Run <b>{STEP_LABEL[deal.currentStep || ''] || deal.currentStep}</b> {curProduces.length ? <>generates <b>{curProduces.join(' · ')}</b></> : 'generates this step’s deliverable'}, shown below — then Advance to the next step.{curWhat ? <span style={{ display: 'block', marginTop: 4, opacity: .85 }}>{curWhat}</span> : null}</>)}
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -754,24 +769,34 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                     </div>
                   ))}
 
+                  {/* The same three actions as the hero above, repeated here because the
+                      step grid is sixteen steps long and the hero has scrolled off by the
+                      time you reach the bottom of it.
+
+                      They used to DISAGREE with the hero: this bar filled "Advance →"
+                      and left "Run" plain, the exact inverse of the hero, and called the
+                      same POST "Launch diligence" instead of "Launch the deal". Someone
+                      scrolling met a filled Advance and a filled Run, could not tell
+                      which the product recommended, and on a bad day advanced a step
+                      they had never run. Same words, same emphasis, both places. */}
                   <div className="orch-bar">
                     {!deal.workspaceReady ? (
                       canViewStage2 ? (
                       <button className="btn primary" disabled={!!busy} onClick={() => act('launch', `/api/deals/${dealId}/launch`)}>
-                        {busy === 'launch' ? 'Launching…' : '▶ Launch diligence'}
+                        {busy === 'launch' ? 'Launching…' : '▶ Launch the deal'}
                       </button>
                       ) : (
-                        <span className="muted">🔒 Launching diligence (Stage 2) is restricted to the deal team.</span>
+                        <span className="muted">🔒 Launching (Stage 2) is restricted to the deal team.</span>
                       )
                     ) : (
                       <>
-                        <button className="btn" disabled={!!busy} onClick={() => act('run', `/api/deals/${dealId}/steps/${deal.currentStep}/run`)}>
+                        <button className="btn primary" disabled={!!busy} title={curProduces.length ? `Generates: ${curProduces.join(', ')}` : undefined} onClick={() => act('run', `/api/deals/${dealId}/steps/${deal.currentStep}/run`)}>
                           {busy === 'run' ? 'Running…' : `⚙ Run ${STEP_LABEL[deal.currentStep || ''] || deal.currentStep}`}
                         </button>
-                        <button className="btn primary" disabled={!!busy} onClick={() => act('advance', `/api/deals/${dealId}/advance`)}>
-                          {busy === 'advance' ? 'Advancing…' : 'Advance →'}
+                        <button className="btn" disabled={!!busy} onClick={() => act('advance', `/api/deals/${dealId}/advance`)}>
+                          {busy === 'advance' ? 'Advancing…' : 'Advance to next step →'}
                         </button>
-                        <button className="btn ghost" disabled={!!busy} onClick={() => act('back', `/api/deals/${dealId}/back`)}>← Back</button>
+                        <button className="btn ghost" disabled={!!busy} onClick={() => act('back', `/api/deals/${dealId}/back`)}>← Back a step</button>
                       </>
                     )}
                   </div>
@@ -849,7 +874,12 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   ) : null}
                   {deal.workstreams?.length ? (
                     <section className="dd-panel">
-                      <div className="dd-panel-h">Diligence workstreams</div>
+                      {/* A summary. The full thing is the tab called "Diligence
+                          workstreams" — this panel used to carry that exact name too, so
+                          people opened both tabs every time to work out which one had the
+                          number they wanted. Read-only viewers land here and this is the
+                          only workstream signal they get, so it stays. */}
+                      <div className="dd-panel-h">Workstream progress<span className="muted" style={{ fontWeight: 400 }}>summary — full detail under Diligence workstreams</span></div>
                       <div className="dd-lanes">
                         {deal.workstreams.map((w, i) => (
                           <div className="dd-lane" key={i}>
@@ -870,7 +900,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   {workbench.length ? (
                     <section className="dd-panel">
                       <div className="dd-panel-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span>Diligence workbench</span>
+                        <span>Workstream status</span>
                         <span style={{ fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: atRisk ? 'var(--bad)' : 'var(--muted)', background: atRisk ? 'var(--bad-bg)' : 'var(--chip)' }}>{atRisk ? `${atRisk} at risk` : 'All on track'}</span>
                       </div>
                       <div style={{ padding: '4px 14px 14px' }}>
