@@ -107,9 +107,9 @@ export const seedDeals = [
       { check: 'Data-room sensitivity labelling', framework: 'Purview', status: 'passed' }
     ],
     activity: [
-      { actor: 'Document-Intelligence Agent', action: 'Parsed CIM (142 pp) → termsheet + 11 KPIs to Fabric', when: hoursAgo(20) },
+      { actor: 'Deal team — document review', action: 'Parsed CIM (142 pp) → termsheet + 11 KPIs to Fabric', when: hoursAgo(20) },
       { actor: 'James Whitfield', action: 'Opened Commercial DD lane', when: hoursAgo(18) },
-      { actor: 'Diligence-Planner Agent', action: 'Drafted DD checklist from 3 comparable deals', when: hoursAgo(17) }
+      { actor: 'Deal team — diligence planning', action: 'Drafted DD checklist from 3 comparable deals', when: hoursAgo(17) }
     ],
     hoursSaved: 26
   },
@@ -161,7 +161,7 @@ export const seedDeals = [
       { check: 'Sanctions / UBO screening', framework: 'KYC', status: 'in_progress' }
     ],
     activity: [
-      { actor: 'Gate-Orchestration Agent', action: 'Provisioned diligence workspace + data room', when: hoursAgo(40) },
+      { actor: 'Deal team — deal setup', action: 'Provisioned diligence workspace + data room', when: hoursAgo(40) },
       { actor: 'Diego Marquez', action: 'Flagged tariff exposure for early review', when: hoursAgo(30) }
     ],
     hoursSaved: 9
@@ -224,7 +224,7 @@ export const seedDeals = [
       { check: 'AI Act risk classification', framework: 'EU AI Act', status: 'in_progress' }
     ],
     activity: [
-      { actor: 'IC-Memo Agent', action: 'Drafted thesis & market sections from the live record', when: hoursAgo(14) },
+      { actor: 'Deal team — IC memo', action: 'Drafted thesis & market sections from the live record', when: hoursAgo(14) },
       { actor: 'Priya Nair', action: 'Approved the commercial synthesis', when: hoursAgo(9) }
     ],
     hoursSaved: 19
@@ -298,7 +298,7 @@ export const seedDeals = [
       { check: 'ILPA reporting template mapping', framework: 'ILPA', status: 'passed' }
     ],
     activity: [
-      { actor: 'Approval-Orchestration Agent', action: 'Assembled IC pack and circulated to committee', when: hoursAgo(10) },
+      { actor: 'Deal team — IC coordination', action: 'Assembled IC pack and circulated to committee', when: hoursAgo(10) },
       { actor: 'Eleanor Bishop', action: 'Scheduled IC review', when: hoursAgo(6) }
     ],
     hoursSaved: 31
@@ -369,7 +369,7 @@ export const seedDeals = [
       { check: 'Data-room sensitivity labelling', framework: 'Purview', status: 'passed' }
     ],
     activity: [
-      { actor: 'Records & Compliance Agent', action: 'Archived data room with Purview audit trail', when: hoursAgo(50) },
+      { actor: 'Deal team — records & compliance', action: 'Archived data room with Purview audit trail', when: hoursAgo(50) },
       { actor: 'Investment Committee', action: 'Approved the transaction', when: hoursAgo(72) }
     ],
     hoursSaved: 38
@@ -487,7 +487,7 @@ export const demoStageDeals = [
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Boston CRO carve-out with recurring biotech demand.', citations: ['CIM'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
-    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at the Screening Gate', when: hoursAgo(60) }], hoursSaved: 6,
+    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at screening', when: hoursAgo(60) }], hoursSaved: 6,
   },
   {
     id: 'demo-lonestar', company: 'Lone Star Energy Services', region: 'southcentral', tags: [],
@@ -529,7 +529,7 @@ export const demoStageDeals = [
     ],
     memoSections: [{ key: 'value-creation', title: 'Value creation plan', status: 'in_progress', content: 'Three of four levers in flight; EBITDA +11.2% vs entry.', citations: ['VC plan', 'Board pack'] }],
     compliance: [{ check: 'Quarterly LP reporting (ILPA)', framework: 'ILPA', status: 'passed' }],
-    activity: [{ actor: 'Value-Creation Agent', action: 'Updated the EBITDA-bridge tracker', when: hoursAgo(40) }], hoursSaved: 33,
+    activity: [{ actor: 'Deal team — value creation', action: 'Updated the EBITDA-bridge tracker', when: hoursAgo(40) }], hoursSaved: 33,
   },
   {
     id: 'demo-greatlakes', company: 'Great Lakes Precision', region: 'midwest', tags: [],
@@ -547,7 +547,7 @@ export const demoStageDeals = [
     ],
     memoSections: [{ key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'IC approved; reshoring backlog underwrites the base case.', citations: ['IC minutes — not on file in this system'] }],
     compliance: [{ check: 'Financing conditions precedent', framework: 'Legal', status: 'in_progress' }, { check: 'Sanctions / UBO screening', framework: 'KYC', status: 'passed' }],
-    activity: [{ actor: 'Financing-Structuring Agent', action: 'Locked the debt package; funds-flow drafted', when: hoursAgo(26) }], hoursSaved: 28,
+    activity: [{ actor: 'Deal team — financing & structuring', action: 'Locked the debt package; funds-flow drafted', when: hoursAgo(26) }], hoursSaved: 28,
   },
   {
     id: 'demo-mojave', company: 'Mojave Renewables', region: 'southwest', tags: [],
@@ -564,7 +564,7 @@ export const demoStageDeals = [
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Contracted solar-plus-storage backlog with IRA economics.', citations: ['Screen'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
-    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at the Screening Gate', when: hoursAgo(72) }], hoursSaved: 4,
+    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at screening', when: hoursAgo(72) }], hoursSaved: 4,
   },
   // Top-of-funnel spread. Origination is mostly a CANDIDATE activity (see data/
   // candidates.js) — only pursued candidates become deals — but the funnel reads as
@@ -585,7 +585,7 @@ export const demoStageDeals = [
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Private-label specialty manufacturer with spare capacity and a succession window.', citations: ['Screen'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
-    activity: [{ actor: 'Sourcing Agent', action: 'Surfaced from founder-succession signals; PURSUE recorded at the Screening Gate', when: hoursAgo(30) }], hoursSaved: 3,
+    activity: [{ actor: 'Deal team — sourcing', action: 'Surfaced from founder-succession signals; PURSUE recorded at screening', when: hoursAgo(30) }], hoursSaved: 3,
   },
   {
     id: 'demo-harborlight', region: 'northeast', tags: [],
@@ -604,7 +604,7 @@ export const demoStageDeals = [
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Fragmented marine services roll-up on contracted port and offshore-wind demand.', citations: ['Screen'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'in_progress' }],
-    activity: [{ actor: 'Diego Marquez', action: 'Completed the screening triage; routed to the gate', when: hoursAgo(46) }], hoursSaved: 5,
+    activity: [{ actor: 'Diego Marquez', action: 'Completed the screening triage; routed to the go / no-go decision', when: hoursAgo(46) }], hoursSaved: 5,
   },
   {
     id: 'demo-cypress', company: 'Cypress Grove Dental Partners', region: 'southeast', tags: [],
@@ -621,7 +621,7 @@ export const demoStageDeals = [
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Sunbelt DSO consolidation with a de-novo pipeline; reimbursement mix to be tested.', citations: ['Screen'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
-    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at the Screening Gate', when: hoursAgo(20) }], hoursSaved: 3,
+    activity: [{ actor: 'Eleanor Bishop', action: 'PURSUE recorded at screening', when: hoursAgo(20) }], hoursSaved: 3,
   },
 
   {
@@ -672,8 +672,8 @@ export const demoStageDeals = [
       { check: 'Financing conditions precedent', framework: 'Legal', status: 'in_progress' }
     ],
     activity: [
-      { actor: 'Financing-Structuring Agent', action: 'Locked debt package at 4.1x; funds-flow drafted', when: hoursAgo(30) },
-      { actor: 'Legal-Negotiation Agent', action: 'Circulated SPA v7 with the negotiated CP list', when: hoursAgo(10) }
+      { actor: 'Deal team — financing & structuring', action: 'Locked debt package at 4.1x; funds-flow drafted', when: hoursAgo(30) },
+      { actor: 'Deal team — legal', action: 'Circulated SPA v7 with the negotiated CP list', when: hoursAgo(10) }
     ],
     hoursSaved: 34
   },
@@ -721,8 +721,8 @@ export const demoStageDeals = [
       { check: 'Covenant compliance test', framework: 'Financing', status: 'passed' }
     ],
     activity: [
-      { actor: 'Value-Creation Agent', action: 'Updated the EBITDA-bridge tracker (+9.4% vs entry)', when: hoursAgo(48) },
-      { actor: 'Portfolio-Monitoring Agent', action: 'Assembled the Q2 board pack + LP update', when: hoursAgo(20) }
+      { actor: 'Deal team — value creation', action: 'Updated the EBITDA-bridge tracker (+9.4% vs entry)', when: hoursAgo(48) },
+      { actor: 'Deal team — portfolio monitoring', action: 'Assembled the Q2 board pack + LP update', when: hoursAgo(20) }
     ],
     hoursSaved: 41
   },
@@ -770,8 +770,8 @@ export const demoStageDeals = [
       { check: 'Sell-side QoE engagement', framework: 'Finance', status: 'in_progress' }
     ],
     activity: [
-      { actor: 'Exit-Readiness Agent', action: 'Scored exit readiness 86/100; flagged 2 pre-sale fixes', when: hoursAgo(72) },
-      { actor: 'IC-Memo Agent', action: 'Drafted the exit recommendation for the exit committee', when: hoursAgo(26) }
+      { actor: 'Deal team — exit readiness', action: 'Scored exit readiness 86/100; flagged 2 pre-sale fixes', when: hoursAgo(72) },
+      { actor: 'Deal team — IC memo', action: 'Drafted the exit recommendation for the exit committee', when: hoursAgo(26) }
     ],
     hoursSaved: 29
   },
@@ -825,8 +825,8 @@ export const demoStageDeals = [
       { check: 'FCA change-in-control (Part XII) pre-assessment', framework: 'FCA', status: 'in_progress' }
     ],
     activity: [
-      { actor: 'Diligence-Orchestration Agent', action: 'Opened the clean-team data room; restricted to the named deal team', when: hoursAgo(30) },
-      { actor: 'Financing Agent', action: 'Assembled the pre-underwritten financing package (two banks)', when: hoursAgo(12) }
+      { actor: 'Deal team — diligence', action: 'Opened the clean-team data room; restricted to the named deal team', when: hoursAgo(30) },
+      { actor: 'Deal team — financing', action: 'Assembled the pre-underwritten financing package (two banks)', when: hoursAgo(12) }
     ],
     hoursSaved: 34
   },
@@ -878,8 +878,8 @@ export const demoStageDeals = [
       { check: 'Seller environmental indemnity', framework: 'Legal', status: 'passed' }
     ],
     activity: [
-      { actor: 'Legal-Execution Agent', action: 'Reconciled SPA v6 against the clean-team markups; 2 points open', when: hoursAgo(20) },
-      { actor: 'Separation Agent', action: 'Finalised the 18-month TSA exit schedule', when: hoursAgo(8) }
+      { actor: 'Deal team — legal execution', action: 'Reconciled SPA v6 against the clean-team markups; 2 points open', when: hoursAgo(20) },
+      { actor: 'Deal team — separation', action: 'Finalised the 18-month TSA exit schedule', when: hoursAgo(8) }
     ],
     hoursSaved: 37
   }

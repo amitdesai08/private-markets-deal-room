@@ -1156,7 +1156,7 @@ api.get('/deals/:id/activity', (req, res) => {
 api.get('/market-intel', (_req, res) => res.json(marketIntel() || { info: fabricStatus(), companies: [], comparableDeals: [], benchmarkFindings: [], icPrecedents: [], companyFinancials: {} }));
 api.get('/market-intel/comps', (req, res) => res.json(comparableDeals({ sector: req.query.sector })));
 api.get('/market-intel/benchmarks', (req, res) => res.json(benchmarkFindings(req.query.workstream)));
-api.get('/market-intel/ic-precedents', (_req, res) => res.json(icPrecedents()));
+api.get('/market-intel/ic-precedents', (req, res) => res.json(icPrecedents(req.query.sector)));
 api.get('/market-intel/financials/:ticker', (req, res) => {
   const f = companyFinancials(req.params.ticker);
   if (!f) return res.status(404).json({ error: 'no-coverage' });

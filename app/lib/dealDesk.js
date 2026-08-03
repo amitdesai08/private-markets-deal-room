@@ -224,11 +224,11 @@ function blockerAnalysis(step, deal, board, lanes) {
   return {
     headline: lanes.length === 1
       ? `${laneLabel(worst.lane)} is the critical path`
-      : `${lanes.length} lanes are holding this step — ${laneLabel(worst.lane)} is furthest behind`,
+        : `${lanes.length} workstreams are holding this step — ${laneLabel(worst.lane)} is furthest behind`,
     evidence,
     impact: downstream.length
       ? `Blocks ${downstream.join(', ')} (${downstream.length} downstream step${downstream.length === 1 ? '' : 's'}).`
-      : 'Blocks the next gate.',
+      : 'Holds up the next step.',
     owner: ownerLabel(worst.owner, worst.lane),
     lane: worst.lane,
     laneLabel: laneLabel(worst.lane),
@@ -278,15 +278,21 @@ export function buildWorkflowDesk(deal, board, { role = null, commitments = [] }
   const moving = lanes.filter((w) => (w.progress ?? 0) > 0);
   const idle = lanes.length - moving.length;
   if (lanes.length) {
-    c.add(`${moving.length} of ${lanes.length} diligence lanes are moving${idle ? `; ${idle} ${idle === 1 ? 'has' : 'have'} not started` : ''}. ${moving.map((w) => `${laneLabel(w.lane)} ${w.progress}%`).join(' · ') || 'No lane has recorded progress.'}`, 'Workstream progress');
+    c.add(`${moving.length} of ${lanes.length} diligence workstreams are moving${idle ? `; ${idle} ${idle === 1 ? 'has' : 'have'} not started` : ''}. ${moving.map((w) => `${laneLabel(w.lane)} ${w.progress}%`).join(' · ') || 'No workstream has recorded progress.'}`, 'Workstream progress');
   }
   if (current?.blocker) {
-    c.add(`${current.key} ${current.title} is stalled — ${current.blocker.headline.toLowerCase()}. ${current.blocker.impact}`, 'IC readiness board');
+    // The headline was lowercased to splice it after a dash, which turned the defined
+    // term QoE into "qoe" in the one sentence that says what is blocking the deal.
+    // Ending the first clause with a full stop removes the need for any case change.
+    c.add(`${current.key} ${current.title} is stalled. ${current.blocker.headline}. ${current.blocker.impact}`, 'IC readiness board');
   }
   const icDays = daysUntil(deal.targetICDate);
   if (icDays != null && icDays >= 0) c.add(`IC is ${icDays} days out; ${dueLabel(deal.targetICDate)}.`, 'Deal record');
   if (commitments.length) {
-    c.add(`${commitments.length} commitment${commitments.length === 1 ? ' was' : 's were'} made in the deal channel that ${commitments.length === 1 ? 'has' : 'have'} no matching task on the plan.`, 'Work IQ (Teams)');
+    // These three strings are printed as citation sources, which exist so a partner
+    // can check where a claim came from. An internal product codename tells them
+    // nothing they can go and verify.
+    c.add(`${commitments.length} commitment${commitments.length === 1 ? ' was' : 's were'} made in the deal channel that ${commitments.length === 1 ? 'has' : 'have'} no matching task on the plan.`, 'Deal channel (Teams)');
   }
 
   return {
@@ -330,7 +336,7 @@ function threadFromNotes(dealId, notes) {
       id: `note-${dealId}-${personaId}`,
       group: 'Deal objects',
       title: list[0].personaLabel || list[0].author,
-      anchorKind: lane ? 'Lane' : 'Deal',
+      anchorKind: lane ? 'Workstream' : 'Deal',
       anchor: lane ? laneLabel(lane) : 'Deal record',
       preview: list[list.length - 1].text.slice(0, 90),
       updated: iso(list[list.length - 1].createdAt),
@@ -339,7 +345,7 @@ function threadFromNotes(dealId, notes) {
         id: `${personaId}-${i}`, from: n.author, initials: initials(n.author),
         role: n.personaLabel || null, at: iso(n.createdAt), text: n.text,
       })),
-      source: 'Work IQ shared memory',
+      source: 'Shared deal notes',
     });
   }
   return out;
@@ -370,7 +376,7 @@ export function buildThreads(deal, { channel = null, notes = [], liveChannel = n
       messages: msgs,
       live: !!liveChannel && !liveChannel.demo,
       webUrl: deal.teamsChannel?.webUrl || null,
-      source: liveChannel && !liveChannel.demo ? 'Microsoft Teams (live)' : 'Work IQ demo corpus',
+      source: liveChannel && !liveChannel.demo ? 'Microsoft Teams (live)' : 'Sample deal channel',
     });
   }
 
@@ -385,7 +391,7 @@ export function buildThreads(deal, { channel = null, notes = [], liveChannel = n
       group: 'Cross-functional',
       title: issue.title || 'Open request',
       ref: `#${String(issue.lane || 'REQ').slice(0, 3).toUpperCase()}-${String(i + 1).padStart(3, '0')}`,
-      anchorKind: 'Lane',
+      anchorKind: 'Workstream',
       anchor: laneLabel(issue.lane),
       state: issue.status === 'in_progress' ? 'In progress' : 'Pending',
       preview: issue.resolutionPath || issue.title || '',

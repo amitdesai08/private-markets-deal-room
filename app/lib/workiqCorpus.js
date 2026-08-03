@@ -249,7 +249,7 @@ function generatedChannel(deal) {
       d == null ? 'No IC date is pending on this one.'
         : d < 0 ? `We are ${Math.abs(d)} days past the target IC date.`
         : `IC is ${d} days out.`
-    } Lane owners, please post status here rather than by email so the record stays in one place.`,
+    } Workstream owners, please post status here rather than by email so the record stays in one place.`,
     `Kicking off the week on ${deal.company}. Current step is ${deal.currentStep || deal.stage}${
       typeof deal.readiness === 'number' ? ` and diligence progress sits at ${deal.readiness}%` : ''
     }. Post blockers in the channel — I would rather hear them early.`,

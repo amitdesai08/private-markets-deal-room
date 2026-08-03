@@ -250,7 +250,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
       if (unevidenced.length) parts.push(`${unevidenced.length} diligence workstream${unevidenced.length === 1 ? '' : 's'} with no work recorded`);
       return {
         state: 'CONDITIONAL',
-        headline: `Past the committee gate — ${parts.join(' and ')}.`,
+        headline: `Past the IC decision — ${parts.join(' and ')}.`,
         gating: outstanding,
         openConditions: openConditions.length,
         openComplianceChecks: openChecks.length,
@@ -260,7 +260,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
     }
     return {
       state: 'READY',
-      headline: 'Past the committee gate — nothing outstanding on the record.',
+      headline: 'Past the IC decision — nothing outstanding on the record.',
       gating: [],
       openConditions: 0,
       openComplianceChecks: 0,

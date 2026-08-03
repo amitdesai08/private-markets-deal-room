@@ -51,9 +51,18 @@ type CitationFig = { label: string; value: string; source?: string | null; sourc
 type CitationClaim = { section: string; figure: string; sourced?: boolean; via?: string | null };
 type Citations = { score?: number; totalClaims?: number; sourcedClaims?: number; unsourcedClaims?: CitationClaim[]; keyFigures?: CitationFig[]; unsourcedFigures?: CitationFig[]; clean?: boolean; summary?: string };
 
+// The origination four match Stage1's map exactly: "Gate" and "Prioritize" were the
+// engineering model showing through, and that fix had landed on the sourcing screen
+// but not here, so the same four stages had two different names in two places.
+// Execution and ownership had no entries at all, so a deal in execution -- which is
+// most of them -- printed its step code twice, once as the marker and once as the
+// label. Anything still missing now falls back to the step's own title, which the
+// data already carries, rather than to the code.
 const STEP_LABEL: Record<string, string> = {
-  O1: 'Sourcing', O2: 'Screen', O3: 'Prioritize', O4: 'Gate',
-  D1: 'Plan', D2: 'Diligence', D3: 'Synthesis', D4: 'IC Approval', D5: 'Archive',
+  O1: 'Sourced', O2: 'Screening', O3: 'Shortlist', O4: 'Go / no-go',
+  D1: 'Plan', D2: 'Diligence', D3: 'Synthesis', D4: 'IC approval', D5: 'Archive',
+  E1: 'Structuring', E2: 'Signing', E3: 'Conditions', E4: 'Completion',
+  V1: 'Onboarding', V2: 'Value creation', V3: 'Exit readiness',
 };
 const LANE_LABEL: Record<string, string> = {
   commercial: 'Commercial', financial: 'Financial', legal: 'Legal', tax: 'Tax',
@@ -232,10 +241,20 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     if (tab !== 'research') return;
     if (!market) {
       const sector = encodeURIComponent(String(deal?.sector || ''));
+      // Both lists are fetched scoped to the deal's sector and used as returned, empty
+      // or not. Falling back to the unscoped pool -- which is what this did -- put the
+      // whole market's transactions under a heading that says "scoped to <sector>",
+      // so a healthcare diagnostics deal was shown a stationary-bike company and a
+      // shoe brand as the comparables anchoring its entry valuation.
       Promise.all([
         fetch('/api/market-intel').then((r) => (r.ok ? r.json() : null)).catch(() => null),
         sector ? fetch(`/api/market-intel/comps?sector=${sector}`).then((r) => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null),
-      ]).then(([mi, comps]) => setMarket({ ...(mi || {}), comparableDeals: (comps && comps.length ? comps : mi?.comparableDeals) || [] }));
+        sector ? fetch(`/api/market-intel/ic-precedents?sector=${sector}`).then((r) => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null),
+      ]).then(([mi, comps, precedents]) => setMarket({
+        ...(mi || {}),
+        comparableDeals: (sector ? comps : mi?.comparableDeals) || [],
+        icPrecedents: (sector ? precedents : mi?.icPrecedents) || [],
+      }));
     }
     // A failed request left `citations` null, so the panel said "Auditing numeric
     // claims…" for as long as the tab stayed open. On a panel whose whole job is to
@@ -777,7 +796,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           return (
                             <button key={s.key} className={`fstep-btn${cur ? ' cur' : ''}${done ? ' done' : ''}${on ? ' on' : ''}`} disabled={lockedStep} title={lockedStep ? 'Deal team only' : ''} style={lockedStep ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} onClick={() => { if (!lockedStep) setSelStep(s.key); }}>
                               <span className="fs-key">{lockedStep ? '🔒' : done ? '✓' : s.key}</span>
-                              <span className="fs-label">{STEP_LABEL[s.key] || s.key}</span>
+                              <span className="fs-label">{STEP_LABEL[s.key] || s.title || s.key}</span>
                             </button>
                           );
                         })}
@@ -1019,7 +1038,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
                   <section className="dd-panel">
                     <div className="dd-panel-h">Comparable &amp; historical deals<span className="muted">{market?.info?.source ? `${market.info.source}${market.info.freshness?.label ? ` · ${market.info.freshness.label}` : ''}` : 'Market data'}</span></div>
-                    {!market ? <div className="dd-empty-p">Loading market intelligence…</div> : !(market.comparableDeals || []).length ? <div className="dd-empty-p">No comparables for this sector.</div> : (
+                    {!market ? <div className="dd-empty-p">Loading market intelligence…</div> : !(market.comparableDeals || []).length ? <div className="dd-empty-p">No comparable transactions on file for {deal.sector || 'this sector'}{deal.subSector && deal.subSector !== deal.sector ? ` · ${deal.subSector}` : ''}. Add precedents manually, or widen the search in Market intelligence — an empty list here is the honest answer, not a broader one.</div> : (
                       <div className="mr-list">
                         {(market.comparableDeals || []).slice(0, 8).map((c, i) => (
                           <div className="mr-row" key={i}>
@@ -1034,7 +1053,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
                   <section className="dd-panel">
                     <div className="dd-panel-h">IC voting precedents</div>
-                    {!(market?.icPrecedents || []).length ? <div className="dd-empty-p">No precedents loaded.</div> : (
+                    {!(market?.icPrecedents || []).length ? <div className="dd-empty-p">No IC precedents on file for {deal.sector || 'this sector'}. Past votes on comparable assets appear here once the fund has some.</div> : (
                       <div className="mr-list">
                         {(market!.icPrecedents || []).slice(0, 8).map((p, i) => (
                           <div className="mr-row" key={i}>

@@ -25,7 +25,7 @@ import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipel
 type TeamsConfig = { demoMode: boolean; backend: string; sso: boolean; bot: boolean; backendUrl?: string; appBaseUrl?: string };
 
 // The user talks to ONE assistant. It fronts the orchestrator, which brings in the
-// right specialist agents (sourcing, screening, diligence, modeling, IC-memo,
+// right specialist agents (sourcing, screening, diligence, modelling, IC-memo,
 // value-creation) server-side, scoped to the caller's role/persona. We deliberately
 // never present the specialists as separately selectable chat targets.
 const ORCHESTRATOR: Agent = {

@@ -83,11 +83,11 @@ const TEMPLATES = [
 // item is tagged with the internal swimlane that owns follow-up (where relevant).
 const CHECKLIST = [
   {
-    id: 'corp', section: '1 · Corporate & Organizational',
+    id: 'corp', section: '1 · Corporate & Organisational',
     items: [
       { id: 'corp-1', text: 'Certificate of incorporation, articles / bylaws' },
       { id: 'corp-2', text: 'Legal org chart — all subsidiaries, jurisdictions, ownership %' },
-      { id: 'corp-3', text: 'Fully-diluted capitalization table (options, warrants, converts)' },
+      { id: 'corp-3', text: 'Fully-diluted capitalisation table (options, warrants, converts)' },
       { id: 'corp-4', text: 'Board & shareholder minutes (last 3 years)' }
     ]
   },
@@ -116,7 +116,7 @@ const CHECKLIST = [
       { id: 'legal-1', text: 'Schedule of material contracts — change-of-control flags' },
       { id: 'legal-2', text: 'IP portfolio — patents, trademarks, chain of title' },
       { id: 'legal-3', text: 'Litigation schedule — pending, threatened, settled' },
-      { id: 'legal-4', text: 'Regulatory licenses & permits' }
+      { id: 'legal-4', text: 'Regulatory licences & permits' }
     ]
   },
   {
@@ -176,7 +176,7 @@ const SWIMLANE_DEFAULTS = [
   {
     lane: 'legal', label: 'Legal DD', md: 'legal-md',
     advisor: 'Kirkland & Ellis', advisorType: 'Legal counsel (LDD)',
-    scope: ['Material contracts & change-of-control', 'Corporate & capitalization', 'Litigation & disputes', 'Regulatory licenses & permits'],
+    scope: ['Material contracts & change-of-control', 'Corporate & capitalisation', 'Litigation & disputes', 'Regulatory licences & permits'],
     deliverable: 'Legal DD report + issues list'
   },
   {
@@ -253,7 +253,7 @@ export function buildWorkspace(deal, opts = {}) {
 
   return {
     createdAt: opts.createdAt || new Date().toISOString(),
-    provisionedBy: 'Gate-Orchestration Agent · Power Automate',
+    provisionedBy: 'Deal team — deal setup · Power Automate',
     icDate: deal.targetICDate,
     teamsUrl,
     teamsProvisioned: false,

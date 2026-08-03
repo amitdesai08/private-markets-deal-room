@@ -110,7 +110,7 @@ export const deskCompanies = [
       { id: 'bn2', source: 'pitchbook', when: daysAgo(5), headline: 'PitchBook: no institutional capital on the Brauhaus cap table', detail: 'Family-owned with no prior PE — a clean, proprietary origination.', catalyst: 'ownership', confidence: 0.79 }
     ],
     filings: [
-      { id: 'bf1', source: 'capitaliq', filingType: 'Handelsregister (DE)', when: daysAgo(6), headline: 'Holding reorganization filed', confirms: 'ownership', detail: 'Register filing consistent with pre-transaction reorganization.' }
+      { id: 'bf1', source: 'capitaliq', filingType: 'Handelsregister (DE)', when: daysAgo(6), headline: 'Holding reorganisation filed', confirms: 'ownership', detail: 'Register filing consistent with pre-transaction reorganisation.' }
     ],
     quality: { rating: 'BB / Stable', score: 6.9, trend: 'stable', flags: ['Category headwinds'], note: 'Strong regional brand and cash generation; beer-category volume headwinds are the watch item.' }
   },

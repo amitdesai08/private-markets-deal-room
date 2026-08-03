@@ -42,7 +42,12 @@ test('the overwrite is written to the activity log, with an actor', () => {
   const d = getDealRaw('atlas-coldchain');
   const top = d.activity[0];
   assert.match(top.actor, /Administrator/, 'the overwrite names no operator');
-  assert.match(top.action, /demo fixture/i, 'the log does not say what happened');
+  // The copy moved off "demo fixture (app/data/deals.js)" because an audit trail that
+  // prints a repo path reads as a developer artefact to the compliance officer who has
+  // to rely on it. The assertion still demands the log say what happened, and that it
+  // say the history was discarded -- it is only the words that changed.
+  assert.match(top.action, /reset to its starting state/i, 'the log does not say what happened');
+  assert.match(top.action, /discarded/i, 'the log does not admit the history was lost');
   assert.ok(top.when, 'no timestamp');
 });
 

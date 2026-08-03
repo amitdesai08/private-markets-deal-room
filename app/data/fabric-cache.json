@@ -36,7 +36,7 @@
     {
       "company": "Peloton Interactive Inc.",
       "ticker": "PTON",
-      "dealType": "Recapitalization",
+      "dealType": "Recapitalisation",
       "dealValue": 344741157.8889518,
       "impliedValuation": 2163650159.7064185,
       "evEbitda": null,
@@ -60,7 +60,7 @@
     {
       "company": "Allbirds Inc.",
       "ticker": "BIRD",
-      "dealType": "Recapitalization",
+      "dealType": "Recapitalisation",
       "dealValue": 280199700.78781724,
       "impliedValuation": 824657384.631189,
       "evEbitda": null,

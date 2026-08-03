@@ -74,7 +74,7 @@ export const personas = [
     short: 'Partner',
     color: '#b91c1c',
     lane: 'ic',
-    focus: 'Sources & sponsors the deal, sets gate priorities, chairs the IC approval.',
+    focus: 'Sources & sponsors the deal, sets deal priorities, chairs the IC approval.',
     stages: ['O1', 'O4', 'D3', 'D4'],
     actions: [
       { id: 'ic-memo', label: 'Generate IC memo draft', target: 'memo', section: 'recommendation', hours: 16, blurb: 'Full cited memo from the live record.' },

@@ -469,7 +469,7 @@ function TargetRow({ t, busy, onScreen }: { t: ScoredTarget; busy: string; onScr
           <div className="cand-meta">{[t.sector, t.region, t.country].filter(Boolean).join(' · ')} · {money(t.dealSize)}{t.ownership ? ` · ${t.ownership}` : ''}</div>
           <div className="cand-tags">
             {t.matchedScreen ? <span className="chip" title="Matched screen">🎯 {t.matchedScreen.name}</span> : null}
-            {t.gated ? <span className="chip" title="Blocked by the fund gate">⛔ gated</span> : null}
+            {t.gated ? <span className="chip" title="Outside the fund mandate">⛔ outside mandate</span> : null}
             {t.inFunnel ? <span className="chip">in funnel</span> : null}
             {(t.sources || []).slice(0, 2).map((s, i) => <span className="chip" key={i}>{s}</span>)}
           </div>

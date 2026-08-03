@@ -218,7 +218,7 @@ export function fundOverview() {
     ilpaSummary: [
       `Fund: ${fundMandate.name} · vintage ${fundVintage.vintageYear}`,
       `Committed capital: $${round(fundSize / 1000, 2)}B · ${deployedPct}% invested · $${round(dryPowder / 1000, 2)}B dry powder`,
-      `Net asset value (unrealized): $${round(unrealized / 1000, 2)}B across ${companies.length} portfolio companies`,
+      `Net asset value (unrealised): $${round(unrealized / 1000, 2)}B across ${companies.length} portfolio companies`,
       `TVPI ${tvpi}x · DPI ${dpi}x · RVPI ${rvpi}x · net IRR ${netIrr}%`,
       `Reporting: ${fundMandate.esgPolicy}`
     ]

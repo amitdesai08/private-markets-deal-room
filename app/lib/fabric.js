@@ -304,16 +304,25 @@ export function getMarketIntel() {
 
 const norm = (x) => String(x || '').toLowerCase();
 
-// Comparable / historical deals, optionally biased to a sector.
+// Comparable / historical deals for a sector.
+//
+// This used to score every deal and then SORT by the score, with no filter, so a
+// sector with no matches quietly returned the first N of the global pool -- and the
+// panel above it says in writing "scoped to <sector>". On a Swiss lab-diagnostics
+// asset that produced Peloton, Wayfair and Allbirds as the comparables anchoring
+// entry valuation. Returning nothing and saying so is far better than returning the
+// wrong thing under a claim of relevance.
 export function getComparableDeals({ sector, limit = 8 } = {}) {
   if (!_snapshot) return [];
   const all = _snapshot.comparableDeals || [];
   if (!sector) return all.slice(0, limit);
-  const key = norm(sector);
-  const scored = all
-    .map((d) => ({ d, hit: norm(d.thesis).includes(key) || norm(d.company).includes(key) || norm(d.dealType).includes(key) }))
-    .sort((a, b) => (b.hit ? 1 : 0) - (a.hit ? 1 : 0));
-  return scored.map((x) => x.d).slice(0, limit);
+  const keys = norm(sector).split(/[^a-z0-9]+/).filter((k) => k.length > 2);
+  if (!keys.length) return [];
+  const hit = (d) => {
+    const hay = `${norm(d.thesis)} ${norm(d.company)} ${norm(d.dealType)} ${norm(d.sector)}`;
+    return keys.some((k) => hay.includes(k));
+  };
+  return all.filter(hit).slice(0, limit);
 }
 
 // Benchmark diligence findings from real prior deals, optionally one workstream.
@@ -325,10 +334,19 @@ export function getBenchmarkFindings(workstream) {
   return all.filter((w) => norm(w.workstream) === key || norm(w.workstream).includes(key));
 }
 
-// IC voting precedents (decision, votes, conditions, closing status).
-export function getICPrecedents() {
+// IC voting precedents (decision, votes, conditions, closing status). Scoped to a
+// sector when one is given, for the same reason as the comparables above -- the panel
+// that renders these claims they are relevant to the deal in front of the reader.
+export function getICPrecedents(sector) {
   if (!_snapshot) return [];
-  return _snapshot.icPrecedents || [];
+  const all = _snapshot.icPrecedents || [];
+  if (!sector) return all;
+  const keys = norm(sector).split(/[^a-z0-9]+/).filter((k) => k.length > 2);
+  if (!keys.length) return [];
+  return all.filter((p) => {
+    const hay = `${norm(p.sector)} ${norm(p.company)} ${norm(p.thesis)} ${norm(p.dealType)}`;
+    return keys.some((k) => hay.includes(k));
+  });
 }
 
 // Real company financials from SEC filing metrics, plus dim_company metadata.

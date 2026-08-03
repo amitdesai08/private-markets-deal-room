@@ -53,7 +53,7 @@ export const seedThemes = [
     sector: 'Consumer & Retail',
     subSectors: ['Specialty grocery', 'Branded food', 'Connected fitness & wellness', 'DTC brands'],
     geographyFocus: ['Northeast', 'West / California'],
-    valueCreation: ['Buy-and-build', 'Retail footprint rationalization', 'Loyalty-data & subscription monetization'],
+    valueCreation: ['Buy-and-build', 'Retail footprint rationalisation', 'Loyalty-data & subscription monetisation'],
     rightToWin: 'Two prior US consumer platform builds; operating-partner bench in retail & CPG.',
     evGuidance: '$150–600M'
   },
@@ -69,7 +69,7 @@ export const seedThemes = [
     sector: 'Industrials',
     subSectors: ['Precision components', 'Sustainable packaging', 'Cold-chain logistics'],
     geographyFocus: ['Midwest', 'Southeast', 'Texas'],
-    valueCreation: ['Buy-and-build', 'Procurement & footprint optimization', 'Commercial excellence'],
+    valueCreation: ['Buy-and-build', 'Procurement & footprint optimisation', 'Commercial excellence'],
     rightToWin: 'Sector MD with 15 yrs in US industrials; three bolt-on pipelines identified.',
     evGuidance: '$100–500M'
   },

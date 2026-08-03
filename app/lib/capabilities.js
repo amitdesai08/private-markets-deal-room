@@ -32,7 +32,7 @@ const CAPABILITIES = [
     asks: ['Build the diligence plan for this deal.', 'What are the top red-flag risks?'],
   },
   {
-    agent: 'Modeling', purpose: 'Build the returns case — LBO, DCF, 3-statement and comps',
+    agent: 'Modelling', purpose: 'Build the returns case — LBO, DCF, 3-statement and comps',
     skills: ['lbo-model', 'dcf-model', '3-statement-model', 'returns-analysis'],
     stage: 'Diligence / Execution', needs: 'read',
     asks: ['Build the LBO — base IRR & MOIC vs the hurdle.', 'Run a base / bull / bear returns sensitivity.'],

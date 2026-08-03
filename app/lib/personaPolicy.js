@@ -5,7 +5,7 @@
 //     approve at the Investment Committee (D4);
 //   • the ANALYST (deal associate) runs the funnel (screen/triage), launches
 //     diligence and compiles findings/artifacts;
-//   • each SECTOR MD owns exactly ONE diligence lane and may only record findings
+//   • each SECTOR MD owns exactly ONE diligence workstream and may only record findings
 //     into that lane.
 //
 // The persona is resolved once per request (resolvePersona) and every action tool
@@ -104,7 +104,7 @@ export function can(persona, action, { lane, stage } = {}) {
   if (spec.laneScoped && personaLane) {
     // A sector MD may only contribute to its own lane.
     if (lane && lane !== personaLane) {
-      return { ok: false, reason: `The ${PERSONA_LABEL[persona] || persona} owns the ${LANE_LABEL[personaLane] || personaLane} lane and cannot contribute to the ${LANE_LABEL[lane] || lane} lane.` };
+      return { ok: false, reason: `The ${PERSONA_LABEL[persona] || persona} owns the ${LANE_LABEL[personaLane] || personaLane} workstream and cannot contribute to the ${LANE_LABEL[lane] || lane} workstream.` };
     }
   }
   return { ok: true };

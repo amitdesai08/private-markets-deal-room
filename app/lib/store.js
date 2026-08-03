@@ -611,7 +611,9 @@ export function resyncSeededDeals({ persona = null } = {}) {
     const dd = clone(demo);
     attachWorkspaces([dd]);
     dd.activity = [
-      { actor: who, action: 'Deal record replaced with the demo fixture (app/data/deals.js). Any state recorded against this deal before now was discarded.', when },
+      // The audit trail is the one surface whose whole value is being defensible to a
+      // compliance reader. A repo path in it says the record is a developer artefact.
+      { actor: who, action: 'Deal reset to its starting state. Anything recorded against this deal before now was discarded.', when },
       ...(Array.isArray(dd.activity) ? dd.activity : []),
     ];
     if (i >= 0) deals[i] = dd; else deals.push(dd);
@@ -2003,7 +2005,7 @@ export async function launchDeal(id) {
   }
   deal.activity.unshift(
     { actor: 'Power Automate', action: `PURSUE — ${GATE.detail}`, when: new Date().toISOString() },
-    { actor: 'Gate-Orchestration Agent', action: 'Provisioned Teams + SharePoint workspace, DD checklist & templates', when: new Date().toISOString() }
+    { actor: 'Deal team — deal setup', action: 'Provisioned Teams + SharePoint workspace, DD checklist & templates', when: new Date().toISOString() }
   );
   persistDeal(deal);
   logEvent(deal.id, 'launch', { company: deal.company });
@@ -2633,8 +2635,8 @@ export function comparableDeals(opts) {
 export function benchmarkFindings(workstream) {
   return getBenchmarkFindings(workstream);
 }
-export function icPrecedents() {
-  return getICPrecedents();
+export function icPrecedents(sector) {
+  return getICPrecedents(sector);
 }
 export function companyFinancials(ticker) {
   return getCompanyFinancials(ticker);

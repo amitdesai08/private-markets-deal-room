@@ -174,7 +174,7 @@ function workstreamFindings(deal) {
   const haircut = f.ebitdaMargin < 10 ? 18 : f.ebitdaMargin < 15 ? 12 : 6;
   const adjEbitda = round(f.ebitda * (1 - haircut / 100));
   add('financial', haircut >= 15 ? 'reprice' : 'condition',
-    `QoE normalizes EBITDA down ${haircut}% (${money(f.ebitda)} → ${money(adjEbitda)}) after removing unsupported add-backs and owner-comp normalization.`,
+    `QoE normalises EBITDA down ${haircut}% (${money(f.ebitda)} → ${money(adjEbitda)}) after removing unsupported add-backs and owner-comp normalisation.`,
     haircut >= 15 ? `Repricing lever — reset entry EV against ${money(adjEbitda)} adjusted EBITDA.` : 'Reflected in the model and the SPA net-working-capital peg.');
   add('financial', 'condition', `Net-working-capital peg set at ~${money(round(f.revenue * 0.12))} from a 12–24 month seasonality analysis.`, 'Becomes the SPA true-up mechanism at close.');
 
@@ -491,7 +491,7 @@ export function buildValueCreationPlan(deal) {
     { lever: 'Buy-and-build / bolt-ons', contribution: round(deltaEbitda * 0.25), owner: 'principal' },
   ];
   const levers = [
-    { name: 'Pricing optimization', workstream: 'commercial', impact: round(f.revenue * 0.015), timeline: 'Days 1–100', owner: 'Operating Partner + Commercial MD' },
+    { name: 'Pricing optimisation', workstream: 'commercial', impact: round(f.revenue * 0.015), timeline: 'Days 1–100', owner: 'Operating Partner + Commercial MD' },
     { name: 'Procurement & COGS cost-out', workstream: 'operational', impact: round(f.revenue * 0.02), timeline: 'Months 3–12', owner: 'Operating Partner + Supply MD' },
     { name: 'SG&A efficiency', workstream: 'operational', impact: round(f.revenue * 0.01), timeline: 'Months 3–9', owner: 'Operating Partner' },
     { name: 'AI / digital productivity', workstream: 'tech', impact: round(f.revenue * 0.01), timeline: 'Months 6–18', owner: 'AI MD' },

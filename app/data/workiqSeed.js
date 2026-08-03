@@ -26,10 +26,10 @@ export const WORKIQ_SEED_NOTES = [
 
   // Meridian Logistics — value-creation seat picks up the diligence trail post-close.
   { id: 'wiq-seed-meridian-1', dealId: 'demo-meridian', author: 'Dr. Priya Nair', personaId: 'ai-md', personaLabel: 'AI Partner — Tech & Digital Value', role: 'deal-team',
-    text: 'Post-close AI lever: dynamic route-and-load optimization piloted on the Midwest lane cut empty-miles ~7%. Scaling fleet-wide is the single biggest digital EBITDA lever, but depends on the telematics data contract renewal (expires Q3).',
+    text: 'Post-close AI lever: dynamic route-and-load optimisation piloted on the Midwest lane cut empty-miles ~7%. Scaling fleet-wide is the single biggest digital EBITDA lever, but depends on the telematics data contract renewal (expires Q3).',
     sharedWith: ['operating-partner', 'supply-md'], createdAt: '2026-07-20T16:20:00Z' },
   { id: 'wiq-seed-meridian-2', dealId: 'demo-meridian', author: 'Rachel Nguyen', personaId: 'operating-partner', personaLabel: 'Operating Partner — Value Creation', role: 'deal-team',
-    text: '100-day plan: locking the telematics renewal as a Day-30 gate so Priya\'s route-optimization lever is not blocked. Tracking vs underwriting: EBITDA +8.8% but -10.9% to plan — the empty-miles lever is how we close the gap.',
+    text: '100-day plan: locking the telematics renewal as a Day-30 milestone so Priya\'s route-optimisation lever is not blocked. Tracking vs underwriting: EBITDA +8.8% but -10.9% to plan — the empty-miles lever is how we close the gap.',
     sharedWith: ['ai-md', 'partner'], createdAt: '2026-07-27T10:10:00Z' },
 
   // Project Sterling — commercial + finance thread in diligence.
@@ -53,7 +53,7 @@ const CHANNELS = [
     { from: 'Eleanor Bishop', created: '2026-07-26T18:02:00Z', preview: 'Good progress. For IC I want the base case with 0% AI uplift and a clearly labelled conditional case. Marcus to own the memo spine.' },
   ] },
   { deal: 'screened-1-cand-new-2', channel: 'Sound United — Deal Room', messages: [
-    { from: 'Marcus Feld', created: '2026-07-28T08:46:00Z', preview: 'Readiness 21 and IC in ~19 days. Tax, QoE and commercial DD not started — we need lane owners to commit dates today or we slip the IC.' },
+    { from: 'Marcus Feld', created: '2026-07-28T08:46:00Z', preview: 'Readiness 21 and IC in ~19 days. Tax, QoE and commercial DD not started — we need workstream owners to commit dates today or we slip the IC.' },
     { from: 'Dr. Priya Nair', created: '2026-07-28T10:12:00Z', preview: 'Tech/AI lane: I can turn the data-readiness pack in 5 days. The 180bps digital uplift is not bankable until then — flagging for the model.' },
     { from: 'Diego Marquez', created: '2026-07-28T10:40:00Z', preview: 'Reagent concentration (~31% top customer overlaps supply) — running the dual-sourcing and tariff analysis, memo by Thursday.' },
   ] },
@@ -66,13 +66,13 @@ const CHANNELS = [
 // SharePoint / OneDrive files — the deal data room.
 const FILES = [
   { deal: 'demo-helvetia', name: 'Helvetia — AI & Data Readiness Scorecard.xlsx', type: 'driveItem', summary: 'LIMS fragmentation across 3 sites; ~40% telemetry uncaptured; digital-margin thesis gating items.', lastModified: '2026-07-22T09:14:00Z' },
-  { deal: 'demo-helvetia', name: 'Helvetia — Quality of Earnings (Draft).pdf', type: 'driveItem', summary: 'QoE normalizations; reagent COGS bridge; one-off adjustments to LTM EBITDA.', lastModified: '2026-07-25T17:20:00Z' },
+  { deal: 'demo-helvetia', name: 'Helvetia — Quality of Earnings (Draft).pdf', type: 'driveItem', summary: 'QoE normalisations; reagent COGS bridge; one-off adjustments to LTM EBITDA.', lastModified: '2026-07-25T17:20:00Z' },
   { deal: 'demo-helvetia', name: 'Helvetia — Supply Risk & Dual-Sourcing Memo.docx', type: 'driveItem', summary: 'Reagent concentration 68% two-vendor; Vendor B qualification +6% / 8-wk; tariff exposure.', lastModified: '2026-07-24T14:38:00Z' },
   { deal: 'demo-helvetia', name: 'Helvetia — Sources & Uses + Debt Term Sheet.xlsx', type: 'driveItem', summary: '€384m senior at ~4.2x; sponsor equity; CHF/EUR hedge; base/downside returns.', lastModified: '2026-07-26T11:00:00Z' },
   { deal: 'screened-1-cand-new-2', name: 'Sound United — CIM.pdf', type: 'driveItem', summary: 'Confidential information memorandum; consumer-audio brand portfolio; LTM rev $375M / EBITDA $36M.', lastModified: '2026-07-18T12:00:00Z' },
   { deal: 'screened-1-cand-new-2', name: 'Sound United — Returns Model v3.xlsx', type: 'driveItem', summary: 'Entry EV $300M / 8.3x; 5.0x leverage; base 22.5% IRR / 2.76x; base/bull/bear sensitivity.', lastModified: '2026-07-27T15:45:00Z' },
   { deal: 'demo-sterling', name: 'Project Sterling — Commercial DD (Merchant Concentration).pptx', type: 'driveItem', summary: 'Top-10 merchant 34% of net revenue; largest contract renewal in 14 months; pricing power.', lastModified: '2026-07-25T13:25:00Z' },
-  { deal: 'demo-meridian', name: 'Meridian — Route Optimization Pilot Results.xlsx', type: 'driveItem', summary: 'Midwest lane empty-miles -7%; fleet-wide scale case; telematics data dependency.', lastModified: '2026-07-27T09:50:00Z' },
+  { deal: 'demo-meridian', name: 'Meridian — Route Optimisation Pilot Results.xlsx', type: 'driveItem', summary: 'Midwest lane empty-miles -7%; fleet-wide scale case; telematics data dependency.', lastModified: '2026-07-27T09:50:00Z' },
 ];
 
 // Mailbox — banker / LP / advisor correspondence.
