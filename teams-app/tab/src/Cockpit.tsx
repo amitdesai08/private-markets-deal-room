@@ -105,8 +105,11 @@ export default function Cockpit({
     } finally { setBusy(''); }
   }
 
-  if (loading) return <div className="card"><div className="bd muted">Building your briefing…</div></div>;
-  if (!data) return <div className="card"><div className="bd muted">The cockpit is unavailable for this deal.</div></div>;
+  if (loading) return <div className="card"><div className="bd muted">Building the deal brief…</div></div>;
+  // "The cockpit is unavailable" told the reader that a thing they have never heard of
+  // is broken, and left them nowhere to go. An error state is exactly where trust is
+  // lost, so name the thing that failed and say what still works.
+  if (!data) return <div className="card"><div className="bd muted">The deal brief could not be built for this deal right now — the other tabs are still live.</div></div>;
 
   const attention = data.attention.filter((a) => !dismissed.has(a.rank));
   const canWrite = !!data.canWrite;
@@ -125,7 +128,7 @@ export default function Cockpit({
           <div className="card aicard">
             <div className="hd">
               <span className="aibadge">✦ AI</span>
-              <h3>Deal briefing</h3>
+              <h3>Deal brief</h3>
               <Tag kind="new" />
               <span className="spacer" />
               <button className="btn link compact" onClick={load}>↻ Refresh</button>
@@ -151,7 +154,7 @@ export default function Cockpit({
                   ) : null}
                 </div>
                 <div className="vote">
-                  Was this briefing useful?
+                  Was this brief useful?
                   <button className={vote === 'up' ? 'on' : ''} aria-label="Useful" onClick={() => setVote('up')}>👍</button>
                   <button className={vote === 'down' ? 'on' : ''} aria-label="Not useful" onClick={() => setVote('down')}>👎</button>
                   <span className="spacer" />

@@ -28,10 +28,15 @@ export default function AgentGuide({ roleLabel, canViewStage2, canWrite, onAsk }
   return (
     <div className="ag-wrap">
       <style>{CSS}</style>
-      <details className="ag" open>
+      {/* Closed by default. This is a catalogue of what the software can do, and it
+          was the first 350px of the home page — so a partner with 45 seconds met a
+          list of capabilities before a single fact about a single deal, and scrolled
+          past it every day without ever reading it. Collapsed it is one row, it still
+          says plainly what it is, and it is one click for the person who needs it. */}
+      <details className="ag">
         <summary>
           <span className="ag-h">What you can ask for, stage by stage</span>
-          <span className="ag-sub">what the assistant can draft or pull together at each stage{roleLabel ? <> · scoped for <strong>{roleLabel}</strong></> : null}</span>
+          <span className="ag-sub">new here? start with this{roleLabel ? <> · scoped for <strong>{roleLabel}</strong></> : null}</span>
         </summary>
 
         <div className="ag-grid">

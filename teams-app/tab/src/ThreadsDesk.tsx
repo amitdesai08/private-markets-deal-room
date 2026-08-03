@@ -117,7 +117,7 @@ export default function ThreadsDesk({
   if (!data.threads.length) {
     return (
       <div className="card">
-        <div className="hd"><h3>Channel discussion</h3><Tag kind="new" /></div>
+        <div className="hd"><h3>Deal channel</h3><Tag kind="new" /></div>
         <div className="bd muted">No conversation is linked to this deal yet. Set up the deal's Teams channel to bring the discussion in here.</div>
       </div>
     );

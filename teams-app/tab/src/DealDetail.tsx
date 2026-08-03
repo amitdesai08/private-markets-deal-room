@@ -95,6 +95,40 @@ type Tab = 'cockpit' | 'workflow' | 'threads' | 'docdesk' | 'stages' | 'overview
 type ResolveTarget = { tab: Tab; step?: string };
 type ActivityEntry = { actor?: string; action?: string; when?: string; via?: string | null };
 
+// A tab label is a promise about what is behind it. Six of these used to name a
+// SHAPE rather than a subject — "Overview", "Workspace", "Activity" — and three
+// different labels led to workstream and readiness content, so the reader's model
+// (one name, one place) broke on the first deal they opened. What that looks like
+// from the outside is someone opening three tabs to find one thing and then giving
+// up and asking the analyst on Teams. Every label now names its subject.
+//
+// The keys are code identifiers and deliberately unchanged.
+const TAB_LABEL: Record<Tab, string> = {
+  cockpit: 'Deal brief',
+  threads: 'Deal channel',
+  workflow: 'Tasks & blockers',
+  ic: 'IC readiness',
+  stages: 'Work the deal',
+  docdesk: 'Documents',
+  workspace: 'Diligence workstreams',
+  artifacts: 'Returns, plan & risk',
+  research: 'Comparables & precedents',
+  documents: 'Generate a document',
+  overview: 'Thesis & key figures',
+  activity: 'Audit trail',
+};
+
+// Twelve tabs of equal weight is a wall, and the order was never designed — the
+// four newest were concatenated onto the front of the original eight, which is a
+// record of how the product was built rather than of how it is read. These are the
+// six a deal team opens in a normal week, then a hairline, then the six they open
+// rarely. Nothing is hidden and nothing moved further than one click away.
+const TABS_OFTEN: Tab[] = ['cockpit', 'threads', 'workflow', 'ic', 'stages', 'docdesk'];
+const TABS_RARELY: Tab[] = ['workspace', 'artifacts', 'research', 'documents', 'overview', 'activity'];
+// Without the brief, the four surfaces that depend on it are not rendered at all.
+const TABS_OFTEN_PLAIN: Tab[] = ['overview', 'ic', 'stages'];
+const TABS_RARELY_PLAIN: Tab[] = ['workspace', 'artifacts', 'research', 'documents', 'activity'];
+
 export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, onClose, backLabel }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
   const [ic, setIc] = useState<ICReadiness | null>(null);
@@ -103,7 +137,12 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   const [citations, setCitations] = useState<Citations | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>('overview');
+  // Start on the brief. This used to start on 'overview' and switch once
+  // /api/teams/config came back, so on every deal open the reader watched one screen
+  // paint, began reading it, and had it replaced under them a moment later. That reads
+  // as a fault. Starting here means the async call can only ever demote the tab (on an
+  // instance that has turned the brief off), never yank it.
+  const [tab, setTab] = useState<Tab>('cockpit');
   const [askOpen, setAskOpen] = useState(false);
   const [chatSeed, setChatSeed] = useState('');
   const [chatSeedNonce, setChatSeedNonce] = useState(0);
@@ -158,6 +197,10 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
   useEffect(() => {
     setLoading(true); setNote(''); setDeal(null); setIc(null);
+    // Every deal opens on its brief, including the second one you open without
+    // closing the first — otherwise the tab you happened to leave behind on the last
+    // deal decides how you meet the next one.
+    setTab('cockpit');
     fetch('/api/flow').then((r) => r.json()).then(setFlow).catch(() => {});
     fetch('/api/config').then((r) => r.json()).then(setCfg).catch(() => {});
     fetch('/api/teams/config')
@@ -165,9 +208,12 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
       .then((c) => {
         const on = c ? c.cockpit !== false : true;
         setCockpitOn(on);
-        if (on) setTab('cockpit');
+        // We already opened on the brief. The only job left is to fall back if this
+        // instance has turned it off, and only from the tab we chose for them — never
+        // out from under a tab they picked themselves in the meantime.
+        if (!on) setTab((cur) => (cur === 'cockpit' ? 'overview' : cur));
       })
-      .catch(() => { setCockpitOn(true); setTab('cockpit'); });
+      .catch(() => setCockpitOn(true));
     fetch('/api/deal-groups').then((r) => r.json()).then((d) => setDealGroups(d?.dealGroups || [])).catch(() => {});
     load(true).finally(() => setLoading(false));
   }, [dealId]);
@@ -333,26 +379,32 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   // only if the backend didn't tag the payload.
   const statusOnly = deal ? (deal.accessLevel ? deal.accessLevel === 'status' : (inStage2 && !canViewStage2)) : false;
 
-  // Deal-level "next best action" — deterministic, from IC readiness, IC timing and stage.
-  // Above-the-fold so opening a flagged deal immediately shows what to do next.
+  // Where to start on this deal — deterministic, from IC readiness, IC timing and stage.
+  // Deliberately NOT called the next best action any more. Three things on this deal
+  // already tell you what to do next (this banner, the queue in the brief, and the
+  // blocker list), they rank from different sources, and when they disagreed people
+  // believed none of them. A five-branch test on two numbers cannot claim to know the
+  // best action; it can honestly say where to start looking, so that is what it says.
   const nbaReadiness = deal?.readiness ?? 0;
   const nbaDays = typeof deal?.daysToIC === 'number' ? deal.daysToIC : null;
   const nbaCtx = `${deal?.stage || ''} ${deal?.stageName || ''}`;
   const nbaPostIc = /execution|closing|signing|value|exit|owned|monitor/i.test(nbaCtx);
   const nbaEvent = nbaDays != null && nbaDays >= 0 ? `IC in ${nbaDays}d` : null;
+  // primaryLabel names the TAB it moves to, word for word, so the button and its
+  // destination cannot drift apart.
   let nba: { title: string; reason: string; urgency: 'High' | 'Normal'; primaryLabel: string; primaryTab: Tab } | null = null;
   if (deal && !statusOnly) {
     if (nbaPostIc) {
       const isValue = /value|exit|owned|monitor/i.test(nbaCtx);
-      nba = { title: isValue ? 'Monitor value creation' : 'Drive to close', reason: isValue ? 'Post-IC — track the 100-day plan and KPIs vs the underwriting.' : 'Approved at IC — advance execution and closing.', urgency: 'Normal', primaryLabel: 'Work the deal', primaryTab: 'stages' };
+      nba = { title: isValue ? 'Monitor value creation' : 'Drive to close', reason: isValue ? 'Post-IC — track the 100-day plan and KPIs vs the underwriting.' : 'Approved at IC — advance execution and closing.', urgency: 'Normal', primaryLabel: TAB_LABEL.stages, primaryTab: 'stages' };
     } else if (nbaDays != null && nbaDays >= 0 && nbaDays <= 21 && nbaReadiness < 80) {
-      nba = { title: 'Close diligence gaps before IC', reason: `IC in ${nbaDays}d but only ${nbaReadiness}% ready${verdict?.state ? ` (${verdict.state})` : ''} — resolve the open items gating readiness.`, urgency: 'High', primaryLabel: 'Review IC readiness', primaryTab: 'ic' };
+      nba = { title: 'Close diligence gaps before IC', reason: `IC in ${nbaDays}d but only ${nbaReadiness}% ready${verdict?.state ? ` (${verdict.state})` : ''} — resolve the open items gating readiness.`, urgency: 'High', primaryLabel: TAB_LABEL.ic, primaryTab: 'ic' };
     } else if (nbaReadiness >= 80) {
-      nba = { title: 'Prepare for Investment Committee', reason: `${nbaReadiness}% ready${verdict?.state ? ` (${verdict.state})` : ''} — finalise the memo and the returns, plan and risk pages.`, urgency: (nbaDays != null && nbaDays >= 0 && nbaDays <= 14) ? 'High' : 'Normal', primaryLabel: 'Open returns, plan & risk', primaryTab: 'artifacts' };
+      nba = { title: 'Prepare for Investment Committee', reason: `${nbaReadiness}% ready${verdict?.state ? ` (${verdict.state})` : ''} — finalise the memo and the returns, plan and risk pages.`, urgency: (nbaDays != null && nbaDays >= 0 && nbaDays <= 14) ? 'High' : 'Normal', primaryLabel: TAB_LABEL.artifacts, primaryTab: 'artifacts' };
     } else if (nbaReadiness < 40) {
-      nba = { title: 'Advance diligence', reason: `Early at ${nbaReadiness}% ready — run the diligence workstreams to progress.`, urgency: 'Normal', primaryLabel: 'Work the deal', primaryTab: 'stages' };
+      nba = { title: 'Advance diligence', reason: `Early at ${nbaReadiness}% ready — run the diligence workstreams to progress.`, urgency: 'Normal', primaryLabel: TAB_LABEL.stages, primaryTab: 'stages' };
     } else {
-      nba = { title: 'Keep diligence moving', reason: `${nbaReadiness}% ready — close the next workstream items toward IC.`, urgency: 'Normal', primaryLabel: 'Review IC readiness', primaryTab: 'ic' };
+      nba = { title: 'Keep diligence moving', reason: `${nbaReadiness}% ready — close the next workstream items toward IC.`, urgency: 'Normal', primaryLabel: TAB_LABEL.ic, primaryTab: 'ic' };
     }
   }
 
@@ -458,13 +510,13 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 10px', padding: '11px 14px', borderRadius: 10, border: `1px solid ${nba.urgency === 'High' ? 'var(--bad-br)' : 'var(--border)'}`, background: 'var(--card)' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span>Next best action · {nba.title}</span>
+                    <span>Where to start · {nba.title}</span>
                     <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 999, color: nba.urgency === 'High' ? 'var(--bad)' : 'var(--muted)', background: nba.urgency === 'High' ? 'var(--bad-bg)' : 'var(--chip)' }}>{nba.urgency} urgency{nbaEvent ? ` · ${nbaEvent}` : ''}</span>
                   </div>
                   <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 2 }}>{nba.reason}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flex: '0 0 auto' }}>
-                  <button className="chbtn" onClick={() => setTab(nba.primaryTab)}>{nba.primaryLabel} ▸</button>
+                  <button className="chbtn" onClick={() => setTab(nba.primaryTab)}>Go to {nba.primaryLabel} ▸</button>
                   <button className="chbtn" onClick={() => setAskOpen(true)}>💬 Ask</button>
                 </div>
               </div>
@@ -472,9 +524,13 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
             {!statusOnly && (
             <div className="dd-tabs">
-              {([...(cockpitOn ? ['cockpit', 'workflow', 'threads', 'docdesk'] as Tab[] : []), 'overview', 'stages', 'workspace', 'research', 'artifacts', 'documents', 'ic', 'activity'] as Tab[]).map((t) => (
+              {(cockpitOn ? TABS_OFTEN : TABS_OFTEN_PLAIN).map((t) => (
+                <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>{TAB_LABEL[t]}</button>
+              ))}
+              <span className="dd-tabdiv" aria-hidden="true" />
+              {(cockpitOn ? TABS_RARELY : TABS_RARELY_PLAIN).map((t) => (
                 <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>
-                  {t === 'cockpit' ? 'Briefing' : t === 'workflow' ? 'Progress & blockers' : t === 'threads' ? 'Channel discussion' : t === 'docdesk' ? 'Deal files' : t === 'stages' ? 'Stages & gates' : t === 'overview' ? 'Overview' : t === 'workspace' ? 'Workspace' : t === 'research' ? 'Market research' : t === 'artifacts' ? 'Returns, plan & risk' : t === 'documents' ? (cockpitOn ? 'Generate & export' : 'Documents') : t === 'activity' ? 'Activity' : 'IC readiness'}
+                  {t === 'documents' && !cockpitOn ? 'Documents' : TAB_LABEL[t]}
                 </button>
               ))}
             </div>
@@ -503,23 +559,25 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
               <>
               {note ? <div className="dd-actionnote">{note}</div> : null}
 
+              {cockpitOn && tab === 'cockpit' && (
+                <Cockpit
+                  dealId={dealId}
+                  onGoTab={(t) => setTab(t as Tab)}
+                  onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}
+                />
+              )}
+
               {/* The deal's email, channel discussion and files, merged and ordered by
-                  time, on the tab people land on. It sits ABOVE the briefing on purpose:
-                  the first question on returning to a deal is "what happened while I was
-                  away", and until now answering it meant three tabs and then Outlook. */}
+                  time. "What happened while I was away" is a real question and this is
+                  the right place to answer it — but it is the SECOND question, and while
+                  it sat above the brief it was the first thing on the tab called "Deal
+                  brief", so people read the message list, decided that was the brief,
+                  and never scrolled to the written case underneath it. */}
               {(tab === 'cockpit' || (!cockpitOn && tab === 'overview')) && (
                 <RecentActivity
                   dealId={dealId}
                   compact
                   onOpenTab={cockpitOn ? (t) => setTab(t as Tab) : undefined}
-                  onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}
-                />
-              )}
-
-              {cockpitOn && tab === 'cockpit' && (
-                <Cockpit
-                  dealId={dealId}
-                  onGoTab={(t) => setTab(t as Tab)}
                   onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}
                 />
               )}
@@ -786,7 +844,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           </div>
                         ))}
                       </div>
-                      <div className="dd-note">Hover a figure for provenance. Figures sourced from an SEC form are the values the company reported in that filing (as-filed, not modeled).</div>
+                      <div className="dd-note">Hover a figure to see where it came from. Figures sourced from an SEC form are the values the company reported in that filing (as-filed, not modeled).</div>
                     </section>
                   ) : null}
                   {deal.workstreams?.length ? (

@@ -248,46 +248,6 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
 
   return (
     <div className="dash">
-      {/* The way back from a hidden section. Without a standing affordance, turning one
-          off is a one-way door: the control that would bring it back went with it. */}
-      <div className="dashbar">
-        <span>
-          {hidden.length
-            ? `${hidden.length} of ${DASH_MODULES.length} sections hidden on this page`
-            : `Showing all ${DASH_MODULES.length} sections`}
-        </span>
-        <span className="spacer" />
-        <button className="askbtn" onClick={() => setCustomise((v) => !v)}>
-          {customise ? 'Done' : '⚙ Customise this page'}
-        </button>
-      </div>
-
-      {customise ? (
-        <section className="panel">
-          <div className="panel-h">
-            <span>Choose what this page shows</span>
-            <span className="muted" style={{ fontWeight: 400 }}>
-              <button className="askbtn" onClick={showEverything} disabled={!hidden.length}>Show everything</button>
-            </span>
-          </div>
-          <div className="modlist">
-            {DASH_MODULES.map((m) => (
-              <label key={m.key} className={`modrow${shows(m.key) ? '' : ' off'}`}>
-                <input type="checkbox" checked={shows(m.key)} onChange={() => toggle(m.key)} />
-                <span>
-                  <span className="modname">{m.label}</span>
-                  <span className="sub">{m.note}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-          <div className="note">
-            Kept in this browser for {arrangementFor}, so switching profile switches the page with it.
-            This changes what you see and nothing else — not what a deal records, and not who is allowed to see it.
-          </div>
-        </section>
-      ) : null}
-
       {/* ================= Portfolio cockpit =================
           Same shape as the deal cockpit: an AI-labelled briefing on the left, the
           ranked queue of what needs a person on the right. Either side can be emptied
@@ -472,6 +432,53 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
         </div>
         ) : null}
       </div>
+      ) : null}
+
+      {/* The way back from a hidden section. Without a standing affordance, turning one
+          off is a one-way door: the control that would bring it back went with it.
+
+          It sits BELOW the hero, not above it. As the first row on the home page it
+          made arranging the page look like the first task of the day — the partner who
+          opened the product to find out what needed them met a settings control before
+          a single fact. The label changed for the same reason: nobody wants to
+          "customise a page", they want the two sections they never read to stop taking
+          up the screen, so the button offers that instead. */}
+      <div className="dashbar">
+        <span>
+          {hidden.length
+            ? `${hidden.length} of ${DASH_MODULES.length} sections hidden on this page`
+            : `Showing all ${DASH_MODULES.length} sections`}
+        </span>
+        <span className="spacer" />
+        <button className="askbtn" onClick={() => setCustomise((v) => !v)}>
+          {customise ? 'Done' : "⚙ Hide sections I don't use"}
+        </button>
+      </div>
+
+      {customise ? (
+        <section className="panel">
+          <div className="panel-h">
+            <span>Choose what this page shows</span>
+            <span className="muted" style={{ fontWeight: 400 }}>
+              <button className="askbtn" onClick={showEverything} disabled={!hidden.length}>Show everything</button>
+            </span>
+          </div>
+          <div className="modlist">
+            {DASH_MODULES.map((m) => (
+              <label key={m.key} className={`modrow${shows(m.key) ? '' : ' off'}`}>
+                <input type="checkbox" checked={shows(m.key)} onChange={() => toggle(m.key)} />
+                <span>
+                  <span className="modname">{m.label}</span>
+                  <span className="sub">{m.note}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <div className="note">
+            Kept in this browser for {arrangementFor}, so switching profile switches the page with it.
+            This changes what you see and nothing else — not what a deal records, and not who is allowed to see it.
+          </div>
+        </section>
       ) : null}
 
       {/* Where the live capital sits in the process */}

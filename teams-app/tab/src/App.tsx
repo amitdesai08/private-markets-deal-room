@@ -102,8 +102,13 @@ export default function App() {
     return !!(a.persona && persona?.id && a.persona === persona.id);
   });
 
+  // "Deals" is a broken promise: the list under it is filtered to diligence, IC and
+  // value creation, so a screening name a partner discussed this morning is genuinely
+  // not there, and the only way to know that is to have read the filter. Naming both
+  // tabs for the part of the pipeline they actually hold means the reader can tell
+  // which one to open without opening either.
   const mainTabs: [typeof mainTab, string][] = [
-    ['overview', 'Home'], ['sourcing', 'Sourcing'], ['deals', 'Deals'], ['fund', 'Fund & Portfolio'],
+    ['overview', 'Home'], ['sourcing', 'Sourcing & screening'], ['deals', 'Deals in flight'], ['fund', 'Fund & Portfolio'],
     ['report', 'Report'],
   ];
 
@@ -282,7 +287,7 @@ export default function App() {
             </select>
           ) : null}
           {teamsInfo?.inTeams ? <a className="dashlink" href={cfg?.appBaseUrl || window.location.origin} target="_blank" rel="noopener noreferrer">Open web console ↗</a> : null}
-          {canViewStage2 ? <button className="asktoggle" onClick={() => setIntakeOpen(true)} title="Create a new deal via guided intake">+ New deal</button> : null}
+            {canViewStage2 ? <button className="asktoggle on" onClick={() => setIntakeOpen(true)} title="Create a new deal via guided intake">+ New deal</button> : null}
           {isAdmin ? <button className="gearbtn" onClick={() => setAdminGroupsOpen(true)} title="Admin — deal groups &amp; territories" aria-label="Deal groups and territories"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle' }} aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></button> : null}
           <button className={`asktoggle${chatOpen ? ' on' : ''}`} onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide the assistant' : '💬 Ask the assistant'}</button>
           <button className="gearbtn" onClick={() => setTheme(toggleTheme())} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label="Toggle light or dark theme">{theme === 'dark' ? '☀' : '🌙'}</button>
@@ -869,6 +874,10 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .dd-tabs { display: flex; gap: 4px; padding: 8px 12px 0; border-bottom: 1px solid var(--border); overflow-x: auto; background: var(--surface); }
 .dd-tab { border: none; background: none; color: var(--muted); padding: 8px 12px; cursor: pointer; font: inherit; font-weight: 600; border-bottom: 2px solid transparent; white-space: nowrap; }
 .dd-tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+/* Separates the tabs a deal team opens weekly from the ones they open rarely. It is
+   a hairline rather than a heading because the reader should feel the ranking, not
+   have to read it. */
+.dd-tabdiv { flex: 0 0 auto; align-self: center; width: 1px; height: 18px; background: var(--border); margin: 0 8px; }
 .dd-actionnote { background: var(--chip); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; margin-bottom: 12px; }
 .stage-group { margin-bottom: 14px; }
 .stage-name { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-bottom: 6px; }
