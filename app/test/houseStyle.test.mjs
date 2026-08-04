@@ -34,6 +34,7 @@ test('the readiness enum is not spelled out twice in a row', () => {
     assert.equal((out.match(/not ready for committee/gi) || []).length, 1, out);
     assert.match(out, /4 required items outstanding/, out);
     assert.doesNotMatch(out, /[:;\u2014,]\s*[:;,\u2014]/, `punctuation left behind: ${out}`);
+    assert.doesNotMatch(out, /\w\u2014/, `a dash with no air in front of it: ${out}`);
   }
 });
 

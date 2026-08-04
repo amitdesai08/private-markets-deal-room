@@ -174,7 +174,8 @@ export function houseStyle(md) {
   s = s.replace(/\b((?:not )?ready for committee)([^\n]{0,26}?)((?:not )?ready for committee)\b/gi,
     (m, a, sep, b) => (a.toLowerCase() === b.toLowerCase() ? a + sep : m));
   // Dropping a duplicate leaves its punctuation behind: "shows: ; 4 items", "— — 4".
-  s = s.replace(/\s*([:;\u2014,-])\s*([;:,\u2014])\s*/g, '$1 ');
+  // A dash needs air on both sides; a colon, semicolon or comma only on the right.
+  s = s.replace(/\s*([:;\u2014,-])\s*([;:,\u2014])\s*/g, (m, a) => (a === '\u2014' || a === '-' ? ` ${a} ` : `${a} `));
   // "Base-case IRR: 22.5% IRR", "MOIC: 2.76x MOIC" -- the label restated as the unit.
   s = s.replace(/\b(IRR|MOIC)(\s*:\s*)([^\n;]{1,24}?)\s+\1\b/gi, '$1$2$3');
   // The bare enum on its own, as in "do not present until the deal record returns
