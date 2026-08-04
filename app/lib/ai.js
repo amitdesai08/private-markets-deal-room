@@ -163,12 +163,18 @@ export function houseStyle(md) {
   // quotes hid the repetition from the rule below, so they come off first.
   s = s.replace(/["\u201c\u201d]((?:not )?ready for committee[^"\u201c\u201d\n]{0,300})["\u201c\u201d]/gi, '$1');
   // Two different fields carry the same readiness enum, so once both were spelled out
-  // in words the reader got the answer twice in a row: "not ready for committee: Not
-  // ready for committee; 4 required items outstanding". Only collapsed when the two
-  // readings are identical; "not ready" followed by "ready" would be a contradiction
-  // between two fields, worth seeing rather than quietly tidying away.
-  s = s.replace(/\b((?:not )?ready for committee)\s*[.;:,\u2014-]\s*((?:not )?ready for committee)\b/gi,
-    (m, a, b) => (a.toLowerCase() === b.toLowerCase() ? a : m));
+  // in words the reader got the answer twice in a row, and the second copy pushed the
+  // part that mattered — the outstanding items — off to the right. Three rounds were
+  // spent widening this rule one separator at a time (a full stop, then a colon, then
+  // a quotation mark, then " — the record shows: "), which is the wrong shape of fix.
+  // It now allows any short connective between the two readings, keeps the connective
+  // and drops the duplicate. Only collapsed when the two readings are identical; "not
+  // ready" followed by "ready" is two fields disagreeing, which a reader should see
+  // rather than have quietly tidied away.
+  s = s.replace(/\b((?:not )?ready for committee)([^\n]{0,26}?)((?:not )?ready for committee)\b/gi,
+    (m, a, sep, b) => (a.toLowerCase() === b.toLowerCase() ? a + sep : m));
+  // Dropping a duplicate leaves its punctuation behind: "shows: ; 4 items", "— — 4".
+  s = s.replace(/\s*([:;\u2014,-])\s*([;:,\u2014])\s*/g, '$1 ');
   // "Base-case IRR: 22.5% IRR", "MOIC: 2.76x MOIC" -- the label restated as the unit.
   s = s.replace(/\b(IRR|MOIC)(\s*:\s*)([^\n;]{1,24}?)\s+\1\b/gi, '$1$2$3');
   // The bare enum on its own, as in "do not present until the deal record returns

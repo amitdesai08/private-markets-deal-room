@@ -24,9 +24,17 @@ test('"Stage this stage" never appears', () => {
 });
 
 test('the readiness enum is not spelled out twice in a row', () => {
-  const out = houseStyle('IC readiness: NOT-READY: NOT-READY; 4 required items outstanding.');
-  assert.equal((out.match(/not ready for committee/gi) || []).length, 1, out);
-  assert.match(out, /4 required items outstanding/);
+  for (const md of [
+    'IC readiness: NOT-READY: NOT-READY; 4 required items outstanding.',
+    'NOT-READY. NOT-READY — 4 required items outstanding.',
+    'NOT-READY — the record shows: NOT-READY; 4 required items outstanding.',
+    'Status NOT-READY, and again NOT-READY: 4 required items outstanding.',
+  ]) {
+    const out = houseStyle(md);
+    assert.equal((out.match(/not ready for committee/gi) || []).length, 1, out);
+    assert.match(out, /4 required items outstanding/, out);
+    assert.doesNotMatch(out, /[:;\u2014,]\s*[:;,\u2014]/, `punctuation left behind: ${out}`);
+  }
 });
 
 // The model quotes the field verbatim, quotation marks and all, as though it were
