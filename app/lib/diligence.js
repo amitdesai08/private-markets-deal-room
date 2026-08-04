@@ -28,6 +28,14 @@ const money = (m) => fmtMoney(m);
 const pct = (n) => `${Math.round(n)}%`;
 const round = (n) => Math.round(n);
 
+// Deterministic per-deal jitter, so a templated register varies by company instead of
+// printing the same numbers on every one, and varies the same way on every reload.
+const seedOf = (s) => {
+  let h = 0;
+  for (let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) >>> 0;
+  return h;
+};
+
 // A launched deal exposes: company, sector, subSector, dealSize (EV $M), hq,
 // keyFigures, workstreams[], thesis. We derive EBITDA/revenue from keyFigures.
 function dealFinancials(deal) {
@@ -138,6 +146,7 @@ export function canonicalFigures(deal) {
       ebitda,
       ebitdaSource: ebitdaRecorded ? 'recorded' : statedMult ? 'implied by the recorded entry multiple' : 'derived',
       revenue: f.revenue,
+      revenueRecorded: (deal.keyFigures || []).some((k) => /revenue/i.test(k.label)),
       ev: f.ev,
     };
   } catch { return null; }
@@ -157,7 +166,13 @@ export function figuresBlock(deal) {
       ? `The ask at ${c.entryMultiple}x is above what this structure can finance; the returns below are modelled at a ${c.modelledEntryMultiple}x entry and only hold if the price can be reset. Say so whenever you quote them.`
       : null,
     `Base case: ${c.irr}% IRR, ${c.moic}x MOIC.`,
-    `LTM EBITDA: ${m(c.ebitda)}. Revenue: ${m(c.revenue)}. Enterprise value: ${m(c.ev)}.`,
+    // Revenue is only stated when the record actually holds it. Where it does not, the
+    // model was handed a placeholder of 1.2x enterprise value under the words "the deal's
+    // own numbers" -- and it duly told a partner "Revenue: $288M", then, asked where that
+    // came from, produced a verbatim quotation of a page that has never shown it.
+    c.revenueRecorded
+      ? `LTM EBITDA: ${m(c.ebitda)}. Revenue: ${m(c.revenue)}. Enterprise value: ${m(c.ev)}.`
+      : `LTM EBITDA: ${m(c.ebitda)}. Enterprise value: ${m(c.ev)}. NO REVENUE FIGURE IS RECORDED for this company — do not state one, do not estimate one, and if asked say it is not on the record.`,
     `Reporting currency: ${c.currencyCode}. Where a diligence document states a figure in another currency, keep that document's currency and say which document it came from.`,
   ].join('\n');
 }
@@ -354,6 +369,8 @@ function workstreamFindings(deal) {
   const decided = PAST_COMMITTEE.has(String(deal.status || '').toLowerCase());
   const haircut = f.ebitdaMargin < 10 ? 18 : f.ebitdaMargin < 15 ? 12 : 6;
   const adjEbitda = round(f.ebitda * (1 - haircut / 100));
+  const entryOnReported = +(f.ev / Math.max(1, f.ebitda)).toFixed(1);
+  const entryOnAdjusted = +(f.ev / Math.max(1, adjEbitda)).toFixed(1);
   if (decided) {
     add('financial', 'clear',
       `QoE completed. Unsupported add-backs and owner-comp normalisation were removed before the figures were fixed, so ${money(f.ebitda)} is the adjusted EBITDA the entry multiple and leverage are struck on.`,
@@ -372,17 +389,30 @@ function workstreamFindings(deal) {
       .flatMap((w) => w.findings || [])
       .find((x) => /EBITDA|recognis|rebate|add-back|revenue recognition/i.test(String(x.text || '')));
     add('financial', haircut >= 15 ? 'reprice' : 'condition',
-      `Allowance carried for QoE normalisation: ${haircut}% of EBITDA (${money(f.ebitda)} → ${money(adjEbitda)}), covering unsupported add-backs and owner-comp normalisation. This is the modelled provision, not a QoE result.${qoeFinding ? ` The financial workstream has already recorded one specific driver: ${String(qoeFinding.text).replace(/\s+$/, '')} That figure is quoted in the currency of the document it came from and is one component of the allowance above, not a second view of it.` : ''}`,
+      // The number an IC member reaches for and could never find: what the price becomes
+      // if the provision proves out. Stating the allowance and not its consequence left
+      // the entry multiple quoted on an EBITDA the same page says is overstated.
+      `Allowance carried for QoE normalisation: ${haircut}% of EBITDA (${money(f.ebitda)} → ${money(adjEbitda)}), covering unsupported add-backs and owner-comp normalisation. This is the modelled provision, not a QoE result. If it proves out, the ${entryOnReported}x entry becomes ${entryOnAdjusted}x on the adjusted figure.${qoeFinding ? ` The financial workstream has already recorded one specific driver: ${String(qoeFinding.text).replace(/\s+$/, '')} That figure is quoted in the currency of the document it came from and is one component of the allowance above, not a second view of it.` : ''}`,
       haircut >= 15 ? `Repricing lever — reset entry EV against ${money(adjEbitda)} adjusted EBITDA.` : 'Reflected in the model and the SPA net-working-capital peg.');
   }
   add('financial', 'condition', `Net-working-capital peg set at ~${money(round(f.revenue * 0.12))} from a 12–24 month seasonality analysis.`, 'Becomes the SPA true-up mechanism at close.');
 
   // Commercial — customer concentration is the classic binary risk.
-  const conc = f.ebitdaMargin > 15 ? 22 : 31;
+  //
+  // This read "~31% of revenue" on an analytics platform, a grocery group, a timber
+  // business and an energy-services company, in the same words, in the same position. A
+  // room comparing two deals sees the same register twice and stops believing either.
+  // Vary it off the deal's own record: a 3.1M-member grocery chain is not concentrated
+  // the way a four-account enterprise software business is.
+  const concBase = f.ebitdaMargin > 15 ? 22 : 31;
+  const conc = Math.max(8, Math.min(46, concBase + (seedOf(`${deal.id}:conc`) % 13) - 6));
   add('commercial', conc >= 30 ? 'reprice' : 'monitor',
     `Top-customer concentration ~${conc}% of revenue${conc >= 30 ? ' without a long-term contract — a binary revenue risk.' : ' — within tolerance but monitored.'}`,
     conc >= 30 ? 'Mitigated via contract protection or an escrow/holdback.' : 'Track post-close; diversify in the 100-day plan.');
-  add('commercial', 'clear', `Voice-of-customer (20+ calls) supports the growth thesis: durable demand and pricing power in ${deal.sector}.`, 'Thesis-supportive.');
+  // No voice-of-customer programme has been run. Asserting twenty calls that did not
+  // happen, and citing them into the memo synthesis, is the fastest way to lose a
+  // practitioner permanently.
+  add('commercial', 'monitor', `Voice-of-customer work has not been commissioned yet — the growth thesis for ${deal.sector} rests on the CIM and desk research until it is.`, 'Commission reference calls before the pack is finalised.');
 
   // Legal — contracts change-of-control.
   add('legal', 'condition', 'Change-of-control consents required on 2–3 material customer/supplier contracts.', 'Listed as conditions precedent in the SPA.');
@@ -402,7 +432,11 @@ function workstreamFindings(deal) {
     'Key-person dependency on founder/CEO; structured references positive.', 'Addressed via retention and management-incentive (MIP) structuring pre-close.');
 
   // ESG / environmental.
-  add('esg', 'clear', 'Phase I ESA per ASTM E1527-21 identifies no Recognized Environmental Conditions (no Phase II triggered).', 'CERCLA safe-harbor established.');
+  //
+  // A Phase I environmental assessment that nobody commissioned cannot identify anything,
+  // and citing ASTM E1527-21 and CERCLA safe harbour over it dressed an absence of work
+  // as a clean result.
+  add('esg', 'monitor', 'No Phase I environmental assessment has been commissioned. Until one is, there is no basis on the record for a clean environmental opinion.', 'Commission a Phase I ESA; a Phase II follows only if it identifies a recognised condition.');
 
   return out;
 }
@@ -652,9 +686,12 @@ export function buildReturnsModel(deal) {
     { label: 'Purchase enterprise value', amount: base.entryEV },
     { label: 'Transaction & financing fees', amount: fees },
   ];
-  const g = Math.max(-0.05, Math.min(0.25, (deal.growth ?? cand.growth ?? 7) / 100));
-  // The page the assistant cites as its authority has to show the number the assistant
-  // was given. Fixing the speaking layer alone just moved which of the two was wrong.
+  // Centred on the case it is sensitising, using the growth and leverage the base case
+  // was actually struck on. It used to take revenue growth clamped at 25% and a hardcoded
+  // 5x leverage, so on one deal the base read 33.3% IRR and the LOWEST cell in the grid
+  // read 38.6% -- nine cells, none of them the deal.
+  const g = r.ebitdaCagr ?? Math.max(-0.05, Math.min(0.15, (deal.growth ?? cand.growth ?? 6) / 100));
+  const lev = r.baseLeverageMult ?? 5;
   const canon = canonicalFigures(deal);
   const shownMult = canon?.entryMultiple ?? r.entryMultiple;
   const entryMult = r.entryMultiple;
@@ -665,7 +702,7 @@ export function buildReturnsModel(deal) {
     cols: exitCols.map((m) => `${m.toFixed(1)}x`),
     rows: cagrRows.map((cg) => ({
       cagr: `${(cg * 100).toFixed(0)}%`,
-      irr: exitCols.map((xm) => paperLbo(cand, { entryMult, leverageMult: 5, ebitdaCagr: cg, exitMult: xm }).irr),
+      irr: exitCols.map((xm) => paperLbo(cand, { entryMult, leverageMult: lev, ebitdaCagr: cg, exitMult: xm }).irr),
     })),
   };
   return {
@@ -677,7 +714,7 @@ export function buildReturnsModel(deal) {
       // so the two numbers differ by design -- and back-solving MOIC off the line on
       // screen gave 2.80x against a headline of 2.76x, which reads as an error in the
       // model rather than a difference in what is being counted.
-      equityBasisNote: `Returns are struck on ${fmtMoney(round(base.equityIn), symbolFor(deal))} of equity funding the purchase price. The equity cheque above also funds fees and is shown net of management rollover.` },
+      equityBasisNote: `Returns are struck on the ${fmtMoney(round(base.equityIn), symbolFor(deal))} of equity that funds the purchase price. The ${fmtMoney(sponsorEquity, symbolFor(deal))} sponsor line above is that figure plus ${fmtMoney(fees, symbolFor(deal))} of fees, less ${fmtMoney(mgmtRollover, symbolFor(deal))} rolled over by management.` },
     scenarios: [
       { name: 'Downside', ...r.scenarios.downside },
       { name: 'Base', ...r.scenarios.base },
@@ -685,7 +722,14 @@ export function buildReturnsModel(deal) {
     ],
     hurdle: r.hurdle, meetsHurdle: r.meetsHurdle, entryAboveCeiling: r.entryAboveCeiling,
     sensitivity,
-    headline: `${shownMult}x entry · ${r.leverage} leverage · base ${base.irr}% IRR / ${base.moic}x MOIC${r.meetsHurdle ? ' — clears the 20% / 2.0x hurdle.' : r.entryAboveCeiling ? ` — the ask is above what this structure can finance; the returns are modelled at a ${r.entryMultiple}x entry and only hold if the price can be reset.` : ' — below hurdle.'}`,
+    headline: `${shownMult}x entry · ${r.leverage} leverage · base ${base.irr}% IRR / ${base.moic}x MOIC${
+      r.meetsHurdle
+        // At the hurdle is not through it, and a partner will be corrected in the room for
+        // saying otherwise.
+        ? (base.irr - r.hurdle.irr < 0.6 || base.moic - r.hurdle.moic < 0.06
+          ? ` — meets the ${r.hurdle.irr}% / ${r.hurdle.moic}x hurdle with nothing to spare.`
+          : ` — clears the ${r.hurdle.irr}% / ${r.hurdle.moic}x hurdle.`)
+        : r.entryAboveCeiling ? ` — the ask is above what this structure can finance; the returns are modelled at a ${r.entryMultiple}x entry and only hold if the price can be reset.` : ' — below hurdle.'}`,
   };
 }
 

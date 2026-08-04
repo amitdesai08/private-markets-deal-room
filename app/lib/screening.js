@@ -344,6 +344,11 @@ export function buildReturns(c) {
     impliedMultiple: impliedMult == null ? null : +impliedMult.toFixed(1),
     entryAboveCeiling,
     leverage: `${effLeverage}x`,
+    // The inputs the base case was actually struck on. Without these a sensitivity grid
+    // has to guess them, and the one on the Returns page guessed a different growth rate
+    // and a different leverage -- so none of its nine cells contained the deal.
+    ebitdaCagr: g,
+    baseLeverageMult: 5,
     holdYears: HOLD_YEARS,
     scenarios,
     hurdle: { irr: 20, moic: 2.0 },

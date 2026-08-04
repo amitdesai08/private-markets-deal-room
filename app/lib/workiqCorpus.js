@@ -301,20 +301,40 @@ function generatedChannel(deal) {
     });
   });
 
-  // 3) A dated commitment on the lane that is furthest behind.
-  const behind = [...lanes].sort((a, b) => (a.progress ?? 0) - (b.progress ?? 0))[0];
+  // 3) A dated commitment on a lane that is behind.
+  //
+  // Always taking the single furthest-behind lane put the same person on the same
+  // workstream on nearly every deal: the home page opened with four consecutive
+  // follow-ups from the finance seat about a QoE, across four different companies. Each
+  // card was fine and the run of them read as machine-made, which is the one thing a
+  // record of who promised what must not do. Choose deterministically from the lanes
+  // that are genuinely behind, so the page shows the spread of people that a real week
+  // would.
+  const behindAll = (deal.workstreams || [])
+    .filter((l) => (l.progress ?? 0) < 100)
+    .sort((a, b) => (a.progress ?? 0) - (b.progress ?? 0));
+  const behind = behindAll.length ? behindAll[seedOf(`${deal.id}:commit`) % behindAll.length] : null;
   if (behind) messages.push(commitmentMessage(rand, deal, behind));
 
   // 4) The IR/LP seat, so the fund-facing persona has something on every deal.
+  //
+  // This used to end "I'll prepare the position-level summary next week" on all nineteen
+  // deals. A first-person promise with a date in it IS a follow-up as far as the detector
+  // is concerned, so one person accounted for nineteen of the thirty-three follow-ups on
+  // the home page, in identical words. It is a standing LP-reporting note, not a promise
+  // somebody should be chased about, so it no longer reads as one -- and it only appears
+  // where an investor would actually be asking.
   const ir = speaker('ir-lp', null);
-  messages.push({
-    from: ir.name,
-    personaId: 'ir-lp',
-    created: at(1, 15, 10),
-    preview: `LP-facing note: two investors have asked how ${deal.company} is classified for reporting. I'll prepare the position-level summary next week — I only need the final ${
-      deal.sector ? `${deal.sector.toLowerCase()} ` : ''
-    }exposure numbers from the model.`,
-  });
+  if (seedOf(`${deal.id}:ir`) % 3 === 0) {
+    messages.push({
+      from: ir.name,
+      personaId: 'ir-lp',
+      created: at(1, 15, 10),
+      preview: `LP-facing note: two investors have asked how ${deal.company} is classified for reporting. The position-level summary is blocked on the final ${
+        deal.sector ? `${deal.sector.toLowerCase()} ` : ''
+      }exposure numbers from the model.`,
+    });
+  }
 
   // 5) The sponsor closes with a decision.
   messages.push(decisionMessage(rand, deal));
