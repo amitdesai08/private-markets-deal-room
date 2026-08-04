@@ -76,11 +76,21 @@ const STATUS_LABEL: Record<string, string> = { not_started: 'Not started', in_pr
 // titles the product already uses in its own sign-in list.
 const OWNER_LABEL: Record<string, string> = {
   'retail-md': 'Commercial Partner', 'finance-md': 'Finance Partner', 'legal-md': 'General Counsel',
-  'tax-md': 'Finance Partner — tax', 'ai-md': 'AI Partner', 'supply-md': 'Supply Chain Partner',
+  'tax-md': 'Tax Partner', 'ai-md': 'AI Partner', 'supply-md': 'Supply Chain Partner',
   'esg-md': 'Operating Partner — ESG', 'ops-md': 'Operating Partner', 'analyst': 'Analyst',
   'partner': 'Partner', 'principal': 'Principal', 'deal-lead': 'Deal lead',
+  // The deal record spells the same handful of people several ways. Any spelling this
+  // map misses is printed verbatim, which is how "fund-cfo" came to sit on the diligence
+  // tab of a live pre-IC deal next to five properly titled colleagues.
+  'fund-cfo': 'Fund CFO', 'legal-gc': 'General Counsel', 'compliance': 'Compliance',
+  'finance md': 'Finance Partner', 'legal dd': 'Legal DD lead',
 };
-const ownerName = (o?: string) => (o ? OWNER_LABEL[o] || o : 'Unassigned');
+// Case- and separator-insensitive, so 'Finance MD' and 'finance-md' land on one title.
+const ownerName = (o?: string) => {
+  if (!o) return 'Unassigned';
+  const k = o.trim().toLowerCase();
+  return OWNER_LABEL[k] || OWNER_LABEL[k.replace(/[\s_]+/g, '-')] || o;
+};
 const VERDICT_CLASS: Record<string, string> = { READY: 'ok', CONDITIONAL: 'warn', 'NOT-READY': 'bad' };
 
 function relTime(iso?: string | null): string | null {
@@ -497,7 +507,10 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   // done (the workflow step that produces the artifact, the diligence workbench, etc.).
   const artifactTarget = (key: string): ResolveTarget => {
     if (key === 'D1' || key === 'D2' || key === 'D3') return { tab: 'stages', step: key };
-    if (key === 'memo' || key === 'recommendation') return { tab: 'stages', step: 'D3' };
+    // The memo and the recommendation are produced by the document generator, not by
+    // ticking a workflow step. Sending people to the step was sending them to a place
+    // that describes the deliverable rather than one that makes it.
+    if (key === 'memo' || key === 'recommendation') return { tab: 'documents' };
     if (key === 'compliance') return { tab: 'stages' };
     return { tab: 'ic' };
   };
@@ -529,13 +542,37 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     // get an amber flag and does not count toward "workstreams blocking".
     if (w.status === 'closed_at_ic') return { state: 'green', reason: 'Closed at IC' };
     if (w.status === 'not_started' || (w.progress || 0) === 0) return { state: 'amber', reason: 'Not started' };
-    return { state: 'amber', reason: `${w.progress || 0}% complete` };
+    // Not `${progress}% complete` -- the bar and the figure to its right already say
+    // that, so the row read "30% complete · 30%". Say what the state means instead.
+    return { state: 'amber', reason: 'Behind — not yet at the 80% committee bar' };
   };
   const RYG_RANK: Record<string, number> = { red: 0, amber: 1, green: 2 };
   const workbench = (deal?.workstreams || [])
     .map((w) => ({ w, ...ryg(w) }))
     .sort((a, b) => RYG_RANK[a.state] - RYG_RANK[b.state] || (a.w.progress || 0) - (b.w.progress || 0));
-  const atRisk = workbench.filter((r) => r.state !== 'green').length;
+  // "At risk" is red. Counting amber into it put "4 at risk" over a panel showing two
+  // flagged rows, while the brief, the task list and the IC tab all said two -- and a
+  // partner who has been told four things are wrong goes looking for the other two.
+  // Behind is a different state and gets its own word.
+  const atRisk = workbench.filter((r) => r.state === 'red').length;
+  const behind = workbench.filter((r) => r.state === 'amber').length;
+  const closedAtIc = workbench.filter((r) => r.w.status === 'closed_at_ic').length;
+
+  // On a deal still heading to committee, producing the papers IS the work. "Generate a
+  // document" sat third in an overflow menu while the IC readiness board -- which the
+  // brief sends you to -- listed the missing memo with no way to start it. It moves into
+  // the strip for pre-committee deals, and the market reference material takes its place
+  // under More. Nothing is removed either way.
+  const preCommittee = !!deal && !POST_IC.has(String(deal.status || ''));
+  const tabsOften: Tab[] = (() => {
+    const base = cockpitOn ? TABS_OFTEN : TABS_OFTEN_PLAIN;
+    if (!preCommittee || base.includes('documents')) return base;
+    const at = base.indexOf('ic');
+    const out = [...base];
+    out.splice(at >= 0 ? at + 1 : out.length, 0, 'documents');
+    return out;
+  })();
+  const tabsRarely: Tab[] = (cockpitOn ? TABS_RARELY : TABS_RARELY_PLAIN).filter((t) => !tabsOften.includes(t));
   const RYG_DOT: Record<string, string> = { red: 'var(--bad)', amber: 'var(--warn)', green: 'var(--good)' };
 
   return (
@@ -630,21 +667,21 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
             {!statusOnly && (
             <div className="dd-tabs">
-              {(cockpitOn ? TABS_OFTEN : TABS_OFTEN_PLAIN).map((t) => (
+              {tabsOften.map((t) => (
                 <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>{TAB_LABEL[t]}</button>
               ))}
               <span className="dd-tabdiv" aria-hidden="true" />
               <div className="dd-more" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setMoreOpen(false); }}>
                 <button
-                  className={`dd-tab${(cockpitOn ? TABS_RARELY : TABS_RARELY_PLAIN).includes(tab) ? ' on' : ''}`}
+                  className={`dd-tab${tabsRarely.includes(tab) ? ' on' : ''}`}
                   aria-expanded={moreOpen}
                   onClick={() => setMoreOpen((v) => !v)}
                 >
-                  {(cockpitOn ? TABS_RARELY : TABS_RARELY_PLAIN).includes(tab) ? TAB_LABEL[tab] : 'More'} ▾
+                  {tabsRarely.includes(tab) ? TAB_LABEL[tab] : 'More'} ▾
                 </button>
                 {moreOpen ? (
                   <div className="dd-more-menu" role="menu">
-                    {(cockpitOn ? TABS_RARELY : TABS_RARELY_PLAIN).map((t) => (
+                    {tabsRarely.map((t) => (
                       <button key={t} role="menuitem" className={`dd-more-item${tab === t ? ' on' : ''}`} onClick={() => { setTab(t); setMoreOpen(false); }}>
                         {t === 'documents' && !cockpitOn ? 'Documents' : TAB_LABEL[t]}
                       </button>
@@ -1021,7 +1058,9 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                         {deal.workstreams.map((w, i) => (
                           <div className="dd-lane" key={i}>
                             <div className="lane-top"><span className="lane-name">{LANE_LABEL[w.lane] || w.lane}</span><span className="lane-status">{STATUS_LABEL[w.status || ''] || w.status || '—'}</span></div>
-                            <div className="lane-bar"><span style={{ width: `${Math.max(0, Math.min(100, w.progress ?? 0))}%` }} /></div>
+                            {/* No empty bar on a workstream the committee closed out --
+                                it reads as work nobody has started. */}
+                            {w.status === 'closed_at_ic' ? null : <div className="lane-bar"><span style={{ width: `${Math.max(0, Math.min(100, w.progress ?? 0))}%` }} /></div>}
                             <div className="lane-owner">{ownerName(w.owner)}{w.findings?.length ? ` · ${w.findings.length} finding${w.findings.length === 1 ? '' : 's'}` : ''}</div>
                           </div>
                         ))}
@@ -1042,7 +1081,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                     <section className="dd-panel">
                       <div className="dd-panel-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span>Workstream status</span>
-                        <span style={{ fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: atRisk ? 'var(--bad)' : 'var(--muted)', background: atRisk ? 'var(--bad-bg)' : 'var(--chip)' }}>{atRisk ? `${atRisk} at risk` : 'All on track'}</span>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: atRisk ? 'var(--bad)' : 'var(--muted)', background: atRisk ? 'var(--bad-bg)' : 'var(--chip)' }}>{atRisk ? `${atRisk} at risk` : behind ? `${behind} behind` : closedAtIc === workbench.length ? `${closedAtIc} closed at IC` : 'All on track'}</span>
                       </div>
                       <div style={{ padding: '4px 14px 14px' }}>
                         {workbench.map(({ w, state, reason }, i) => (
@@ -1053,9 +1092,23 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                               {reason ? <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>{state === 'red' ? '⚠ ' : ''}{reason}</div> : null}
                             </div>
                             <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div style={{ width: 64, height: 5, borderRadius: 999, background: 'var(--chip)', overflow: 'hidden' }}><div style={{ width: `${Math.min(100, w.progress || 0)}%`, height: '100%', background: RYG_DOT[state] }} /></div>
-                              <span className="muted" style={{ fontSize: 11.5, width: 30, textAlign: 'right' }}>{w.progress || 0}%</span>
-                              {state === 'red' ? <button className="chbtn" onClick={() => { setSelStep('D2'); setTab('stages'); }}>Resolve ▸</button> : null}
+                              {/* A workstream closed out at committee has no percentage
+                                  to report. Printing "0%" beside it said the work was
+                                  never done, when the committee decided it did not need
+                                  to be. */}
+                              {w.status === 'closed_at_ic' ? (
+                                <span className="muted" style={{ fontSize: 11.5, width: 94, textAlign: 'right' }}>closed at IC</span>
+                              ) : (
+                                <>
+                                  <div style={{ width: 64, height: 5, borderRadius: 999, background: 'var(--chip)', overflow: 'hidden' }}><div style={{ width: `${Math.min(100, w.progress || 0)}%`, height: '100%', background: RYG_DOT[state] }} /></div>
+                                  <span className="muted" style={{ fontSize: 11.5, width: 30, textAlign: 'right' }}>{w.progress || 0}%</span>
+                                </>
+                              )}
+                              {/* Every workstream that is not green gets a way in. The
+                                  action used to be on red rows only, so the one named as
+                                  the critical path a panel above -- amber, at 30% -- was
+                                  the single row on the tab you could not act on. */}
+                              {state !== 'green' ? <button className="chbtn" onClick={() => { setSelStep('D2'); setTab('stages'); }}>{state === 'red' ? 'Resolve ▸' : 'Open ▸'}</button> : null}
                             </div>
                           </div>
                         ))}
@@ -1109,7 +1162,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                       <div className="dd-lanes" style={{ padding: '0 14px 14px' }}>
                         {ws.swimlanes.map((s: any, i: number) => (
                           <div className="dd-lane" key={i}>
-                            <div className="lane-top"><span className="lane-name">{s.label || LANE_LABEL[s.lane] || s.lane}</span><span className="lane-status">{s.advisor || s.md || ownerName(s.owner)}</span></div>
+                            {/* One naming scheme per tab. This took the server's label
+                                first, so "Legal DD" in the panel above became "Legal"
+                                here and a reader had to work out they were the same
+                                workstream. */}
+                            <div className="lane-top"><span className="lane-name">{LANE_LABEL[s.lane] || s.label || s.lane}</span><span className="lane-status">{s.advisor || s.md || ownerName(s.owner)}</span></div>
                             {s.channelUrl ? <a className="lane-owner" href={s.channelUrl} target="_blank" rel="noreferrer">Teams channel ↗</a> : null}
                           </div>
                         ))}
@@ -1268,6 +1325,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           <span className="a-ic">{a.complete ? '✓' : '○'}</span>
                           <span className="a-label">{a.label}</span>
                           {a.detail ? <span className="a-detail">{a.detail}</span> : null}
+                          {/* This board was the page the brief sent you to, and it had no
+                              control on it anywhere -- you were told what was missing and
+                              left to find the place that produces it. Each unmet paper now
+                              opens the surface that makes it. */}
+                          {!a.complete ? <button className="chbtn a-act" onClick={() => resolveBlocker(artifactTarget(a.key))}>{artifactTarget(a.key).tab === 'documents' ? 'Draft it ▸' : 'Open ▸'}</button> : null}
                         </div>
                       ))}
                     </div>

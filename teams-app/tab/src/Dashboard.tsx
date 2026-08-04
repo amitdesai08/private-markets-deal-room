@@ -141,9 +141,15 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
     : 0;
 
   // Day-to-day PE headline data, derived from the deals THIS caller can see.
-  const pipelineValue = deals.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6; // total EV in flight
-  const avgCheck = deals.length ? pipelineValue / deals.length : 0;
-  const sectors = new Set(deals.map((d) => d.sector).filter(Boolean)).size;
+  //
+  // The Report excludes owned and exiting companies from pipeline value -- an LP reads
+  // that number as future deployment capacity, and those three are already in the NAV on
+  // the Fund tab. Home was still adding them in, so a partner glanced at "$8.1B" here and
+  // then handed an LP a certified report saying $6.4B. Same exclusion, same wording.
+  const COMPLETED_STATUS = new Set(['owned', 'exiting', 'exited']);
+  const preCompletion = deals.filter((d) => !COMPLETED_STATUS.has(String((d as any).status || '').toLowerCase()));
+  const excludedHoldings = deals.length - preCompletion.length;
+  const pipelineValue = preCompletion.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6;
   const icReady = preIC.filter((d) => (d.readiness ?? 0) >= 80).length;
   // "Next to committee" = the soonest UPCOMING IC among pre-IC deals (never a past-IC,
   // owned/exiting deal — which would show negative days).
@@ -152,7 +158,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
 
   const kpis = [
     { label: 'Live deals', value: String(liveDeals), sub: `${inDiligence} in diligence` },
-    { label: 'Pipeline value', value: money(pipelineValue), sub: liveDeals ? `avg ${money(avgCheck)} · ${sectors} sector${sectors === 1 ? '' : 's'}` : '—' },
+    { label: 'Pipeline value', value: money(pipelineValue), sub: preCompletion.length ? `${preCompletion.length} pre-completion${excludedHoldings ? ` · excludes ${excludedHoldings} owned or exiting` : ''}` : '—' },
     { label: 'Avg IC readiness', value: `${avgReadiness}%`, sub: `${icReady} of ${preIC.length} pre-IC deals ready` },
     { label: 'Next IC', value: nearestIC ? `${nearestIC.daysToIC}d` : '—', sub: nearestIC ? nearestIC.company : 'none scheduled' },
   ];
@@ -191,6 +197,13 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
       impact: null,
       basis: 'IC readiness board',
     }));
+
+  // Six rows is the right length for a panel a partner scans in under a minute, but the
+  // seventh onwards has to be reachable. The header counts the whole queue; this opens it.
+  const ATTENTION_PREVIEW = 6;
+  const [attentionAll, setAttentionAll] = useState(false);
+  const attentionShown = attentionAll ? attentionRows : attentionRows.slice(0, ATTENTION_PREVIEW);
+  const attentionHidden = attentionRows.length - attentionShown.length;
 
   // Where the live capital sits in the deal process.
   // The header claimed "$8.1B across 19 live deals" and then showed three columns
@@ -454,10 +467,11 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
                 {seat?.tailored && seat.laneLabels.length
                   ? <>Ranked across <b>your {seat.laneLabels.join(' and ')} workstream{seat.laneLabels.length === 1 ? '' : 's'}</b>, soonest committee first</>
                   : <>Soonest committee first, across every deal you can see</>}
-                {/* Pointing at "Deals in flight" was wrong: the deals held back include
-                    ones still in screening, which that page does not list. Say only what
-                    is true — there are more, ranked below these. */}
-                {(home as any)?.attentionOmitted ? <> · <b>{(home as any).attentionOmitted} more</b> ranked below these</> : null}
+                {/* This used to name a number of deals held back and offer no way to see
+                    them — the page said six needed attention and seven more did, then
+                    refused both. The count in the header is now the whole set and the
+                    button below opens the rest. */}
+                {attentionHidden ? <> · showing the <b>{ATTENTION_PREVIEW}</b> with the nearest committee</> : null}
                 {canWrite === false ? <> · <b>read-only access</b></> : null}
               </span>
             </div>
@@ -468,7 +482,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
               // Guessing "all healthy" here once told an observer everything was on
               // track while their own tiles showed four deals not IC-ready.
               <div className="bd"><div className="muted">{home?.attentionEmpty || 'Nothing is flagged right now.'}</div></div>
-            ) : attentionRows.map((a) => (
+            ) : attentionShown.map((a) => (
               <div className="att" key={a.id}>
                 <div className="att-t">
                   <span className="rank">#{a.rank}</span>
@@ -495,6 +509,13 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
                 </div>
               </div>
             ))}
+            {attentionHidden > 0 || attentionAll ? (
+              <div className="att-more">
+                <button className="btn link" onClick={() => setAttentionAll((v) => !v)}>
+                  {attentionAll ? `Show the ${ATTENTION_PREVIEW} most urgent only` : `Show the remaining ${attentionHidden} ▸`}
+                </button>
+              </div>
+            ) : null}
             <div className="note">
               Opening a deal takes you to that deal's own page. Nothing here changes a deal — it only tells you where to look first.
             </div>
@@ -569,7 +590,7 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
       {/* Where the live capital sits in the process */}
       {shows('phases') ? (
       <section className="panel">
-        <div className="panel-h"><span>Deals by stage</span><span className="muted">{money(pipelineValue)} across {liveDeals} live deal{liveDeals === 1 ? '' : 's'}{byPhase.reduce((s, p) => s + p.restricted, 0) ? ' · sizes exclude deals you cannot open' : ''}</span></div>
+        <div className="panel-h"><span>Deals by stage</span><span className="muted">{money(pipelineValue)} across {preCompletion.length} deal{preCompletion.length === 1 ? '' : 's'} pre-completion{excludedHoldings ? ` · excludes ${excludedHoldings} owned or exiting` : ''}{byPhase.reduce((s, p) => s + p.restricted, 0) ? ' · and deals you cannot open' : ''}</span></div>
         <div className="funnel">
           {byPhase.map((ph) => (
             <div key={ph.key} className="fstep">

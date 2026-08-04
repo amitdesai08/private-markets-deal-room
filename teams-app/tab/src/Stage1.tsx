@@ -228,7 +228,11 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
             <div className="panel-h">Origination & Screening<span className="muted">{funnel?.fundName || 'Fund'} · {funnel?.fundStrategy || ''}</span></div>
             <div className="funnel">
               {(funnel?.funnel || []).map((s) => (
-                <button key={s.key} className={`fstep${stageFilter === s.key ? ' on' : ''}`} onClick={() => setStageFilter(s.key === 'O1' ? 'all' : s.key)} title="Filter the pipeline to this stage">
+                /* These tiles filter the candidate list below. When there is no candidate
+                   list -- which is the case for a fund whose origination is tracked
+                   outside the product -- pressing one did nothing at all, and a control
+                   that visibly does nothing teaches people to stop pressing things. */
+                <button key={s.key} className={`fstep${stageFilter === s.key ? ' on' : ''}`} disabled={!all.length} onClick={() => setStageFilter(s.key === 'O1' ? 'all' : s.key)} title={all.length ? 'Filter the candidate list below to this step' : 'No candidate list to filter — these counts come from the deals already on the book'}>
                   <div className="fcount">{s.count == null ? '—' : s.count}</div>
                   <div className="flabel">{s.label || STAGE_LABEL[s.key] || s.key}</div>
                   <div className="fkey">{s.key}{s.step ? ` · ${s.step}` : ''}</div>

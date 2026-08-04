@@ -50,9 +50,14 @@ const humanise = (slug) =>
 // so the same deal named "Finance Partner" on one tab and "Finance MD" on the next.
 const ROLE_TITLE = {
   'retail-md': 'Commercial Partner', 'finance-md': 'Finance Partner', 'legal-md': 'General Counsel',
-  'tax-md': 'Finance Partner — tax', 'ai-md': 'AI Partner', 'supply-md': 'Supply Chain Partner',
+  'tax-md': 'Tax Partner', 'ai-md': 'AI Partner', 'supply-md': 'Supply Chain Partner',
   'esg-md': 'Operating Partner — ESG', 'ops-md': 'Operating Partner', 'partner': 'Partner',
   'analyst': 'Analyst', 'deal-team': 'Deal Team', 'admin': 'Administrator',
+  // The seed uses several spellings for the same handful of people. Every one of them
+  // has to resolve, because a single miss prints the raw slug -- "fund-cfo" sat on the
+  // diligence tab of a live pre-IC deal beside five properly titled colleagues.
+  'fund-cfo': 'Fund CFO', 'legal-gc': 'General Counsel',
+  'finance md': 'Finance Partner', 'compliance': 'Compliance',
 };
 
 // One human phrase per workstream status, for every surface that puts a status into
@@ -78,7 +83,10 @@ export const CLOSED_AT_IC = 'closed_at_ic';
 export function ownerLabel(id, lane) {
   const name = personaName(id);
   if (name) return name;
-  if (id && ROLE_TITLE[id]) return ROLE_TITLE[id];
+  // Case- and spacing-insensitive: the seed carries 'Finance MD' and 'finance-md' for
+  // the same person, and an exact-match lookup let one of the two through raw.
+  const key = String(id || '').trim().toLowerCase();
+  if (key && ROLE_TITLE[key]) return ROLE_TITLE[key];
   if (id && !LANE_LABEL[id]) return /[-_]/.test(String(id)) ? humanise(id) : String(id);
   return laneLabel(lane);
 }
@@ -221,8 +229,14 @@ function buildAttention(deal, board, role) {
   // Lanes closed out at committee are excluded outright: they are a records gap on a
   // decided deal, not a workstream anybody is waiting on.
   const lanes = (deal.workstreams || []).filter((w) => w.status !== 'complete' && w.status !== CLOSED_AT_IC);
-  const notStarted = lanes.filter((w) => !(w.progress > 0));
-  const inFlight = lanes.filter((w) => w.progress > 0);
+  // Whatever the blocking row above already named does not get ranked a second time.
+  // Lumen listed "2 diligence workstreams are short of IC-ready" at #1 and "2 diligence
+  // workstreams have not started" at #3 -- the same two workstreams, twice, in a queue
+  // whose whole job is to say what to do first.
+  const blockingLanes = new Set(blocking.map((w) => w.key || w.lane));
+  const uncovered = lanes.filter((w) => !blockingLanes.has(w.lane));
+  const notStarted = uncovered.filter((w) => !(w.progress > 0));
+  const inFlight = uncovered.filter((w) => w.progress > 0);
 
   // Only worth its own row when it says something the blocking row does not: either
   // it spans several lanes, or nothing has been flagged as blocking at all.
@@ -388,7 +402,10 @@ function buildBriefing(deal, board, attention, sinceIso) {
   // The single most important thing.
   const top = attention[0];
   if (top) {
-    add(`Your most pressing item is ${top.title.charAt(0).toLowerCase()}${top.title.slice(1)}. ${top.why}${top.impact ? ` ${top.impact}` : ''}`, top.basis);
+    // "Your most pressing item is 2 diligence workstreams are short of IC-ready" -- the
+    // frame assumes the title is a noun phrase, and half of them are full sentences.
+    // Lead with the title as its own sentence instead of forcing it into a clause.
+    add(`Most pressing: ${top.title}. ${top.why}${top.impact ? ` ${top.impact}` : ''}`, top.basis);
   }
 
   // Findings worth knowing about, positive and negative.
@@ -414,13 +431,32 @@ function buildBriefing(deal, board, attention, sinceIso) {
   }
 
   // Suggested next questions — seeded into the existing deal agent.
+  //
+  // These used to be the same five on every deal. On a signed deal with a closing date
+  // in the diary the product was offering "What is still missing for IC?", "Draft the IC
+  // memo skeleton" and "What is holding up Commercial DD?" — a workstream sitting at
+  // 100%. Committee is behind that deal; the questions the team actually has are about
+  // conditions precedent and clearances. Ask what fits where the deal is.
   const suggestions = [];
-  const laggard = [...lanes].filter((w) => w.progress > 0).sort((a, b) => (a.progress || 0) - (b.progress || 0))[0];
-  if (laggard) suggestions.push(`What is holding up ${laneLabel(laggard.lane)}?`);
-  suggestions.push('What changed on this deal this week?');
-  if (caution.length) suggestions.push(`Summarise the ${laneLabel(caution[0].lane)} findings`);
-  suggestions.push('What is still missing for IC?');
-  suggestions.push('Draft the IC memo skeleton');
+  const pastCommittee = !icPending(deal);
+  if (pastCommittee) {
+    suggestions.push('Which conditions precedent are still open?');
+    suggestions.push('Who owns each outstanding clearance?');
+    suggestions.push('What changed on this deal this week?');
+    if (caution.length) suggestions.push(`Summarise the ${laneLabel(caution[0].lane)} findings`);
+    suggestions.push('Draft the closing checklist');
+  } else {
+    // Only offer to chase a workstream that is genuinely behind. The old rule took the
+    // lowest-progress workstream whatever its number, and named one at 100%.
+    const laggard = [...lanes]
+      .filter((w) => w.progress > 0 && w.progress < 100 && w.status !== CLOSED_AT_IC && w.status !== 'complete')
+      .sort((a, b) => (a.progress || 0) - (b.progress || 0))[0];
+    if (laggard) suggestions.push(`What is holding up ${laneLabel(laggard.lane)}?`);
+    suggestions.push('What changed on this deal this week?');
+    if (caution.length) suggestions.push(`Summarise the ${laneLabel(caution[0].lane)} findings`);
+    suggestions.push('What is still missing for IC?');
+    suggestions.push('Draft the IC memo skeleton');
+  }
 
   return {
     generatedAt: new Date().toISOString(),

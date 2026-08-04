@@ -147,7 +147,11 @@ export default function App() {
       // asked as somebody. A bare fetch would carry no identity and the numbers would
       // silently revert to the whole book — which is the leak these counters started as.
       af('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
-      fetch('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
+      // Same reason as /api/analytics above, and it was missed the first time: the funnel
+      // is scoped server-side, but a bare fetch carries no identity, so an analyst on four
+      // deals was shown the partner's "19 sourced" under a footnote promising the number
+      // was limited to what they can see.
+      af('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
       fetch('/api/market-intel').then((r) => r.json()).then(setMarket).catch(() => {});
       loadDeals();
 
@@ -241,7 +245,7 @@ export default function App() {
   async function refreshData() {
     loadDeals();
     af('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
-    fetch('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
+    af('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
   }
 
   function askAbout(dealId: string) {
@@ -418,7 +422,7 @@ export default function App() {
           ) : mainTab === 'sourcing' ? (
             <Stage1 deals={deals} onChanged={refreshData} onOpenDeal={setOpenDealId} />
           ) : mainTab === 'fund' ? (
-            <Fund />
+            <Fund deals={deals} onOpenDeal={setOpenDealId} />
           ) : mainTab === 'report' ? (
             <PowerBI ssoToken={ssoToken} analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId="" canCertify={canWrite && /partner|admin/i.test(`${viewAsRole || ''} ${roleLabel || ''}`)} />
           ) : (
@@ -493,6 +497,7 @@ cite:has(button):hover, cite:focus-within { background: var(--ai); color: var(--
 /* --- attention queue --- */
 .att { padding: 12px 14px; border-bottom: 1px solid var(--border); }
 .att:last-child { border-bottom: none; }
+.att-more { padding: 8px 14px; border-bottom: 1px solid var(--border); }
 .att-t { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .att-t .rank { font-weight: 800; color: var(--muted); font-size: 12px; }
 .att-t .name { font-weight: 650; font-size: 13.5px; }
@@ -636,6 +641,7 @@ details[open] > summary:before { content: "\\25BE "; }
 .maintab.on { color: var(--accent); border-bottom-color: var(--accent); }
 .stage1, .stage2 { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
 .stage1 .fstep { border: none; cursor: pointer; }
+.stage1 .fstep:disabled { cursor: default; opacity: .75; }
 .stage1 .fstep.on { outline: 2px solid var(--accent); }
 
 /* One deals list, filtered. Rows not cards: the question is "which of these needs me
@@ -932,6 +938,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .artifact.todo .a-ic { color: var(--muted); }
 .artifact .a-label { font-weight: 600; }
 .artifact .a-detail { color: var(--muted); font-size: 12px; }
+.artifact .a-act { margin-left: auto; flex: 0 0 auto; }
 .dd-figs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 12px 14px; }
 .dd-fig { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--surface); }
 .dd-fig .fig-v { font-size: 18px; font-weight: 700; }

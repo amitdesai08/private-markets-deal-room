@@ -28,11 +28,11 @@ export const personas = [
   {
     id: 'retail-md',
     name: 'James Whitfield',
-    title: 'Retail Sector MD — Consumer & Retail',
-    short: 'Retail MD',
+    title: 'Partner — Consumer & Retail',
+    short: 'Commercial Partner',
     color: '#0d9488',
     lane: 'commercial',
-    focus: 'Owns the commercial lane — market, competitor and customer diligence into the IC decision.',
+    focus: 'Owns commercial diligence — market, competitor and customer work into the IC decision.',
     stages: ['O3', 'D2', 'D4'],
     actions: [
       { id: 'commercial-dd', label: 'Synthesize commercial DD', target: 'lane', lane: 'commercial', hours: 12, blurb: 'Market, share & growth thesis, cited.' },
@@ -42,11 +42,11 @@ export const personas = [
   {
     id: 'ai-md',
     name: 'Dr. Priya Nair',
-    title: 'AI MD — AI & Digital Value',
-    short: 'AI MD',
+    title: 'Partner — AI & Digital Value',
+    short: 'AI Partner',
     color: '#7c3aed',
     lane: 'techai',
-    focus: 'Owns the tech/AI lane — scores AI-readiness and shapes the value-creation plan early.',
+    focus: 'Owns tech and AI diligence — scores AI-readiness and shapes the value-creation plan early.',
     stages: ['O3', 'D2', 'D3', 'D4'],
     actions: [
       { id: 'ai-readiness', label: 'Score AI readiness', target: 'lane', lane: 'techai', hours: 10, blurb: 'Data, talent, stack & adoption score.' },
@@ -56,11 +56,11 @@ export const personas = [
   {
     id: 'supply-md',
     name: 'Diego Marquez',
-    title: 'Supply Chain MD — Operations',
-    short: 'Supply MD',
+    title: 'Partner — Supply Chain & Operations',
+    short: 'Supply Chain Partner',
     color: '#ea580c',
     lane: 'operations',
-    focus: 'Owns the operations lane — supplier mapping, COGS, tariff and concentration risk, up front.',
+    focus: 'Owns operations diligence — supplier mapping, COGS, tariff and concentration risk, up front.',
     stages: ['O3', 'D2', 'D3', 'D4'],
     actions: [
       { id: 'supply-risk', label: 'Map supply-chain & tariff risk', target: 'lane', lane: 'operations', hours: 11, blurb: 'Supplier map + tariff exposure.' },

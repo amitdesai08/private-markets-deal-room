@@ -33,6 +33,34 @@ const BLOCKING_SEVERITIES = new Set(['risk', 'negative']);
 
 const laneLabel = (l) => LANE_LABEL[l] || l;
 
+// Two records describing the same obligation rarely match character for character:
+// Helvetia carried "Regulatory clearance in both jurisdictions" as a condition and
+// "Antitrust / merger clearance (CH + EU)" under Regulatory as a compliance check, and
+// listed both, so a partner reading the deal counted two clearances where one exists.
+// Compare on the substantial words -- two shared ones is a strong signal in a list this
+// short, and a financing CP shares none of them with a regulatory clearance.
+const STOPWORD = new Set(['and', 'the', 'for', 'with', 'both', 'not', 'all', 'any', 'from', 'into', 'that', 'this', 'check', 'checks', 'status']);
+const words = (s) => new Set(
+  String(s || '').toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 4 && !STOPWORD.has(w))
+);
+function sameObligation(a, b) {
+  const wa = words(a);
+  const wb = words(b);
+  let shared = 0;
+  for (const w of wa) if (wb.has(w)) shared += 1;
+  return shared >= 2;
+}
+
+// One plain sentence per memo-section state, so the committee board never prints the
+// stored value at a partner.
+const REC_STATUS_TEXT = {
+  empty: 'Not written yet.',
+  draft: 'Drafted, not yet reviewed.',
+  in_review: 'Drafted and with the reviewer.',
+  review: 'Drafted and with the reviewer.',
+  approved: 'Drafted and approved.',
+};
+
 // ---- 1. Required papers -------------------------------------------------
 function requiredArtifacts(deal) {
   const arts = deal.artifacts || {};
@@ -58,7 +86,9 @@ function requiredArtifacts(deal) {
     { key: 'D2', label: 'Findings / red-flag report', complete: onRecord('D2'), detail: onRecord('D2') ? 'Findings synthesised.' : 'Not yet on record.' },
     { key: 'D3', label: 'Final IC memo', complete: onRecord('D3'), detail: onRecord('D3') ? 'Memo drafted.' : 'Not yet on record.' },
     { key: 'memo', label: 'IC memo sections approved', complete: memo.length > 0 && memoApproved === memo.length, detail: `${memoApproved}/${memo.length} sections approved.` },
-    { key: 'recommendation', label: 'Recommendation drafted', complete: !!recSection && recSection.status !== 'empty', detail: recSection ? `Status: ${recSection.status}.` : 'No recommendation section.' },
+    // "Status: empty." and "Status: approved." were the stored enum printed straight
+    // onto a committee-readiness board. Say what the state means for the paper.
+    { key: 'recommendation', label: 'Recommendation drafted', complete: !!recSection && recSection.status !== 'empty', detail: !recSection ? 'No recommendation section on the memo.' : REC_STATUS_TEXT[recSection.status] || `Recommendation is ${String(recSection.status).replace(/_/g, ' ')}.` },
     { key: 'compliance', label: 'KYC / compliance cleared', complete: !!complianceCleared, detail: compliance.length ? `${compliance.filter((c) => c.status === 'passed').length}/${compliance.length} cleared.` : 'No compliance checks.' }
   ];
   const complete = items.filter((i) => i.complete).length;
@@ -231,6 +261,14 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
   // (date, attendees, outcome, terms), so this must not be worded as though a minute exists.
   if (phase === 'post-committee') {
     const openChecks = (deal?.compliance || []).filter((c) => c.status !== 'passed');
+    // A regulatory clearance is often recorded twice -- once as a condition the committee
+    // attached, once as a compliance check. Home said three obligations, the deal page
+    // listed the same clearance under two different names, and neither surface was wrong
+    // about its own list. Drop a check whose subject already appears in an open condition.
+    const conditionText = openConditions.map((c) => `${c.text || c.id}`);
+    const dedupedChecks = openChecks.filter(
+      (c) => !conditionText.some((t) => sameObligation(t, `${c.check} ${c.framework || ''}`))
+    );
     // `blocking` is read here too. It was not, and the result was one payload contradicting
     // itself: `demo-peachtree` shipped `blockingWorkstreams: ['Tech / AI DD']` — reason,
     // no work recorded against it — under the headline "nothing outstanding on the record".
@@ -244,7 +282,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
     // the sentence now names each for what it is.
     const obligations = [
       ...openConditions.map((c) => c.text || c.id),
-      ...openChecks.map((c) => `${c.check}${c.framework ? ` (${c.framework})` : ''} not cleared`),
+      ...dedupedChecks.map((c) => `${c.check}${c.framework ? ` (${c.framework})` : ''} not cleared`),
     ];
     const unevidenced = blocking.map((b) => `${b.label} — ${b.reasons.join(', ')}`);
     const outstanding = [...obligations, ...unevidenced];
@@ -257,7 +295,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
         headline: `Past the IC decision — ${parts.join(' and ')}.`,
         gating: outstanding,
         openConditions: openConditions.length,
-        openComplianceChecks: openChecks.length,
+        openComplianceChecks: dedupedChecks.length,
         phase,
         basis: 'Stage on the deal record. No committee decision record exists to confirm the approval terms.',
       };

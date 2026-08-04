@@ -1678,6 +1678,16 @@ function reachedIndex(c) {
   return REACHED[c.stage] ?? 2;
 }
 
+// How far a deal got through origination. Deals carry an O/D/E/V step code; anything
+// past the O steps cleared origination outright. This is what the funnel counts when
+// there is no separate candidate pipeline in use.
+function originationReach(d) {
+  const m = /^([ODEV])(\d+)$/.exec(String(d.stage || '').toUpperCase());
+  if (!m) return 1;
+  if (m[1] !== 'O') return 5;
+  return Math.min(4, Number(m[2]) || 1);
+}
+
 // The funnel counted the whole book regardless of who was asking, so an analyst on
 // four deals saw "Sourced 19" sitting beside tiles that correctly said "4 live deals"
 // -- inside a report with a Certify for LP use button on it. Every other number on
@@ -1695,7 +1705,13 @@ export function getStage1Funnel(identity, viewAsRole = null) {
   const fromDeals = !all.length;
   const dealList = fromDeals ? (scoped ? listDeals(identity, viewAsRole) : listDeals(null)) || [] : [];
   const nDeals = dealList.length;
-  const awaiting = dealList.filter((d) => ['sourced', 'screened', 'shortlisted'].includes(String(d.status || ''))).length;
+  // Screened and shortlisted used to print an em dash under the claim that "nothing has
+  // been screened through it yet" -- while the deal record two screens away showed O1,
+  // O2 and O3 all completed on the very same deals. And "awaiting decision" was counted
+  // from status, which swept in signed transactions. Read the step each deal reached
+  // instead: it is the same record the rest of the page is built from.
+  const reachedO = (n) => dealList.filter((d) => originationReach(d) >= n).length;
+  const inOrigination = dealList.filter((d) => originationReach(d) <= 4).length;
   return {
     fundName: fund.name,
     fundStrategy: fund.strategy,
@@ -1714,19 +1730,14 @@ export function getStage1Funnel(identity, viewAsRole = null) {
     // The words a sourcing analyst uses. "Gate-ready" and "Screening Gate" were the
     // workflow model showing through on the tile a partner glances at; the O-codes
     // stay beside them because a code next to a word is a cross-reference.
-    //
-    // When the numbers are inferred from the deals, only the ends of the funnel are
-    // knowable: every deal was sourced, and some are still awaiting a decision. Filling
-    // the middle with the same total claimed this fund shortlists 100% of everything it
-    // looks at, which an LP reads as no screening discipline at all. Say "not tracked".
     funnel: [
       { key: 'O1', step: 'Deal sourcing', label: 'Sourced', count: fromDeals ? nDeals : reachedAtLeast(2), active: activeAt('O2') },
-      { key: 'O2', step: 'Screening', label: 'Screened', count: fromDeals ? null : reachedAtLeast(3), active: activeAt('O2') },
-      { key: 'O3', step: 'Shortlisting', label: 'Shortlisted', count: fromDeals ? null : reachedAtLeast(4), active: activeAt('O3') },
-      { key: 'O4', step: 'Go / no-go', label: 'Awaiting decision', count: fromDeals ? awaiting : reachedAtLeast(5), active: activeAt('O4') }
+      { key: 'O2', step: 'Screening', label: 'Screened', count: fromDeals ? reachedO(2) : reachedAtLeast(3), active: activeAt('O2') },
+      { key: 'O3', step: 'Shortlisting', label: 'Shortlisted', count: fromDeals ? reachedO(3) : reachedAtLeast(4), active: activeAt('O3') },
+      { key: 'O4', step: 'Go / no-go', label: 'Still in origination', count: fromDeals ? inOrigination : reachedAtLeast(5), active: activeAt('O4') }
     ],
     funnelNote: fromDeals
-      ? `Screening and shortlist yield are not tracked in this instance — nothing has been screened through it yet. Sourced and awaiting-decision are counted from the ${scoped ? 'deals you can see' : 'deals themselves'}.`
+      ? `Counted from the step each deal has reached, across the ${scoped ? 'deals you can see' : 'deals on the book'}. These are the targets that became deals, so the drop between steps is not a screening yield — targets passed over never entered the record.`
       : null
   };
 }

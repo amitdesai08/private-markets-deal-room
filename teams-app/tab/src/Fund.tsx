@@ -33,9 +33,13 @@ const usd = (m: number) => (Math.abs(m) >= 1000 ? `$${(m / 1000).toFixed(2)}B` :
 const statusClass = (s: string) => (s === 'on-track' ? 'ok' : s === 'watch' ? 'warn' : s === 'underperform' ? 'bad' : '');
 const statusLabel = (s: string) => (s === 'on-track' ? 'On track' : s === 'watch' ? 'Watch' : s === 'underperform' ? 'Underperform' : s);
 const concClass = (s: string) => (s === 'breach' ? 'bad' : s === 'near' ? 'warn' : 'ok');
+// One set of titles across the product. "Retail MD" and "Supply MD" were a slug with the
+// hyphen taken out; nobody in the firm has that on a business card, and the same people
+// read as "Commercial Partner" on the deal pages.
 const OWNER_LABEL: Record<string, string> = {
-  analyst: 'Analyst', partner: 'Partner', principal: 'Principal', 'retail-md': 'Retail MD', 'ai-md': 'AI MD',
-  'supply-md': 'Supply MD', 'operating-partner': 'Operating Partner', 'fund-cfo': 'Fund CFO', 'legal-gc': 'General Counsel', 'ir-lp': 'Investor Relations',
+  analyst: 'Analyst', partner: 'Partner', principal: 'Principal', 'retail-md': 'Commercial Partner', 'ai-md': 'AI Partner',
+  'supply-md': 'Supply Chain Partner', 'operating-partner': 'Operating Partner', 'fund-cfo': 'Fund CFO', 'legal-gc': 'General Counsel', 'ir-lp': 'Investor Relations',
+  'finance-md': 'Finance Partner', 'tax-md': 'Tax Partner', 'esg-md': 'Operating Partner — ESG', 'legal-md': 'General Counsel', 'ops-md': 'Operating Partner',
 };
 
 type Methodology = {
@@ -43,7 +47,20 @@ type Methodology = {
   metrics: { id: string; label: string; unit: string; formula: string; definition: string }[];
 };
 
-export default function Fund() {
+const unitSuffix = (u?: string) => (u === '%' ? '%' : u === '$M' ? '$m' : '');
+
+// "250% below" is what you get from dividing a -6% actual by a +4% plan. Once a metric
+// has crossed zero the proportion of plan stops meaning anything, so say the gap in the
+// metric's own units instead of printing a ratio nobody can act on.
+const shortfallPhrase = (wk: { k: { plan: number; actual: number; unit?: string }; gap: number; rel: number }) => {
+  const sameSign = wk.k.plan > 0 && wk.k.actual >= 0;
+  if (!sameSign || wk.k.plan === 0) {
+    return `${Math.round(wk.gap * 10) / 10}${wk.k.unit === '%' ? 'pp' : unitSuffix(wk.k.unit)} below plan`;
+  }
+  return `${Math.round(wk.rel * 100)}% below`;
+};
+
+export default function Fund({ deals, onOpenDeal }: { deals?: { id: string; company: string }[]; onOpenDeal?: (id: string) => void } = {}) {
   const [ov, setOv] = useState<Overview | null>(null);
   const [pf, setPf] = useState<Portfolio | null>(null);
   const [val, setVal] = useState<Value | null>(null);
@@ -123,8 +140,14 @@ export default function Fund() {
       {/* Watchlist — deteriorating names that need action */}
       {(() => {
         const worstKpi = (c: Company) => {
-          const shortfalls = c.kpis.map((k) => ({ k, gap: k.plan - k.actual })).filter((x) => x.gap > 0).sort((a, b) => b.gap - a.gap);
-          return shortfalls[0]?.k || null;
+          // Ranked by raw gap, this always picked the KPI with the biggest numbers on it:
+          // revenue 19 units light beat EBITDA nearly a fifth below plan, and the line
+          // named revenue as the cause of a 36% equity loss. Rank by proportion of plan.
+          const shortfalls = c.kpis
+            .map((k) => ({ k, gap: k.plan - k.actual, rel: k.plan ? (k.plan - k.actual) / Math.abs(k.plan) : 0 }))
+            .filter((x) => x.gap > 0)
+            .sort((a, b) => b.rel - a.rel);
+          return shortfalls[0] || null;
         };
         const watch = pf.companies
           .filter((c) => c.status === 'watch' || c.status === 'underperform')
@@ -142,7 +165,7 @@ export default function Fund() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>{c.company}<span className="fnd-mut" style={{ fontWeight: 400 }}> · {c.sector}</span></div>
                       <div className="fnd-mut" style={{ fontSize: 11.5, marginTop: 1 }}>
-                        {wk ? `Primary driver: ${wk.label} at ${wk.actual}${wk.unit === '%' ? '%' : ''} vs ${wk.plan}${wk.unit === '%' ? '%' : ''} plan` : `KPI variance ${c.kpiVariancePct}% · VCP ${c.vcpProgress}%`}
+                        {wk ? `Largest shortfall vs plan: ${wk.k.label} at ${wk.k.actual}${unitSuffix(wk.k.unit)} against ${wk.k.plan}${unitSuffix(wk.k.unit)} (${shortfallPhrase(wk)})` : `KPI variance ${c.kpiVariancePct}% · value-creation plan ${c.vcpProgress}% complete`}
                         {` · MOIC ${c.grossMoic.toFixed(2)}x · IRR ${c.grossIrr}%`}
                       </div>
                     </div>
@@ -198,7 +221,10 @@ export default function Fund() {
                   <p className="c-thesis">{c.thesis}</p>
                   <div className="c-grid">
                     <div>
-                      <div className="c-h">Value-creation levers · 100-day {c.hundredDayPct}%</div>
+                      {/* "VALUE-CREATION PLAN 57%" in the row above and "100-day 100%"
+                          here are two different measures over two different horizons, and
+                          side by side they read as the product contradicting itself. */}
+                      <div className="c-h">Value-creation levers <span className="fnd-mut">· first 100 days {c.hundredDayPct}% done; the full plan is {c.vcpProgress}%</span></div>
                       {c.levers.map((l) => (
                         <div key={l.name} className="c-lever">
                           <div className="c-lever-top"><span>{l.name}</span><em>{l.progressPct}%</em></div>
@@ -214,12 +240,17 @@ export default function Fund() {
                         <div className="kpi-row kpi-hd"><span>Metric</span><span>Plan</span><span>Actual</span><span>Δ</span></div>
                         {c.kpis.map((k) => {
                           const d = k.actual - k.plan;
+                          // The table printed four bare numbers with no units anywhere on
+                          // it, so "241 vs 260" could have been $m, a store count or a
+                          // percentage. The unit is on the record; put it on the row.
+                          const unit = k.unit === '$M' ? '$m' : k.unit;
+                          const delta = `${d >= 0 ? '+' : ''}${Math.round(d * 10) / 10}${k.unit === '%' ? 'pp' : ''}`;
                           return (
                             <div key={k.label} className="kpi-row">
-                              <span>{k.label}</span>
-                              <span>{k.plan}{k.unit === '%' ? '%' : k.unit === '$M' ? '' : ''}</span>
+                              <span>{k.label}{unit ? <em className="kpi-unit"> ({unit})</em> : null}</span>
+                              <span>{k.plan}</span>
                               <span>{k.actual}</span>
-                              <span className={d >= 0 ? 'pos' : 'neg'}>{d >= 0 ? '+' : ''}{Math.round(d * 10) / 10}</span>
+                              <span className={d >= 0 ? 'pos' : 'neg'}>{delta}</span>
                             </div>
                           );
                         })}
@@ -227,6 +258,15 @@ export default function Fund() {
                       <div className="c-marks">
                         Entry {usd(c.entryEV)} EV / {usd(c.entryEquity)} equity → current {usd(c.currentEV)} EV / {usd(c.currentEquity)} equity{c.realized ? ` · ${usd(c.realized)} realised` : ''}
                       </div>
+                      {/* Expanding this panel was the end of the road: the same company has
+                          a full deal page with its workstreams, documents and channel on
+                          it, and there was nothing here that led to it. */}
+                      {(() => {
+                        const match = (deals || []).find((d) => d.company === c.company);
+                        return match && onOpenDeal
+                          ? <button className="askbtn" style={{ marginTop: 8 }} onClick={() => onOpenDeal(match.id)}>Open the deal page for {c.company} ▸</button>
+                          : null;
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -263,7 +303,12 @@ export default function Fund() {
       {/* Portfolio & pipeline health */}
       {val ? (
         <section className="fnd-panel">
-          <div className="fnd-panel-h"><span>Portfolio &amp; pipeline health</span><span className="fnd-mut">owned companies &amp; deals in motion</span></div>
+          {/* These are fund-level figures and they stay fund-level -- an LP report that
+              shrank because the person opening it lacks deal access would be worse than
+              useless. But an analyst who can open four deals was reading "19 Active
+              deals" here and "4 records within your access" on the Report an inch away,
+              with nothing to tell them the two were counting different things. */}
+          <div className="fnd-panel-h"><span>Portfolio &amp; pipeline health</span><span className="fnd-mut">whole fund — not limited to the deals you can open</span></div>
           <div className="fnd-kpis inpanel">
             <Kpi v={String(val.portfolio.companies)} l="Companies owned" s={`${val.portfolio.deployedPct}% deployed`} />
             <Kpi v={String(val.portfolio.onTrack)} l="On track" s={`${val.portfolio.watch} watch · ${val.portfolio.underperform} underperform`} />
@@ -355,6 +400,7 @@ const CSS = `
 .kpi-tbl { display: flex; flex-direction: column; font-size: 12.5px; }
 .kpi-row { display: grid; grid-template-columns: 2fr 1fr 1fr .8fr; gap: 6px; padding: 4px 0; border-bottom: 1px dashed var(--border); }
 .kpi-hd { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .3px; }
+.kpi-unit { color: var(--muted); font-style: normal; font-size: 11px; }
 .c-marks { margin-top: 10px; font-size: 11.5px; color: var(--muted); }
 .fnd-conc { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
 .conc-row { display: grid; grid-template-columns: 1.4fr 3fr 2fr; align-items: center; gap: 12px; font-size: 13px; }

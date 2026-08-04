@@ -532,8 +532,11 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
 
 
   const qualifying = ranked.filter((r) => r.a.rank <= 5);
+  // Send the whole qualifying set. A hard slice here meant the panel could say "6 deals"
+  // and "7 more ranked below these" in the same sentence with no control anywhere on the
+  // page to reach the other seven — a partner reads the list as the list, and walks into
+  // committee blind to one of them. The tab shows six and offers to expand.
   const attention = qualifying
-    .slice(0, 6)
     .map((r, i) => ({
       ...r.a,
       id: `home-${r.deal.id}`,
@@ -798,7 +801,14 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
         );
         const blockers = attention.filter((a) => (a.gating || []).length).slice(0, 3);
         if (blockers.length) {
-          c.add(`Not ready for the next IC: ${blockers.map((b) => `${b.company} (${(b.gating || [])[0]})`).join(', ')}.`, 'IC readiness board — blocking workstreams');
+          // "Not ready for the next IC" sat under a sentence saying the next IC is in
+          // four days, and then named deals whose own committees are nine, twelve and
+          // twenty-one days out. They are not late for that meeting; they are behind on
+          // their own dates. Say whose date each one is against.
+          c.add(`Behind for their own committee dates: ${blockers.map((b) => {
+            const d = typeof b.icInDays === 'number' && b.icInDays >= 0 ? ` in ${b.icInDays} day${b.icInDays === 1 ? '' : 's'}` : '';
+            return `${b.company}${d} (${(b.gating || [])[0]})`;
+          }).join(', ')}.`, 'IC readiness board — blocking workstreams');
         }
         if (openObligations) {
           c.add(`Separately, ${openObligations} deal${openObligations === 1 ? '' : 's'} already through IC still carr${openObligations === 1 ? 'ies' : 'y'} ${openConditionCount} open condition${openConditionCount === 1 ? '' : 's'} — attached at approval, or compliance checks not yet cleared.`, 'IC readiness board — post-committee obligations');
@@ -892,8 +902,12 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
 
     const urgent = attention.filter((a) => a.tone === 'bad');
     if (urgent.length) {
+      // This said "3 deals need attention" directly above a panel headed "13 deals",
+      // which reads as the product disagreeing with itself. They are different facts —
+      // at risk of slipping is a subset of what is queued — so say both numbers in one
+      // sentence and the reader can see they are not in conflict.
       c.add(
-        `${urgent.length === 1 ? 'One deal needs' : `${urgent.length} deals need`} attention before ${urgent.length === 1 ? 'it slips its IC date' : 'they slip their IC dates'} — starting with ${urgent[0].company}: ${urgent[0].why}`,
+        `${urgent.length} of the ${attention.length} deals on your attention list ${urgent.length === 1 ? 'is at risk of slipping its IC date' : 'are at risk of slipping their IC dates'} — starting with ${urgent[0].company}: ${urgent[0].why}`,
         urgent[0].basis,
       );
     } else if (attention.length) {
@@ -1018,6 +1032,12 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   // question anyone could ask; "which deals is my lane holding up?" is one only this
   // person would.
   const suggestions = [];
+  // The queue is ordered by committee date, so its first row is often a deal that is
+  // completely ready and simply next in the diary. Asking "Why is Atlas not ready?" two
+  // inches under "#1 Ready - take it to IC - 100% IC-ready" makes the product look like
+  // it has not read its own screen. Pick a deal the question actually fits.
+  const notReadyDeal = attention.find((a) => (a.readiness ?? 100) < 80) || null;
+  const atRiskDeal = attention.find((a) => a.tone === 'bad') || null;
   if (isLaneSeat) {
     const lane = laneName(seat.laneLabels);
     if (attention[0]) suggestions.push(`What is outstanding in my ${lane} workstream on ${attention[0].company}?`);
@@ -1027,7 +1047,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   } else if (seat.kind === 'committee') {
     if (icReady) suggestions.push('What is ready for the next IC?');
     if (openObligations) suggestions.push('Which IC conditions are still open, and who owns them?');
-    if (attention[0]) suggestions.push(`Why is ${attention[0].company} not ready?`);
+    if (notReadyDeal) suggestions.push(`Why is ${notReadyDeal.company} not ready?`);
     suggestions.push('What changed across my deals this week?');
   } else if (seat.kind === 'deal-lead') {
     if (nearest) suggestions.push(`What is still missing for ${nearest.company}'s IC papers?`);
@@ -1050,7 +1070,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     suggestions.push('Which origination targets are ready to launch into diligence?');
     suggestions.push('What changed across my deals this week?');
   } else {
-    if (attention[0]) suggestions.push(`Why is ${attention[0].company} at risk?`);
+    if (atRiskDeal) suggestions.push(`Why is ${atRiskDeal.company} at risk?`);
     suggestions.push('What changed across my deals this week?');
     if (nearest) suggestions.push(`What is still missing for ${nearest.company}'s IC?`);
     suggestions.push('Which deals should I prioritise today?');

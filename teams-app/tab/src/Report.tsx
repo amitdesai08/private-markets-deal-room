@@ -59,6 +59,10 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
   // An analyst with four deals therefore read "19 live deals ... $1.8B" in one strip,
   // on the document the product invites you to certify and send to an LP.
   const scopedDeals = deals.length;
+  // A deal restricted to status only is visible but not openable. "Deals you can open"
+  // counted it anyway, so an analyst read "1 In diligence" and then could not get into
+  // the one deal it referred to.
+  const scopedRestricted = deals.filter((d) => (d as any).locked || (d as any).accessLevel === 'status').length;
   const scopedInDD = deals.filter((d) => /diligence|approval/i.test(`${(d as any).stage || ''} ${(d as any).stageName || ''}`)).length;
   const scopedPreIC = deals.filter((d) => !isPostIC((d as any).status));
   const scopedReadiness = scopedPreIC.length
@@ -108,7 +112,7 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
         { metric: 'Deal size', value: money(focus.dealSize), source: 'Deal record', asOf: TODAY, method: 'Enterprise value on the deal record' },
       ]
     : [
-        { metric: 'Live deals', value: String(scopedDeals), source: 'Deal record', asOf: TODAY, method: 'Deals you can open' },
+        { metric: 'Live deals', value: String(scopedDeals), source: 'Deal record', asOf: TODAY, method: `Deals in your view${scopedRestricted ? ` (${scopedRestricted} restricted to status only)` : ''}` },
         { metric: 'In diligence', value: String(scopedInDD), source: 'Deal record', asOf: TODAY, method: 'Deals in Diligence & Approval stages, within your access' },
         { metric: 'Avg IC readiness (pre-IC deals)', value: `${scopedReadiness}%`, source: 'IC readiness board', asOf: TODAY, method: 'Mean readiness across deals not yet through committee, within your access' },
         { metric: 'Pipeline value', value: money(pipelineValue), source: 'Deal record', asOf: TODAY, method: `Sum of enterprise values pre-completion, within your access${excludedHoldings ? ` (excludes ${excludedHoldings} owned or exiting)` : ''}` },
@@ -176,7 +180,7 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
         <>
           <section className="rpt-section">
             <div className="rpt-kpis">
-              <div className="rpt-kpi"><div className="v">{scopedDeals}</div><div className="l">Live deals</div></div>
+              <div className="rpt-kpi"><div className="v">{scopedDeals}</div><div className="l">Live deals</div>{scopedRestricted ? <div className="s">{scopedRestricted} restricted to status only</div> : null}</div>
               <div className="rpt-kpi"><div className="v">{scopedInDD}</div><div className="l">In diligence</div></div>
               <div className="rpt-kpi"><div className="v">{scopedReadiness}%</div><div className="l">Avg IC readiness (pre-IC deals)</div></div>
               <div className="rpt-kpi"><div className="v">{money(pipelineValue)}</div><div className="l">Pipeline value</div><div className="s">{preCompletion.length} pre-completion{excludedHoldings ? ` · excludes ${excludedHoldings} owned or exiting` : ''}</div></div>

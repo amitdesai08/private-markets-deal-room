@@ -225,7 +225,13 @@ export default function Cockpit({
             <div className="hd"><h3>Ask about this deal</h3><Tag kind="live" /></div>
             <div className="bd">
               <div className="askchips">
-                {['What changed this week?', 'What is still missing for IC?', 'Who owns the critical path?', 'Summarise the open risks', 'Draft the IC memo skeleton'].map((q) => (
+                {/* These were five fixed strings. On a signed deal they offered to draft
+                    an IC memo. The brief already works out which questions fit where this
+                    deal has got to, so use that list and fall back only if it is empty. */}
+                {(data.briefing.suggestions.length
+                  ? data.briefing.suggestions
+                  : ['What changed on this deal this week?', 'Who owns the critical path?', 'Summarise the open risks']
+                ).map((q) => (
                   <button key={q} className="sgchip" onClick={() => onAsk?.(q)}>{q}</button>
                 ))}
               </div>

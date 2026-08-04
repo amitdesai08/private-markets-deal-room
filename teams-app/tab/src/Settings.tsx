@@ -21,7 +21,11 @@ export default function Settings({ isAdmin, ssoToken, viewAs, onClose }: {
             main tab you came from — Home, Fund & Portfolio or Report. */}
         <button className="set-back" onClick={onClose}>← Back</button>
         <h2>Settings</h2>
-        <p>Data sources and access. Kept here so the deal views stay focused on your pipeline.</p>
+        {/* The blurb promised "access" to everyone, and the access section only exists
+            for administrators. Describe what this person can actually reach. */}
+        <p>{isAdmin
+          ? 'Data sources, document templates and access administration. Kept here so the deal views stay focused on your pipeline.'
+          : 'Where the market and news data on your deals comes from. Kept here so the deal views stay focused on your pipeline.'}</p>
       </div>
       <nav className="set-tabs">
         <button className={tab === 'sources' ? 'on' : ''} onClick={() => setTab('sources')}>Data sources</button>

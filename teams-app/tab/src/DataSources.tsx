@@ -41,7 +41,9 @@ type Connector = {
 
 const STATUS_LABEL: Record<string, string> = {
   connected: 'Connected', disconnected: 'Not connected', degraded: 'Degraded',
-  disabled: 'Disabled', unknown: 'Not tested', pending: 'Pending approval',
+  // "Not tested" over a header saying these sources are on read as a warning. They are
+  // enabled and in use; what has not happened is a reachability check from this screen.
+  disabled: 'Disabled', unknown: 'On — not checked from here', pending: 'Pending approval',
 };
 
 const TIERS: { key: string; title: string; blurb: string; match: (c: Connector) => boolean }[] = [
