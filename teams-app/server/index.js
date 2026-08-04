@@ -440,6 +440,20 @@ app.use('/api/home-desk', forwardWithIdentity);
 app.use('/api/me/access', forwardWithIdentity);
 app.use('/api/capabilities', forwardWithIdentity);
 app.use('/api/analytics', forwardWithIdentity);
+// The origination funnel. It is scoped server-side and captioned "within your access",
+// but it was blind-proxied — and the blind proxy strips the caller's identity by design,
+// so the backend answered as nobody and returned the whole book. An analyst read
+// "19 Sourced" directly above a table headed "Every deal you can see - 4 records".
+// The number was not the lie; the route was.
+app.use('/api/pipeline', forwardWithIdentity);
+app.use('/api/stage1/funnel', forwardWithIdentity);
+// The assistant. Its tools were already gated on the caller, but the DEALS IT IS TOLD
+// ABOUT were not: the grounding context is a second access surface, and this route was
+// blind-proxied, so the model was handed the whole book and answered from it. Asked the
+// product's own suggested question, an analyst cleared for four deals got twenty-one
+// back, including one they are only allowed to see the status of.
+app.use('/api/deal-agent', forwardWithIdentity);
+app.use('/api/persona-agents', forwardWithIdentity);
 
 // Everything else under /api forwards to the shared backend (single data source).
 app.use('/api', proxyToBackend);

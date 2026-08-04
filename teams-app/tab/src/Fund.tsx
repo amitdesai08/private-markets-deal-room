@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { isPostIC } from './deskUi';
 
 // Fund / portfolio lens (post-IC). Three views from the orchestrator:
 //   /api/fund/value     — portfolio & pipeline health (companies, MOIC/IRR, add-ons)
@@ -60,7 +61,7 @@ const shortfallPhrase = (wk: { k: { plan: number; actual: number; unit?: string 
   return `${Math.round(wk.rel * 100)}% below`;
 };
 
-export default function Fund({ deals, onOpenDeal }: { deals?: { id: string; company: string }[]; onOpenDeal?: (id: string) => void } = {}) {
+export default function Fund({ deals, onOpenDeal }: { deals?: { id: string; company: string; status?: string; readiness?: number }[]; onOpenDeal?: (id: string) => void } = {}) {
   const [ov, setOv] = useState<Overview | null>(null);
   const [pf, setPf] = useState<Portfolio | null>(null);
   const [val, setVal] = useState<Value | null>(null);
@@ -308,17 +309,35 @@ export default function Fund({ deals, onOpenDeal }: { deals?: { id: string; comp
               useless. But an analyst who can open four deals was reading "19 Active
               deals" here and "4 records within your access" on the Report an inch away,
               with nothing to tell them the two were counting different things. */}
-          <div className="fnd-panel-h"><span>Portfolio &amp; pipeline health</span><span className="fnd-mut">whole fund — not limited to the deals you can open</span></div>
+          <div className="fnd-panel-h"><span>Portfolio &amp; pipeline health</span><span className="fnd-mut">fund figures are the same for everyone; deal counts are yours</span></div>
           <div className="fnd-kpis inpanel">
             <Kpi v={String(val.portfolio.companies)} l="Companies owned" s={`${val.portfolio.deployedPct}% deployed`} />
             <Kpi v={String(val.portfolio.onTrack)} l="On track" s={`${val.portfolio.watch} watch · ${val.portfolio.underperform} underperform`} />
             <Kpi v={`${val.portfolio.grossMoic.toFixed(2)}x`} l="Portfolio gross MOIC" s={`${val.portfolio.grossIrrPct}% IRR`} />
             <Kpi v={String(val.portfolio.addOnsClosed)} l="Add-ons closed" s="buy-and-build" />
-            <Kpi v={String(val.pipeline.dealsProcessed)} l="Active deals" s={`${val.pipeline.inDiligence} in diligence`} />
+            {/* Fund-level NAV is legitimately firm-wide. Deal COUNTS are not: the rest of
+                the product reduces them to what this person may open, and restating the
+                whole book here handed it back one menu item away. When the caller's own
+                deal list is to hand, count that. */}
+            {deals ? (
+              <Kpi v={String(deals.length)} l="Active deals" s={`${deals.filter((d) => String(d.status || '') === 'in_diligence').length} in diligence · in your view`} />
+            ) : (
+              <Kpi v={String(val.pipeline.dealsProcessed)} l="Active deals" s={`${val.pipeline.inDiligence} in diligence`} />
+            )}
             {/* Same words, two numbers, before: this tile read 51% and the LP report 42%.
                 Both are now the same average over the same denominator, and the tile
                 states that denominator so nobody has to guess which deals are in it. */}
-            <Kpi v={`${val.pipeline.avgIcReadiness}%`} l="Avg IC readiness" s={`across ${(val.pipeline as any).preIcDeals ?? 0} deals not yet through committee${(val.pipeline as any).pastCommitteeDeals ? ` · excludes ${(val.pipeline as any).pastCommitteeDeals} already approved` : ''}`} />
+            {/* Same reasoning as the tile above, and the same arithmetic the LP report
+                uses, so the two pages stop quoting different averages for the same
+                phrase. An analyst was reading 42% here and 31% on the report. */}
+            {deals ? (() => {
+              const preIc = deals.filter((d) => !isPostIC(d.status));
+              const avg = preIc.length ? Math.round(preIc.reduce((s, d) => s + (d.readiness || 0), 0) / preIc.length) : 0;
+              const approved = deals.length - preIc.length;
+              return <Kpi v={`${avg}%`} l="Avg IC readiness" s={`across ${preIc.length} of your deals not yet through committee${approved ? ` · excludes ${approved} already approved` : ''}`} />;
+            })() : (
+              <Kpi v={`${val.pipeline.avgIcReadiness}%`} l="Avg IC readiness" s={`across ${(val.pipeline as any).preIcDeals ?? 0} deals not yet through committee${(val.pipeline as any).pastCommitteeDeals ? ` · excludes ${(val.pipeline as any).pastCommitteeDeals} already approved` : ''}`} />
+            )}
           </div>
         </section>
       ) : null}

@@ -374,10 +374,20 @@ api.post('/fund/report/certifications/:id/archive', async (req, res) => {
   res.json(r);
 });
 
-api.get('/pipeline', (req, res) => res.json(getPipelineFunnel(requestingIdentity(req), requestingViewAs(req)))); // alias (funnel)
+api.get('/pipeline', (req, res) => {
+  // Hand the funnel the SAME array this server serves from /api/deals, rather than
+  // letting it resolve the visible set again. The two disagreed in production.
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  res.json(getPipelineFunnel(identity, viewAs, listDeals(identity, viewAs)));
+}); // alias (funnel)
 
 // Stage-1 origination cohort funnel
-api.get('/stage1/funnel', (req, res) => res.json(getStage1Funnel(requestingIdentity(req), requestingViewAs(req))));
+api.get('/stage1/funnel', (req, res) => {
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  res.json(getStage1Funnel(identity, viewAs, listDeals(identity, viewAs)));
+});
 api.get('/stage1/pipeline', (_req, res) => res.json(getPipeline()));
 api.get('/stage1/cohort/:stage', (req, res) => res.json(getCohort(req.params.stage)));
 api.get('/stage1/pass-reasons', (_req, res) => res.json(getPassReasons()));

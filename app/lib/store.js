@@ -1692,7 +1692,7 @@ function originationReach(d) {
 // four deals saw "Sourced 19" sitting beside tiles that correctly said "4 live deals"
 // -- inside a report with a Certify for LP use button on it. Every other number on
 // those pages is scoped to the caller; this one now is too.
-export function getStage1Funnel(identity, viewAsRole = null) {
+export function getStage1Funnel(identity, viewAsRole = null, visibleDeals = null) {
   const scoped = arguments.length > 0;
   const all = candidates;
   const reachedAtLeast = (n) => all.filter((c) => reachedIndex(c) >= n).length;
@@ -1703,7 +1703,13 @@ export function getStage1Funnel(identity, viewAsRole = null) {
   // a list naming nineteen of them, which makes the whole tile look broken. Count what
   // is actually on the page instead of counting an empty table.
   const fromDeals = !all.length;
-  const dealList = fromDeals ? (scoped ? listDeals(identity, viewAsRole) : listDeals(null)) || [] : [];
+  // The caller may hand in the very list it is serving elsewhere. It should: an analyst
+  // shown four deals was reading "19 Sourced" under a caption promising the count covered
+  // only the deals they can see, because the funnel resolved the visible set a second
+  // time by its own route. One list, resolved once, used by both.
+  const dealList = fromDeals
+    ? (visibleDeals || (scoped ? listDeals(identity, viewAsRole) : listDeals(null)) || [])
+    : [];
   const nDeals = dealList.length;
   // Screened and shortlisted used to print an em dash under the claim that "nothing has
   // been screened through it yet" -- while the deal record two screens away showed O1,
@@ -1743,8 +1749,8 @@ export function getStage1Funnel(identity, viewAsRole = null) {
 }
 
 // Backward-compatible alias for the top-bar/home funnel (same {key,label,count}).
-export function getPipelineFunnel(identity, viewAsRole = null) {
-  return arguments.length ? getStage1Funnel(identity, viewAsRole) : getStage1Funnel();
+export function getPipelineFunnel(identity, viewAsRole = null, visibleDeals = null) {
+  return arguments.length ? getStage1Funnel(identity, viewAsRole, visibleDeals) : getStage1Funnel();
 }
 
 // The actionable cohort at a stage — active candidates awaiting the step action.

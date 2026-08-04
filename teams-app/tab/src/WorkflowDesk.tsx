@@ -131,7 +131,9 @@ export default function WorkflowDesk({
           <h3>Where the deal has got to</h3>
           <Tag kind="new" />
           <span className="spacer" />
-          <span className="chip">{data.counts.completed} of {data.counts.all} steps completed</span>
+          {/* Same scale, same words as the deal header and the pipeline card. This chip
+              used to be the fourth different way the product counted the same deal. */}
+          <span className="chip">Step {data.counts.completed + 1} of {data.counts.all} · {data.counts.completed} completed</span>
           <button className="btn link compact" onClick={load}>↻ Refresh</button>
           <button className="btn link compact" onClick={() => setEvidence((v) => !v)}>🔍 Evidence</button>
         </div>

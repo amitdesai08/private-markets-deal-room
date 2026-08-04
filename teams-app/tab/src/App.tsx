@@ -5,7 +5,7 @@
 // overlay. Access state (which agents/tabs the caller may see) comes from the
 // orchestrator via POST /api/teams/context; all data calls proxy to /api on the
 // shared backend. Add a new main tab by extending the mainTab union + the nav map.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { initTeams, getSsoToken, toggleTheme, type TeamsInfo } from './teams';
 import { af, setAuthContext } from './authFetch';
 import Dashboard from './Dashboard';
@@ -146,12 +146,7 @@ export default function App() {
       // af(), not fetch(): /api/analytics is now scoped to the caller, so it has to be
       // asked as somebody. A bare fetch would carry no identity and the numbers would
       // silently revert to the whole book — which is the leak these counters started as.
-      af('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
-      // Same reason as /api/analytics above, and it was missed the first time: the funnel
-      // is scoped server-side, but a bare fetch carries no identity, so an analyst on four
-      // deals was shown the partner's "19 sourced" under a footnote promising the number
-      // was limited to what they can see.
-      af('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
+      loadScoped();
       fetch('/api/market-intel').then((r) => r.json()).then(setMarket).catch(() => {});
       loadDeals();
 
@@ -220,7 +215,13 @@ export default function App() {
       applyAccess(ctx);
       // Re-pull the pipeline as the newly selected identity so status-only / hidden
       // deals are reflected in the list.
+      //
+      // The funnel and the headline counters have to come with it. They were fetched
+      // once on mount, before anyone had been chosen, so the analyst's report showed
+      // "19 Sourced" three centimetres above "Every deal you can see - 4 records",
+      // under a caption promising the funnel covered only their deals.
       loadDeals();
+      loadScoped();
     })();
   }, [viewAs, viewAsRole]);
 
@@ -233,6 +234,22 @@ export default function App() {
     return () => clearTimeout(id);
   }, [viewAs, roleLabel, canWrite, canViewStage2]);
 
+  // The counters and the funnel are scoped server-side to whoever asks, so they have to
+  // be re-asked every time the person changes — and only the LATEST answer may win.
+  //
+  // Without the sequence guard the page had a race it lost silently: the first request
+  // goes out on mount, before a profile has been chosen, so it is anonymous and comes
+  // back with the whole book. The second goes out a moment later as the analyst. If the
+  // anonymous one is slower — and it usually was, being the larger result — it lands
+  // last and overwrites the scoped one, and the report reads "19 Sourced" above a table
+  // of four deals. Numbering the requests and ignoring anything but the newest fixes it.
+  const scopedSeq = useRef(0);
+  function loadScoped() {
+    const seq = ++scopedSeq.current;
+    af('/api/analytics').then((r) => r.json()).then((d) => { if (seq === scopedSeq.current) setAnalytics(d); }).catch(() => {});
+    af('/api/pipeline').then((r) => r.json()).then((d) => { if (seq === scopedSeq.current) setPipeline(d); }).catch(() => {});
+  }
+
   // Critical data load with an explicit failure/retry state, so a transient API error
   // degrades to "last known data + Retry" instead of a silent blank.
   function loadDeals() {
@@ -244,8 +261,7 @@ export default function App() {
 
   async function refreshData() {
     loadDeals();
-    af('/api/analytics').then((r) => r.json()).then(setAnalytics).catch(() => {});
-    af('/api/pipeline').then((r) => r.json()).then(setPipeline).catch(() => {});
+    loadScoped();
   }
 
   function askAbout(dealId: string) {

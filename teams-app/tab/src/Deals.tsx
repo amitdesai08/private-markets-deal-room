@@ -69,6 +69,11 @@ function stepLabel(d: any): string {
   const stage = d.stageName || d.stageId || '';
   // Null step position is deliberate upstream: a screened deal has no position among the
   // diligence steps, and printing "step 0 of 5" for it was a small, confident lie.
+  //
+  // The position WITHIN a phase is a third scale nobody asked for. The card said "step 3
+  // of 5", the deal header two clicks later said "Step 7 of 16", and a VP triaging six
+  // deals cannot quote either. One scale, the whole flow, everywhere.
+  if (d.stepNumber != null && d.totalSteps != null) return `${stage} · step ${d.stepNumber} of ${d.totalSteps}`;
   if (d.stageStepNumber == null || d.stageStepTotal == null) return stage;
   return `${stage} · step ${d.stageStepNumber} of ${d.stageStepTotal}`;
 }

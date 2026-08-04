@@ -63,6 +63,27 @@ export function houseStyle(md) {
   s = s.replace(/\s*\((?:\s*(?:mcp|workiq)_[\w.]+\s*[;,]?)+\)/gi, '');
   // Any bare internal tool name left in prose.
   s = s.replace(/\b(?:mcp|workiq)_[\w.]+\b/gi, 'the deal record');
+
+  // The Foundry agent's own tools are not prefixed, so none of the rules above touched
+  // them. A partner was handed a numbered list of five things to do, every one of which
+  // read "the deal record {deal_id: "..."} — run immediately": five different tools
+  // collapsed onto one phrase, and an instruction nobody outside the code can carry out.
+  // Delete the instruction blocks rather than masking them, and drop the raw keys.
+  s = s.replace(/^#{0,6}\s*\**\s*(?:which tools you should call|tools to call|next tool calls?|recommended tool calls?)\b.*$(?:\n(?!#{1,6}\s|\s*$).*)*/gim, '');
+  s = s.replace(/^\s*[-*\u2022]?\s*(?:run|call|use)\s+(?:get|list|search|create|record|resolve|propose)_[a-z0-9_]+\b.*$/gim, '');
+  s = s.replace(/\b(?:get|list|search|create|record|resolve|propose)_[a-z0-9_]{2,}\b/g, 'the deal record');
+  // The substitution above leaves the call's own punctuation behind -- "the deal
+  // record(deal)" and "the deal record()" both appeared on screen. Take the empty
+  // or single-word argument list with it.
+  s = s.replace(/the deal record\s*\(\s*[A-Za-z0-9_ ,."'&\/-]{0,60}\s*\)/gi, 'the deal record');
+  s = s.replace(/\s*[({]\s*deal_id\s*[:=]\s*["'\u201c][^"'\u201d)}]*["'\u201d]\s*[)}]/gi, '');
+  s = s.replace(/\bdeal_id\b/gi, 'deal');
+
+  // "daysToIC -26" is a field name and a sign convention. Say what the deal pages say.
+  s = s.replace(/\bdaysToIC[:\s]*(-?\d+)\b/gi, (_m, n) => (Number(n) < 0 ? `IC was ${Math.abs(Number(n))} days ago` : `IC in ${n} days`));
+
+  // Collapse the blank runs the deletions leave behind.
+  s = s.replace(/\n{3,}/g, '\n\n');
   // One reporting currency. The records are dollars; a euro sign here is the model's
   // invention, and an identical numeral under two symbols is worse than a wrong one.
   s = s.replace(/[\u20ac\u00a3](?=\s?[\d.])/g, '$');

@@ -282,7 +282,10 @@ export function buildWorkflowDesk(deal, board, { role = null, commitments = [] }
 
   // Narrative — the same story the step list tells, in one readable paragraph set.
   const c = citer();
-  c.add(`${deal.company} is at ${done.length} of ${steps.length} steps on the flow, currently in ${current?.key} ${current?.title}.`, 'Deal record');
+  // One step scale, one phrasing. The card, the header, the milestones and this
+  // sentence each counted differently -- "step 3 of 5", "Step 7 of 16", "6 of 16
+  // steps completed" -- and nobody could quote the deal's position out loud.
+  c.add(`${deal.company} is at step ${done.length + 1} of ${steps.length}, ${done.length} completed, currently in ${current?.key} ${current?.title}.`, 'Deal record');
   const moving = lanes.filter((w) => (w.progress ?? 0) > 0);
   // On a deal that has already been approved and signed, "4 have not started" reads as
   // four pieces of outstanding work holding up completion. They are neither: diligence
