@@ -38,6 +38,10 @@ function dealFinancials(deal) {
     const kf = (deal.keyFigures || []).find((k) => new RegExp(label, 'i').test(k.label));
     if (!kf) return fallback;
     const raw = String(kf.value);
+    // A money line, not a rate or a delta. Peachtree records "EBITDA vs entry: +11.2%",
+    // a value-creation delta, and it was being read as $11.2M of EBITDA -- which put a
+    // 41x multiple and $292M of debt against $11.2M on a $460M deal.
+    if (/%/.test(raw) || /^[+\u2212-]/.test(raw.trim())) return fallback;
     const v = Number(raw.replace(/[^0-9.]/g, ''));
     if (!Number.isFinite(v)) return fallback;
     if (/b(n|illion)?\b/i.test(raw)) return v * 1000;
@@ -48,17 +52,19 @@ function dealFinancials(deal) {
   // Deliberately not ARR: it is a different metric, and pairing a recorded ARR with a
   // derived EBITDA produced a 50% margin on a business that has neither figure recorded.
   const revenue = num('revenue', round(ev * 1.2));
-  const ebitda = num('ebitda(?! margin)', round(ev * 0.12));
+  const ebitda = num('^\\s*ebitda(?!\\s*(margin|vs|growth|uplift|delta|change))', round(ev * 0.12));
   const marginKf = (deal.keyFigures || []).find((k) => /margin/i.test(k.label));
   const ebitdaMargin = marginKf ? Number(String(marginKf.value).replace(/[^0-9.]/g, '')) : (revenue ? +((ebitda / revenue) * 100).toFixed(1) : 12);
   return { ev, revenue, ebitda, ebitdaMargin, growth: dealGrowth(deal) };
 }
 
-// The growth rate the record already holds. Left unread, every deal was modelled at the
-// same default 7% -- and because the leverage cap makes EBITDA and entry multiple cancel
-// out of the paper LBO, that one default was the ONLY thing driving returns. Nineteen
-// deals therefore reported an identical 22.5% IRR and 2.76x MOIC, on a comparison table
-// whose entire purpose is to tell them apart.
+// The growth rate the record already holds, or null when it holds none -- the caller
+// applies the screening default, and the assumptions line then says which of the two it
+// used. Left unread, every deal was modelled at the same default: and because the
+// leverage cap makes EBITDA and entry multiple cancel out of the paper LBO, that one
+// constant was the ONLY thing driving returns. Nineteen deals therefore reported an
+// identical 22.5% IRR and 2.76x MOIC, on a comparison table whose entire purpose is to
+// tell them apart.
 export function dealGrowth(deal) {
   if (Number.isFinite(deal?.growth)) return deal.growth;
   const kf = (deal?.keyFigures || []).find((k) => /growth|cagr|nrr/i.test(k.label));
@@ -67,7 +73,7 @@ export function dealGrowth(deal) {
     // NRR is expressed as 118%, meaning 18% net expansion.
     if (Number.isFinite(v)) return /nrr/i.test(kf.label) && v > 100 ? +(v - 100).toFixed(1) : v;
   }
-  return 7;
+  return null;
 }
 
 // A candidate-shaped object so we can reuse the Stage-1 paper-LBO returns engine.
@@ -76,7 +82,7 @@ function dealAsCandidate(deal) {
   return {
     company: deal.company, sector: deal.sector, ownership: deal.ownership || 'private',
     dealSize: f.ev, revenue: f.revenue, ebitda: f.ebitda, ebitdaMargin: f.ebitdaMargin,
-    growth: f.growth, keywords: deal.keywords || [], sources: deal.sources || []
+    growth: f.growth ?? undefined, keywords: deal.keywords || [], sources: deal.sources || []
   };
 }
 
@@ -647,6 +653,10 @@ export function buildReturnsModel(deal) {
     { label: 'Transaction & financing fees', amount: fees },
   ];
   const g = Math.max(-0.05, Math.min(0.25, (deal.growth ?? cand.growth ?? 7) / 100));
+  // The page the assistant cites as its authority has to show the number the assistant
+  // was given. Fixing the speaking layer alone just moved which of the two was wrong.
+  const canon = canonicalFigures(deal);
+  const shownMult = canon?.entryMultiple ?? r.entryMultiple;
   const entryMult = r.entryMultiple;
   const cagrRows = [g - 0.03, g, g + 0.03];
   const exitCols = [entryMult - 1, entryMult, entryMult + 1];
@@ -660,7 +670,7 @@ export function buildReturnsModel(deal) {
   };
   return {
     kind: 'returns', company: deal.company, owner: 'fund-cfo',
-    entry: { evEbitda: r.entryMultiple, impliedEvEbitda: r.impliedMultiple, leverage: r.leverage, entryEV: base.entryEV, ebitda: f.ebitda, holdYears: r.holdYears },
+    entry: { evEbitda: shownMult, impliedEvEbitda: r.impliedMultiple, modelledEvEbitda: r.entryMultiple, leverage: r.leverage, entryEV: base.entryEV, ebitda: canon?.ebitda ?? f.ebitda, holdYears: r.holdYears },
     sourcesUses: { sources, uses, totalSources: sources.reduce((s, x) => s + x.amount, 0), totalUses: uses.reduce((s, x) => s + x.amount, 0),
       // The returns are struck on the equity funding the purchase price. Sources & Uses
       // shows the equity CHEQUE, which also funds the fee load and is net of rollover,
@@ -675,7 +685,7 @@ export function buildReturnsModel(deal) {
     ],
     hurdle: r.hurdle, meetsHurdle: r.meetsHurdle, entryAboveCeiling: r.entryAboveCeiling,
     sensitivity,
-    headline: `${r.entryMultiple}x entry · ${r.leverage} leverage · base ${base.irr}% IRR / ${base.moic}x MOIC${r.meetsHurdle ? ' — clears the 20% / 2.0x hurdle.' : r.entryAboveCeiling ? ' — entry above the LBO ceiling; renegotiate.' : ' — below hurdle.'}`,
+    headline: `${shownMult}x entry · ${r.leverage} leverage · base ${base.irr}% IRR / ${base.moic}x MOIC${r.meetsHurdle ? ' — clears the 20% / 2.0x hurdle.' : r.entryAboveCeiling ? ` — the ask is above what this structure can finance; the returns are modelled at a ${r.entryMultiple}x entry and only hold if the price can be reset.` : ' — below hurdle.'}`,
   };
 }
 

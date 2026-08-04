@@ -21,6 +21,7 @@
 
 import { buildReturns, fmtMoney as money } from './screening.js';
 import { canonicalFigures, dealGrowth } from './diligence.js';
+import { ownerLabel } from './cockpit.js';
 
 const LANE_LABEL = {
   commercial: 'Commercial DD', techai: 'Tech / AI DD', operations: 'Operations DD',
@@ -167,10 +168,10 @@ export function currentAssumptions(deal) {
     else if (/ebitda margin/i.test(f.label)) kf.ebitdaMargin = num(f.value);
     else if (/ebitda/i.test(f.label)) kf.ebitda = num(f.value);
   }
-  const cand = { ...deal, revenue: kf.revenue, ebitda: kf.ebitda, growth: dealGrowth(deal) };
+  const cand = { ...deal, revenue: kf.revenue, ebitda: kf.ebitda, growth: dealGrowth(deal) ?? undefined };
   let entryMultiple = null, baseIrr = null, baseMoic = null;
   try {
-    const r = buildReturns({ ebitda: kf.ebitda ?? 0, dealSize: deal.dealSize ?? 0, growth: dealGrowth(deal), revenue: kf.revenue ?? 0 });
+    const r = buildReturns({ ebitda: kf.ebitda ?? 0, dealSize: deal.dealSize ?? 0, growth: dealGrowth(deal) ?? undefined, revenue: kf.revenue ?? 0 });
     entryMultiple = r.entryMultiple;
     baseIrr = r.scenarios?.base?.irr ?? null;
     baseMoic = r.scenarios?.base?.moic ?? null;
@@ -214,7 +215,7 @@ function icAsk(deal) {
   // committee was asked to approve a $3M equity cheque on a $240M enterprise value.
   const ebitdaForAsk = c?.ebitda ?? kf.ebitda ?? 0;
   let r = null;
-  try { r = buildReturns({ ebitda: ebitdaForAsk, dealSize: deal.dealSize ?? 0, growth: dealGrowth(deal), revenue: c?.revenue ?? kf.revenue ?? 0, ebitdaMargin: c?.ebitda && c?.revenue ? +((c.ebitda / c.revenue) * 100).toFixed(1) : undefined }); } catch { /* best effort */ }
+  try { r = buildReturns({ ebitda: ebitdaForAsk, dealSize: deal.dealSize ?? 0, growth: dealGrowth(deal) ?? undefined, revenue: c?.revenue ?? kf.revenue ?? 0, ebitdaMargin: c?.ebitda && c?.revenue ? +((c.ebitda / c.revenue) * 100).toFixed(1) : undefined }); } catch { /* best effort */ }
   const ev = deal.dealSize ?? null;
   const equity = r?.scenarios?.base?.equityIn ?? (ev != null ? Math.round(ev * 0.45) : null);
   const irr = c?.irr ?? r?.scenarios?.base?.irr ?? null;
@@ -328,7 +329,16 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
     const missing = required.items.filter((i) => !i.complete).map((i) => i.label);
     gating.push(`${missing.length} required item${missing.length === 1 ? '' : 's'} outstanding: ${missing.join(', ')}`);
   }
-  if (blocking.length) gating.push(`${blocking.length} workstream${blocking.length === 1 ? '' : 's'} blocking: ${blocking.map((b) => b.label).join(', ')}`);
+  if (blocking.length) {
+    // "1 workstream blocking: Legal DD" made a partner open Outlook to find out who to
+    // chase, while the owner sat on the workstream two fields away. An outstanding item
+    // with nobody's name on it is outstanding on nobody.
+    const named = blocking.map((b) => {
+      const who = b.owner ? ownerLabel(b.owner, b.lane) : null;
+      return who ? `${b.label} (${who})` : b.label;
+    });
+    gating.push(`${blocking.length} workstream${blocking.length === 1 ? '' : 's'} blocking: ${named.join(', ')}`);
+  }
   const hardRisks = unresolvedRisks.filter((i) => i.severity === 'risk');
   if (hardRisks.length) gating.push(`${hardRisks.length} unresolved risk-level issue${hardRisks.length === 1 ? '' : 's'}`);
 

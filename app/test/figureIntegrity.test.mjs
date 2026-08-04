@@ -44,9 +44,9 @@ test('deals with different economics do not all return the same IRR', () => {
 });
 
 test('the recorded growth rate is what gets modelled', () => {
-  // Lumen records 41% growth and was being modelled at the same 7% default as a grocer.
+  // Lumen records 41% growth and was being modelled at the same default as a grocer.
   assert.ok(dealGrowth(byId('lumen-analytics')) > 20, 'a recorded growth rate must reach the model');
-  assert.equal(dealGrowth({ keyFigures: [] }), 7, 'absent a rate, the default still applies');
+  assert.equal(dealGrowth({ keyFigures: [] }), null, 'absent a rate, say so rather than inventing one');
   assert.equal(dealGrowth({ growth: 12 }), 12, 'an explicit field wins');
   // NRR of 118% means 18% net expansion, not 118% growth.
   assert.equal(dealGrowth({ keyFigures: [{ label: 'NRR', value: '118%' }] }), 18);
@@ -108,4 +108,26 @@ test('MOIC is spelled one way', () => {
     if (!ask) continue;
     assert.doesNotMatch(`${ask.hurdle} ${ask.baseCase}`, /MoIC/, 'the house style is MOIC');
   }
+});
+
+test('a blocking workstream says who owns it', () => {
+  // "1 workstream blocking: Legal DD" made a partner open Outlook to find out who to
+  // chase, while the owner sat on the workstream two fields away.
+  const withBlockers = seededDeals
+    .map((d) => ({ d, v: computeICReadiness(d)?.verdict }))
+    .filter((x) => (x.v?.gating || []).some((g) => /workstream(s)? blocking/.test(g)));
+  assert.ok(withBlockers.length, 'no seeded deal has a blocking workstream, so this proves nothing');
+  for (const { d, v } of withBlockers) {
+    const line = v.gating.find((g) => /workstream(s)? blocking/.test(g));
+    assert.match(line, /\(/, `${d.company}: "${line}" names no owner`);
+  }
+});
+
+test('an EBITDA delta is never read as an EBITDA figure', () => {
+  // Peachtree records "EBITDA vs entry: +11.2%", a value-creation delta. Read as $11.2M
+  // of EBITDA it produced a 41x multiple and $292M of debt on a $460M deal.
+  const peach = seededDeals.find((d) => (d.keyFigures || []).some((k) => /ebitda vs entry/i.test(k.label)));
+  if (!peach) return;
+  const c = canonicalFigures(peach);
+  assert.ok(c.ebitda > 20, `${peach.company}: EBITDA read as ${c.ebitda}, which is the percentage delta`);
 });

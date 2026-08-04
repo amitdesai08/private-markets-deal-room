@@ -292,6 +292,11 @@ const MAX_DEBT_TO_EV = 0.6;
 // argued in the IC paper, not smuggled into the headline return.
 const UNDERWRITTEN_GROWTH_CAP = 0.15;
 
+// Used when the record states no growth rate at all, which is most of them. The
+// assumptions line says which of the two applied rather than implying every deal came
+// with a number.
+const DEFAULT_GROWTH = 6;
+
 function paperLbo(c, { entryMult, leverageMult, ebitdaCagr, exitMult }) {
   const entryEbitda = Math.max(1, c.ebitda || 1);
   const entryEV = entryEbitda * entryMult;
@@ -325,7 +330,7 @@ export function buildReturns(c) {
   // Nobody underwrites a fast-growing asset's current rate for five straight years at
   // screening. Cap what we are willing to put in the model, and say so in the
   // assumptions rather than quietly compounding 41% into a headline return.
-  const g = clamp((c.growth ?? 6) / 100, -0.05, UNDERWRITTEN_GROWTH_CAP);
+  const g = clamp((c.growth ?? DEFAULT_GROWTH) / 100, -0.05, UNDERWRITTEN_GROWTH_CAP);
   const scenarios = {
     downside: paperLbo(c, { entryMult: baseMult, leverageMult: 4.5, ebitdaCagr: Math.max(0, g - 0.04), exitMult: baseMult - 1 }),
     base: paperLbo(c, { entryMult: baseMult, leverageMult: 5, ebitdaCagr: g, exitMult: baseMult }),
@@ -347,7 +352,9 @@ export function buildReturns(c) {
     assumptions: [
       'Screening-grade paper LBO — an indicative heuristic, not an IC model.',
       'Debt repaid from cumulative free cash flow over the hold, at a rate that tracks EBITDA margin.',
-      `EBITDA growth underwritten at the recorded rate, capped at ${Math.round(UNDERWRITTEN_GROWTH_CAP * 100)}% a year.`,
+      c.growth == null
+        ? `No growth rate is recorded for this company, so EBITDA is grown at the ${DEFAULT_GROWTH}% screening default.`
+        : `EBITDA growth underwritten at the recorded ${c.growth}% a year, capped at ${Math.round(UNDERWRITTEN_GROWTH_CAP * 100)}%.`,
       'No explicit cash interest, cash taxes, capex or working-capital drag.',
       'Deterministic EBITDA CAGR to a fixed-multiple exit — no multiple expansion is underwritten.'
     ]

@@ -309,12 +309,17 @@ function applyStepEffects(deal, step) {
     }
   }
   if (step.panel === 'memo') {
+    // The recommendation used to end "Base case ~2.4x / 23% IRR" on every deal it was
+    // ever run on, whatever the model said. Canonical figures span 1.7x to 4.2x, so this
+    // wrote a wrong return into the memo section a committee reads.
+    const fig = (() => { try { return canonicalFigures(deal); } catch { return null; } })();
+    const base = fig ? `Base case ${fig.moic}x MOIC / ${fig.irr}% IRR.` : 'Base case per the deal\u2019s Returns, plan & risk page.';
     const drafts = {
       thesis: deal.thesis,
       market: 'Structural growth tailwind; #2 share with consolidation whitespace; pricing power validated in core categories.',
       'value-creation': 'Aggregate ~230 bps EBITDA-margin uplift — AI pricing, private-label mix, procurement and loyalty monetisation.',
       risks: '1) Data/IT readiness gating AI upside. 2) Integration execution. 3) Tariff exposure — mitigated via dual-sourcing & hedging.',
-      recommendation: 'Proceed at an attractive entry, subject to QoE and the data-foundation capex plan. Base case ~2.4x / 23% IRR.'
+      recommendation: `Proceed at an attractive entry, subject to QoE and the data-foundation capex plan. ${base}`
     };
     for (const s of (deal.memoSections || [])) {
       if (drafts[s.key]) {
