@@ -153,6 +153,13 @@ export function houseStyle(md) {
   s = s.replace(/\b(?:Stage|Step)s?\s*:?\s*this stage\b/gi, 'this stage');
   s = s.replace(/\bNOT[-\s\u2011]READY\b/gi, 'not ready for committee');
   s = s.replace(/\bIC[-\s\u2011]READY\b/gi, 'ready for committee');
+  // Two different fields carry the same enum, so once both were spelled out in words
+  // the reader got the answer twice in a row: "not ready for committee. Not ready for
+  // committee — 4 required items outstanding". Only collapsed when the two readings
+  // are identical; "not ready" followed by "ready" would be a contradiction worth
+  // seeing, not a stutter worth hiding.
+  s = s.replace(/\b((?:not )?ready for committee)\.\s+((?:not )?ready for committee)\b/gi,
+    (m, a, b) => (a.toLowerCase() === b.toLowerCase() ? a : m));
   // The bare enum on its own, as in "do not present until the deal record returns
   // READY". Only when it stands alone in capitals, so ordinary prose is untouched.
   s = s.replace(/(?<=\breturns |\bis |\bshows |=\s?)READY\b/g, 'ready for committee');
