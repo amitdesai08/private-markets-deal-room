@@ -1,6 +1,16 @@
 # Demo runbook
 
-A ~18-minute guided demo of The Deal Room for delivery teams. It follows a
+> **Which document do I want?**
+> - Presenting to a private equity audience and not technical? Use the
+>   [demo walkthrough](DEMO-WALKTHROUGH.md). It names every screen exactly as it appears
+>   and assumes no software knowledge. **You do not need this document.**
+> - Ten minutes and one screen? Use the [lightning demo](DEMO-LIGHTNING.md).
+> - Setting the environment up, or answering a technical question? You are in the right
+>   place. The second half of this document is written for engineers and says so.
+>
+> **All three run the same 25-minute story.** The lightning cut is the same story in 10.
+
+A 25-minute guided demo of The Deal Room for delivery teams. It follows a
 real institutional deal flow — **who can see what**, the **full lifecycle and its
 gates**, the **senior expertise on every workstream**, the **artifacts an IC votes
 on**, and how the **fund monitors the company after close** — all drawn from the
@@ -21,7 +31,7 @@ Five tabs across the top. That is the whole product; there is nothing else to fi
 | **Sourcing & screening** | Companies you are looking at but have not committed to. |
 | **Deals in flight** | The deals you are actually running. |
 | **Fund & Portfolio** | The fund's money, and the companies it already owns. |
-| **Report** | The certified numbers you would send to an investor. |
+| **Report** | The numbers you would send to an investor — issued as a draft until somebody certifies it. |
 
 Open a deal and you get nine tabs, in the same order on every deal: **Deal brief ·
 Thesis & key figures · IC readiness · Returns, plan & risk · Progress & follow-ups ·
@@ -37,7 +47,7 @@ work.
 - Open the **web console** at `https://<teams-fqdn>/` (or the tab inside Teams).
 - No sign-in needed in demo mode — you'll use the **"sign in as"** switcher.
 - **You land on the Home — deals first, not market trends.** The overview
-  opens on the **decision KPIs** (live deals, pipeline value, average IC readiness,
+  opens on the **the headline figures** (live deals, pipeline value, average IC readiness,
   next to committee), a **Needs attention** list (the deals slipping toward IC, with a
   plain-language *why* and one-click Open / Ask), and the **deals-by-stage** capital
   view; **market intelligence sits deliberately last**. Lead the demo with the *work*
@@ -57,18 +67,18 @@ so you never mix “feature order” with “act order” mid-demo:
 
 1. **Open & access** — the 30s pitch, then **“sign in as”** (who sees what).
 2. **Source & screen** — Sourcing & screening funnel: signal → candidate → auto-screen → **PURSUE** gate.
-3. **Diligence** — Diligence workstreams: RYG workstreams, findings, **Apply ▸**.
+3. **Diligence** — Diligence workstreams: red/amber/green workstreams, findings, **Apply ▸**.
 4. **IC pack & decision** — Decision artifacts + the **pre-populated, firm-branded IC pack** +
    the **IC-readiness verdict** *(this is the wow — the blank page is gone)*.
 5. **Own & monitor** — Fund & Portfolio: marks, watchlist, LPA limits.
-6. **Safe & real** — one line each: access enforced server-side, Work IQ over M365, keyless real data.
+6. **Safe & real** — one line each: access enforced server-side, Files, chats & email over M365, keyless real data.
 7. **Close & ask** — the source-to-own loop, then *“let's run this on your tenant next.”*
 
 > **Safe fallback (~7 min):** beats **1 → 2 → 4 → 5 → 7** — skip live diligence *Apply* and the
 > integrations. If a beat is fragile, narrate it rather than clicking it.
 
 > **Data note — say this once:** everything is the fund's **seeded demo record** (realistic,
-> self-contained, and it resets clean); only the **keyless connectors** (SEC/XBRL, GLEIF, GDELT)
+> self-contained, and it resets clean); only the **keyless connectors** (SEC/XBRL (the tagged-figures format regulators publish accounts in), GLEIF (the global register of legal entity identifiers), GDELT (a public worldwide news index))
 > pull **real external data live**. If a live source is slow, fall back to the seeded view and keep
 > moving — the story never depends on an external call.
 
@@ -118,7 +128,7 @@ dropdown (it shows **Name — Role**, no clutter):
 
 ## 4 · A deal, end to end (4 min)
 
-> Start on the **Home** you landed on: call out the **decision KPIs** and the
+> Start on the **Home** you landed on: call out the **the headline figures** and the
 > **Needs attention** list (deals slipping toward IC), then the **deals-by-stage** capital
 > view — the story is the deals in flight, with **market intelligence intentionally at
 > the bottom**. Then open a deal.
@@ -129,11 +139,11 @@ dropdown (it shows **Name — Role**, no clutter):
 2. On the deal's **Overview**, call out the **Deal brief**:
    - **IC readiness breakdown** — the **READY / CONDITIONAL / NOT-READY** verdict, the
      readiness %, days-to-IC, and the **top 3 blockers**, each with a one-click **Resolve ▸**.
-   - **“What changed since last check?”** — a delta strip showing readiness/verdict moves
+   - **“What changed since last check?”** — a the what-changed line showing readiness/verdict moves
      and newly-blocking vs resolved items since the last review (no history table — a lean
      single mark that only rewrites on real change).
    - **Next best action** — a deterministic strip that jumps to the exact tab to act.
-3. **Workspace** tab — the **diligence workbench**: every workstream as a **RYG** row
+3. **Workspace** tab — the **diligence workbench**: every workstream as a **red/amber/green** row
    (red/amber/green) with owner, progress and the blocking reason, plus a persistent
    **“N at risk”** count.
 4. **Decision artifacts** tab — show the four cards:
@@ -213,9 +223,9 @@ Deal Value & Valuation · Time-based metrics — **embedded** for signed-in user
 fallback. (A channel tab pinned to the old `?view=report` link still opens straight to
 this in-app Report tab.)
 
-## 8 · Work IQ — agents over SharePoint / Teams / mail (1 min)
+## 8 · Files, chats & email — agents over SharePoint / Teams / mail (1 min)
 
-Open **Settings (⚙) → Data Sources → Work IQ**: paste the MCP endpoint and **Connect**. Once
+Open **Settings (⚙) → Data Sources → Files, chats & email**: paste the MCP endpoint and **Connect**. Once
 connected, the internal-data agents gain **governed, delegated** M365 tools —
 `workiq_search_files` (SharePoint/OneDrive), `workiq_read_channel` (Teams) and
 `workiq_search_mail` (Outlook) — so a diligence question can draw on the deal's real
@@ -250,7 +260,7 @@ your confidential estate is enforced and logged, so nothing leaks across it.
 
 ## 11 · Close (30s)
 
-> "It stands up fast on your own Microsoft tenant and costs almost nothing to pilot —
+> "It stands up fast on your own Microsoft tenant and is inexpensive to pilot — get a current figure from the delivery team before you quote one —
 > shaped to your roles, your senior personas and your data. And it carries a deal the
 > whole way: from the first sourcing signal to a portfolio company you actively
 > monitor, inside the tools your firm already runs."
@@ -266,7 +276,7 @@ your confidential estate is enforced and logged, so nothing leaks across it.
 |---|---|
 | RBAC / demo roster (5 Good Place tiers) | top-bar **"sign in as"** (single dropdown, Name — Role) |
 | Deal brief (verdict + top blockers + “what changed” delta + next best action) | deal → **Overview** |
-| Diligence workbench (RYG workstreams) | deal → **Workspace** tab |
+| Diligence workbench (red/amber/green workstreams) | deal → **Workspace** tab |
 | Side-by-side compare (2–4 deals + Copy table) | **Home** → tick **+ Compare** |
 | Assistant approve-to-apply + audit trail | in-deal **💬 Ask** → **Apply ▸** · deal **Activity** tab · `POST /api/deals/:id/assistant-actions` · `GET /api/deals/:id/activity` |
 | Lifecycle (15 stages, 6 gates) | **Lifecycle** tab · `GET /api/lifecycle` |
@@ -277,7 +287,7 @@ your confidential estate is enforced and logged, so nothing leaks across it.
 | Orchestrated delegation | one assistant → orchestrator delegates to stage specialists → composes (`ORCHESTRATION=purpose`) |
 | Deal Room Report (Power BI) | in-app **Report** tab (top nav) |
 | Add a custom data source | **Settings ⚙ → Data Sources → Add a data source** · `POST /api/connectors` |
-| Work IQ (M365 for agents) | **Settings ⚙ → Data Sources → Work IQ** |
+| Files, chats & email (M365 for agents) | **Settings ⚙ → Data Sources → Files, chats & email** |
 | Keyless data | `/api/company/:name/fundamentals`, `/api/entity/:name/lei`, `/api/news/gdelt` |
 
 ## Troubleshooting

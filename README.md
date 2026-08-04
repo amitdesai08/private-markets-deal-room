@@ -45,7 +45,7 @@ tenant.
 - **Ask your deals questions** in plain language and get grounded, cited answers.
 - **Let the assistant propose the next step** — log a blocker, resolve an issue — and **apply it with one click**; every applied change lands on the deal's **audit trail** under your name.
 - **Source & screen** targets with an AI funnel and live SEC / analyst workups.
-- **Run diligence** across specialist lanes into an IC-ready pack, tracked on a **RYG workbench**.
+- **Run diligence** across specialist lanes into an IC-ready pack, tracked on a **red/amber/green workbench**.
 - **Decide** on returns (IRR/MOIC), value-creation, risk and IOI/LOI — exportable to Excel — with an **IC readiness board** (verdict + top blockers + *what changed since last check*).
 - **Compare deals side-by-side** on the same decision fields and copy the grid out.
 - **Own & exit** — monitor MOIC/IRR, run the 100-day plan, work the **watchlist**, and prep the exit.
@@ -141,11 +141,11 @@ calls a **READY / CONDITIONAL / NOT-READY** verdict.
 Each deal leads with the decision, not a status bar: the **IC-readiness verdict** with the
 **top blockers** (one-click **Resolve**), a **“what changed since last check”** delta (readiness
 and verdict moves, newly-blocking vs resolved items), a deterministic **next best action**, a
-**RYG diligence workbench** across the workstreams, and **side-by-side comparison** of 2–4 deals.
+**red/amber/green diligence workbench** across the workstreams, and **side-by-side comparison** of 2–4 deals.
 The whole surface is **decision-data-first** — market intelligence is supporting context, not the
 lead — and there's **one invisible assistant**, no exposed “bots.”
 
-![The deal brief — IC-readiness verdict, top blockers, provenance-tagged figures and the RYG diligence workbench](teams-app/docs/teams-deal-cockpit.png)
+![The deal brief — IC-readiness verdict, top blockers, provenance-tagged figures and the red/amber/green diligence workbench](teams-app/docs/teams-deal-cockpit.png)
 
 ### ✅ Propose → approve → apply, with a full audit trail
 
@@ -178,15 +178,15 @@ single control for its **Teams channel, SharePoint data room and workspace**.
 ### 📈 Real numbers, no paid data
 
 Evaluate the product on real companies from day one — every figure is genuine, cited public-market
-data (**SEC EDGAR / XBRL** fundamentals, **GLEIF** entity & ownership, **GDELT** news), so there's
+data (**SEC EDGAR (the US regulator’s public company-filings archive) / XBRL (the tagged-figures format regulators publish accounts in)** fundamentals, **GLEIF (the global register of legal entity identifiers)** entity & ownership, **GDELT (a public worldwide news index)** news), so there's
 nothing to buy or license just to see it work.
 
-### 🧠 Work IQ — grounded in your Microsoft 365 work data
+### 🧠 Files, chats & email — grounded in your Microsoft 365 work data
 
-**Work IQ** lets the deal team's AI draw on the fund's real Microsoft 365 work — **files, deal-channel
+**Files, chats & email** lets the deal team's AI draw on the fund's real Microsoft 365 work — **files, deal-channel
 messages and inboxes** — so answers reflect the actual data room, threads and correspondence, not just
 the structured deal record. It stays **read-only** and **never leaves your tenant**, and the same reach
-is available to **M365 Copilot**. *(Under the hood: the app is a Microsoft-native Work IQ MCP server
+is available to **M365 Copilot**. *(Under the hood: the app is a Microsoft-native Files, chats & email MCP server
 exposing four read-only tools — `search_files`, `search`, `search_mail`, `read_channel_messages`.)*
 
 It's **governed by construction**: read-only, app-only Graph scopes with mailbox reach bounded by

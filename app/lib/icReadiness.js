@@ -381,3 +381,43 @@ export function computeICReadiness(deal) {
 function sevRank(s) {
   return { risk: 4, negative: 3, caution: 2, neutral: 1, positive: 0 }[s] ?? 1;
 }
+
+// ---- public: how to read this record, for a model ---------------------------
+//
+// A partner asked "what is outstanding before we can close?" on a deal already approved
+// at committee and was told four workstreams were "not started" and "blocking", plus six
+// missing papers. Every word of that was wrong. The workstreams are recorded
+// `closed_at_ic` -- finished, signed off by the committee -- and the deal's own readiness
+// board lists two obligations, not eight. The model was reading field values nobody had
+// ever explained to it: `closed_at_ic` carries a progress figure of 0, which looks
+// exactly like "never touched".
+//
+// That is not a prompt to be tuned deal by deal. Any surface that hands a deal record to
+// a model needs the same two things -- the vocabulary to read the record, and the board's
+// own answer to "what is outstanding" so it stops deriving one badly. A partner may paste
+// this into a committee paper, so it has to agree with the tab next to it.
+export function recordReadingGuide(deal) {
+  let board = null;
+  try { board = computeICReadiness(deal); } catch { board = null; }
+  const gating = board?.verdict?.gating || [];
+  const postIC = String(board?.phase || '') === 'post-committee';
+
+  const lines = [
+    'HOW TO READ THIS RECORD — the values below are our field names, not English. Use the meaning, never the key:',
+    '- a workstream status of "closed_at_ic" means the investment committee closed that workstream out when it approved the deal. It is FINISHED. Its progress figure is meaningless and is usually 0. It is NOT "not started", NOT outstanding and NOT blocking. If no write-up is on file, that is a records gap — not work still to do.',
+    '- "complete" is finished. "blocked" is the only status that means something is stopping this deal.',
+    '- a deliverable that is not on file on a deal that has already been approved is a records gap, not a condition of closing.',
+    'Never emit a placeholder. If a threshold, name or amount is not in the record, leave the clause out — do not write ">$X", "[TBC]" or similar into a sentence someone may paste into a committee paper.'
+  ];
+
+  if (board?.verdict) {
+    lines.push(
+      `WHAT IS OUTSTANDING — authoritative. This is what the IC readiness board shows the user on screen, and your answer must agree with it: state ${board.verdict.state}; ${board.verdict.headline || ''}`,
+      gating.length
+        ? `The outstanding items are exactly these ${gating.length}: ${gating.map((g) => `"${g}"`).join('; ')}. Do not add to that list, do not invent others, and do not describe anything else as outstanding, blocking or missing.`
+        : 'Nothing is outstanding. Do not manufacture anything.'
+    );
+    if (postIC) lines.push('This deal has ALREADY been approved at investment committee. Do not produce a pre-committee readiness checklist for it.');
+  }
+  return lines.join('\n');
+}

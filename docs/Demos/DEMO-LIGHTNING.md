@@ -20,7 +20,7 @@ minutes, plus an explicit **feature → private-equity need** map you can speak 
 - Open the **web console** (`https://<teams-fqdn>/`) or the **tab in Teams**.
 - Keep the top-bar **"sign in as"** switcher handy — no real sign-in needed.
 - The demo is **self-contained**: seeded deals + market intel ship in the image,
-  so it runs with **no paid data vendor** and near-zero standing cost.
+  so it runs with **no paid data vendor** and low standing cost — get a current figure before you quote one.
 
 ---
 
@@ -30,11 +30,11 @@ minutes, plus an explicit **feature → private-equity need** map you can speak 
 |---|---|---|---|
 | 0 | **Pitch** (0:30) | Say the one-liner above. "Same console runs in Teams *and* standalone web." | Teams-native + web console |
 | 1 | **Who's asking** (1:00) | "Sign in as" **Michael Realman (Admin)** → every specialist agent, all 9 deals. Switch to **Chidi Anagonye (Analyst)** → rail collapses to his 1 read-only agent, the **"Live deals" total drops to 7** (two confidential deals vanish), Stage-2 locks. End on **Jason Mendoza (Member)** → view-only, **zero agents** (the guardrail floor). | Identity-aware access; totals follow the identity; enforced server-side |
-| 2 | **Originate** (1:30) | Open **Sourcing & screening**. Show the **News & filings desk**: live catalysts (GDELT) + real SEC filings (EDGAR) on a target; run the screening gate. | Sourcing signals, screening, free live data |
-| 3 | **Diligence** (1:30) | Open a deal → **Overview**: the **Deal brief** (verdict + top blockers + “what changed since last check”), then **Workspace** for the **RYG diligence workbench**. Hit **💬 Ask** *inside the deal*, ask a lane question, and **Apply ▸** the assistant's proposed next step — it writes an attributed entry to the **Activity** trail. | Deal brief; diligence workbench; approve-to-apply + audit trail |
+| 2 | **Originate** (1:30) | Open **Sourcing & screening**. Show the **News & filings desk**: live catalysts (GDELT (a public worldwide news index)) + real SEC filings (EDGAR) on a target; run the screening gate. | Sourcing signals, screening, free live data |
+| 3 | **Diligence** (1:30) | Open a deal → **Overview**: the **Deal brief** (verdict + top blockers + “what changed since last check”), then **Workspace** for the **red/amber/green diligence workbench**. Hit **💬 Ask** *inside the deal*, ask a lane question, and **Apply ▸** the assistant's proposed next step — it writes an attributed entry to the **Activity** trail. | Deal brief; diligence workbench; approve-to-apply + audit trail |
 | 4 | **Decide** (1:30) | Ask for the **LBO case (IRR / MOIC)**; open the **IC memo** and **IC voting precedents**. Tick **2–4 deals** on Home and open the **side-by-side compare** grid (Copy table). | Auto-drafted decision artifacts; IC governance; side-by-side compare |
 | 5 | **Own it** (0:30) | Open **Fund & Portfolio** — the post-IC lens: portfolio monitoring, value-creation, LP-ready fund view. | Full lifecycle beyond the deal |
-| 6 | **Report & connect** (0:45) | Open the in-app **Report** tab (Power BI). Then **Settings → Data Sources**: free tier on by default, **Work IQ** endpoint for M365 (SharePoint/Teams/mail) agent access, **Add a data source** to register a custom provider, toggle a source off live. | Power BI in the app; governed connectors + custom providers |
+| 6 | **Report & connect** (0:45) | Open the in-app **Report** tab (Power BI). Then **Settings → Data Sources**: free tier on by default, **Files, chats & email** endpoint for M365 (SharePoint/Teams/mail) agent access, **Add a data source** to register a custom provider, toggle a source off live. | Power BI in the app; governed connectors + custom providers |
 
 **Ultra-short (3 min):** run beats **0 → 1 → 3 → 4** — the differentiator (access),
 a cited specialist answer, and the IC artifact. That alone tells the story.
@@ -53,7 +53,7 @@ a cited specialist answer, and the IC artifact. That alone tells the story.
 | **Full lifecycle: 15 stages, 6 decision gates** | Repeatable IC governance and process discipline across deals | Codifies the institutional process so nothing skips a gate or an owner |
 | **Auto-drafted decision artifacts** (IOI, diligence plan, LBO/returns, IC memo) | Time-to-IC; analyst grunt-work; partner-ready outputs | Drafts the exact artifacts partners vote on, from the live record — **pre-populated in the data room** and **branded to your firm's house style** |
 | **Market intelligence** (comparable deals, benchmark diligence findings, IC precedents, company financials) | Pattern-matching to prior deals; not repeating past mistakes | Grounds a new deal in the fund's *own* history and precedent |
-| **Free data sources** — SEC EDGAR, GDELT, GLEIF | Data-vendor cost; thin coverage of mid-market / private targets | Real filings, news catalysts, and entity/ownership data with **no subscription** |
+| **Free data sources** — SEC EDGAR (the US regulator’s public company-filings archive), GDELT, GLEIF (the global register of legal entity identifiers) | Data-vendor cost; thin coverage of mid-market / private targets | Real filings, news catalysts, and entity/ownership data with **no subscription** |
 | **Subscription connectors via MCP** — Morningstar, LSEG, Moody's | Reuse of existing vendor entitlements | Bring-your-own-data: sign in and the same workflow gets premium sources |
 | **Data Sources config menu** | Governance and cost control over which sources feed a deal | Turn any source on/off per engagement; free tier keeps demos/POCs cheap |
 | **Teams-native + SharePoint VDR + M365** | Adoption — deal teams won't leave where they already work; document estate | No new tool to learn; the VDR lives in SharePoint under existing tenancy |
