@@ -1,224 +1,299 @@
-# Demo walkthrough — an example end-to-end workflow
+# Demo walkthrough — following the platform, screen by screen
 
-A story-driven, ~20-minute demo that follows **one fund and one deal** through the
-whole institutional arc — from a sourcing signal, across screening and diligence,
-through the Investment Committee, and out the other side into a **live portfolio
-company** the fund now monitors.
+This is the guide to *driving* The Deal Room in front of an audience. It names every
+screen exactly as it appears on the window, says in plain words what that screen is
+for, and gives you the click that takes you to the next one.
 
-Where the [demo runbook](DEMO-RUNBOOK.md) is a feature *tour* (a checklist of what
-to click), this is a *narrative* you can tell — each act is framed through the
-persona who owns it, so the access model, the agents, the lifecycle and the new
-**Fund & Portfolio** lens all land as one coherent story.
+You do not need to know anything technical to run it. If you have ever used a CRM,
+this will feel familiar: there is a list of things you are working on, you open one,
+and everything about it lives on tabs across the top.
 
-> **The fund in the demo:** *Fund IV — US Mid-Market Buyout* ($2.6B, vintage 2024,
-> ~46% deployed, 6 portfolio companies). Everything below is the fund's own
-> record — deals, returns, the fund overview. If anyone asks "is this real?", the
-> answers show their work: each one traces back to a source you can open.
+Where the [demo runbook](DEMO-RUNBOOK.md) is a checklist of features to cover, and
+[DEMO-LIGHTNING](DEMO-LIGHTNING.md) is the five-minute version, this is the one to
+read first.
 
 ---
 
-## Setup (before the room)
+## Before you start
 
-- Deploy in demo mode (`azd up` with `DEPLOY_DEMO_PROFILES=true`) or open an
-  existing demo environment. No datastore is required — the default **blob store**
-  means the demo costs almost nothing, and **Cosmos is entirely optional**.
-- Open the **web console** at `https://<teams-fqdn>/`, or the tab inside Teams.
-- Keep the top-bar **"sign in as"** switcher handy — you'll change profile per act.
-- **Data note (say once):** everything below is the fund's **seeded demo record**
-  (self-contained, and it resets clean); only the **keyless connectors** (SEC/XBRL,
-  GLEIF, GDELT) pull **real external data live**. If a live source is slow, fall back to
-  the seeded view and keep the story moving — nothing in the arc depends on an external call.
-
-**The cast** — the demo roster is **The Good Place**, one character per RBAC tier. Sign in as a
-tier, then act *through* the specialist persona agents in the panel:
-
-| Sign in as | Tier | Acts through | Owns the act |
-|---|---|---|---|
-| **Chidi Anagonye** | Analyst (read-only) | Analyst agent | Act 1 — Origination |
-| **Tahani Al-Jamil** | Deal Team | Sector MDs (Retail / AI / Supply) | Act 2 — Diligence |
-| **Eleanor Shellstrop** | Partner | Fund CFO · Principal · Partner | Act 3 — Decision & IC |
-| **Eleanor Shellstrop / Michael Realman** | Partner / Admin | Operating Partner · Fund CFO · IR | Act 4 — Own & Monitor |
+- Open the window — either the **Deal Room** tab inside Microsoft Teams, or the same
+  thing in a browser. They are identical.
+- Give the first screen about fifteen seconds to fill in. It is loading the fund's
+  deals.
+- Top right there is a person switcher. You will use it once, to show that different
+  people see different things.
+- **Say this once, early:** the deals, the diligence and the returns are the fund's
+  own seeded record — it is a demonstration book, and it resets clean. The market
+  data that comes from public filings and news is genuinely live.
 
 ---
 
-## Act 0 · The 30-second pitch
+## How the window is laid out
 
-> "The Deal Room is where a deal team runs the whole institutional arc in one
-> place — source, screen, diligence, take it to IC, **and then monitor the
-> company they own**. The *same* workspace runs inside Microsoft Teams or the
-> browser, every answer is drawn from the fund's own record, and **each person
-> only sees what their role allows**."
+Everything is in three bands, and they never move.
 
-Then set the frame: *"Let's follow one deal the whole way through."*
+**The top bar** — the product name, and four controls on the right:
 
----
-
-## Act 1 · Origination & screening — *sign in as Chidi Anagonye (Analyst)*  ⏱ 3 min
-
-1. **Deals Overview** → note the **decision KPIs** (live deals, pipeline value,
-   average IC readiness, next to committee) and the **Needs attention** list — the
-   deals slipping toward IC, each with a plain-language *why* and one-click Open / Ask.
-   *"This is the deal team's cockpit — decision data first; there's deliberately no
-   ROI / hours-saved framing, because the audience is the people doing the deals."*
-2. Open **Stage 1 — Origination**. Walk the funnel: a **signal** (a CxO interview,
-   a filing) becomes a **candidate**, gets **auto-screened**, then **triaged**.
-3. Call out the **sourcing framework** — three tiers doing three different jobs:
-   - **Fund Mandate (GATE)** — the binding LPA limits; a breach is *excluded, never scored*.
-   - **Investment Theme (GUIDE)** — a partner's hunting ground.
-   - **Screen (RANK)** — the analyst's scored criteria.
-4. A target clears the **⛔ PURSUE** gate — the collaboration space (Teams channel
-   + SharePoint data room) spins up and it becomes a **deal**.
-
-> "Screening isn't one filter narrowed three times — it's a gate, a guide and a
-> ranker. That's how a real fund actually sources."
-
-> **→ Act 2:** that target just cleared **PURSUE** and became a *deal* with its own Teams +
-> SharePoint data room — sign in as the deal team and step **inside** it to run diligence.
-
----
-
-## Act 2 · Diligence — *sign in as Tahani Al-Jamil (Deal Team), act as a Sector MD*  ⏱ 4 min
-
-1. Open **Stage 2 — Diligence** and pick the lead deal (the top consumer deal).
-2. Show the **workstream lanes** — Commercial / Tech-AI / Operations — each owned
-   by a sector MD, with findings tagged by severity. On the deal's **Workspace** tab,
-   call out the **diligence workbench**: every lane as a **RYG** row with owner,
-   progress and the blocking reason, and a persistent **“N at risk”** count.
-3. As the **AI MD**, use the **agents** panel: *"Score AI-readiness and flag the
-   tech risks on this deal."* The answer is grounded and cited — and the assistant
-   **proposes** a next step (e.g. *“log this blocking lane as an issue”*) that you
-   **Apply ▸**. It writes the change *and* an attributed entry to the deal's
-   **Activity** trail — never acting on its own.
-4. Note that an MD **can only touch their own lane** — try the access model live.
-
-> "Diligence runs on every workstream at once, but with guardrails — the tech
-> lead can't touch the commercial lane, and nothing changes unless a person signs
-> off. Every finding and edit is attributable, so you always know who put a number
-> in front of the IC."
-
-> **→ Act 3:** diligence has filled the record — now the partner asks the committee's
-> question: *do the returns clear the hurdle, and is this deal IC-ready?*
-
----
-
-## Act 3 · Decision & IC — *sign in as Eleanor Shellstrop (Partner)*  ⏱ 5 min
-
-1. Open the deal's **Decision artifacts** tab — the four cards, each derived from
-   the live record:
-   - **LBO / Returns** — entry multiple, sources & uses, base / upside / downside
-     **IRR & MOIC** vs the 20% / 2.0x hurdle. Download **Returns model (Excel)**
-     (Summary · Sources & Uses · Scenarios · Sensitivity).
-   - **Value creation** — the EBITDA bridge, quantified levers, 100-day plan.
-   - **Risk register** — open risks by severity × likelihood (red/amber/green).
-   - **IOI / LOI** — the non-binding indication and letter of intent.
-
-   > The deal's **data room arrives pre-populated** with the full board-ready **IC pack** — memo,
-   > deck and these models — drafted from this same live record and **branded to the fund's house
-   > style** (set once in Settings). The partner opens to a finished first draft, not a blank page.
-2. As **Fund CFO**, ask the agent: *"Pull the returns model — base IRR and MOIC,
-   and does it clear the hurdle?"*
-3. Open the **IC readiness** tab — the decision-grade board answering the seven
-   questions an IC actually asks, with a **READY / CONDITIONAL / NOT-READY** verdict
-   grounded in real Fabric comparables and IC precedents. Then flip to the deal's
-   **Overview** — the same verdict leads the **decision cockpit** with the **top 3
-   blockers** (one-click **Resolve ▸**) and a **“what changed since last check”**
-   delta so a partner sees momentum, not just status.
-4. Switch to **Eleanor (Partner)** and show **view-as-down**: she can see the room
-   as any junior role, but **never up** — and it's enforced server-side. Only the
-   Partner can approve at the **IC gate**.
-
-> "The IC verdict isn't a progress bar — it's real gating facts. And approving at
-> the IC gate is a partner-only authority — no one can grant themselves that sign-off."
-
----
-
-## Act 4 · Own & monitor — *sign in as Eleanor Shellstrop (Partner), act as Operating Partner / IR*  ⏱ 5 min  🆕
-
-This is the **post-IC** act most tools stop short of. Open the **Fund & Portfolio**
-tab.
-
-1. **Fund / LP headline** — committed $2.6B, ~46% invested, dry powder, and the
-   performance line: **TVPI · DPI · RVPI**, gross & net **MOIC / IRR**. *"This is
-   what you'd put in an LP quarterly."*
-2. **Portfolio monitoring** — the owned companies, each with hold period,
-   entry→current multiple, EBITDA growth, **current MOIC & IRR**, value-creation
-   progress and an **on-track / watch / underperform** status.
-   - Expand **Summit Provisions** (on-track, ~2.2x) → the **value-creation levers**
-     with % progress, the **100-day** completion, and **KPIs vs the underwriting
-     plan** with variance.
-   - Contrast with **Harbor Industrial Coatings** (underperform, ~0.6x) → *"The
-     reporting is honest — input-cost inflation pushed it below plan, and the
-     portfolio view surfaces the underperformer instead of burying it. That's the
-     mark you'd actually defend to an LP."*
-3. **Concentration vs LPA limits** — sector and single-position exposure against
-   the mandate's hard caps (max % per sector / per deal). *"Compliance-by-design —
-   the same LPA gate that screens deals also watches the portfolio."*
-   Call out the **Watchlist** at the top of the lens — the watch/underperform names
-   ranked, each with its **primary driver** (worst KPI vs plan) and a **Review ▸**.
-4. Open the **Report** tab — the LP-ready pack now carries a **“Source & methodology”
-   lineage appendix** (every headline metric → source system → as-of → method) and an
-   **output-mode badge** (LP-ready when external sources are live/within SLA, else
-   Draft-not-certified). *"You can hand this to an LP and trace every number home."*
-4. As **IR (Sofia)**, ask the agent: *"How does the fund read to our LPs right
-   now?"* — the **ILPA-aligned LP summary** answers in one paragraph.
-5. As **Operating Partner (Rachel)**: *"Where's the biggest EBITDA-bridge lever
-   across the portfolio?"*
-
-> "The deal didn't end at IC — it became a company we own. The same governed record
-> that took it to committee now tracks its value creation, its marks and its fit to
-> the mandate. That's the full loop: source → screen → diligence → IC → **own**."
-
----
-
-## Act 5 · The close  ⏱ 1 min
-
-Pull the threads together:
-
-- **One workspace, wherever the deal team already works** — the *same* experience
-  in Teams and on the web.
-- **Access follows the person** — a partner sees the whole room, an analyst sees
-  only their deals, and no one can look *up* the chain. It's the information
-  barrier a fund is required to run.
-- **One question, the whole deal team behind it** — ask once and get one answer,
-  with the depth of sourcing, screening, diligence, modeling, IC-memo and
-  value-creation expertise behind it. Every figure comes from the fund's own
-  record, and it shows where each one came from.
-- **Real data out of the box** — market, filings, ownership and live news
-  catalysts, with no data-vendor subscription to buy.
-- **Runs on your own tenant** — stands up fast, costs almost nothing to pilot,
-  and bends to your roles, your senior personas and your own investment process.
-
-> "It takes a deal from the very first signal all the way to a portfolio company
-> you actively monitor — the full loop, source to own, inside the tools your firm
-> already trusts."
-
-> **The ask:** *"Let's run this on **your** tenant, with **your** deal process — a short
-> pilot on one live deal."*
-
----
-
-## The arc at a glance
-
-| Act | Persona | Tab | The one line |
-|---|---|---|---|
-| 1 · Origination | Analyst | Stage 1 | "Gate, guide, rank — real sourcing." |
-| 2 · Diligence | Sector MD | Stage 2 | "Parallel but governed." |
-| 3 · Decision & IC | Fund CFO → Partner | Decision artifacts · IC readiness | "A verdict from real facts; partner-only approval." |
-| 4 · Own & monitor | Operating Partner · IR | **Fund & Portfolio** | "The deal became a company we own." |
-| 5 · Close | — | — | "One command, the full loop." |
-
-## Grounding — the tools behind the story
-
-| You show | It's backed by |
+| Control | What it does |
 |---|---|
-| Pipeline & value strip | `GET /api/analytics`, `GET /api/fund/value` |
-| Lifecycle (15 stages, 6 gates) | `GET /api/lifecycle` |
-| Decision artifacts | `GET /api/deals/:id/{returns,value-creation,risk-register,ioi,loi}` |
-| Fund / LP performance | `GET /api/fund/overview` |
-| Portfolio monitoring | `GET /api/fund/portfolio` |
-| Assistant approve-to-apply + audit trail | `POST /api/deals/:id/assistant-actions` · `GET /api/deals/:id/activity` |
-| Agent answers | Foundry agents → MCP read tools (`/mcp-ro`) |
-| Keyless data | `GET /api/company/:name/fundamentals`, `/api/entity/:name/lei`, `/api/news/gdelt` |
+| **+ New deal** | Enter a deal you already have, without going through screening. |
+| **💬 Ask the assistant** | Opens the assistant on whatever you are looking at. |
+| **☀** | Light or dark. |
+| **⚙** | Settings — where the data room, the mailbox and the Teams team are pointed. |
 
-See the [demo runbook](DEMO-RUNBOOK.md) for the shorter feature-tour version and
-troubleshooting.
+**The five main tabs** — this is the whole product. There is nothing else to find.
+
+| Tab | In one sentence |
+|---|---|
+| **Home** | What needs you today. |
+| **Sourcing & screening** | Companies you are looking at but have not committed to. |
+| **Deals in flight** | The deals you are actually running. |
+| **Fund & Portfolio** | The fund's money, and the companies it already owns. |
+| **Report** | The certified numbers you would send to an investor. |
+
+**The page itself** — below the tabs.
+
+That is the entire navigation. Five tabs across the top, and one more level when you
+open a deal. If you get lost, press a main tab and you are back to a known place.
+
+---
+
+## Act 1 · Home — *what needs you today* ⏱ 3 min
+
+Press **Home**.
+
+Read the page top to bottom, because it is built to be read that way.
+
+1. **The daily briefing.** A written summary of the fund's position, in sentences,
+   for whoever is signed in. A partner and an analyst get different briefings from
+   the same record. Press **🔍 Evidence** to show where each statement came from —
+   every line traces to a deal, a workstream or a filing.
+
+   > "The first thing you see is not a chart. It is somebody telling you what
+   > happened."
+
+2. **The four tiles.** Live deals, pipeline value, average IC readiness, and the next
+   committee. Each has a line underneath explaining what it counts and what it
+   leaves out — for instance, pipeline value excludes companies the fund already
+   owns, because that money is already deployed.
+
+   > "Every number on this page says what it is counting. That is deliberate. You
+   > should never have to ask which of two figures to believe."
+
+3. **Needs attention.** The queue. Each row says which deal, what is wrong, and gives
+   you a button that goes straight to the place where you would fix it.
+
+4. **Deals by stage.** Four blocks — Origination & Screening, Diligence & Approval,
+   Execution & Closing, Value & Exit. The header above them tells you the total and
+   how much of it is pre-completion. Press a block to see those deals.
+
+5. **Origination funnel.** How many companies were sourced, screened, shortlisted,
+   and how many are still in origination.
+
+Then say: *"Everything below the fold is optional. Choose what this page shows lets
+you turn any panel off — the page is yours."*
+
+**→ Next:** press **Sourcing & screening**.
+
+---
+
+## Act 2 · Sourcing & screening — *before it is a deal* ⏱ 4 min
+
+This tab holds everything you look at *before* the fund commits. It has its own row
+of sub-tabs.
+
+| Sub-tab | What it is for |
+|---|---|
+| **Pipeline** | The candidate companies and where each has got to. |
+| **Sourcing framework** | The rules that decide what you are allowed to buy. |
+| **Analyst research** | Broker and analyst material on the sectors you cover. |
+| **Emails & news** | Public filings and press on the companies you are watching. |
+
+### Pipeline
+
+The funnel across the top counts companies at each step. Press a step to filter the
+list underneath.
+
+### Sourcing framework — *the part worth slowing down for*
+
+Three tiers, doing three different jobs. This is the piece that tells a private
+equity audience the product was built by someone who has done the job.
+
+- **Fund mandate — a gate.** The binding limits in the fund's own agreement with its
+  investors: sector, geography, cheque size. A company outside the mandate is
+  **excluded, never scored.** You cannot buy it, so there is no point ranking it.
+- **Investment theme — a guide.** A partner's hunting ground. Shapes what you look
+  for; does not exclude anything.
+- **Screen — a ranker.** The analyst's scored criteria. This is what orders the list.
+
+  > "Screening is not one filter applied three times. It is a gate, a guide and a
+  > ranker — and confusing them is how funds waste a quarter on something they were
+  > never permitted to buy."
+
+### Emails & news
+
+Real filings and real press, pulled live from public sources. The header tells you
+how many companies are tracked and how many kinds of catalyst are being watched for.
+
+**→ Next:** press **Deals in flight**.
+
+---
+
+## Act 3 · Deals in flight — *the list* ⏱ 2 min
+
+One row per deal. Company, sector, size, stage, how ready it is for committee, and
+what is holding it up.
+
+Across the top are filter chips — **Needs attention**, **Approaching IC**, **Owned**
+and so on. A chip with nothing in it is greyed out rather than hidden, so you can
+see that the filter exists and that the answer is zero.
+
+Press any row to open the deal.
+
+> "It takes a moment to open. It is assembling the whole deal — the workstreams, the
+> committee papers, the documents and the audit trail."
+
+**→ Next:** open **Helvetia Diagnostics**.
+
+---
+
+## Act 4 · Inside a deal — *the tabs across the top* ⏱ 8 min
+
+This is the heart of the product, and it is where a first-time user needs the most
+help. So say this out loud before you click anything:
+
+> "A deal has nine tabs. They are in the same order on every deal, always. Left to
+> right they go: what happened, what we think, are we ready, what does it return,
+> what is outstanding, do the work, the diligence detail, the paperwork — and
+> everything else under More."
+
+| Tab | What is on it |
+|---|---|
+| **Deal brief** | A written account of where this deal stands and what to do next. Start here. |
+| **Thesis & key figures** | The investment case, the headline numbers, and where each figure came from. |
+| **IC readiness** | Whether the committee papers are complete, and what is missing. |
+| **Returns, plan & risk** | The returns model, sources and uses, the EBITDA bridge, the risk register, the IOI and the LOI. |
+| **Progress & follow-ups** | Steps completed, who moved the deal on, and what people have promised to do. |
+| **Work the deal** | The sixteen steps of the lifecycle. Run a step, or move the deal on. |
+| **Diligence workstreams** | Financial, Legal, Tax, Commercial, ESG and the rest — status, owner, findings. |
+| **Documents** | The data room contents, and generating a committee memo or deck. |
+| **More ▾** | Deal channel, Comparables & precedents, Generate a document, Audit trail. |
+
+Three things to demonstrate, in this order.
+
+### 1. The brief tells you what to do
+
+**Deal brief** opens on prose, not a dashboard. It ends with a single
+recommendation and a button that goes to the tab where that work happens. Press it.
+
+### 2. The numbers agree with each other
+
+Go to **Thesis & key figures**. The IC readiness card says how many obligations are
+still outstanding — and then lists exactly those. Hover any figure to see its source.
+
+Now go to **Diligence workstreams**. The header pill states the position honestly:
+if four workstreams were closed out at committee with no write-up on file, it says
+so rather than reporting "all on track".
+
+> "Nothing on this screen contradicts anything on the screen next to it. That
+> sounds like a low bar. It is the single most common failure in software of this
+> kind, and it is what stops people trusting it."
+
+### 3. The assistant is bounded
+
+Press **💬 Ask the assistant** and ask something about this deal — *"what is
+outstanding before we can close?"*
+
+It answers from this deal's record only, quotes figures verbatim, and shows its
+sources. Ask it about a different deal and it will tell you it is scoped to this one.
+
+**→ Next:** press **Fund & Portfolio**.
+
+---
+
+## Act 5 · Fund & Portfolio — *the money* ⏱ 3 min
+
+Two things live here.
+
+**The fund.** Size, how much is deployed, dry powder, and the returns — MOIC, DPI,
+IRR. Each has a note saying how it was worked out.
+
+**Portfolio monitoring.** The companies the fund already owns: hold period, entry
+versus current valuation, EBITDA, MOIC, IRR, how far through the value-creation plan
+they are, and a status.
+
+Point at the line beneath the panel header. It names any deal that has completed but
+has not yet been onboarded to portfolio reporting, and says its value is not in the
+figures above — with a button to open it.
+
+> "That sentence exists because six companies here and three completed deals under
+> Deals in flight is a difference somebody will spot, and they should be told the
+> answer rather than left to work it out."
+
+**→ Next:** press **Report**.
+
+---
+
+## Act 6 · Report — *what you would send an investor* ⏱ 2 min
+
+The certified view. Deliberately narrower than everything else: it states exactly
+how many records it covers and what it excludes.
+
+Say: *"This is the number the fund would stand behind. It is smaller than the number
+on Home, on purpose, and both screens explain why."*
+
+---
+
+## Act 7 · Different people, different views ⏱ 3 min
+
+Use the person switcher in the top bar. Change from a **Partner** to an **Analyst**.
+
+Watch what happens:
+
+- The deal list gets shorter.
+- A deal the analyst is not cleared for still appears, but by name and status only —
+  no valuation, no diligence, no documents. It is honest about the fact that it
+  exists.
+- The daily briefing is rewritten for their job.
+- The tiles recount against what this person can actually see.
+- The assistant will not discuss a deal they cannot open, even if asked directly.
+
+> "This is not a display setting. The restriction is applied where the data is
+> fetched. There is nothing on the page to inspect."
+
+---
+
+## Act 8 · Where it runs ⏱ 1 min
+
+Press **⚙ Settings**.
+
+The data room is SharePoint. The conversation is a Teams channel. The mail and
+calendar are the fund's own. Nothing here is a copy — the product opens the real
+thing.
+
+Close with:
+
+> "It is one place to run a deal, it is built on the tools the firm already pays for
+> and already trusts, and every number on it will tell you where it came from."
+
+---
+
+## If something goes wrong
+
+| What you see | What to do |
+|---|---|
+| A deal takes a while to open | Expected — it assembles the full record. Keep talking. |
+| A live news or filings panel is empty | It is calling a public source. Move on; nothing in the story depends on it. |
+| A panel says there is nothing to show | Read it out. Every empty state names the next action — that is the point. |
+| You are lost | Press a main tab. There are only five, and they always work. |
+
+---
+
+## The one-paragraph version
+
+> The Deal Room is where a deal team runs the whole arc in one place — find a
+> company, screen it against the rules the fund is bound by, run the diligence, take
+> it to committee, close it, and then monitor the company they now own. It runs
+> inside Teams or a browser. Every answer comes from the fund's own record and shows
+> its working. Each person sees only what their role permits, and the product will
+> tell you when there is something it is not showing you.

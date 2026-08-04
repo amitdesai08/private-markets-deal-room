@@ -46,11 +46,34 @@ tenant.
 - **Let the assistant propose the next step** — log a blocker, resolve an issue — and **apply it with one click**; every applied change lands on the deal's **audit trail** under your name.
 - **Source & screen** targets with an AI funnel and live SEC / analyst workups.
 - **Run diligence** across specialist lanes into an IC-ready pack, tracked on a **RYG workbench**.
-- **Decide** on returns (IRR/MOIC), value-creation, risk and IOI/LOI — exportable to Excel — with an **IC-readiness cockpit** (verdict + top blockers + *what changed since last check*).
+- **Decide** on returns (IRR/MOIC), value-creation, risk and IOI/LOI — exportable to Excel — with an **IC readiness board** (verdict + top blockers + *what changed since last check*).
 - **Compare deals side-by-side** on the same decision fields and copy the grid out.
 - **Own & exit** — monitor MOIC/IRR, run the 100-day plan, work the **watchlist**, and prep the exit.
 - **Get board-ready documents drafted for you** — every deal's data room arrives **pre-populated** with a full IC pack (memo, deck, deal & returns models) drafted from the live record and **branded to your firm's house style**; export **LP reports with a full source-and-methodology lineage**, then **certify** a report LP-ready as an immutable, dated snapshot.
 - **Keep it confidential** — hide sensitive deals and grant access person-by-person.
+
+## Finding your way around
+
+Five tabs across the top. That is the whole product.
+
+| Tab | In one sentence |
+|---|---|
+| **Home** | What needs you today — the daily briefing, the four headline figures, and the queue. |
+| **Sourcing & screening** | Companies you are looking at but have not committed to: pipeline, the sourcing framework, analyst research, and live filings and news. |
+| **Deals in flight** | The deals you are actually running. Press a row to open one. |
+| **Fund & Portfolio** | The fund's money, and the companies it already owns. |
+| **Report** | The certified numbers you would send to an investor. |
+
+Open a deal and you get nine tabs, in the same order on every deal: **Deal brief ·
+Thesis & key figures · IC readiness · Returns, plan & risk · Progress & follow-ups ·
+Work the deal · Diligence workstreams · Documents · More ▾**.
+
+Two rules the interface holds itself to: every figure says what it is counting and
+what it excludes, and no screen contradicts the screen next to it. If the product
+cannot show you something, it says so rather than leaving a gap.
+
+For a click-by-click tour written for someone who has never seen it, read the
+[demo walkthrough](docs/Demos/DEMO-WALKTHROUGH.md).
 
 ---
 
@@ -83,7 +106,7 @@ at every hand-off — **Origination → Diligence → Execution → Value & Exit
 Portfolio** roll-up. Each stage names the accountable persona and produces the artifacts the IC
 actually decides on.
 
-![Stage 1 — Origination & Screening in the Teams tab](teams-app/docs/teams-stage1.png)
+![Sourcing & screening in the Teams tab](teams-app/docs/teams-stage1.png)
 
 > 🔎 **[Inside a deal — a tab-by-tab tour of every stage & workspace →](docs/DEAL-STAGES.md)**
 
@@ -113,7 +136,7 @@ grid), a **value-creation / 100-day plan** (EBITDA bridge), a **risk register**,
 — each derived from the live record and exportable to Excel, with an **IC-readiness** board that
 calls a **READY / CONDITIONAL / NOT-READY** verdict.
 
-### 🧭 A decision cockpit built for the deal team
+### 🧭 A Deal brief built for the deal team
 
 Each deal leads with the decision, not a status bar: the **IC-readiness verdict** with the
 **top blockers** (one-click **Resolve**), a **“what changed since last check”** delta (readiness
@@ -122,7 +145,7 @@ and verdict moves, newly-blocking vs resolved items), a deterministic **next bes
 The whole surface is **decision-data-first** — market intelligence is supporting context, not the
 lead — and there's **one invisible assistant**, no exposed “bots.”
 
-![The deal cockpit — IC-readiness verdict, top blockers, provenance-tagged figures and the RYG diligence workbench](teams-app/docs/teams-deal-cockpit.png)
+![The deal brief — IC-readiness verdict, top blockers, provenance-tagged figures and the RYG diligence workbench](teams-app/docs/teams-deal-cockpit.png)
 
 ### ✅ Propose → approve → apply, with a full audit trail
 

@@ -7,7 +7,28 @@ on**, and how the **fund monitors the company after close** — all drawn from t
 fund's own deal record.
 
 > Prefer a story to a checklist? See the [demo walkthrough](DEMO-WALKTHROUGH.md) —
-> the same material told as one deal's end-to-end journey.
+> the same material told as one deal's end-to-end journey, screen by screen. If you
+> have never driven the product before, read that one first: it names every screen
+> exactly as it appears and assumes no technical knowledge.
+
+## The layout, in one table
+
+Five tabs across the top. That is the whole product; there is nothing else to find.
+
+| Tab | In one sentence |
+|---|---|
+| **Home** | What needs you today. |
+| **Sourcing & screening** | Companies you are looking at but have not committed to. |
+| **Deals in flight** | The deals you are actually running. |
+| **Fund & Portfolio** | The fund's money, and the companies it already owns. |
+| **Report** | The certified numbers you would send to an investor. |
+
+Open a deal and you get nine tabs, in the same order on every deal: **Deal brief ·
+Thesis & key figures · IC readiness · Returns, plan & risk · Progress & follow-ups ·
+Work the deal · Diligence workstreams · Documents · More ▾**.
+
+If you get lost at any point, press a main tab. There are only five and they always
+work.
 
 ## Before you start
 
@@ -15,7 +36,7 @@ fund's own deal record.
   existing demo environment.
 - Open the **web console** at `https://<teams-fqdn>/` (or the tab inside Teams).
 - No sign-in needed in demo mode — you'll use the **"sign in as"** switcher.
-- **You land on the Deals Overview — deals first, not market trends.** The overview
+- **You land on the Home — deals first, not market trends.** The overview
   opens on the **decision KPIs** (live deals, pipeline value, average IC readiness,
   next to committee), a **Needs attention** list (the deals slipping toward IC, with a
   plain-language *why* and one-click Open / Ask), and the **deals-by-stage** capital
@@ -35,8 +56,8 @@ Whatever the time budget, run the story in **one** order — all three demo asse
 so you never mix “feature order” with “act order” mid-demo:
 
 1. **Open & access** — the 30s pitch, then **“sign in as”** (who sees what).
-2. **Source & screen** — Stage 1 funnel: signal → candidate → auto-screen → **PURSUE** gate.
-3. **Diligence** — Stage 2 workbench: RYG workstreams, findings, **Apply ▸**.
+2. **Source & screen** — Sourcing & screening funnel: signal → candidate → auto-screen → **PURSUE** gate.
+3. **Diligence** — Diligence workstreams: RYG workstreams, findings, **Apply ▸**.
 4. **IC pack & decision** — Decision artifacts + the **pre-populated, firm-branded IC pack** +
    the **IC-readiness verdict** *(this is the wow — the blank page is gone)*.
 5. **Own & monitor** — Fund & Portfolio: marks, watchlist, LPA limits.
@@ -97,15 +118,15 @@ dropdown (it shows **Name — Role**, no clutter):
 
 ## 4 · A deal, end to end (4 min)
 
-> Start on the **Deals Overview** you landed on: call out the **decision KPIs** and the
+> Start on the **Home** you landed on: call out the **decision KPIs** and the
 > **Needs attention** list (deals slipping toward IC), then the **deals-by-stage** capital
 > view — the story is the deals in flight, with **market intelligence intentionally at
 > the bottom**. Then open a deal.
 
-1. From **Deals Overview**, open a deal (e.g. the top consumer deal). Each stage names its
+1. From **Home**, open a deal (e.g. the top consumer deal). Each stage names its
    **👤 owner persona** — the senior expertise stays in the background, so the
    surface reads like a deal team's own workspace, not a chatbot.
-2. On the deal's **Overview**, call out the **decision cockpit**:
+2. On the deal's **Overview**, call out the **Deal brief**:
    - **IC readiness breakdown** — the **READY / CONDITIONAL / NOT-READY** verdict, the
      readiness %, days-to-IC, and the **top 3 blockers**, each with a one-click **Resolve ▸**.
    - **“What changed since last check?”** — a delta strip showing readiness/verdict moves
@@ -121,7 +142,7 @@ dropdown (it shows **Name — Role**, no clutter):
    - **Risk register** — open risks by severity × likelihood, red/amber/green.
    - **IOI / LOI** — the non-binding indication and letter of intent.
 5. **IC readiness** tab — the full decision-grade board + verdict.
-6. **Compare** — back on Deals Overview, tick **2–4 deals** and open the side-by-side
+6. **Compare** — back on Home, tick **2–4 deals** and open the side-by-side
    grid (stage, IC readiness, days-to-IC, size, priority, recommended action); hit
    **⧉ Copy table** to paste it straight into a note.
 
@@ -244,9 +265,9 @@ your confidential estate is enforced and logged, so nothing leaks across it.
 | Feature | Where |
 |---|---|
 | RBAC / demo roster (5 Good Place tiers) | top-bar **"sign in as"** (single dropdown, Name — Role) |
-| Decision cockpit (verdict + top blockers + “what changed” delta + next best action) | deal → **Overview** |
+| Deal brief (verdict + top blockers + “what changed” delta + next best action) | deal → **Overview** |
 | Diligence workbench (RYG workstreams) | deal → **Workspace** tab |
-| Side-by-side compare (2–4 deals + Copy table) | **Deals Overview** → tick **+ Compare** |
+| Side-by-side compare (2–4 deals + Copy table) | **Home** → tick **+ Compare** |
 | Assistant approve-to-apply + audit trail | in-deal **💬 Ask** → **Apply ▸** · deal **Activity** tab · `POST /api/deals/:id/assistant-actions` · `GET /api/deals/:id/activity` |
 | Lifecycle (15 stages, 6 gates) | **Lifecycle** tab · `GET /api/lifecycle` |
 | Decision artifacts | deal → **Decision artifacts** tab · `/api/deals/:id/{returns,value-creation,risk-register,ioi,loi}` |
