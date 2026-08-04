@@ -218,7 +218,19 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   // paint, began reading it, and had it replaced under them a moment later. That reads
   // as a fault. Starting here means the async call can only ever demote the tab (on an
   // instance that has turned the brief off), never yank it.
-  const [tab, setTab] = useState<Tab>(initialTab || 'cockpit');
+  // Two tabs are called Documents and Generate a document, and the addresses behind
+  // them read the other way round -- /docdesk and /documents. Two colleagues emailing
+  // each other links will send one another to the wrong screen. The keys are load
+  // bearing, so accept the names people actually type as well, and accept a plain
+  // English guess rather than dropping the reader on the brief with no explanation.
+  const TAB_ALIAS: Record<string, Tab> = {
+    files: 'docdesk', documents: 'documents', generate: 'documents', 'data-room': 'workspace',
+    dataroom: 'workspace', progress: 'workflow', 'follow-ups': 'workflow', followups: 'workflow',
+    readiness: 'ic', brief: 'cockpit', channel: 'threads', comparables: 'research', audit: 'activity',
+    workstreams: 'workspace', returns: 'overview',
+  };
+  const wanted = initialTab ? (TAB_ALIAS[initialTab] || initialTab) : undefined;
+  const [tab, setTab] = useState<Tab>(wanted || 'cockpit');
   // Report the open page upwards so it can go in the address bar. "I could send a link
   // to the deal but not to the IC readiness page on it" was the remaining half of the
   // complaint that the URL never moved.
@@ -611,7 +623,10 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
               to a second copy of the deal name, gave the page two of everything and
               neither looked authoritative. The breadcrumb wins: it says where back
               goes, not just that back exists. */}
-          <div className="drawer-title">{deal?.company || 'Loading…'}</div>
+          {/* This said "Loading…" for ever on a deal that had been refused, so the page
+              announced that it was still working while the body said it had stopped.
+              A refusal is a finished answer; the heading should read like one. */}
+          <div className="drawer-title">{deal?.company || (loading ? 'Loading…' : 'Deal unavailable')}</div>
           {/* Gated on !statusOnly. The body below already tells a restricted viewer that
               this deal is closed to them and to ask to be added; offering them the two
               doors they are locked out of, directly above that sentence, meant one of

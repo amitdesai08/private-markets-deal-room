@@ -116,7 +116,7 @@ export default function CompareDeals({ deals, compare, onClear, onOpen }: {
             ))}
           </tbody>
         </table>
-        <div className="muted" style={{ padding: '8px 10px', fontSize: 12 }}>IC readiness is weighted across required papers, workstream progress and open risks — it is not a count of the six required papers on a deal's IC readiness board.</div>
+        <div className="muted" style={{ padding: '8px 10px', fontSize: 12 }}>IC readiness is weighted across required papers, workstream progress and open risks — it is not a count of the six required papers on a deal's IC readiness board. This table compares where each deal has got to, not what each deal is worth: entry multiple, leverage, IRR and MOIC are on each deal's Thesis &amp; key figures page. Open a company name above to read them.</div>
       </div>
     </section>
   );

@@ -264,12 +264,20 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
                     </div>
                     {/* `title` on the label is not an accessible name for the input, so
                         a screen reader announced this as an unlabelled checkbox on every
-                        card. Name the source it switches. */}
-                    <label className="ds-switch" title={c.enabled ? 'Enabled' : 'Disabled'}>
+                        card. Name the source it switches.
+                        A partner counted six switches sitting in the ON position beside
+                        six sources whose own text said they were not connected, and read
+                        it as "we are paying for these". The switch means "allowed to be
+                        used"; it cannot mean "working" until somebody enters the sign-in
+                        details. When the two disagree, show it on the switch itself. */}
+                    <label className={`ds-switch${c.enabled && c.status === 'disconnected' ? ' unusable' : ''}`} title={c.enabled ? (c.status === 'disconnected' ? 'Allowed, but not usable until sign-in details are entered' : 'Enabled') : 'Disabled'}>
                       <input type="checkbox" checked={c.enabled} disabled={!!busy[c.id]} onChange={() => toggle(c)} aria-label={`${c.name} — ${c.enabled ? 'on, switch off' : 'off, switch on'}`} />
                       <span className="ds-slider" />
                     </label>
                   </div>
+                  {c.enabled && c.status === 'disconnected' ? (
+                    <p className="ds-warn">Allowed, but nothing is being read from it. It needs sign-in details before it can be used — and you are not being charged for it until then.</p>
+                  ) : null}
                   <p className="ds-job">{c.primaryJob}</p>
                   <p className="ds-sweet">{c.sweetSpot}</p>
                   {c.configFields?.length ? (
@@ -355,6 +363,8 @@ const CSS = `
 .ds-badge.free { font-size: 10px; font-weight: 600; color: var(--good); background: var(--good-bg); border-radius: 4px; padding: 1px 6px; }
 .ds-job { margin: 8px 0 2px; font-size: 12.5px; color: var(--fg); }
 .ds-sweet { margin: 0; font-size: 12px; color: var(--muted); }
+.ds-warn { margin: 4px 0 0; font-size: 12px; color: var(--warn, #b26a00); }
+.ds-switch.unusable .ds-slider { background: repeating-linear-gradient(135deg, var(--accent, #2f6fed) 0 4px, rgba(255,255,255,.45) 4px 8px); }
 .ds-config { margin: 10px 0 2px; display: flex; flex-direction: column; gap: 8px; }
 .ds-cfg-row { display: flex; flex-direction: column; gap: 4px; }
 .ds-cfg-l { font-size: 11px; color: var(--muted); font-weight: 600; }

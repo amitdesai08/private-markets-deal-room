@@ -288,7 +288,11 @@ export default function App() {
       if (t) setMainTab(t[1] as MainTab);
     };
     window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    // Typing or pasting an address into the bar while the app is already open fires
+    // hashchange, not popstate. Without this, `#/settings` pasted from a deal page did
+    // nothing at all and read as a dead link until you forced a reload.
+    window.addEventListener('hashchange', onPop);
+    return () => { window.removeEventListener('popstate', onPop); window.removeEventListener('hashchange', onPop); };
   }, []);
 
   // Pulse the showcase banner whenever the access profile changes, so a persona switch

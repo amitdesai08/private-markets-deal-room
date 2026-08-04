@@ -45,7 +45,7 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
       if (r.status === 403) setCertNote('Certifying LP reports is restricted to a Partner or Administrator.');
       else if (r.status === 409) setCertNote(`Cannot certify — ${d.detail || 'the report is not ready.'}`);
       else if (!r.ok) setCertNote('Could not certify the report.');
-      else { setCertNote('Report certified — an immutable snapshot was frozen for LP distribution.'); loadCerts(); }
+      else { setCertNote('Report certified — a locked, dated copy has been kept that cannot be changed, ready to send to LPs.'); loadCerts(); }
     } catch (e: any) { setCertNote(`Could not certify (${String(e?.message || e)}).`); }
     finally { setCertBusy(''); }
   }
@@ -158,7 +158,7 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
                 </tr>
               ))}</tbody>
             </table>
-          ) : <div className="rpt-sub" style={{ marginTop: 8 }}>No certifications yet — certifying freezes an immutable snapshot of this report.</div>}
+          ) : <div className="rpt-sub" style={{ marginTop: 8 }}>No certifications yet — certifying keeps a locked, dated copy of this report that cannot be changed afterwards.</div>}
         </section>
       ) : null}
 

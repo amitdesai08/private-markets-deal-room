@@ -132,10 +132,39 @@ export function houseStyle(md) {
   // Our internal stage keys, printed as bare lower-case tags beside every step.
   const STAGE_WORDS = { origination: 'Origination', diligence: 'Diligence', execution: 'Execution', value: 'Value creation' };
   s = s.replace(/(^|[\s(])`(origination|diligence|execution|value)`/g, (_m, pre, w) => `${pre}${STAGE_WORDS[w] || w}`);
-  // Report-writer's scaffolding that reads as a category, not a sentence.
-  s = s.replace(/\bSo what \(decision-grade\):/gi, 'So what:');
+  // Report-writer's scaffolding that reads as a category, not a sentence. The model
+  // rewrites the parenthetical the moment you name one variant of it, so catch any
+  // parenthetical the writer has attached to its own heading.
+  s = s.replace(/\bSo what\s*\([^)\n]{0,40}\):/gi, 'So what:');
+  s = s.replace(/\bBottom line\s*\([^)\n]{0,40}\):/gi, 'Bottom line:');
   s = s.replace(/\bNOT[-\s]READY\b/g, 'not ready for committee');
   s = s.replace(/\bIC[-\s]READY\b/g, 'ready for committee');
+  // "swing the base-case toward >10x" -- a spreadsheet operator dropped into a
+  // sentence. A partner reads these aloud; ">" has no sound.
+  s = s.replace(/(?<![\n>])>\s*(?=[\d$])/g, 'more than ');
+  s = s.replace(/(?<![\n<])<\s*(?=[\d$])/g, 'less than ');
+  // The same source cited twice inside one bracket, which happened three times in a
+  // single answer and makes the citation look broken.
+  s = s.replace(/\[([^\]\n]+)\]/g, (m, inner) => {
+    const parts = inner.split(/\s*;\s*/).map((p) => p.trim()).filter(Boolean);
+    const seen = []; for (const p of parts) if (!seen.includes(p)) seen.push(p);
+    return seen.length === parts.length ? m : `[${seen.join('; ')}]`;
+  });
+  // Internal record names, step codes and field names leaking into an answer:
+  // "we're scoped to a single deal (lumen-analytics)", "finalize the D3 IC memo",
+  // "stage O2-O4, disposition, fit score", "I'll cite the dealroom workstreams".
+  s = s.replace(/\b(deal|record|id|company)\s*\(\s*[a-z0-9]+(?:-[a-z0-9]+)+\s*\)/gi, '$1');
+  s = s.replace(/\bstages?\s+[ODEV]\d(?:\s*[-\u2013]\s*[ODEV]\d)?\b/gi, 'stage');
+  s = s.replace(/\bthe\s+[ODEV]\d\s+/g, 'the ');
+  s = s.replace(/\bdisposition\b/gi, 'decision');
+  s = s.replace(/\bfit score\b/gi, 'fit');
+  s = s.replace(/\bdealroom\b/gi, 'deal');
+  // "authorize me to run the deal record" reads as though the assistant wants a
+  // password. It wants permission to look something up, and it should just ask.
+  s = s.replace(/\bauthori[sz]e me to\b/gi, 'say the word and I will');
+  // Capitals used for emphasis mid-sentence: "do NOT go to IC in nine days". A partner
+  // reads these aloud to a committee and will not shout.
+  s = s.replace(/(?<=[a-z] )(NOT|MUST|ALL|ONLY|NEVER)(?= [a-z])/g, (m) => m.toLowerCase());
 
   // Collapse the blank runs the deletions leave behind.
   s = s.replace(/\n{3,}/g, '\n\n');
