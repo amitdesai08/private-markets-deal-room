@@ -438,12 +438,13 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     const url = ws0.sharePointUrl;
     // Live SharePoint VDR (M365 connected & provisioned) — open it in a new tab.
     if (ws0.sharePointProvisioned && url) { window.open(url, '_blank', 'noopener'); return; }
-    // Every fallback below lands on the tab labelled "Documents", which lists the
-    // deal's files. It used to land on 'documents' — the tab labelled "Generate a
-    // document" — so pressing "Data room" produced a screen with four IC-deck
-    // buttons and no file list on it, and people concluded the product had no data
-    // room and went to SharePoint in the browser instead.
-    const inAppRoom: Tab = cockpitOn ? 'docdesk' : 'documents';
+    // Every fallback below lands on the tab that actually holds the data room -- the
+    // fourteen numbered folders, the named adviser on each workstream and the playbook
+    // templates, which live on Diligence workstreams. It used to land on Documents,
+    // which is a "Change briefing" and a flat list of eleven files: a partner pressed
+    // "Data room", announced fourteen folders and named advisers, and got somewhere
+    // else entirely. A button labelled Data room has to arrive at the data room.
+    const inAppRoom: Tab = 'workspace';
     if (cfg?.m365 && cfg.m365.connected === false) { setTab(inAppRoom); return; }
     setBusy('dataroom'); setNote('');
     try {

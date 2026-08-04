@@ -154,7 +154,7 @@ The assistant doesn't just answer — inside a deal it **proposes concrete next 
 the deal's own state (*log this blocking workstream as an issue*, *mark this issue resolved*). It
 **never acts on its own**: you **Apply** a suggestion, and the change is written to the live
 record **and** to a **fully-attributed audit entry** — who approved it, when, and that it came
-*via the assistant*. The deal's **Activity** tab is the running audit trail. Every write is
+*via the assistant*. The deal's **Audit trail**, under **More ▾**, is the running record. Every write is
 governed by the caller's role server-side, so the AI can help move work forward without becoming
 a way around the access model.
 

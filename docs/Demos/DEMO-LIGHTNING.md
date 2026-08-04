@@ -1,6 +1,6 @@
 # Lightning demo — 10 minutes
 
-The short cut of the [full walkthrough](DEMO-WALKTHROUGH.md), which runs 25 minutes.
+The short cut of the [full walkthrough](DEMO-WALKTHROUGH.md), which runs 30 minutes.
 Same product, same claims, fewer stops. If you have not driven the product before, read
 the walkthrough first — it names every screen and assumes no technical knowledge.
 

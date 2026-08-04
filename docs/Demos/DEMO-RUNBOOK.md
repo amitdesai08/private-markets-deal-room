@@ -8,9 +8,9 @@
 > - Setting the environment up, or answering a technical question? You are in the right
 >   place. The second half of this document is written for engineers and says so.
 >
-> **All three run the same 25-minute story.** The lightning cut is the same story in 10.
+> **All three tell the same story.** The walkthrough runs 30 minutes, the lightning cut 10.
 
-A 25-minute guided demo of The Deal Room for delivery teams. It follows a
+A 30-minute guided demo of The Deal Room for delivery teams. It follows a
 real institutional deal flow — **who can see what**, the **full lifecycle and its
 gates**, the **senior expertise on every workstream**, the **artifacts an IC votes
 on**, and how the **fund monitors the company after close** — all drawn from the
@@ -102,11 +102,11 @@ The demo people are placeholder names — one per access tier, so the access
 dropdown (it shows **Name — Role**, no clutter):
 
 1. **Michael Realman — Administrator.** Agents panel shows **every** specialist agent; sees
-   **all 9 deals** including the two **confidential** ones; every stage open.
+   **all 15 deals in flight** including the two **confidential** ones; every stage open.
 2. **Tahani Al-Jamil — Deal Team.** Deal-team agents; **Stage-2 diligence unlocked**; writes
    findings and the value-creation plan.
 3. **Chidi Anagonye — Analyst.** The rail collapses to **his own agent** (read-only), the
-   **"Live deals" total drops to 7** — the two **confidential** deals vanish — and Stage-2 locks.
+   **"Deals in flight" total drops to 3** — the two **confidential** deals vanish — and Stage-2 locks.
 4. **Jason Mendoza — Member.** The **guardrail floor**: view-only, **zero persona agents**,
    dashboard only.
 
@@ -118,8 +118,8 @@ dropdown (it shows **Name — Role**, no clutter):
 
 ## 3 · The full deal lifecycle (2 min)
 
-1. Open the **Lifecycle** tab.
-2. Walk the **3 phases / 15 stages**, calling out the **6 decision gates (⛔)**:
+1. Open the **Work the deal** tab.
+2. Walk the **four phases / sixteen steps**, calling out the **six decision points (⛔)**:
    PURSUE → **IOI** → **LOI** → **IC** → **Signing** → **Exit**.
 3. Note each stage's **owner persona** and the artifacts it produces.
 
@@ -146,7 +146,7 @@ dropdown (it shows **Name — Role**, no clutter):
 3. **Diligence workstreams** tab — the **diligence workbench**: every workstream as a **red/amber/green** row
     with owner, progress and the blocking reason, plus a persistent
    **“N at risk”** count.
-4. **Decision artifacts** tab — show the four cards:
+4. **Documents** tab — show the four cards:
    - **LBO / Returns** — entry multiple, sources & uses, base/upside/downside **IRR & MOIC** vs the hurdle. Click **Returns model (Excel)** to download the real workbook (Summary · Sources & Uses · Scenarios · Sensitivity).
    - **Value creation** — the EBITDA bridge + quantified levers + 100-day plan.
    - **Risk register** — open risks by severity × likelihood, red/amber/green.
@@ -184,9 +184,9 @@ Open the **Fund & Portfolio** tab — the *post-IC* lens most tools stop short o
 
 Two ways to chat — both answer from the live record and in the right specialist's voice:
 
-- **Portfolio-wide:** open the **agents** panel (as **Michael** or **Eleanor** so the full
+- **Portfolio-wide:** open the assistant (as **Michael** or **Eleanor** so the full
   roster shows) and ask across deals.
-- **Inside a deal:** open a deal and hit **💬 Ask agents** — the chat now opens **inside the
+- **Inside a deal:** open a deal and hit **💬 Ask the assistant** — the chat now opens **inside the
   Deal Room drawer**, scoped to that one deal (it no longer bounces back to the main screen).
 
 Ask:
@@ -278,11 +278,11 @@ your confidential estate is enforced and logged, so nothing leaks across it.
 | Diligence workbench (red/amber/green workstreams) | deal → **Diligence workstreams** tab |
 | Side-by-side compare (2–4 deals + Copy table) | **Home** → tick **+ Compare** |
 | Assistant approve-to-apply + audit trail | in-deal **💬 Ask** → **Apply ▸** · deal **Audit trail** (under **More ▾**) · `POST /api/deals/:id/assistant-actions` · `GET /api/deals/:id/activity` |
-| Lifecycle (15 stages, 6 gates) | **Lifecycle** tab · `GET /api/lifecycle` |
-| Decision artifacts | deal → **Decision artifacts** tab · `/api/deals/:id/{returns,value-creation,risk-register,ioi,loi}` |
+| Lifecycle (sixteen steps, 6 gates) | **Work the deal** tab · `GET /api/lifecycle` |
+| Decision artifacts | deal → **Documents** tab · `/api/deals/:id/{returns,value-creation,risk-register,ioi,loi}` |
 | Returns Excel | deal → **Documents** → *Returns model (Excel)* |
 | Fund & portfolio (post-IC) | **Fund & Portfolio** tab · `/api/fund/{overview,portfolio,value}` |
-| Specialist agents | **agents** panel + in-deal **💬 Ask agents** · `GET /api/persona-agents` |
+| Specialist agents | assistant + in-deal **💬 Ask the assistant** · `GET /api/persona-agents` |
 | Orchestrated delegation | one assistant → orchestrator delegates to stage specialists → composes (`ORCHESTRATION=purpose`) |
 | Deal Room Report (Power BI) | in-app **Report** tab (top nav) |
 | Add a custom data source | **Settings ⚙ → Data Sources → Add a data source** · `POST /api/connectors` |
