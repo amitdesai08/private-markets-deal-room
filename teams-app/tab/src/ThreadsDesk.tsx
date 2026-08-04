@@ -322,7 +322,7 @@ export default function ThreadsDesk({
                   {canWrite ? (
                     <div className="acts">
                       <button className="btn primary" disabled={busy === c.id} onClick={() => record('task', `${c.headline} (owner ${c.owner || c.author})`, c.id)}>
-                        {busy === c.id ? 'Creating…' : '✓ Create task'}
+                        {busy === c.id ? 'Adding…' : '✓ Add to follow-ups'}
                       </button>
                       <button className="btn link" onClick={() => setDismissed((s) => new Set([...s, c.id]))}>Dismiss</button>
                     </div>

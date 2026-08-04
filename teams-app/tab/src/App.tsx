@@ -47,6 +47,12 @@ export default function App() {
   const [pipeline, setPipeline] = useState<Pipeline | null>(null);
   const [market, setMarket] = useState<MarketIntel | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
+  // The deal list takes the better part of twenty seconds to arrive on a cold start.
+  // Until this flips false, every screen that counts deals was showing its "nothing
+  // here" state -- a partner opening the product for the first time was told "There
+  // are no live deals yet", believed her login had failed, and nearly closed the tab.
+  // An empty firm and a firm that has not finished loading are not the same sentence.
+  const [dealsLoading, setDealsLoading] = useState(true);
   const [dealsError, setDealsError] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([ORCHESTRATOR]);
   // Agents panel starts collapsed — it opens on an explicit "Ask" action so the
@@ -55,7 +61,15 @@ export default function App() {
   const [chatFocusDealId, setChatFocusDealId] = useState('');
   const [chatSeed, setChatSeed] = useState('');
   const [chatSeedNonce, setChatSeedNonce] = useState(0);
-  const [openDealId, setOpenDealId] = useState('');
+  const [openDealId, setOpenDealId] = useState(() => {
+    // The address never changed, on any screen, in a whole session. So there was no
+    // browser Back, no bookmark, and -- the one a partner cared about -- no link she
+    // could paste into an email to say "look at this deal". Everything below keeps the
+    // address in step with where you are, and lets an address put you back there.
+    const h = window.location.hash || '';
+    const m = /[#/]deal\/([A-Za-z0-9_-]+)/.exec(h);
+    return m ? m[1] : '';
+  });
   const [canViewStage2, setCanViewStage2] = useState(true);
   const [canWrite, setCanWrite] = useState(true);
   const [accFlash, setAccFlash] = useState(false);
@@ -83,7 +97,11 @@ export default function App() {
     if (v === 'fund') return 'fund';
     return 'overview';
   };
-  const [mainTab, setMainTab] = useState<MainTab>(legacyTab(new URLSearchParams(window.location.search).get('view')));
+  const [mainTab, setMainTab] = useState<MainTab>(() => {
+    const m = /#\/(overview|sourcing|deals|fund|report)\b/.exec(window.location.hash || '');
+    if (m) return m[1] as MainTab;
+    return legacyTab(new URLSearchParams(window.location.search).get('view'));
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [adminGroupsOpen, setAdminGroupsOpen] = useState(false);
@@ -225,6 +243,32 @@ export default function App() {
     })();
   }, [viewAs, viewAsRole]);
 
+  // Keep the address bar in step with where you are. Before this, the URL never moved
+  // on any screen, so there was no browser Back, no bookmark, and no way to send a
+  // colleague a link to a deal -- which for a partner who lives in Outlook is the
+  // single most ordinary thing she asked the product to do.
+  useEffect(() => {
+    const want = openDealId ? `#/deal/${openDealId}` : `#/${mainTab}`;
+    if (window.location.hash !== want) {
+      try { window.history.pushState(null, '', want); } catch { /* sandboxed frame */ }
+    }
+  }, [mainTab, openDealId]);
+
+  // ...and let the browser's own Back and Forward buttons work, because a person who
+  // has been given a URL that changes will press them.
+  useEffect(() => {
+    const onPop = () => {
+      const h = window.location.hash || '';
+      const d = /[#/]deal\/([A-Za-z0-9_-]+)/.exec(h);
+      if (d) { setOpenDealId(d[1]); return; }
+      setOpenDealId('');
+      const t = /#\/(overview|sourcing|deals|fund|report)\b/.exec(h);
+      if (t) setMainTab(t[1] as MainTab);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   // Pulse the showcase banner whenever the access profile changes, so a persona switch
   // visibly changes what the seat can access (not just the answer framing).
   useEffect(() => {
@@ -256,7 +300,8 @@ export default function App() {
     return af('/api/deals')
       .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
       .then((d) => { if (Array.isArray(d)) setDeals(d); setDealsError(false); })
-      .catch(() => setDealsError(true));
+      .catch(() => setDealsError(true))
+      .finally(() => setDealsLoading(false));
   }
 
   async function refreshData() {
@@ -380,7 +425,12 @@ export default function App() {
             <span className="sbn-chips">
               <span className="sbn-chip">{isAdmin ? '★ ' : ''}{roleLabel || 'role'}</span>
               <span className={`sbn-chip ${canWrite ? 'on' : 'off'}`}>{canWrite ? 'Can act · write' : 'Read-only'}</span>
-              <span className={`sbn-chip ${canViewStage2 ? 'on' : 'off'}`}>{canViewStage2 ? 'Stage-2 visible' : 'Stage-2 · status-only'}</span>
+              {/* "Stage-2 visible" was on every screen in the product and defined on none
+                  of them. Stage 2 is our internal name for the confidential half of a
+                  deal -- diligence findings, financials, signed terms, valuations -- as
+                  opposed to its position in the pipeline, which everybody can see. Say
+                  what is behind the door rather than the number we gave the door. */}
+              <span className={`sbn-chip ${canViewStage2 ? 'on' : 'off'}`} title={canViewStage2 ? 'You can open diligence findings, financials, signed terms and valuations on the deals you are on.' : 'You can see where each deal stands, but not its diligence findings, financials, signed terms or valuations.'}>{canViewStage2 ? 'Full deal detail' : 'Deal status only'}</span>
             </span>
           </div>
         </>
@@ -433,7 +483,7 @@ export default function App() {
           ) : mainTab === 'overview' ? (
             <>
               <AgentGuide roleLabel={roleLabel} canViewStage2={canViewStage2} canWrite={canWrite} onAsk={() => setChatOpen(true)} />
-                <Dashboard pipeline={pipeline} deals={deals} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} viewerKey={`${viewAs}|${viewAsRole}`} layoutKey={viewAs} onGoSourcing={() => setMainTab('sourcing')} />
+                <Dashboard pipeline={pipeline} deals={deals} dealsLoading={dealsLoading} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} viewerKey={`${viewAs}|${viewAsRole}`} layoutKey={viewAs} onGoSourcing={() => setMainTab('sourcing')} />
             </>
           ) : mainTab === 'sourcing' ? (
             <Stage1 deals={deals} onChanged={refreshData} onOpenDeal={setOpenDealId} />
@@ -442,7 +492,7 @@ export default function App() {
           ) : mainTab === 'report' ? (
             <PowerBI ssoToken={ssoToken} analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId="" canCertify={canWrite && /partner|admin/i.test(`${viewAsRole || ''} ${roleLabel || ''}`)} />
           ) : (
-            <Deals deals={deals} onOpen={setOpenDealId} onAsk={askAbout} />
+            <Deals deals={deals} dealsLoading={dealsLoading} onOpen={setOpenDealId} onAsk={askAbout} />
           )}
           </main>
         )}
@@ -972,7 +1022,13 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 
 /* Deal workspace tabs / stages / orchestration */
 .dd-topmeta { padding: 12px 16px 0; }
-.dd-tabs { display: flex; gap: 4px; padding: 8px 12px 0; border-bottom: 1px solid var(--border); overflow-x: auto; background: var(--surface); }
+/* Nine tabs on one line ran off the right-hand edge of a normal laptop window:
+   "Diligence workstrea..." was chopped in half and Documents and More were past the
+   edge, behind a scrollbar a few pixels tall that nobody notices. Two of the most
+   valuable things in the product -- the data room and the document generator -- were
+   literally off-screen, and a partner exploring on her own never found either.
+   Let the strip wrap onto a second line: a tab you cannot see is a tab you do not have. */
+.dd-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 12px 0; border-bottom: 1px solid var(--border); background: var(--surface); }
 .dd-tab { border: none; background: none; color: var(--muted); padding: 8px 12px; cursor: pointer; font: inherit; font-weight: 600; border-bottom: 2px solid transparent; white-space: nowrap; }
 .dd-tab.on { color: var(--accent); border-bottom-color: var(--accent); }
 /* Separates the tabs a deal team opens weekly from the ones they open rarely. It is

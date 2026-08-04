@@ -109,6 +109,20 @@ export function houseStyle(md) {
   s = s.replace(/`?\bnot_started\b`?/gi, 'not started');
   s = s.replace(/\bby definition in our records model\b/gi, 'on the record');
 
+  // Field paths dressed as citations, one per line, in a side-by-side comparison a
+  // partner said she could not forward to anyone: "(summary.dealSize, currency)",
+  // "(summary.daysToIC / projectedICDate)", "(workstreams.legal = not started)",
+  // "(memo.progress 68%)". Dotted lowercase object paths are ours; strip the wrapper
+  // and keep whatever plain-English value was inside it.
+  s = s.replace(/\(\s*[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9_]+)+\s*(?:[=:]\s*([^)]{1,60}))?\s*\)/g, (_m, val) => (val ? `(${String(val).trim()})` : ''));
+  s = s.replace(/\(\s*[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9_]+)+\s*[,/]\s*[A-Za-z0-9_.]+\s*\)/g, '');
+  // Bare status keys read out at a partner: "Status: in_diligence".
+  const STATUS_WORDS = { in_diligence: 'in diligence', ic_ready: 'IC ready', on_hold: 'on hold', due_diligence: 'due diligence', value_creation: 'value creation' };
+  s = s.replace(/`?\b(in_diligence|ic_ready|on_hold|due_diligence|value_creation)\b`?/gi, (m) => STATUS_WORDS[m.toLowerCase().replace(/`/g, '')] || m);
+  // We do not run sprints; nobody in a fund says it.
+  s = s.replace(/\bDD sprints?\b/g, (m) => (m.endsWith('s') ? 'focused diligence' : 'focused diligence'));
+  s = s.replace(/\b(?:diligence|workstream) sprints?\b/gi, 'focused diligence');
+
   // Collapse the blank runs the deletions leave behind.
   s = s.replace(/\n{3,}/g, '\n\n');
   // One reporting currency. The records are dollars; a euro sign here is the model's

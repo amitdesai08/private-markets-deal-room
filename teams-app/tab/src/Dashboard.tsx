@@ -54,8 +54,8 @@ function money(n?: number): string {
   return `$${Math.round(n)}`;
 }
 
-export default function Dashboard({ pipeline, deals, market, config, onAsk, onAskQuestion, onOpen, canWrite, roleLabel, viewerKey, layoutKey, onGoSourcing }: {
-  pipeline: Pipeline | null; deals: Deal[]; market: MarketIntel | null;
+export default function Dashboard({ pipeline, deals, dealsLoading, market, config, onAsk, onAskQuestion, onOpen, canWrite, roleLabel, viewerKey, layoutKey, onGoSourcing }: {
+  pipeline: Pipeline | null; deals: Deal[]; dealsLoading?: boolean; market: MarketIntel | null;
   config: BackendConfig | null; onAsk: (dealId: string) => void; onAskQuestion?: (q: string) => void;
   onOpen: (dealId: string) => void; canWrite?: boolean; roleLabel?: string | null;
   // Identifies WHO the page is currently being rendered for, so the briefing can be
@@ -297,6 +297,23 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
   // because "add your first deal" is the wrong sentence for an observer who simply
   // cannot see the deals that already exist.
   if (!deals.length) {
+    // A cold start takes the better part of twenty seconds. For all of it this page
+    // used to state, as fact, that the firm had no deals. A partner seeing that on
+    // her first login concluded her sign-in had failed and came within a click of
+    // closing the tab. Say what is actually happening instead.
+    if (dealsLoading) {
+      return (
+        <div className="dash">
+          <section className="panel">
+            <div className="panel-h">Loading your deals…</div>
+            <div className="empty-panel" style={{ display: 'grid', gap: 10, textAlign: 'left', padding: '16px 18px' }}>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Fetching the pipeline and building this morning's briefing.</div>
+              <div className="muted">This takes about fifteen seconds the first time you open the window. Nothing is wrong.</div>
+            </div>
+          </section>
+        </div>
+      );
+    }
     return (
       <div className="dash">
         <section className="panel">

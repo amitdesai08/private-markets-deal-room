@@ -263,7 +263,7 @@ function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
                   <Chip>rank {base.rank}</Chip>
                   {base.persona ? <Chip>job: {base.persona}</Chip> : null}
                   <Chip>{base.write ? 'write' : 'read-only'}</Chip>
-                  {base.stage2 ? <Chip>Stage 2</Chip> : null}
+                    {base.stage2 ? <Chip>Full deal detail</Chip> : null}
                   <Chip>{base.regions.length ? base.regions.join(' / ') : 'all regions'}</Chip>
                   <Chip>{base.assignments.length + base.envAssignedCount} users</Chip>
                 </span>
@@ -277,7 +277,7 @@ function RolesEditor({ data, personaIds, busy, setBusy, post, reload }: any) {
                   <Section title="Access level" hint="What this role can see and do">
                     <div className="adm-flags">
                       <label className="adm-flag"><input type="checkbox" checked={r.write} onChange={(e) => edit(base.id, { write: e.target.checked })} />Can write</label>
-                      <label className="adm-flag"><input type="checkbox" checked={r.stage2} onChange={(e) => edit(base.id, { stage2: e.target.checked })} />See Stage 2 (diligence)</label>
+                      <label className="adm-flag"><input type="checkbox" checked={r.stage2} onChange={(e) => edit(base.id, { stage2: e.target.checked })} />See full deal detail (diligence findings, financials, terms, valuations)</label>
                     </div>
                     <Field label="Assistants this role may use" col><CheckGrid options={personaIds} value={r.personas} onChange={(v) => edit(base.id, { personas: v })} /></Field>
                   </Section>

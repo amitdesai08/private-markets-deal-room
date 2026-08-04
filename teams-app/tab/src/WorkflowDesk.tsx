@@ -82,7 +82,7 @@ export default function WorkflowDesk({
         }),
       });
       if (!r.ok) { const d = await r.json().catch(() => ({})); setNote(d?.detail || 'Could not create that task.'); return; }
-      setNote(`Task created for ${c.owner || c.author} — recorded on the deal issue log.`);
+      setNote(`Added to this deal's follow-ups, owned by ${c.owner || c.author}. It is on the What needs my attention panel and in the audit trail.`);
       setDismissed((s) => new Set([...s, c.id]));
       await load();
     } catch (e: any) {
@@ -170,7 +170,7 @@ export default function WorkflowDesk({
                 {canWrite ? (
                   <div className="acts">
                     <button className="btn primary" disabled={busy === c.id} onClick={() => createTask(c)}>
-                      {busy === c.id ? 'Creating…' : '✓ Create task'}
+                      {busy === c.id ? 'Adding…' : '✓ Add to follow-ups'}
                     </button>
                     <button className="btn" onClick={() => onAsk?.(`Draft a follow-up to ${c.author} about: ${c.headline}`)}>Edit first</button>
                     <button className="btn link" onClick={() => setDismissed((s) => new Set([...s, c.id]))}>Dismiss</button>
@@ -178,7 +178,12 @@ export default function WorkflowDesk({
                 ) : null}
               </div>
             ))}
-            <div className="sub">Nothing here is on the plan yet. A commitment becomes a task only when a named person creates it.</div>
+            <div className="sub">Nothing here is on the plan yet. A commitment becomes a follow-up only when a named person adds it.</div>
+            {/* The confirmation used to render only at the top of the tab. This panel is a
+                long way down it, so a partner pressed the button, watched the row vanish,
+                got no acknowledgement at all, and went hunting through the audit trail to
+                find out whether anything had happened. Say it where the button is. */}
+            {note ? <div className="callout ai" style={{ marginTop: 10 }}>{note}</div> : null}
           </div>
         </div>
       ) : null}
@@ -222,7 +227,10 @@ export default function WorkflowDesk({
             <div className="att-l">
               {s.owner ? <span>👤 {s.owner}</span> : null}
               {s.agent ? <span>✦ Assistant: {s.agent}</span> : null}
-              {s.produces.length ? <span>🔗 Produces: {s.produces.join(', ')}</span> : null}
+              {/* "🔗 Produces: CRM record created, Mandate-fit assessment" -- "produces"
+                  is the name of a field in our process definition, not a word anybody
+                  reads on a Tuesday. It is a list of what the step leaves behind. */}
+              {s.produces.length ? <span>📄 Leaves behind: {s.produces.join(', ')}</span> : null}
             </div>
 
             {s.lanes?.length ? (

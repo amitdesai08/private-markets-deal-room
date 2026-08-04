@@ -445,15 +445,19 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     // "Data room", announced fourteen folders and named advisers, and got somewhere
     // else entirely. A button labelled Data room has to arrive at the data room.
     const inAppRoom: Tab = 'workspace';
-    if (cfg?.m365 && cfg.m365.connected === false) { setTab(inAppRoom); return; }
+    // ...and land ON it. Switching the tab alone drops the reader at the top of a long
+    // page with the data room a long scroll below, which is close enough to "the button
+    // did nothing" that a partner pressed it three times convinced she had mis-clicked.
+    const goRoom = () => { setTab(inAppRoom); window.setTimeout(() => { document.getElementById('dd-dataroom')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120); };
+    if (cfg?.m365 && cfg.m365.connected === false) { goRoom(); return; }
     setBusy('dataroom'); setNote('');
     try {
       const r = await af(`/api/deals/${dealId}/teams/ensure`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
       const data = await r.json().catch(() => ({}));
-      if (r.status === 409) { setNote('This deal has no SharePoint data room yet — launch it first. Showing the documents already on the deal.'); setTab(inAppRoom); }
-      else if (!r.ok || data.error) { setTab(inAppRoom); }
-      else { const d = await load(true); const u = d?.workspace?.sharePointUrl; if (d?.workspace?.sharePointProvisioned && u) window.open(u, '_blank', 'noopener'); else setTab(inAppRoom); }
-    } catch { setTab(inAppRoom); }
+      if (r.status === 409) { setNote('This deal has no SharePoint data room yet — launch it first. Showing the folders already on the deal.'); goRoom(); }
+      else if (!r.ok || data.error) { goRoom(); }
+      else { const d = await load(true); const u = d?.workspace?.sharePointUrl; if (d?.workspace?.sharePointProvisioned && u) window.open(u, '_blank', 'noopener'); else goRoom(); }
+    } catch { goRoom(); }
     finally { setBusy(''); }
   }
 
@@ -638,7 +642,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                     ends a demo. Past the committee, report the outcome instead. */}
                 {POST_IC.has(String(deal.status || ''))
                   ? <span className="chip">Approved at IC</span>
-                  : <span className="chip">IC readiness {deal.readiness ?? 0}%</span>}
+                  /* "IC readiness 65%" sat two tabs away from a board showing two of six
+                     required papers ticked, and a partner could not work out where 65 came
+                     from. It is not a count of that checklist: it weighs the papers, the
+                     workstreams and the open risks together. Say so where the number is. */
+                  : <span className="chip" title="Weighted across required papers, workstream progress and open risks — not a count of the six required papers on the IC readiness board.">IC readiness {deal.readiness ?? 0}%</span>}
                 {(deal as any).region ? <span className="chip" title="Territory — visible to your regional deal team">◧ {REGION_LABEL[(deal as any).region] || (deal as any).region}</span> : null}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, alignItems: 'center' }}>
@@ -1183,8 +1191,8 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   </section>
 
                   {(ws.folders || []).length ? (
-                    <section className="dd-panel">
-                      <div className="dd-panel-h">📁 Data room<span className="muted">{(ws.folders || []).length} folders (VDR)</span></div>
+                    <section className="dd-panel" id="dd-dataroom">
+                      <div className="dd-panel-h">📁 Data room<span className="muted">{(ws.folders || []).length} folders</span></div>
                       <div className="vdr-grid">
                         {(ws.folders || []).map((f: any, i: number) => (
                           f.url
@@ -1328,7 +1336,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
               {tab === 'ic' && (
                 <section className="dd-panel">
-                  <div className="dd-panel-h">IC readiness</div>
+                  <div className="dd-panel-h">IC readiness<span className="muted">the board below is the record — the percentage on the deal header weighs papers, workstreams and open risks together</span></div>
                   {verdict ? (
                     <div className={`verdict ${VERDICT_CLASS[verdict.state || ''] || ''}`}>
                       <span className="verdict-state">{verdict.state}</span>

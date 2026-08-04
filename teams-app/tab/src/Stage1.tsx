@@ -146,7 +146,7 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) setNote(`Action failed (${r.status}).`);
-      else if (data.deal) { setNote(`${cand.company} pursued — Stage 2 deal created.`); onChanged(); }
+      else if (data.deal) { setNote(`${cand.company} pursued — it is now a live deal and appears under Deals in flight.`); onChanged(); }
       await loadPipeline();
     } catch (e: any) { setNote(`Action failed (${String(e?.message || e)}).`); }
     finally { setBusy(''); }

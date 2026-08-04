@@ -563,6 +563,10 @@ export function buildDocumentDesk(deal, { files = [], since = null, live = [] } 
       blockingComments: comments.filter((c) => c.blocking).length,
     },
     gaps: gaps.slice(0, 8),
-    gapBasis: `Derived from the produces[] list declared on the ${currentStep?.stage || 'current'}-stage flow steps up to ${currentStep?.key || 'today'}`,
+    // On screen this sentence explains why the product thinks a document is missing.
+    // It used to read "Derived from the produces[] list declared on the diligence-stage
+    // flow steps up to D4", which names three internal structures and a step code and
+    // explains nothing to the partner reading it.
+    gapBasis: `Every step this deal has reached says which papers it should produce. These are the ones the ${(currentStep?.stage || 'current')} steps completed so far have not produced yet.`,
   };
 }

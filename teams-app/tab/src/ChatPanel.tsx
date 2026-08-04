@@ -228,7 +228,13 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
                     ))}
                   </div>
                 ) : m.pending ? (<span className="typing"><span></span><span></span><span></span></span>)
-                    : m.role === 'agent' ? (<><div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />{m.tools?.length ? <div className="tools">Sources: {m.tools.join(', ')}</div> : m.source === 'live' ? <div className="tools">live</div> : null}</>)
+                    : m.role === 'agent' ? (<><div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />{m.tools?.length ? <div className="tools">Sources: {m.tools.join(', ')}</div> : m.source === 'live' ? (
+                      // The word "live", alone, under every answer. It means the answer was
+                      // written just now against the current record rather than replayed
+                      // from a script -- which is worth saying, but "live" on its own is
+                      // our shorthand and a partner read it three times without learning it.
+                      <div className="tools">Written just now from the current deal record</div>
+                    ) : null}</>)
                     : (<div>{m.text}</div>)}
                 {m.role === 'agent' && !m.pending && !m.compare && m.text && dealId && canWrite && m.source !== 'error' && m.source !== 'applied' && m.source !== 'capabilities' ? (
                   <div className="msg-actions">
@@ -259,19 +265,22 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
       <form className="composer" onSubmit={(e) => { e.preventDefault(); send(input); }}>
         {demoMode && agent.kind === 'orchestrator' ? (
           <div className="cmpbar">
-            <button type="button" className={`cmp-toggle${compareOpen ? ' on' : ''}`} onClick={() => setCompareOpen((v) => !v)} title="Ask the same question as several roles side by side">{compareOpen ? 'Close compare' : 'Compare roles'}</button>
+            {/* Labelled "Compare roles", which a partner hunting for a way to compare two
+                DEALS pressed with some confidence, and then met a row of chips called
+                "seats". Neither word is hers. Say which two things are being compared. */}
+            <button type="button" className={`cmp-toggle${compareOpen ? ' on' : ''}`} onClick={() => setCompareOpen((v) => !v)} title="Put the same question to several people at once and read their answers side by side. To compare deals, use + Compare on the deal list.">{compareOpen ? 'Close' : 'Ask several people at once'}</button>
             {compareOpen ? (
               <div className="cmp-pick">
                 {COMPARE_SEATS.map((s) => (
                   <button key={s.id} type="button" className={`cmp-chip${compareSeats.includes(s.id) ? ' on' : ''}`} onClick={() => setCompareSeats((cs) => cs.includes(s.id) ? cs.filter((x) => x !== s.id) : (cs.length < 3 ? [...cs, s.id] : cs))}>{s.label}</button>
                 ))}
-                <button type="button" className="cmp-run" disabled={sending || !input.trim() || compareSeats.length < 2} onClick={() => runCompare(input)}>Compare ▸</button>
+                <button type="button" className="cmp-run" disabled={sending || !input.trim() || compareSeats.length < 2} onClick={() => runCompare(input)}>Ask them ▸</button>
               </div>
             ) : null}
           </div>
         ) : null}
         <div className="composer-row">
-          <textarea ref={taRef} className="input" placeholder={compareOpen ? 'Type one question — it runs across the selected seats…' : `Message ${agent.label}…`} value={input} rows={1}
+          <textarea ref={taRef} className="input" placeholder={compareOpen ? 'Type one question — each person answers it in their own terms…' : `Message ${agent.label}…`} value={input} rows={1}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }} />
           <button className="send" type="submit" disabled={sending || !input.trim()} aria-label="Send">{sending ? '…' : '➤'}</button>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Deal } from './types';
+import CompareDeals, { CompareButton, useCompare } from './CompareDeals';
 import StageGuide from './StageGuide';
 
 // ONE list of deals, filtered — replacing Stage 2 / Stage 3 / Stage 4, which were three
@@ -78,7 +79,7 @@ function stepLabel(d: any): string {
   return `${stage} · step ${d.stageStepNumber} of ${d.stageStepTotal}`;
 }
 
-export default function Deals({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen: (id: string) => void; onAsk: (id: string) => void }) {
+export default function Deals({ deals, dealsLoading, onOpen, onAsk }: { deals: Deal[]; dealsLoading?: boolean; onOpen: (id: string) => void; onAsk: (id: string) => void }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [q, setQ] = useState('');
 
@@ -123,6 +124,8 @@ export default function Deals({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen:
     return c;
   }, [inFlight]);
 
+  const { compare, setCompare, toggle } = useCompare();
+
   return (
     <div className="dealsview">
       <section className="panel">
@@ -166,9 +169,22 @@ export default function Deals({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen:
           />
         </div>
 
+        {/* Said out loud, because the button on each row is small and sits at the end.
+            A partner spent ten minutes hunting every tab, the overflow menu and Settings
+            for a way to put two deals side by side, and concluded the product could not
+            do it. A capability nobody can find is a capability you did not build. */}
+        <div className="muted" style={{ padding: '0 14px 10px', fontSize: 12.5 }}>
+          {compare.length ? `${compare.length} picked to compare${compare.length < 2 ? ' — pick one more' : ''}` : 'Press + Compare on any two to four deals to put them side by side.'}
+        </div>
+
         {!shown.length ? (
           <div className="empty-panel">
-            {inFlight.length ? <>No deal matches that. <button className="linkbtn" onClick={() => { setQ(''); setFilter('all'); }}>Clear the filter</button></> : 'No deals in flight yet. Pursue a candidate in Sourcing to launch one.'}
+            {/* On a cold start this list is empty for the better part of twenty seconds
+                and used to say, flatly, that the firm had no deals in flight. Somebody
+                reading that on their first login reasonably concludes the sign-in failed. */}
+            {dealsLoading && !(deals || []).length ? 'Loading your deals— about fifteen seconds the first time you open the window.'
+              : inFlight.length ? <>No deal matches that. <button className="linkbtn" onClick={() => { setQ(''); setFilter('all'); }}>Clear the filter</button></>
+              : 'No deals in flight yet. Pursue a candidate in Sourcing to launch one.'}
           </div>
         ) : (
           <div className="dv-rows">
@@ -202,6 +218,9 @@ export default function Deals({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen:
                       it is not a fact anybody needs -- "IC was 1080d ago" on a portfolio
                       company is noise dressed as urgency -- so it says so instead. */}
                   <span className="dv-size">{d.locked ? '' : money(d.dealSize)}{!d.locked && typeof d.daysToIC === 'number' ? <span className="muted"> · {d.daysToIC > 0 ? `IC in ${d.daysToIC}d` : d.daysToIC === 0 ? 'IC today' : 'past IC'}</span> : null}</span>
+                  {/* A restricted deal has nothing to compare -- size, readiness and status
+                      are exactly what is being withheld -- so it does not offer the button. */}
+                  {d.locked ? null : <CompareButton id={d.id} compare={compare} toggle={toggle} />}
                   <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
                 </div>
               );
@@ -209,6 +228,8 @@ export default function Deals({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen:
           </div>
         )}
       </section>
+
+      <CompareDeals deals={deals} compare={compare} onClear={() => setCompare([])} onOpen={onOpen} />
 
       {/* The stage tools that used to justify a tab of their own, under the list they
           apply to rather than beside it. */}

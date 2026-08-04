@@ -2434,7 +2434,13 @@ export function recordIssue(id, { lane, title, severity = 'caution', owner, reso
       resolvedAt: null
     };
     deal.issues.unshift(issue);
-    deal.activity.unshift({ actor: by || 'Diligence', action: `Logged a ${sev} issue${lane ? ` in the ${lane} lane` : ''}: ${t}`, when: at, via: via || null });
+    // "Logged a caution issue in the legal lane" was what the audit trail said after a
+    // partner pressed a button marked "Create task". Three of those five words are ours
+    // rather than hers -- "caution" is a severity key, "issue" is the table it lands in,
+    // and "lane" is not a word anybody in a fund uses. She went looking for what she had
+    // created and could not tell she was looking at it.
+    const SEV_WORD = { blocker: 'blocking', caution: 'open', monitor: 'open', info: 'noted' };
+    deal.activity.unshift({ actor: by || 'Diligence', action: `Added an ${SEV_WORD[sev] || 'open'} follow-up${lane ? ` on the ${lane} workstream` : ''}: ${t}`, when: at, via: via || null });
     return { issue, event: 'issue-recorded', detail: { lane: lane || null, severity: sev, owner: owner || null, persona: persona || null } };
   });
 }

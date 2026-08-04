@@ -60,8 +60,13 @@ export default function AgentGuide({ roleLabel, canViewStage2, canWrite, onAsk }
           says plainly what it is, and it is one click for the person who needs it. */}
       <details className="ag">
         <summary>
-          <span className="ag-h">What you can ask for, stage by stage</span>
-          <span className="ag-sub">new here? start with this{roleLabel ? <> · scoped for <strong>{roleLabel}</strong></> : null}</span>
+          <span className="ag-h">▸ Everything you can ask this product to do</span>
+          {/* This one row is the entire capability list. A partner exploring on her own
+              found it last, called it "the manual, folded shut", and said she would have
+              used a third of what she was paying for without it. It stays collapsed --
+              it was 350px of catalogue above the first fact about a deal -- but it now
+              says what it is rather than describing its own filing order. */}
+          <span className="ag-sub">models, memos, checklists, 100-day plans — open this first{roleLabel ? <> · shown for <strong>{roleLabel}</strong></> : null}</span>
         </summary>
 
         <div className="ag-grid">

@@ -112,7 +112,7 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
         { metric: 'Deal size', value: money(focus.dealSize), source: 'Deal record', asOf: TODAY, method: 'Enterprise value on the deal record' },
       ]
     : [
-        { metric: 'Live deals', value: String(scopedDeals), source: 'Deal record', asOf: TODAY, method: `Deals in your view${scopedRestricted ? ` (${scopedRestricted} restricted to status only)` : ''}` },
+        { metric: 'Deals on the book', value: String(scopedDeals), source: 'Deal record', asOf: TODAY, method: `Deals in your view${scopedRestricted ? ` (${scopedRestricted} restricted to status only)` : ''}` },
         { metric: 'In diligence', value: String(scopedInDD), source: 'Deal record', asOf: TODAY, method: 'Deals in Diligence & Approval stages, within your access' },
         { metric: 'Avg IC readiness (pre-IC deals)', value: `${scopedReadiness}%`, source: 'IC readiness board', asOf: TODAY, method: 'Mean readiness across deals not yet through committee, within your access' },
         { metric: 'Pipeline value', value: money(pipelineValue), source: 'Deal record', asOf: TODAY, method: `Sum of enterprise values pre-completion, within your access${excludedHoldings ? ` (excludes ${excludedHoldings} owned or exiting)` : ''}` },
@@ -180,7 +180,12 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
         <>
           <section className="rpt-section">
             <div className="rpt-kpis">
-              <div className="rpt-kpi"><div className="v">{scopedDeals}</div><div className="l">Live deals</div>{scopedRestricted ? <div className="s">{scopedRestricted} restricted to status only</div> : null}</div>
+              {/* "19 Live deals" was not true on its own terms -- four of the nineteen are
+                  screened and not yet launched, and three are owned or exiting. A partner
+                  read this tile, then the deal list saying "All 15", then the briefing
+                  saying 19, and had to reconcile three counts of the same thing herself.
+                  Say what is being counted, on the tile, in the same breath. */}
+              <div className="rpt-kpi"><div className="v">{scopedDeals}</div><div className="l">Deals on the book</div><div className="s">every deal in your view, screening to exit{scopedRestricted ? ` · ${scopedRestricted} restricted to status only` : ''}</div></div>
               <div className="rpt-kpi"><div className="v">{scopedInDD}</div><div className="l">In diligence</div></div>
               <div className="rpt-kpi"><div className="v">{scopedReadiness}%</div><div className="l">Avg IC readiness (pre-IC deals)</div></div>
               <div className="rpt-kpi"><div className="v">{money(pipelineValue)}</div><div className="l">Pipeline value</div><div className="s">{preCompletion.length} pre-completion{excludedHoldings ? ` · excludes ${excludedHoldings} owned or exiting` : ''}</div></div>

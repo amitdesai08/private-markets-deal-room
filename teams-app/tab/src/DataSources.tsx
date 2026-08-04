@@ -43,12 +43,12 @@ const STATUS_LABEL: Record<string, string> = {
   connected: 'Connected', disconnected: 'Not connected', degraded: 'Degraded',
   // "Not tested" over a header saying these sources are on read as a warning. They are
   // enabled and in use; what has not happened is a reachability check from this screen.
-  disabled: 'Disabled', unknown: 'On — not checked from here', pending: 'Pending approval',
+  disabled: 'Disabled', unknown: 'On — no test run yet', pending: 'Pending approval',
 };
 
 const TIERS: { key: string; title: string; blurb: string; match: (c: Connector) => boolean }[] = [
   { key: 'free', title: 'Free & open (no subscription)', blurb: 'Free public market & company data — on by default.', match: (c) => c.free && c.kind !== 'web' },
-  { key: 'web', title: 'Live web search', blurb: 'Live web search for market news and signals (usage-metered).', match: (c) => c.kind === 'web' },
+  { key: 'web', title: 'Live web search', blurb: 'Searches the open web for market news and signals. Charged by use.', match: (c) => c.kind === 'web' },
   { key: 'fabric-agent', title: 'Ask your fund data', blurb: 'Natural-language Q&A over the fund\u2019s data.', match: (c) => c.kind === 'fabric-agent' },
   { key: 'mcp', title: 'Subscription providers', blurb: 'Premium vendor data — sign in to connect.', match: (c) => c.kind === 'mcp' },
   { key: 'm365', title: 'Microsoft 365 sign-in', blurb: 'Signs you in so the app knows who you are.', match: (c) => c.kind === 'm365' },  { key: 'workiq', title: 'Your team’s files, chats and email', blurb: 'Files, chats and email already in Microsoft 365 — add the address, then sign in.', match: (c) => c.kind === 'workiq' },  { key: 'database', title: 'Reference only', blurb: 'Shown for context — not connected.', match: (c) => c.kind === 'database' },
@@ -71,6 +71,14 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
   const patch = (id: string, fields: Partial<Connector>) =>
     setRows((prev) => (prev ? prev.map((c) => (c.id === id ? { ...c, ...fields } : c)) : prev));
   const setBusyFor = (id: string, v: boolean) => setBusy((b) => ({ ...b, [id]: v }));
+  // Turning a source off changed the count above it and said nothing else. A partner
+  // switched GDELT off, got no acknowledgement of any kind, and reloaded the entire
+  // page to find out whether it had saved. Failure was reported; success was not.
+  const [saved, setSaved] = useState<Record<string, string>>({});
+  const saySaved = (id: string, msg: string) => {
+    setSaved((s) => ({ ...s, [id]: msg }));
+    window.setTimeout(() => setSaved((s) => { const n = { ...s }; delete n[id]; return n; }), 4000);
+  };
 
   // A refusal from the server has to reach the switch. fetch only rejects when the
   // network drops -- a 403 or a 500 resolves normally -- so without the r.ok check
@@ -87,6 +95,8 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
       });
       if (!r.ok) {
         patch(c.id, { ...before, message: r.status === 403 ? 'Only an administrator can change this.' : 'That did not save — the source is unchanged.' });
+      } else {
+        saySaved(c.id, enabled ? '✓ Saved — this source is on and will be used from the next refresh.' : '✓ Saved — this source is off. Nothing will be read from it.');
       }
     } catch { patch(c.id, { ...before, message: 'That did not save — the source is unchanged.' }); }
     finally { setBusyFor(c.id, false); }
@@ -306,6 +316,7 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
                     </span>
                   </div>
                   {c.message ? <p className="ds-msg">{c.message}</p> : null}
+              {saved[c.id] ? <p className="ds-msg" style={{ color: 'var(--good)' }} role="status">{saved[c.id]}</p> : null}
                 </article>
               ))}
             </div>
