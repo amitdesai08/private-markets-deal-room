@@ -29,6 +29,16 @@ test('the readiness enum is not spelled out twice in a row', () => {
   assert.match(out, /4 required items outstanding/);
 });
 
+// The model quotes the field verbatim, quotation marks and all, as though it were
+// citing a source rather than reading the deal's own record. The quotes hid the
+// repetition from the rule that collapses it.
+test('quotation marks around the readiness field do not hide the repetition', () => {
+  const out = houseStyle('IC readiness: NOT-READY — "NOT-READY — 4 required items outstanding: Final IC memo".');
+  assert.equal((out.match(/not ready for committee/gi) || []).length, 1, out);
+  assert.match(out, /4 required items outstanding/);
+  assert.doesNotMatch(out, /"/, `a stray quotation mark was left behind: ${out}`);
+});
+
 test('a contradiction between two fields is left visible, not tidied away', () => {
   const out = houseStyle('Status: NOT-READY. IC-READY per the board.');
   assert.match(out, /not ready for committee/i);

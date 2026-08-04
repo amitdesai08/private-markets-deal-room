@@ -157,6 +157,11 @@ export function houseStyle(md) {
   // produced "ready for committee for committee". Every one of these is the same
   // fault: a substitution that assumes it is the only thing on the line.
   s = s.replace(/\bready for committee for committee\b/gi, 'ready for committee');
+  // The model quotes the readiness field verbatim, quotation marks and all, as though
+  // it were citing a source rather than reading the deal's own record: `IC readiness:
+  // not ready for committee — "Not ready for committee — 4 required items..."`. The
+  // quotes hid the repetition from the rule below, so they come off first.
+  s = s.replace(/["\u201c\u201d]((?:not )?ready for committee[^"\u201c\u201d\n]{0,300})["\u201c\u201d]/gi, '$1');
   // Two different fields carry the same readiness enum, so once both were spelled out
   // in words the reader got the answer twice in a row: "not ready for committee: Not
   // ready for committee; 4 required items outstanding". Only collapsed when the two
