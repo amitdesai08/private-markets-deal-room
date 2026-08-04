@@ -46,7 +46,11 @@ function buildContext(deal) {
     .join('; ');
   return [
     `Company: ${deal.company} (${deal.sector} / ${deal.subSector}), HQ ${deal.hq}.`,
-    `Deal size: ${deal.currency} ${deal.dealSize}M. Stage: ${deal.stage}.`,
+    // The model was handed deal.stage, which is the internal code -- "D3", "O2", "E1".
+    // It printed it verbatim, the house-style net caught it and swapped in a generic
+    // phrase, and a partner read "Stage this stage" in a briefing. The name of the
+    // stage has been sitting on the record all along.
+    `Deal size: ${deal.currency} ${deal.dealSize}M. Stage: ${deal.stageName || deal.stage}.`,
     `Thesis: ${deal.thesis}`,
     `Key figures: ${figs}.`,
     `Diligence workstreams: ${lanes}.`,

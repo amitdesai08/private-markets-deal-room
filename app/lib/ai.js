@@ -144,6 +144,13 @@ export function houseStyle(md) {
   // Our internal step codes, printed as though they were vocabulary: "Current step is
   // D3", "finalize the D3 IC memo", "convert Proceed → Hold/Pass".
   s = s.replace(/\b(?:current step is\s*)?\b([ODEV])(\d)\b(?=[\s.,;:)]|$)/g, (m) => m.replace(/[ODEV]\d/, 'this stage'));
+  // ...which, where the code had a label in front of it, left a stutter: a partner
+  // read "Deal size $240M; Stage this stage." in a briefing. A rule that cleans up
+  // after itself has to run after the rule that makes the mess. Where the fragment is
+  // a value in a list it carries no information at all, so it goes; elsewhere the
+  // redundant label goes and the phrase stands on its own.
+  s = s.replace(/(?:^|(?<=[;·|]))\s*Stages?\s*:?\s*this stage\s*(?=[;.·|]|$)/gim, '');
+  s = s.replace(/\b(?:Stage|Step)s?\s*:?\s*this stage\b/gi, 'this stage');
   s = s.replace(/\bNOT[-\s\u2011]READY\b/gi, 'not ready for committee');
   s = s.replace(/\bIC[-\s\u2011]READY\b/gi, 'ready for committee');
   // The bare enum on its own, as in "do not present until the deal record returns
