@@ -278,6 +278,23 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [initialTab]);
   const [moreOpen, setMoreOpen] = useState(false);
+  // A deal opened on an 806px screen left a 216px slot to read it in: 73% of the
+  // window was header that never changed, and the deal brief -- 3,500px of it --
+  // came through a letterbox. None of those bands was wrong on its own, which is
+  // why it went unnoticed; together they crowded out the thing you came for. The
+  // identity block and the where-to-start prompt now fold away as soon as you
+  // start reading and return the moment you scroll back up. React bails out of a
+  // re-render when the value is unchanged, so this costs nothing per scroll event.
+  const [condensed, setCondensed] = useState(false);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  // Changing page inside a deal starts you at the top of the new page, and the
+  // header comes back with you. Without this you would land on a collapsed header
+  // you never collapsed, with the deal's figures gone and no obvious way to ask
+  // for them back.
+  useEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+    setCondensed(false);
+  }, [tab]);
   const [copied, setCopied] = useState(false);
   const copyLink = () => {
     const url = `${window.location.origin}${window.location.pathname}#/deal/${dealId}/${TAB_SLUG[tab] || tab}`;
@@ -720,7 +737,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
             header stays above both, because you ask the assistant ABOUT something and
             you need to keep reading the something. */}
         <div className="drawer-split">
-          <div className="drawer-main">
+          <div className={`drawer-main${condensed ? ' dd-condensed' : ''}`}>
         {loading || !deal ? (
           // "Deal not found" is what the server says and it is not what happened. A deal
           // you are not cleared for answers 404 on purpose -- the deal exists, your seat
@@ -775,7 +792,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
             </div>
 
             {nba ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 10px', padding: '11px 14px', borderRadius: 10, border: `1px solid ${nba.urgency === 'High' ? 'var(--bad-br)' : 'var(--border)'}`, background: 'var(--card)' }}>
+              <div className="dd-nba" style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 10px', padding: '11px 14px', borderRadius: 10, border: `1px solid ${nba.urgency === 'High' ? 'var(--bad-br)' : 'var(--border)'}`, background: 'var(--card)' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span>Where to start · {nba.title}</span>
@@ -823,7 +840,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
             </div>
             )}
 
-            <div className="drawer-body">
+            <div className="drawer-body" ref={bodyRef} onScroll={(e) => setCondensed(e.currentTarget.scrollTop > 24)}>
               {statusOnly ? (
                 <div className="dd-panel" style={{ padding: '22px 18px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

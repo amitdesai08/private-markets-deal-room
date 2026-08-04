@@ -453,7 +453,7 @@ export default function App() {
               sales demo rather than her own book. The data is real; only the person is
               borrowed. Say exactly that, and say it as the thing you are doing. */}
           <div role="note" className={`sbn${accFlash ? ' flash' : ''}`}>
-            <span>You are looking at this firm through someone else's eyes — <strong>{persona?.name || viewAs}</strong>. The deals are the real ones; only the person is borrowed. Their <strong>role</strong> controls what they can open (access rules are still enforced); their <strong>job</strong> controls how the assistant frames an answer for them.</span>
+            <span title="Their role controls what they can open — access rules are still enforced. Their job controls how the assistant frames an answer for them.">You are looking at this firm through someone else&apos;s eyes — <strong>{persona?.name || viewAs}</strong>. The deals are the real ones; only the person is borrowed.</span>
             <span className="sbn-chips">
               <span className="sbn-chip">{isAdmin ? '★ ' : ''}{roleLabel || 'role'}</span>
               <span className={`sbn-chip ${canWrite ? 'on' : 'off'}`}>{canWrite ? 'Can act · write' : 'Read-only'}</span>
@@ -1076,6 +1076,15 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 
 /* Deal workspace tabs / stages / orchestration */
 .dd-topmeta { padding: 12px 16px 0; }
+/* The deal identity block and the where-to-start prompt fold away once you begin
+   reading, and unfold again at the top. The title, the four actions and every tab
+   stay exactly where they were: you still need to know which deal you are in, and
+   you still need to be able to leave the page you are on. The inline styles on the
+   where-to-start banner outrank a class selector, hence !important -- the
+   alternative was to move a dozen computed colours into global CSS. */
+.dd-topmeta, .dd-nba { transition: max-height .18s ease, opacity .12s ease; }
+.dd-condensed .dd-topmeta, .dd-condensed .dd-nba { max-height: 0 !important; opacity: 0 !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; border-width: 0 !important; }
+@media (prefers-reduced-motion: reduce) { .dd-topmeta, .dd-nba { transition: none; } }
 /* Nine tabs on one line ran off the right-hand edge of a normal laptop window:
    "Diligence workstrea..." was chopped in half and Documents and More were past the
    edge, behind a scrollbar a few pixels tall that nobody notices. Two of the most
