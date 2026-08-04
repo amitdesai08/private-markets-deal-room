@@ -144,8 +144,15 @@ export function houseStyle(md) {
   // Our internal step codes, printed as though they were vocabulary: "Current step is
   // D3", "finalize the D3 IC memo", "convert Proceed → Hold/Pass".
   s = s.replace(/\b(?:current step is\s*)?\b([ODEV])(\d)\b(?=[\s.,;:)]|$)/g, (m) => m.replace(/[ODEV]\d/, 'this stage'));
-  s = s.replace(/\bNOT[-\s]READY\b/g, 'not ready for committee');
-  s = s.replace(/\bIC[-\s]READY\b/g, 'ready for committee');
+  s = s.replace(/\bNOT[-\s\u2011]READY\b/gi, 'not ready for committee');
+  s = s.replace(/\bIC[-\s\u2011]READY\b/gi, 'ready for committee');
+  // The bare enum on its own, as in "do not present until the deal record returns
+  // READY". Only when it stands alone in capitals, so ordinary prose is untouched.
+  s = s.replace(/(?<=\breturns |\bis |\bshows |=\s?)READY\b/g, 'ready for committee');
+  // Raw field names in a sentence: "readiness 65, daysToIC = 9".
+  s = s.replace(/\bdaysToIC\s*=?\s*(\d+)/g, 'IC is $1 days away');
+  s = s.replace(/\bin_diligence\b/g, 'in diligence');
+  s = s.replace(/\bIC IC\b/g, 'IC');
   // "swing the base-case toward >10x" -- a spreadsheet operator dropped into a
   // sentence. A partner reads these aloud; ">" has no sound.
   s = s.replace(/(?<![\n>])>\s*(?=[\d$])/g, 'more than ');
