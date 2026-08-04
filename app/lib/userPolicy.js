@@ -384,11 +384,16 @@ export function authorizeDealAccess(identity, dealStageOrName, viewAsRole = null
 }
 
 // ---- Two-tier deal access + deal-team need-to-know ---------------------------
-// A deal may carry a `team` (user ids on the deal) and a `confidential` flag. Access
-// resolves to one of three levels:
+// A deal may carry a `team` (user ids on the deal), a `confidential` flag and a
+// `pipelineVisible` flag. Access resolves to one of three levels:
 //   'full'   — the confidential workspace (financials, findings, terms, valuations, docs)
-//   'status' — metadata only (company, sector, stage, status, size) for pipeline awareness
-//   'none'   — not visible at all (a confidential deal you are not on the team of)
+//   'status' — metadata only (company, sector, stage, status, size) for pipeline
+//              awareness. Only ever reached by a deal that opts in with
+//              `pipelineVisible`, because the company name and the size of an
+//              unannounced transaction are themselves the sensitive part.
+//   'none'   — not visible at all, and this is the DEFAULT for a restricted deal you
+//              are not cleared for. It is absent from lists, counts and search rather
+//              than present-and-locked.
 
 const RESTRICTED_STAGE_RE = /^[dev]/i;
 const RESTRICTED_NAME_RE = /diligence|approval|execution|closing|signing|financing|value|monitoring|ownership|exit/i;
@@ -421,9 +426,19 @@ export function dealAccessLevel(identity, deal, viewAsRole = null) {
   if (access.isAdmin || team) level = 'full';
   else if (!restricted) level = 'full';
   else if (access.canViewStage2) level = 'full';
-  else level = 'status';
-  // Confidential deals hide their very existence from the status tier — only the named
-  // team, admins and full-tier roles know they exist. Full access is unchanged.
+  // A deal you are not cleared for is not listed at all. It used to be listed with its
+  // detail stripped, which told everyone in the firm that Project Onyx existed, who was
+  // on it and roughly how big it was — the company name and the deal size ARE the
+  // sensitive part of an unannounced transaction, and a row saying "you cannot open
+  // this" is an invitation to go and ask someone who can.
+  //
+  // Awareness is now something the deal opts into rather than something the reader has
+  // to be denied. `pipelineVisible` marks a deal the firm wants known internally — so
+  // two teams do not court the same target — and only that flag produces the status
+  // tier. `confidential` still overrides it, so a deal can never be made visible by
+  // accident.
+  else if (deal && deal.pipelineVisible) level = 'status';
+  else level = 'none';
   if (confidential && level === 'status') return 'none';
   return level;
 }

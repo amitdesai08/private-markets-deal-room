@@ -79,7 +79,7 @@ export function CompareButton({ id, compare, toggle }: { id: string; compare: st
   const on = compare.includes(id);
   return (
     <button
-      className={`askbtn${on ? ' on' : ''}`}
+      className={`comparebtn${on ? ' on' : ''}`}
       title={on ? 'Remove from the comparison' : 'Compare this deal with another \u2014 pick 2 to 4'}
       onClick={(e) => { e.stopPropagation(); toggle(id); }}
     >{on ? '\u2713 Comparing' : '+ Compare'}</button>

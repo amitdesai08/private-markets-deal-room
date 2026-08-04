@@ -48,5 +48,13 @@ test('tag/deal-group membership grants FULL access to tagged deals', async () =>
   const member = { oid: 'u-tag', groups: ['grp-atlas'] };  // in the deal group
   const outsider = { oid: 'u-out', groups: [] };
   assert.equal(dealAccessLevel(member, tagged), 'full', 'deal-group member gets the workspace');
-  assert.equal(dealAccessLevel(outsider, tagged), 'status', 'outsider sees metadata only on a restricted stage');
+  // This used to expect 'status'. An outsider was shown the row with its detail stripped,
+  // which still disclosed that the deal existed, what the company was called and roughly
+  // what it was worth. A restricted deal is now absent unless it opts into being known.
+  assert.equal(dealAccessLevel(outsider, tagged), 'none', 'an outsider is not told the deal exists');
+  assert.equal(
+    dealAccessLevel(outsider, { ...tagged, pipelineVisible: true }),
+    'status',
+    'a deal that opts into firm-wide awareness is listed, without its detail',
+  );
 });

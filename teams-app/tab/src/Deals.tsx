@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Deal } from './types';
-import CompareDeals, { CompareButton, useCompare } from './CompareDeals';
+import CompareDeals, { CompareButton } from './CompareDeals';
 import StageGuide from './StageGuide';
 
 // ONE list of deals, filtered — replacing Stage 2 / Stage 3 / Stage 4, which were three
@@ -14,9 +14,9 @@ import StageGuide from './StageGuide';
 
 const money = (n?: number) => (n == null ? '—' : n >= 1000 ? `$${(n / 1000).toFixed(1)}B` : `$${n}M`);
 
-type Filter = 'all' | 'diligence' | 'execution' | 'value' | 'attention';
+export type DealsFilter = 'all' | 'diligence' | 'execution' | 'value' | 'attention';
 
-const FILTERS: [Filter, string][] = [
+const FILTERS: [DealsFilter, string][] = [
   ['all', 'All'],
   ['attention', 'Needs attention'],
   ['diligence', 'Diligence'],
@@ -24,7 +24,7 @@ const FILTERS: [Filter, string][] = [
   ['value', 'Value & Exit'],
 ];
 
-function stageBucket(d: any): Filter {
+function stageBucket(d: any): DealsFilter {
   const st = String(d.stage || '').toUpperCase();
   if (st.startsWith('E')) return 'execution';
   if (st.startsWith('V')) return 'value';
@@ -79,9 +79,30 @@ function stepLabel(d: any): string {
   return `${stage} · step ${d.stageStepNumber} of ${d.stageStepTotal}`;
 }
 
-export default function Deals({ deals, dealsLoading, onOpen, onAsk }: { deals: Deal[]; dealsLoading?: boolean; onOpen: (id: string) => void; onAsk: (id: string) => void }) {
-  const [filter, setFilter] = useState<Filter>('all');
-  const [q, setQ] = useState('');
+export default function Deals({
+  deals,
+  dealsLoading,
+  onOpen,
+  onAsk,
+  filter,
+  query,
+  compare,
+  onFilterChange,
+  onQueryChange,
+  onCompareChange,
+}: {
+  deals: Deal[];
+  dealsLoading?: boolean;
+  onOpen: (id: string) => void;
+  onAsk: (id: string) => void;
+  filter: DealsFilter;
+  query: string;
+  compare: string[];
+  onFilterChange: (v: DealsFilter) => void;
+  onQueryChange: (v: string) => void;
+  onCompareChange: (v: string[]) => void;
+}) {
+  const [compareCapNote, setCompareCapNote] = useState('');
 
   const inFlight = useMemo(
     () => (deals || []).filter((d) => {
@@ -92,9 +113,28 @@ export default function Deals({ deals, dealsLoading, onOpen, onAsk }: { deals: D
   );
 
   const shown = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = query.trim().toLowerCase();
     const out = inFlight.filter((d: any) => {
-      if (needle && !`${d.company} ${d.sector || ''}`.toLowerCase().includes(needle)) return false;
+      if (needle) {
+        const gate = d.icVerdict?.gating || [];
+        const search = [
+          d.company,
+          d.sector,
+          d.subSector,
+          d.stage,
+          d.stageName,
+          stepLabel(d),
+          d.status,
+          chipFor(d).label,
+          d.region,
+          d.hq,
+          d.icVerdict?.headline,
+          gate.join(' '),
+          (d.tags || []).join(' '),
+          d.teamsChannelName,
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (!search.includes(needle)) return false;
+      }
       if (filter === 'all') return true;
       if (filter === 'attention') return needsAttention(d);
       return stageBucket(d) === filter;
@@ -113,7 +153,7 @@ export default function Deals({ deals, dealsLoading, onOpen, onAsk }: { deals: D
       if (r) return r;
       return (b.dealSize || 0) - (a.dealSize || 0);
     });
-  }, [inFlight, filter, q]);
+  }, [inFlight, filter, query]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: inFlight.length };
@@ -124,7 +164,21 @@ export default function Deals({ deals, dealsLoading, onOpen, onAsk }: { deals: D
     return c;
   }, [inFlight]);
 
-  const { compare, setCompare, toggle } = useCompare();
+  const toggleCompare = (id: string) => {
+    if (!compare.includes(id) && compare.length >= 4) {
+      setCompareCapNote('You can compare up to four deals at once. Remove one to add another.');
+      return;
+    }
+    const next = compare.includes(id)
+      ? compare.filter((x) => x !== id)
+      : compare.length >= 4 ? compare : [...compare, id];
+    setCompareCapNote('');
+    onCompareChange(next);
+  };
+
+  useEffect(() => {
+    if (compare.length < 4 && compareCapNote) setCompareCapNote('');
+  }, [compare.length, compareCapNote]);
 
   return (
     <div className="dealsview">
@@ -154,7 +208,7 @@ export default function Deals({ deals, dealsLoading, onOpen, onAsk }: { deals: D
                 className={`dv-filter${filter === k ? ' on' : ''}`}
                 disabled={k !== 'all' && (counts[k] ?? 0) === 0}
                 title={k !== 'all' && (counts[k] ?? 0) === 0 ? `No deals in ${label.toLowerCase()}` : undefined}
-                onClick={() => setFilter(k)}
+                onClick={() => onFilterChange(k)}
               >
                 {label}<span className="dv-count">{counts[k] ?? 0}</span>
               </button>
@@ -163,8 +217,8 @@ export default function Deals({ deals, dealsLoading, onOpen, onAsk }: { deals: D
           <input
             className="dv-search"
             placeholder="Find a deal…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
             aria-label="Find a deal"
           />
         </div>
@@ -175,6 +229,7 @@ export default function Deals({ deals, dealsLoading, onOpen, onAsk }: { deals: D
             do it. A capability nobody can find is a capability you did not build. */}
         <div className="muted" style={{ padding: '0 14px 10px', fontSize: 12.5 }}>
           {compare.length ? `${compare.length} picked to compare${compare.length < 2 ? ' — pick one more' : ''}` : 'Press + Compare on any two to four deals to put them side by side.'}
+          {compareCapNote ? <span style={{ color: 'var(--warn)', marginLeft: 8 }}>{compareCapNote}</span> : null}
         </div>
 
         {!shown.length ? (
@@ -183,7 +238,7 @@ export default function Deals({ deals, dealsLoading, onOpen, onAsk }: { deals: D
                 and used to say, flatly, that the firm had no deals in flight. Somebody
                 reading that on their first login reasonably concludes the sign-in failed. */}
             {dealsLoading && !(deals || []).length ? 'Loading your deals — about fifteen seconds the first time you open the window.'
-              : inFlight.length ? <>No deal matches that. <button className="linkbtn" onClick={() => { setQ(''); setFilter('all'); }}>Clear the filter</button></>
+              : inFlight.length ? <>No deal matches that. <button className="linkbtn" onClick={() => { onQueryChange(''); onFilterChange('all'); }}>Clear the filter</button></>
               : 'No deals in flight yet. Pursue a candidate in Sourcing to launch one.'}
           </div>
         ) : (
@@ -192,8 +247,10 @@ export default function Deals({ deals, dealsLoading, onOpen, onAsk }: { deals: D
               const chip = chipFor(d);
               const v = d.icVerdict;
               return (
-                <div className="dv-row" key={d.id} onClick={() => onOpen(d.id)} role="button" tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter') onOpen(d.id); }}>
+                <div
+                  className="dv-row"
+                  key={d.id}
+                >
                   <span className={`dv-chip ${chip.tone}`}>{chip.label}</span>
                   <span className="dv-name">{d.company}{d.locked ? ' 🔒' : ''}</span>
                   <span className="dv-stage">{stepLabel(d)}</span>
@@ -220,8 +277,11 @@ export default function Deals({ deals, dealsLoading, onOpen, onAsk }: { deals: D
                   <span className="dv-size">{d.locked ? '' : money(d.dealSize)}{!d.locked && typeof d.daysToIC === 'number' ? <span className="muted"> · {d.daysToIC > 0 ? `IC in ${d.daysToIC}d` : d.daysToIC === 0 ? 'IC today' : 'past IC'}</span> : null}</span>
                   {/* A restricted deal has nothing to compare -- size, readiness and status
                       are exactly what is being withheld -- so it does not offer the button. */}
-                  {d.locked ? null : <CompareButton id={d.id} compare={compare} toggle={toggle} />}
-                  <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
+                  <span className="dv-actions">
+                    {d.locked ? null : <CompareButton id={d.id} compare={compare} toggle={toggleCompare} />}
+                    <button className="openbtn" onClick={() => onOpen(d.id)}>Open ▸</button>
+                    <button className="askbtn dv-askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
+                  </span>
                 </div>
               );
             })}
@@ -229,7 +289,7 @@ export default function Deals({ deals, dealsLoading, onOpen, onAsk }: { deals: D
         )}
       </section>
 
-      <CompareDeals deals={deals} compare={compare} onClear={() => setCompare([])} onOpen={onOpen} />
+      <CompareDeals deals={deals} compare={compare} onClear={() => onCompareChange([])} onOpen={onOpen} />
 
       {/* The stage tools that used to justify a tab of their own, under the list they
           apply to rather than beside it. */}

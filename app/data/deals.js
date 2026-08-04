@@ -17,6 +17,7 @@
 export const seedDeals = [
   {
     id: 'nordic-grocery',
+    pipelineVisible: true,
     company: 'Nordic Grocery Group',
     region: 'international',
     tags: [],
@@ -115,6 +116,7 @@ export const seedDeals = [
   },
   {
     id: 'heliopack',
+    pipelineVisible: true,
     company: 'HelioPack Sustainable Packaging',
     region: 'international',
     tags: [],
@@ -168,6 +170,7 @@ export const seedDeals = [
   },
   {
     id: 'lumen-analytics',
+    pipelineVisible: true,
     company: 'Lumen Analytics',
     region: 'international',
     tags: [],
@@ -231,6 +234,7 @@ export const seedDeals = [
   },
   {
     id: 'atlas-coldchain',
+    pipelineVisible: true,
     company: 'Atlas Cold Chain Logistics',
     region: 'international',
     tags: [],
@@ -305,6 +309,7 @@ export const seedDeals = [
   },
   {
     id: 'baltic-precision',
+    pipelineVisible: true,
     company: 'Baltic Precision Components',
     region: 'international',
     tags: [],

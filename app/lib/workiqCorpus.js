@@ -68,12 +68,33 @@ const at = (daysAgo, hour, minute = 0) =>
 // Lane owners are stored as persona ids. `ownerLabel` already resolves those to
 // a human name (and humanises unknown slugs like "esg-md" into "ESG MD"), which
 // is what belongs on a message.
+//
+// Except when it isn't. Several seeded lane owners are roles rather than people
+// ('Finance MD' resolves to the role title "Finance Partner"), and a Teams message
+// signed "Finance Partner" sat in a list next to one signed "James Whitfield" and
+// gave the whole channel away as machine-made. A role can own a workstream — that
+// column is fine — but a message is sent by a person. So where the owner does not
+// resolve to somebody on the roster, the lane's actual seat signs it.
+const LANE_SIGNATORY = {
+  financial: 'fund-cfo',
+  tax: 'fund-cfo',
+  legal: 'legal-gc',
+  commercial: 'retail-md',
+  techai: 'ai-md',
+  tech: 'ai-md',
+  operations: 'supply-md',
+  operational: 'supply-md',
+  hr: 'operating-partner',
+  esg: 'ir-lp',
+};
 function speaker(personaId, lane) {
-  return {
-    id: personaId || null,
-    name: ownerLabel(personaId, lane),
-    title: (personaId && personaById[personaId]?.title) || null,
-  };
+  const direct = personaId && personaById[personaId];
+  if (direct) return { id: personaId, name: direct.name, title: direct.title || null };
+  // Fall back to the seat that owns this kind of work, and finally to the deal lead —
+  // both real people who would plausibly be in the room.
+  const standIn = personaById[LANE_SIGNATORY[lane]] || personaById.principal;
+  if (standIn) return { id: standIn.id, name: standIn.name, title: standIn.title || null };
+  return { id: personaId || null, name: ownerLabel(personaId, lane), title: null };
 }
 
 // The fund-level seats that appear on every deal regardless of workstream leadship,
@@ -211,10 +232,22 @@ function commitmentMessage(rand, deal, w) {
   const v = voiceFor(w.lane);
   const who = speaker(w.owner, w.lane);
   const when = pick(rand, ['by Thursday', 'by Friday', 'by end of Monday', 'in 3 days', 'next week']);
+  // There were three phrasings here. Four follow-ups on the home page — three different
+  // companies, three different teams — opened with the same eleven words, because the
+  // lane furthest behind is so often the financial one that they all drew the same
+  // vocabulary and then collided on the same sentence. Nothing was wrong with any single
+  // card; together they told the reader this was generated, which is the one thing a
+  // record of who promised what must not do. More phrasings, and the ones that name the
+  // deal's own risk or artefact carry their weight further.
   const text = pick(rand, [
     `Taking the action on ${laneLabel(w.lane)} — I'll circulate the ${v.artefact} ${when} so it stops holding up the pack.`,
     `I'll run ${v.work} and send the ${v.artefact} to the channel ${when}.`,
     `Happy to own this one: I'll draft the ${v.artefact} covering ${v.work} ${when}.`,
+    `I'll send the ${v.artefact} over ${when}. The part I want settled first is ${v.risk}.`,
+    `Picking ${laneLabel(w.lane)} up — ${v.artefact} ${when}, with ${v.work} covered off in it.`,
+    `I'll close out ${v.work} ${when} and put the ${v.artefact} in here alongside it.`,
+    `That one's mine \u2014 I'll send the ${v.artefact} ${when}, and I'm flagging now that ${v.risk} is what could move the date.`,
+    `I'll own ${laneLabel(w.lane)} through to sign-off and confirm the date in here ${when}.`,
   ]);
   return { from: who.name, personaId: who.id, created: at(1, 9, 25), preview: text };
 }

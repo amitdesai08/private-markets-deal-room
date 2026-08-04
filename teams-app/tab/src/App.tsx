@@ -13,7 +13,7 @@ import AgentGuide from './AgentGuide';
 import ChatPanel from './ChatPanel';
 import DealDetail from './DealDetail';
 import Stage1 from './Stage1';
-import Deals from './Deals';
+import Deals, { type DealsFilter } from './Deals';
 import Fund from './Fund';
 import PowerBI from './PowerBI';
 import Settings from './Settings';
@@ -37,6 +37,8 @@ const ORCHESTRATOR: Agent = {
   ],
 };
 
+const DEALS_FILTERS: DealsFilter[] = ['all', 'attention', 'diligence', 'execution', 'value'];
+
 export default function App() {
   const [teamsInfo, setTeams] = useState<TeamsInfo | null>(null);
   const [theme, setTheme] = useState<string>('default');
@@ -54,6 +56,29 @@ export default function App() {
   // An empty firm and a firm that has not finished loading are not the same sentence.
   const [dealsLoading, setDealsLoading] = useState(true);
   const [dealsError, setDealsError] = useState(false);
+  const [dealsFilter, setDealsFilter] = useState<DealsFilter>(() => {
+    try {
+      const v = sessionStorage.getItem('dr.deals.filter') || '';
+      return DEALS_FILTERS.includes(v as DealsFilter) ? (v as DealsFilter) : 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  const [dealsQuery, setDealsQuery] = useState(() => {
+    try { return sessionStorage.getItem('dr.deals.query') || ''; } catch { return ''; }
+  });
+  const [dealsCompare, setDealsCompare] = useState<string[]>(() => {
+    try {
+      const raw = sessionStorage.getItem('dr.deals.compare');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((x) => typeof x === 'string').slice(0, 4);
+    } catch {
+      return [];
+    }
+  });
+  const [dealsScrollTop, setDealsScrollTop] = useState(0);
   const [agents, setAgents] = useState<Agent[]>([ORCHESTRATOR]);
   // Agents panel starts collapsed — it opens on an explicit "Ask" action so the
   // dashboard isn't crowded on first load.
@@ -79,6 +104,16 @@ export default function App() {
   const [canViewStage2, setCanViewStage2] = useState(true);
   const [canWrite, setCanWrite] = useState(true);
   const [accFlash, setAccFlash] = useState(false);
+  // The borrowed-identity note is worth reading once and worth nothing the fortieth
+  // time. Left permanent it became the loudest thing on every screen in a product whose
+  // subject is supposed to be the deals — a demo explaining itself over the top of the
+  // thing it is demonstrating. So it can be acknowledged, and it remembers WHO was
+  // acknowledged: change person and it returns, because that is the only moment the
+  // explanation is news again. The topbar names the current person either way, so
+  // dismissing it loses nothing.
+  const [sbnAck, setSbnAck] = useState(() => {
+    try { return localStorage.getItem('dr_sbn_ack') || ''; } catch { return ''; }
+  });
   const [demoUsers, setDemoUsers] = useState<{ id: string; upn: string; label: string; name?: string; roleLabel?: string; agentCount?: number }[]>([]);
   const [viewAs, setViewAs] = useState('');
   // False until the seat has been resolved and attached to outbound requests. Nothing
@@ -274,6 +309,35 @@ export default function App() {
     }
   }, [mainTab, openDealId, dealTab, settingsOpen]);
 
+  // Keep compare picks valid for THIS viewer only. A persona/role change can make a
+  // previously visible deal disappear (or become status-only), and keeping those ids
+  // selected reads as though the hidden rows still exist in the list.
+  useEffect(() => {
+    const visible = new Set((deals || []).filter((d: any) => !(d.locked || d.accessLevel === 'status')).map((d) => d.id));
+    setDealsCompare((c) => c.filter((id) => visible.has(id)));
+  }, [deals]);
+
+  // Persist Deals view state for this browser session. This keeps triage context across
+  // reloads and short navigations without turning it into a global preference.
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('dr.deals.filter', dealsFilter);
+      sessionStorage.setItem('dr.deals.query', dealsQuery);
+      sessionStorage.setItem('dr.deals.compare', JSON.stringify(dealsCompare));
+    } catch {
+      // private mode or blocked storage; state still works in-memory
+    }
+  }, [dealsFilter, dealsQuery, dealsCompare]);
+
+  // Returning from a deal should put you back at the same place in the list.
+  useEffect(() => {
+    if (openDealId || settingsOpen || mainTab !== 'deals') return;
+    const id = window.requestAnimationFrame(() => {
+      if (mainRef.current) mainRef.current.scrollTop = dealsScrollTop;
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [openDealId, settingsOpen, mainTab, dealsScrollTop]);
+
   // ...and let the browser's own Back and Forward buttons work, because a person who
   // has been given a URL that changes will press them.
   useEffect(() => {
@@ -317,6 +381,7 @@ export default function App() {
   // last and overwrites the scoped one, and the report reads "19 Sourced" above a table
   // of four deals. Numbering the requests and ignoring anything but the newest fixes it.
   const scopedSeq = useRef(0);
+  const mainRef = useRef<HTMLElement | null>(null);
   function loadScoped() {
     const seq = ++scopedSeq.current;
     af('/api/analytics').then((r) => r.json()).then((d) => { if (seq === scopedSeq.current) setAnalytics(d); }).catch(() => {});
@@ -437,7 +502,7 @@ export default function App() {
         </div>
       </header>
 
-      {viewAs ? (
+      {viewAs && sbnAck !== (persona?.id || viewAs) ? (
         <>
           <style>{`
             .sbn { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:6px 12px 0; padding:7px 12px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--muted); font-size:12px; line-height:1.4; }
@@ -448,6 +513,8 @@ export default function App() {
             .sbn-chip { font-size:11px; font-weight:600; padding:1px 8px; border-radius:999px; border:1px solid var(--border); white-space:nowrap; }
             .sbn-chip.on { color: var(--good); border-color: var(--good-br); }
             .sbn-chip.off { color:var(--muted); }
+            .sbn-x { flex:none; border:0; background:none; color:var(--muted); font-size:15px; line-height:1; cursor:pointer; padding:2px 4px; border-radius:4px; }
+            .sbn-x:hover { color: var(--fg); background: var(--chip); }
           `}</style>
           {/* "Showcase mode" read to a partner as though the whole firm on screen were a
               sales demo rather than her own book. The data is real; only the person is
@@ -464,6 +531,16 @@ export default function App() {
                   what is behind the door rather than the number we gave the door. */}
               <span className={`sbn-chip ${canViewStage2 ? 'on' : 'off'}`} title={canViewStage2 ? 'You can open diligence findings, financials, signed terms and valuations on the deals you are on.' : 'You can see where each deal stands, but not its diligence findings, financials, signed terms or valuations.'}>{canViewStage2 ? 'Full deal detail' : 'Deal status only'}</span>
             </span>
+            <button
+              className="sbn-x"
+              title="Got it — hide this. It comes back if you switch to someone else."
+              aria-label="Hide the borrowed-identity note"
+              onClick={() => {
+                const key = persona?.id || viewAs;
+                setSbnAck(key);
+                try { localStorage.setItem('dr_sbn_ack', key); } catch { /* private mode — it just stays visible */ }
+              }}
+            >×</button>
           </div>
         </>
       ) : null}
@@ -515,14 +592,14 @@ export default function App() {
              read-only analyst's window and read the IRR, the MOIC and the equity cheque
              on a deal that seat is not on. The seat has to be attached to the request
              before the request is made, so the deal waits for it. */
-          <main className="main">
+          <main className="main" ref={mainRef}>
             <section className="panel" style={{ margin: 12 }}>
               <div className="panel-h">Opening this deal…</div>
               <div className="muted" style={{ padding: '10px 12px', fontSize: 13 }}>Checking what you are cleared to see before anything is loaded.</div>
             </section>
           </main>
         ) : (
-          <main className="main">
+          <main className="main" ref={mainRef}>
           {settingsOpen ? (
             <Settings isAdmin={isAdmin} ssoToken={ssoToken} viewAs={viewAs} onClose={() => setSettingsOpen(false)} />
           ) : mainTab === 'overview' ? (
@@ -537,7 +614,21 @@ export default function App() {
           ) : mainTab === 'report' ? (
             <PowerBI ssoToken={ssoToken} analytics={analytics} pipeline={pipeline} deals={deals} market={market} config={config} dealId="" canCertify={canWrite && /partner|admin/i.test(`${viewAsRole || ''} ${roleLabel || ''}`)} />
           ) : (
-            <Deals deals={deals} dealsLoading={dealsLoading} onOpen={setOpenDealId} onAsk={askAbout} />
+            <Deals
+              deals={deals}
+              dealsLoading={dealsLoading}
+              onOpen={(id) => {
+                if (mainRef.current) setDealsScrollTop(mainRef.current.scrollTop);
+                setOpenDealId(id);
+              }}
+              onAsk={askAbout}
+              filter={dealsFilter}
+              query={dealsQuery}
+              compare={dealsCompare}
+              onFilterChange={setDealsFilter}
+              onQueryChange={setDealsQuery}
+              onCompareChange={setDealsCompare}
+            />
           )}
           </main>
         )}
@@ -768,7 +859,7 @@ details[open] > summary:before { content: "\\25BE "; }
 .dv-count { opacity: .7; font-weight: 500; }
 .dv-search { margin-left: auto; border: 1px solid var(--border); background: var(--bg); color: var(--fg); border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 13px; min-width: 180px; }
 .dv-rows { display: flex; flex-direction: column; }
-.dv-row { display: grid; grid-template-columns: 104px minmax(120px, 1.1fr) minmax(120px, 1fr) minmax(180px, 2.4fr) 74px auto; gap: 12px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+.dv-row { display: grid; grid-template-columns: 104px minmax(120px, 1.1fr) minmax(120px, 1fr) minmax(180px, 2.4fr) 74px auto; gap: 12px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: default; font-size: 13px; }
 .dv-row:last-child { border-bottom: none; }
 .dv-row:hover { background: var(--surface-2, rgba(127,127,127,.07)); }
 .dv-chip { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 10px; text-align: center; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
@@ -783,6 +874,13 @@ details[open] > summary:before { content: "\\25BE "; }
 .dv-why { color: var(--muted); line-height: 1.35; overflow-wrap: anywhere; }
 .dv-more { color: var(--accent); font-weight: 600; white-space: nowrap; }
 .dv-size { text-align: right; }
+.dv-actions { display: inline-flex; align-items: center; gap: 8px; justify-self: end; }
+.dv-askbtn { white-space: nowrap; }
+.comparebtn { border: 1px solid var(--border); background: var(--chip); color: var(--muted); border-radius: 6px; padding: 3px 9px; cursor: pointer; font: inherit; font-size: 12px; white-space: nowrap; }
+.comparebtn:hover { border-color: var(--accent); color: var(--accent); }
+.comparebtn.on { border-color: var(--accent); color: var(--accent); background: var(--surface); }
+.openbtn { border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: 6px; padding: 3px 9px; cursor: pointer; font: inherit; font-size: 12px; white-space: nowrap; }
+.openbtn:hover { background: var(--chip); }
 .linkbtn { border: none; background: none; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; padding: 0; }
 .cand-list { display: flex; flex-direction: column; }
 .cand { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-bottom: 1px solid var(--border); }
@@ -985,9 +1083,11 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .maintabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .maintab { white-space: nowrap; }
   /* Stack the row rather than let a six-column grid squeeze the reason to two words. */
-  .dv-row { grid-template-columns: auto 1fr auto; grid-template-areas: 'chip name size' 'stage stage stage' 'why why why' 'ask ask ask'; row-gap: 4px; }
+  .dv-row { grid-template-columns: auto 1fr auto; grid-template-areas: 'chip name size' 'stage stage stage' 'why why why' 'actions actions actions'; row-gap: 4px; }
   .dv-chip { grid-area: chip; } .dv-name { grid-area: name; } .dv-size { grid-area: size; }
-  .dv-stage { grid-area: stage; } .dv-why { grid-area: why; } .dv-row .askbtn { grid-area: ask; justify-self: start; }
+  .dv-stage { grid-area: stage; } .dv-why { grid-area: why; }
+  .dv-actions { grid-area: actions; justify-self: start; }
+  .dv-actions { flex-wrap: wrap; }
   .dv-search { margin-left: 0; width: 100%; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .deals { grid-template-columns: 1fr; }
