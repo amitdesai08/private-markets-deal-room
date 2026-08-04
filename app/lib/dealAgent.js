@@ -32,6 +32,7 @@ import { lensBlock } from './personaLens.js';
 import { workiqNotesContext } from './workiqMemory.js';
 import { houseStyle } from './ai.js';
 import { computeICReadiness, recordReadingGuide } from './icReadiness.js';
+import { figuresBlock, enforceFigures } from './diligence.js';
 
 const PROJECT_ENDPOINT = config.foundry.projectEndpoint;
 const AGENT_NAME = config.foundry.dealAgentName;
@@ -168,6 +169,12 @@ function buildComposedInput({ scope, focusId, focusCompany, message, lens, ident
       // number a partner will repeat to a lender has to come off the record verbatim.
       'Every figure you state — multiples, leverage, EBITDA, valuations, dates, percentages — must be copied verbatim from the deal record below. Do not round, restate from memory, or reuse a number you have seen on another deal. If a figure a question asks for is not in the record, say it is not on file rather than supplying one.',
       'Never emit a placeholder. If a threshold, name or amount is not in the record, leave the clause out — do not write ">$X", "[TBC]" or similar into a sentence a partner may paste into a committee paper.',
+      '',
+      // The record hands over key figures and a returns model, and the model was
+      // reconciling the two itself -- quoting an entry multiple of 9.4x on a deal whose
+      // own Returns page says 8.3x, in the same answer, under the same citation. There
+      // is one right answer to each of these; give it, and stop it doing arithmetic.
+      (() => { try { return figuresBlock(getDealRaw(focusId)); } catch { return ''; } })(),
       '',
       guide,
       '',
@@ -334,8 +341,15 @@ export async function chatDealAgent({ message, dealId, scope, previousResponseId
       lens
     });
     if (!reply) throw new Error('empty agent reply');
+    // Checked, not trusted: the prompt asks for the record's figures, this makes sure
+    // an entry multiple, IRR or MOIC that disagrees with the deal's own Returns page
+    // never reaches a partner who is about to repeat it to a committee.
+    let out = reply;
+    if (effScope === 'deal' && focusId) {
+      try { out = enforceFigures(out, getDealRaw(focusId)); } catch { /* leave the reply as written */ }
+    }
     return {
-      reply,
+      reply: out,
       citations: [],
       source: 'live',
       scope: effScope,

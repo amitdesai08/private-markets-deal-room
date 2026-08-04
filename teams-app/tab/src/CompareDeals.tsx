@@ -29,6 +29,27 @@ export const CMP_ROWS: { label: string; get: (d: Deal) => string }[] = [
   { label: 'IC readiness', get: (d) => (isPostIC(d.status) ? 'Approved at IC' : `${d.readiness ?? 0}%`) },
   { label: 'Days to IC', get: (d) => (isPostIC(d.status) ? '\u2014' : typeof d.daysToIC === 'number' ? (d.daysToIC >= 0 ? `${d.daysToIC}d` : 'past') : '\u2014') },
   { label: 'Deal size', get: (d) => money(d.dealSize ? d.dealSize * 1e6 : undefined) },
+  // Everything above this line is process. A partner comparing four deals to decide
+  // which one goes to committee said it plainly: "This tells me which is furthest
+  // along. It does not tell me which is best." A comparison of investments with no
+  // price, no leverage and no return in it is a project-management report. The figures
+  // now travel on the deal summary, so the four columns cost nothing extra to fill.
+  { label: 'LTM EBITDA', get: (d) => {
+    const f = (d as any).figures; return f?.ebitda ? money(f.ebitda * 1e6) : '\u2014';
+  } },
+  { label: 'Entry multiple', get: (d) => {
+    const f = (d as any).figures; return f?.entryMultiple ? `${f.entryMultiple}x EV/EBITDA` : '\u2014';
+  } },
+  { label: 'Leverage', get: (d) => {
+    const f = (d as any).figures; return f?.leverage || '\u2014';
+  } },
+  { label: 'Base IRR / MOIC', get: (d) => {
+    const f = (d as any).figures;
+    return f && f.irr != null && f.moic != null ? `${f.irr}% / ${f.moic}x` : '\u2014';
+  } },
+  // Lumen is headquartered in Dublin and its diligence documents are written in euros,
+  // while its header printed dollars. Nobody was told which one the table is in.
+  { label: 'Reported in', get: (d) => (d as any).figures?.currencyCode || d.currency || '\u2014' },
   { label: 'Sector', get: (d) => d.sector || '\u2014' },
   // The raw key. A partner read "Status: in_diligence" in a comparison she was about
   // to paste into an email; underscores and lower case are how a database talks. The
@@ -125,7 +146,7 @@ export default function CompareDeals({ deals, compare, onClear, onOpen }: {
             ))}
           </tbody>
         </table>
-        <div className="muted" style={{ padding: '8px 10px', fontSize: 12 }}>IC readiness is weighted across required papers, workstream progress and open risks — it is not a count of the six required papers on a deal's IC readiness board. This table compares where each deal has got to, not what each deal is worth: entry multiple, leverage, IRR and MOIC are on each deal's Thesis &amp; key figures page. Open a company name above to read them.</div>
+        <div className="muted" style={{ padding: '8px 10px', fontSize: 12 }}>IC readiness is weighted across required papers, workstream progress and open risks &mdash; it is not a count of the six required papers on a deal's IC readiness board. Entry multiple, leverage, IRR and MOIC are the base case from each deal's Returns, plan &amp; risk page; open a company name above for the scenarios behind them.</div>
       </div>
     </section>
   );

@@ -471,6 +471,12 @@ function portfolioCommitments(deals, rawFor, limit = 6, laneLabels = []) {
     deals: new Set(out.map((c) => c.dealId)).size,
     yours: mine.size ? out.filter(isMine).length : 0,
     items: out.slice(0, limit).map((c) => ({ ...c, yours: isMine(c) })),
+    // Thirty-nine follow-ups were counted on the tile and six were shown. The other
+    // thirty-three could only be reached by opening the deals one at a time, and a deal
+    // takes the better part of fifteen seconds to open -- so the honest way to act on
+    // the number this product puts in front of a partner was eight minutes of waiting.
+    // The whole list travels; the card decides how much of it to unroll at once.
+    all: out.map((c) => ({ ...c, yours: isMine(c) })),
   };
 }
 

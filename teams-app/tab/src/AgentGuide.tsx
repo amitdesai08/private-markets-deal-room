@@ -67,6 +67,12 @@ export default function AgentGuide({ roleLabel, canViewStage2, canWrite, onAsk }
               it was 350px of catalogue above the first fact about a deal -- but it now
               says what it is rather than describing its own filing order. */}
           <span className="ag-sub">models, memos, checklists, 100-day plans — open this first{roleLabel ? <> · shown for <strong>{roleLabel}</strong></> : null}</span>
+          {/* She scrolled past this row twice without registering that it opened. It
+              read as a section heading, because that is what a bold line with a grey
+              line under it looks like. It stays collapsed -- 350px of catalogue above
+              the first fact about a deal was the fault it was collapsed to fix -- but
+              it now carries something that plainly says press me. */}
+          <span className="ag-open">Show me ▾</span>
         </summary>
 
         <div className="ag-grid">
@@ -110,6 +116,9 @@ const CSS = `
 .ag[open] > summary::before { content: '▾'; }
 .ag-h { font-weight: 700; font-size: 14px; color: var(--fg); }
 .ag-sub { font-size: 12px; color: var(--muted); }
+.ag-open { margin-left: auto; font-size: 11.5px; font-weight: 700; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.ag details[open] .ag-open, details.ag[open] .ag-open { color: var(--muted); border-color: var(--border); }
+details.ag[open] .ag-open::after { content: ''; }
 .ag-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; padding: 4px 16px 14px; }
 .ag-card { text-align: left; border: 1px solid var(--border, #2a2a35); border-radius: 10px; background: var(--bg, #131318); padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; font: inherit; color: inherit; }
 .ag-card:hover { border-color: var(--accent, #6ea8fe); }

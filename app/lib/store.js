@@ -39,6 +39,7 @@ import { initAccessConfig } from './accessConfig.js';
 import { dealAccessLevel } from './userPolicy.js';
 import { primeTokenCache } from './mcp/oauth.js';
 import { computeICReadiness, currentAssumptions } from './icReadiness.js';
+import { canonicalFigures } from './diligence.js';
 import { validateCitations } from './citations.js';
 import { buildCanonicalCompanies, canonicalSummary, companyId } from './companies.js';
 import { loadFabric, fabricInfo, getMarketIntel, getComparableDeals, getBenchmarkFindings, getICPrecedents, getCompanyFinancials, compsForDeal, refreshFabric } from './fabric.js';
@@ -563,6 +564,17 @@ function summarize(deal) {
     icVerdict: (() => {
       const b = computeICReadiness(deal);
       return { state: b.verdict.state, headline: b.verdict.headline, gating: b.verdict.gating, phase: b.verdict.phase, basis: b.verdict.basis || null };
+    })(),
+    // A partner put four deals side by side to decide which to take to committee and
+    // the table she got compared stage, readiness and days -- process, all of it. Not
+    // one number about money. "This tells me which is furthest along. It does not tell
+    // me which is best." The figures were always a fetch away, but fetching four deals
+    // one at a time takes the better part of a minute, so the comparison she wanted
+    // could not be built from the list she had. They travel with the summary now.
+    figures: (() => {
+      const c = canonicalFigures(deal);
+      if (!c) return null;
+      return { currency: c.currency, currencyCode: c.currencyCode, entryMultiple: c.entryMultiple, leverage: c.leverage, irr: c.irr, moic: c.moic, ebitda: c.ebitda, revenue: c.revenue };
     })(),
     workstreams: d.workstreams.map((w) => ({ lane: w.lane, status: w.status, progress: w.progress }))
   };

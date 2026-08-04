@@ -55,6 +55,85 @@ function dealAsCandidate(deal) {
 }
 
 // ===========================================================================
+//  CANONICAL FIGURES — the one true value for every number a partner quotes
+// ===========================================================================
+// A partner asked the assistant the same question three times and was told the entry
+// multiple was 8.3x, then nothing, then 9.4x — while the deal's own Returns, plan &
+// risk page said 8.3x throughout. She could not tell which was right, and neither
+// could an associate reading over her shoulder, because a derived number and a true
+// one arrive in the same confident prose behind the same citation. Her words: "That is
+// a memo going to a committee with a wrong multiple in it."
+//
+// There is exactly one correct value for each of these and it is computed here, by the
+// same call the Returns page renders. Everything that speaks — the assistant, the memo
+// writer, the chat — is handed these and forbidden to derive its own. enforceFigures()
+// below then checks the prose against them, because an instruction is a hope and a
+// check is a guarantee.
+export function canonicalFigures(deal) {
+  try {
+    const f = dealFinancials(deal);
+    const r = buildReturns(dealAsCandidate(deal));
+    const base = r.scenarios.base;
+    return {
+      currency: symbolFor(deal),
+      currencyCode: deal.currency || 'USD',
+      entryMultiple: r.entryMultiple,
+      leverage: r.leverage,
+      irr: base.irr,
+      moic: base.moic,
+      holdYears: r.holdYears,
+      ebitda: f.ebitda,
+      revenue: f.revenue,
+      ev: f.ev,
+    };
+  } catch { return null; }
+}
+
+// The block handed to the model. Stated as the record's own answer, not as background,
+// so there is nothing left for it to work out.
+export function figuresBlock(deal) {
+  const c = canonicalFigures(deal);
+  if (!c) return '';
+  const m = (n) => fmtMoney(round(n), c.currency);
+  return [
+    'AUTHORITATIVE FIGURES — these are the deal\'s own numbers, as shown on its Returns, plan & risk page.',
+    'Quote them exactly. Do not recalculate, adjust, round differently, or convert the currency.',
+    `Entry multiple: ${c.entryMultiple}x EV/EBITDA. Leverage: ${c.leverage}. Hold: ${c.holdYears} years.`,
+    `Base case: ${c.irr}% IRR, ${c.moic}x MOIC.`,
+    `LTM EBITDA: ${m(c.ebitda)}. Revenue: ${m(c.revenue)}. Enterprise value: ${m(c.ev)}.`,
+    `Reporting currency: ${c.currencyCode}. Where a diligence document states a figure in another currency, keep that document's currency and say which document it came from.`,
+  ].join('\n');
+}
+
+// A last line of defence over the generated prose. We only touch a figure that is
+// unambiguously one of ours -- an entry multiple, an IRR, a MOIC or a leverage -- and
+// only when it disagrees with the record. Anything else the model wrote is left alone,
+// because silently rewriting numbers we do not own would be a worse fault than the one
+// we are fixing.
+export function enforceFigures(md, deal) {
+  const c = canonicalFigures(deal);
+  if (!md || !c) return md;
+  let s = String(md);
+  const near = (re, correct) => {
+    s = s.replace(re, (whole, num) => {
+      const got = Number(num);
+      if (!Number.isFinite(got) || Math.abs(got - correct) < 0.05) return whole;
+      return whole.replace(String(num), String(correct));
+    });
+  };
+  // "entry multiple of 9.4x", "entry EV/EBITDA 9.4x", "paying 9.4x"
+  near(/\b(?:entry|paying|purchase)[^.\n]{0,28}?(\d{1,2}(?:\.\d{1,2})?)\s*x\b/gi, c.entryMultiple);
+  near(/\b(\d{1,2}(?:\.\d{1,2})?)\s*x\s*(?:EV\s*\/\s*EBITDA|entry)\b/gi, c.entryMultiple);
+  // "base IRR of 21%", "21% IRR"
+  near(/\b(?:base[^.\n]{0,18})?(\d{1,3}(?:\.\d)?)\s*%\s*(?:gross\s*)?IRR\b/gi, c.irr);
+  near(/\bIRR[^.\n]{0,18}?(\d{1,3}(?:\.\d)?)\s*%/gi, c.irr);
+  // "2.6x MOIC"
+  near(/\b(\d(?:\.\d{1,2})?)\s*x\s*MOIC\b/gi, c.moic);
+  near(/\bMOIC[^.\n]{0,14}?(\d(?:\.\d{1,2})?)\s*x/gi, c.moic);
+  return s;
+}
+
+// ===========================================================================
 //  D1 · LAUNCH ORCHESTRATION — Diligence Plan
 // ===========================================================================
 // Research: the plan starts from the deal's key RISK HYPOTHESES (not a generic
@@ -192,8 +271,20 @@ function workstreamFindings(deal) {
       `QoE completed. Unsupported add-backs and owner-comp normalisation were removed before the figures were fixed, so ${money(f.ebitda)} is the adjusted EBITDA the entry multiple and leverage are struck on.`,
       'Settled — carried into the SPA completion mechanism.', 'templated');
   } else {
+    // The register said "QoE normalises EBITDA down 12% ($29M → $26M)" on a deal whose
+    // own financial workstream had already recorded the specific finding driving it --
+    // EUR 3.2M of ARR invoiced in advance and recognised ratably. A partner read the
+    // two side by side, could not reconcile a modelled percentage against a named
+    // number in a different currency, and reasonably asked which one the fund actually
+    // believed. Both, and they are not the same kind of statement: one is the
+    // allowance we carry until the QoE lands, the other is what the QoE has already
+    // found. Say which is which, and quote the finding rather than paraphrasing it.
+    const qoeFinding = (deal.workstreams || [])
+      .filter((w) => w.lane === 'financial')
+      .flatMap((w) => w.findings || [])
+      .find((x) => /EBITDA|recognis|rebate|add-back|revenue recognition/i.test(String(x.text || '')));
     add('financial', haircut >= 15 ? 'reprice' : 'condition',
-      `QoE normalises EBITDA down ${haircut}% (${money(f.ebitda)} → ${money(adjEbitda)}) after removing unsupported add-backs and owner-comp normalisation.`,
+      `Allowance carried for QoE normalisation: ${haircut}% of EBITDA (${money(f.ebitda)} → ${money(adjEbitda)}), covering unsupported add-backs and owner-comp normalisation. This is the modelled provision, not a QoE result.${qoeFinding ? ` The financial workstream has already recorded one specific driver: ${String(qoeFinding.text).replace(/\s+$/, '')} That figure is quoted in the currency of the document it came from and is one component of the allowance above, not a second view of it.` : ''}`,
       haircut >= 15 ? `Repricing lever — reset entry EV against ${money(adjEbitda)} adjusted EBITDA.` : 'Reflected in the model and the SPA net-working-capital peg.');
   }
   add('financial', 'condition', `Net-working-capital peg set at ~${money(round(f.revenue * 0.12))} from a 12–24 month seasonality analysis.`, 'Becomes the SPA true-up mechanism at close.');

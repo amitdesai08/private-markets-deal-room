@@ -154,7 +154,7 @@ export function detectCommitments(messages = [], { source = 'Teams', dealSteps =
       lane,
       laneLabel: lane ? laneLabel(lane) : null,
       stepKey: step?.key || null,
-      stepTitle: step ? `${step.key} ${step.title}` : null,
+      stepTitle: step ? step.title : null,
       confidence: when ? 'high' : 'medium',
       basis: `${source} message${m.from ? ` from ${m.from}` : ''}`,
     });
@@ -227,15 +227,21 @@ function blockerAnalysis(step, deal, board, lanes) {
 
   // Downstream impact is real, not rhetorical: it is the steps that sit after
   // this one on the spine and therefore cannot start.
+  //
+  // This used to read "Blocks D4 IC approval, D5 Archive, E1 Financing & structuring
+  // (3 downstream steps)". D4, D5 and E1 are how the record files a step, not how a
+  // partner names one -- she read that line aloud in a review and stopped at "D4", and
+  // her first question was what the letters meant rather than what was stuck. The
+  // titles alone say the same thing and need no glossary.
   const at = STEPS.findIndex((s) => s.key === step.key);
-  const downstream = STEPS.slice(at + 1, at + 4).map((s) => `${s.key} ${s.title}`);
+  const downstream = STEPS.slice(at + 1, at + 4).map((s) => s.title);
   return {
     headline: lanes.length === 1
       ? `${laneLabel(worst.lane)} is the critical path`
         : `${lanes.length} workstreams are holding this step — ${laneLabel(worst.lane)} is furthest behind`,
     evidence,
     impact: downstream.length
-      ? `Blocks ${downstream.join(', ')} (${downstream.length} downstream step${downstream.length === 1 ? '' : 's'}).`
+      ? `Nothing after this can start: ${downstream.join(', ')}.`
       : 'Holds up the next step.',
     owner: ownerLabel(worst.owner, worst.lane),
     lane: worst.lane,
@@ -285,7 +291,7 @@ export function buildWorkflowDesk(deal, board, { role = null, commitments = [] }
   // One step scale, one phrasing. The card, the header, the milestones and this
   // sentence each counted differently -- "step 3 of 5", "Step 7 of 16", "6 of 16
   // steps completed" -- and nobody could quote the deal's position out loud.
-  c.add(`${deal.company} is at step ${done.length + 1} of ${steps.length}, ${done.length} completed, currently in ${current?.key} ${current?.title}.`, 'Deal record');
+  c.add(`${deal.company} is at step ${done.length + 1} of ${steps.length}, ${done.length} completed, currently in ${current?.title}.`, 'Deal record');
   const moving = lanes.filter((w) => (w.progress ?? 0) > 0);
   // On a deal that has already been approved and signed, "4 have not started" reads as
   // four pieces of outstanding work holding up completion. They are neither: diligence
@@ -305,7 +311,7 @@ export function buildWorkflowDesk(deal, board, { role = null, commitments = [] }
     // The headline was lowercased to splice it after a dash, which turned the defined
     // term QoE into "qoe" in the one sentence that says what is blocking the deal.
     // Ending the first clause with a full stop removes the need for any case change.
-    c.add(`${current.key} ${current.title} is stalled. ${current.blocker.headline}. ${current.blocker.impact}`, 'IC readiness board');
+    c.add(`${current.title} is stalled. ${current.blocker.headline}. ${current.blocker.impact}`, 'IC readiness board');
   }
   const icDays = daysUntil(deal.targetICDate);
   if (icDays != null && icDays >= 0) c.add(`IC is ${icDays} days out; ${dueLabel(deal.targetICDate)}.`, 'Deal record');
@@ -542,7 +548,7 @@ export function buildDocumentDesk(deal, { files = [], since = null, live = [] } 
     for (const p of s.produces || []) {
       const words = String(p).toLowerCase().split(/\W+/).filter((w) => w.length > 4);
       const covered = words.length && have.some((n) => words.some((w) => n.includes(w)));
-      if (!covered) gaps.push({ artefact: p, step: `${s.key} ${s.title}`, stepKey: s.key, owner: ownerLabel(s.owner, null) });
+      if (!covered) gaps.push({ artefact: p, step: s.title, stepKey: s.key, owner: ownerLabel(s.owner, null) });
     }
   }
 

@@ -27,7 +27,7 @@
 
 export type ModuleKey =
   | 'briefing' | 'followups' | 'attention' | 'kpis'
-  | 'phases' | 'funnel' | 'deals' | 'market';
+  | 'phases' | 'funnel' | 'deals' | 'market' | 'agenda';
 
 export type DashModule = {
   key: ModuleKey;
@@ -42,6 +42,11 @@ export const DASH_MODULES: DashModule[] = [
   { key: 'briefing', label: 'Portfolio briefing', note: 'What changed across your deals, written from the record and cited.', column: 'left' },
   { key: 'followups', label: 'Untracked follow-ups', note: 'Promises made in deal channels that never became a task.', column: 'left' },
   { key: 'attention', label: 'What needs my attention', note: 'Your deals ranked worst-first, each with the reason it is there.', column: 'right' },
+  // The product knew the committee sat in four days and which deals were ready for it,
+  // and there was nothing anywhere that put those two facts in the same place. A
+  // partner preparing for Thursday had to open deals one at a time and keep the answer
+  // in her head.
+  { key: 'agenda', label: 'Next IC agenda', note: 'The deals due at the next committee, in date order, with what each still owes.', column: 'right' },
   { key: 'kpis', label: 'Headline numbers', note: 'Live deals, pipeline value, average IC readiness and the next IC.', column: 'right' },
   { key: 'phases', label: 'Deals by stage', note: 'Where the live capital sits across diligence, execution and exit.', column: 'full' },
   { key: 'funnel', label: 'Origination funnel', note: 'Sourced, screened and qualified counts for the fund.', column: 'full' },

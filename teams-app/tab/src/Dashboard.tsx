@@ -42,7 +42,7 @@ type HomeDesk = {
   attention: HomeAttention[];
   attentionEmpty?: string | null;
   phases: { key: string; label: string; count: number; capital: number }[];
-  workiq: { total: number; deals: number; yours?: number; items: HomeCommitment[] };
+  workiq: { total: number; deals: number; yours?: number; items: HomeCommitment[]; all?: HomeCommitment[] };
   kpis: { key: string; label: string; value: string; sub: string }[];
   counts: { deals: number; attention: number; icReady: number; commitments: number };
 };
@@ -86,6 +86,37 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
   // that justifies the card being on the page. Hiding stays available, it is just
   // not the default.
   const [showWorkiq, setShowWorkiq] = useState(true);
+  // Thirty-nine follow-ups counted, six shown, and the only way to the other
+  // thirty-three was to open thirty-three deals at fifteen seconds each. The whole
+  // list arrives now; this is how much of it is unrolled.
+  const [allFollowups, setAllFollowups] = useState(false);
+  // Tracking one used to mean opening the deal it was promised on. The audit trail
+  // records who did it either way, so the journey was ceremony.
+  const [tracked, setTracked] = useState<Record<string, 'busy' | 'done' | 'failed'>>({});
+  const [agendaCopied, setAgendaCopied] = useState(false);
+  const [briefCopied, setBriefCopied] = useState(false);
+  const briefingText = () => {
+    if (!home) return '';
+    const body = home.briefing.paragraphs.map((p: any) => String(p.text || p).replace(/\[[^\]]*\]/g, '').trim()).filter(Boolean).join('\n\n');
+    return [`Daily briefing — ${new Date(home.briefing.generatedAt).toLocaleString('en-GB')}`, '', body, '', `Sources: ${(home.briefing.sources || []).join('; ')}`].join('\n');
+  };
+  const copyBriefing = () => {
+    navigator.clipboard?.writeText(briefingText())
+      .then(() => { setBriefCopied(true); window.setTimeout(() => setBriefCopied(false), 2500); })
+      .catch(() => {});
+  };
+  const emailBriefing = () => {
+    const href = `mailto:?subject=${encodeURIComponent('Daily briefing')}&body=${encodeURIComponent(briefingText().slice(0, 1800))}`;
+    window.open(href, '_blank', 'noopener');
+  };
+  const trackFollowup = async (key: string, c: HomeCommitment) => {
+    setTracked((t) => ({ ...t, [key]: 'busy' }));
+    try {
+      const text = `Follow-up tracked from the deal channel — ${c.author}: “${c.quote || c.headline}”${c.dueText ? ` (${c.dueText})` : ''}`;
+      const res = await af(`/api/deals/${c.dealId}/workiq-notes`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) });
+      setTracked((t) => ({ ...t, [key]: res.ok ? 'done' : 'failed' }));
+    } catch { setTracked((t) => ({ ...t, [key]: 'failed' })); }
+  };
 
   // Which sections this persona keeps, and the panel for changing that.
   const [hidden, setHidden] = useState<ModuleKey[]>(() => readHidden(layoutKey));
@@ -283,8 +314,28 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
   const showFollowups = shows('followups') && !!home?.workiq?.total;
   const showAttention = shows('attention');
   const showKpis = shows('kpis');
+  // The deals due at the next committee, soonest first. Everything here is already on
+  // the deal list, which is why it costs nothing to build -- and is exactly why its
+  // absence was so hard to explain to a partner who had to open six deals to write
+  // Thursday's agenda by hand.
+  const agendaRows = deals
+    .filter((d) => typeof d.daysToIC === 'number' && (d.daysToIC as number) >= 0 && (d.daysToIC as number) <= 28 && !isPostIC(d.status))
+    .sort((a, b) => (a.daysToIC as number) - (b.daysToIC as number))
+    .slice(0, 8);
+  const showAgenda = shows('agenda') && agendaRows.length > 0;
+  const copyAgenda = () => {
+    const lines = agendaRows.map((d, i) => {
+      const v = (d as any).icVerdict?.state;
+      const state = v === 'READY' ? 'Ready for committee' : v === 'CONDITIONAL' ? 'Ready with conditions' : 'Not ready for committee';
+      const owes = ((d as any).icVerdict?.gating || []).slice(0, 3).join('; ');
+      return `${i + 1}. ${d.company} — ${d.daysToIC}d — ${state}${owes ? ` — still owes: ${owes}` : ''}`;
+    });
+    navigator.clipboard?.writeText(['Next IC agenda', ...lines].join('\n'))
+      .then(() => { setAgendaCopied(true); window.setTimeout(() => setAgendaCopied(false), 2500); })
+      .catch(() => {});
+  };
   const heroLeft = showBriefing || showFollowups;
-  const heroRight = showAttention || showKpis;
+  const heroRight = showAttention || showKpis || showAgenda;
   const showFunnel = shows('funnel') && !!pipeline?.funnel?.length;
   // Named for the person, so the customise panel can say whose arrangement this is.
   const arrangementFor = seat?.label ? `the ${seat.label}` : 'you';
@@ -367,6 +418,13 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
               <Tag kind="new" />
               <span className="spacer" />
               <button className="btn link compact" onClick={loadHome}>↻ Refresh</button>
+              {/* A partner reads this before a 7am call in a car. She asked to send it
+                  to herself and there was no way to get a single word of it off the
+                  screen -- the one thing this product writes for her every morning was
+                  the one thing she could not take with her. */}
+              <button className="btn link compact" onClick={copyBriefing} disabled={!home}>{briefCopied ? '✓ Copied' : '⧉ Copy'}</button>
+              <button className="btn link compact" onClick={emailBriefing} disabled={!home}>✉ Email</button>
+              <button className="btn link compact" onClick={() => window.print()} disabled={!home}>⎙ Print</button>
               <button className="btn link compact" onClick={() => setEvidence((v) => !v)}>🔍 Evidence</button>
               <button className="btn link compact" onClick={() => setBriefOpen((v) => !v)}>{briefOpen ? 'Hide' : 'Show'}</button>
             </div>
@@ -428,8 +486,11 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
               </div>
               {showWorkiq ? (
                 <div className="bd">
-                  {home.workiq.items.map((c, i) => (
-                    <div className="commit" key={`${c.dealId}-${i}`}>
+                  {(allFollowups ? (home.workiq.all || home.workiq.items) : home.workiq.items).map((c, i) => {
+                    const key = `${c.dealId}-${i}-${c.headline}`;
+                    const st = tracked[key];
+                    return (
+                    <div className="commit" key={key}>
                       <div className="att-t">
                         <span className="name">{c.author}</span>
                         <span className="chip">{c.company}</span>
@@ -438,18 +499,31 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
                         {c.dueText ? <span className="chip warn">📅 {c.dueText}</span> : null}
                       </div>
                       <div className="quote">“{c.quote || c.headline}”</div>
-                      <div className="sub">Where this came from: {c.basis || 'detected in the deal channel'} · not recorded as a task</div>
+                      <div className="sub">Where this came from: {c.basis || 'detected in the deal channel'} · {st === 'done' ? 'now recorded as a task on the deal' : 'not recorded as a task'}</div>
                       <div className="acts">
-                        <button className="btn" onClick={() => onOpen(c.dealId)}>Open {c.company} ▸</button>
+                        {canWrite ? (
+                          <button className="btn" disabled={st === 'busy' || st === 'done'} onClick={() => trackFollowup(key, c)}>
+                            {st === 'done' ? '✓ Tracked' : st === 'busy' ? 'Recording…' : st === 'failed' ? 'Try again' : '✓ Track this'}
+                          </button>
+                        ) : null}
+                        <button className="btn link" onClick={() => onOpen(c.dealId)}>Open {c.company} ▸</button>
                         {onAskQuestion ? (
                           <button className="btn link" onClick={() => onAskQuestion(`On ${c.company}, is this follow-up tracked: "${c.headline}"?`)}>Ask about it</button>
                         ) : null}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
+                  {/* The count on the header said thirty-nine and the card showed six,
+                      which reads as a product that knows more than it will tell you. */}
+                  {home.workiq.total > home.workiq.items.length ? (
+                    <button className="btn link compact" onClick={() => setAllFollowups((v) => !v)}>
+                      {allFollowups ? `Show the first ${home.workiq.items.length} only` : `Show the other ${home.workiq.total - home.workiq.items.length}`}
+                    </button>
+                  ) : null}
                   <div className="sub">
-                    Detected, not decided. Turning one of these into a tracked task happens on the deal itself,
-                    where the audit trail records who did it.
+                    Detected, not decided. Tracking one records it as a task on the deal that owns it,
+                    against your name, in that deal's audit trail.
                   </div>
                 </div>
               ) : (
@@ -466,6 +540,41 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
         {/* ---------------- Attention queue ---------------- */}
         {heroRight ? (
         <div style={{ minWidth: 0 }}>
+          {/* A partner four days out from committee had to open six deals, one at a
+              time, to work out which of them were actually going and what each still
+              owed -- then type the agenda into an email herself. The product held both
+              halves of that answer and had never been asked to put them together. */}
+          {showAgenda ? (
+          <div className="card">
+            <div className="hd">
+              <h3>Next IC agenda</h3>
+              <span className="spacer" />
+              <span className="chip">{agendaRows.length} due within 4 weeks</span>
+              <button className="btn link compact" onClick={copyAgenda}>{agendaCopied ? '✓ Copied' : 'Copy agenda'}</button>
+            </div>
+            <div className="bd">
+              {agendaRows.map((d, i) => {
+                const v = (d as any).icVerdict?.state;
+                const state = v === 'READY' ? 'Ready for committee' : v === 'CONDITIONAL' ? 'Ready with conditions' : 'Not ready for committee';
+                const owes: string[] = ((d as any).icVerdict?.gating || []).slice(0, 2);
+                return (
+                  <div className="commit" key={d.id}>
+                    <div className="att-t">
+                      <span className="name">{i + 1}. {d.company}</span>
+                      <span className={`chip${v === 'READY' ? '' : ' warn'}`}>{state}</span>
+                      <span className="chip">{d.daysToIC}d</span>
+                    </div>
+                    <div className="sub">{owes.length ? `Still owes: ${owes.join('; ')}` : 'Nothing outstanding on the readiness board.'}</div>
+                    <div className="acts">
+                      <button className="btn link" onClick={() => onOpen(d.id)}>Open {d.company} ▸</button>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="sub">Ordered by committee date, from each deal's own record. Copying gives you the list as text, ready to paste into the invitation.</div>
+            </div>
+          </div>
+          ) : null}
           {showAttention ? (
           <div className="card">
             <div className="hd">
@@ -638,6 +747,12 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
       {showFunnel && pipeline?.funnel ? (
         <section className="panel">
           <div className="panel-h"><span>Origination funnel</span><span className="muted">{pipeline.fundName}</span></div>
+          {/* The caveat lived under the tiles, and a partner read the tiles. Four
+              counts narrowing from 24 to 19 read to her as an eighty per cent screening
+              yield, which for a mid-market fund would be extraordinary and is not what
+              is being counted. The sentence that stops that misreading has to be above
+              the numbers it is about, not below them. */}
+          {(pipeline as any).funnelNote ? <div className="bd" style={{ paddingBottom: 0 }}><div className="muted">{(pipeline as any).funnelNote}</div></div> : null}
           <div className="funnel">
             {pipeline.funnel.map((f) => (
               <div key={f.key} className="fstep">
@@ -650,10 +765,6 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
               </div>
             ))}
           </div>
-          {/* Without this, "Sourced 19 · Screened — · Shortlisted — · Awaiting decision 4"
-              reads as four measured numbers, two of which are missing. It is one measured
-              number and one derived one. Say which. */}
-          {(pipeline as any).funnelNote ? <div className="bd"><div className="muted">{(pipeline as any).funnelNote}</div></div> : null}
         </section>
       ) : null}
       {compareDeals.length >= 2 ? (

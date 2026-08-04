@@ -507,7 +507,7 @@ export default function App() {
 
       <div className="layout">
         {openDealId && seatReady ? (
-          <DealDetail key={openDealId} dealId={openDealId} canViewStage2={canViewStage2} canWrite={canWrite} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} backLabel={backLabel} initialTab={(dealTab || undefined) as any} onTabChange={setDealTab} />
+          <DealDetail key={openDealId} dealId={openDealId} canViewStage2={canViewStage2} canWrite={canWrite} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} backLabel={backLabel} initialTab={dealTab || undefined} onTabChange={setDealTab} />
         ) : openDealId ? (
           /* A deal link opens the deal before anyone has been identified, and the first
              request would go out anonymous -- which the backend answers as the default
@@ -1018,8 +1018,17 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .dealpage > .drawer { width: 100%; border-left: none; border-right: none; box-shadow: none; }
 .drawer-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; display: flex; justify-content: center; }
 .drawer { width: min(1180px, 100vw); height: 100%; position: relative; background: var(--bg); border-left: 1px solid var(--border); border-right: 1px solid var(--border); display: flex; flex-direction: column; box-shadow: 0 0 44px rgba(0,0,0,.38); }
-.drawer-chat { position: absolute; top: 0; right: 0; bottom: 0; left: auto; width: min(460px, 92%); z-index: 6; display: flex; background: var(--bg); border-left: 1px solid var(--border); box-shadow: -8px 0 26px rgba(0,0,0,.30); }
+.drawer-split { flex: 1; min-height: 0; display: flex; position: relative; }
+.drawer-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.drawer-chat { flex: none; width: min(440px, 42%); min-width: 320px; display: flex; background: var(--bg); border-left: 1px solid var(--border); }
 .drawer-chat .chatpanel { flex: 1; max-width: none; border-left: none; }
+/* Below about 980px there is not room for a deal and a conversation side by side, so
+   the assistant goes back to sitting over the deal -- but over the DEAL, never over
+   the deal's header, which is where the buttons a partner reaches for actually live. */
+@media (max-width: 980px) {
+  .drawer-chat { position: absolute; top: 0; right: 0; bottom: 0; width: min(460px, 92%); z-index: 6; box-shadow: -8px 0 26px rgba(0,0,0,.30); }
+}
+.badlink { margin: 0; padding: 9px 16px; font-size: 12.5px; background: var(--warn-bg, #fff6e5); color: var(--warn, #8a5a00); border-bottom: 1px solid var(--border); }
 .drawer-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .drawer-title { font-weight: 700; font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chbtn { border: 1px solid var(--accent); background: var(--chip); color: var(--accent); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; }

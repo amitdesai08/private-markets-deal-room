@@ -192,6 +192,37 @@ export function houseStyle(md) {
   s = s.replace(/(?<!EUR\s)(?<!GBP\s)[\u20ac\u00a3](?=\s?[\d.])/g, '$');
   // The profession's spellings.
   s = s.replace(/\bMoIC\b/g, 'MOIC').replace(/\bartifacts?\b/gi, (m) => (m[0] === 'A' ? 'IC papers' : 'IC papers'));
+  // "four required IC IC papers outstanding". The artifacts substitution above runs
+  // last, so it manufactures the very stutter an earlier rule was there to remove.
+  // Cleaning up after ourselves has to come after ourselves.
+  s = s.replace(/\bIC IC\b/g, 'IC').replace(/\bIC papers papers\b/gi, 'IC papers');
+  // "So what / decision rule:" -- the model keeps reinventing the label it was told
+  // not to use. Ban the shape, not the string: anything hanging off "So what" or
+  // "Bottom line" with a slash is the same tic.
+  s = s.replace(/\bSo what\s*\/\s*[^:\n]{0,30}:/gi, 'So what:');
+  s = s.replace(/\bBottom line\s*\/\s*[^:\n]{0,30}:/gi, 'Bottom line:');
+  // "do not present until the deal record returns ready for committee" -- an
+  // instruction to the reader about how to query a database, in an answer to a
+  // question about a company.
+  s = s.replace(/\bthe deal record returns ready for committee\b/gi, 'it is ready for committee');
+  s = s.replace(/\buntil the deal record\b/gi, 'until the deal');
+  // "(the deal record; the deal record)". The de-duplication above only covers square
+  // brackets, and the model cites in both.
+  s = s.replace(/\(([^)\n]{3,120})\)/g, (m, inner) => {
+    if (!inner.includes(';')) return m;
+    const parts = inner.split(';').map((x) => x.trim()).filter(Boolean);
+    const seen = [];
+    for (const p of parts) if (!seen.some((q) => q.toLowerCase() === p.toLowerCase())) seen.push(p);
+    return seen.length === parts.length ? m : `(${seen.join('; ')})`;
+  });
+  // "requires permission to include all deals outside the current single-deal scope".
+  // Nobody needs permission. The conversation is narrow, not the person -- and asking
+  // a partner to authorise her own book is how you teach her the product does not know
+  // who she is.
+  s = s.replace(/\s*\((?:this |which )?requires? (?:your )?permission[^)\n]{0,90}\)/gi, '');
+  s = s.replace(/\brequires? (?:your )?permission to include all deals[^.\n]{0,60}\./gi, 'That is a question about the whole book rather than this deal.');
+  s = s.replace(/\bsingle[- ]deal scope\b/gi, 'this one deal');
+  s = s.replace(/\bcurrent scope\b/gi, 'this conversation');
   return s;
 }
 

@@ -24,7 +24,7 @@ type Workstream = { lane: string; owner?: string; status?: string; progress?: nu
 type MemoSection = { key: string; title: string; status?: string; content?: string };
 type DealFull = {
   id: string; company: string; sector?: string; subSector?: string; hq?: string;
-  stage?: string; stageName?: string; status?: string; dealSize?: number;
+  stage?: string; stageName?: string; status?: string; dealSize?: number; currency?: string;
   readiness?: number; daysToIC?: number; thesis?: string; keyFigures?: KeyFigure[]; workstreams?: Workstream[];
   currentStep?: string; stepNumber?: number; totalSteps?: number; completedSteps?: string[];
   workspaceReady?: boolean; memoSections?: MemoSection[]; artifacts?: Record<string, any>; workspace?: any;
@@ -208,7 +208,7 @@ const TABS_RARELY: Tab[] = ['threads', 'research', 'activity'];
 const TABS_OFTEN_PLAIN: Tab[] = ['overview', 'ic', 'stages'];
 const TABS_RARELY_PLAIN: Tab[] = ['workspace', 'artifacts', 'research', 'documents', 'activity'];
 
-export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, initialTab, onTabChange }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string; initialTab?: Tab; onTabChange?: (t: string) => void }) {
+export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, initialTab, onTabChange }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string; initialTab?: string; onTabChange?: (t: string) => void }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
   const [ic, setIc] = useState<ICReadiness | null>(null);
   const [flow, setFlow] = useState<Flow | null>(null);
@@ -222,25 +222,77 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   // paint, began reading it, and had it replaced under them a moment later. That reads
   // as a fault. Starting here means the async call can only ever demote the tab (on an
   // instance that has turned the brief off), never yank it.
-  // Two tabs are called Documents and Generate a document, and the addresses behind
-  // them read the other way round -- /docdesk and /documents. Two colleagues emailing
-  // each other links will send one another to the wrong screen. The keys are load
-  // bearing, so accept the names people actually type as well, and accept a plain
-  // English guess rather than dropping the reader on the brief with no explanation.
-  const TAB_ALIAS: Record<string, Tab> = {
-    files: 'docdesk', documents: 'documents', generate: 'documents', 'data-room': 'workspace',
-    dataroom: 'workspace', progress: 'workflow', 'follow-ups': 'workflow', followups: 'workflow',
-    readiness: 'ic', brief: 'cockpit', channel: 'threads', comparables: 'research', audit: 'activity',
-    workstreams: 'workspace', returns: 'overview',
+  // ADDRESSES
+  //
+  // The tab keys are what the code has always called these screens, and they are load
+  // bearing. They are also not what anyone would type: the tab labelled Documents lived
+  // at /docdesk, the one labelled Generate a document lived at /documents, and Returns,
+  // plan & risk lived at /artifacts. A partner copied a link out of her own address bar,
+  // emailed it to a colleague saying "read the QoE", and sent them somewhere else.
+  //
+  // So the address is now written in the words on the tab, and the keys stay where they
+  // are. Everything anyone might reasonably type is accepted on the way in, including
+  // every old key, so no link that has already been sent stops working.
+  const TAB_SLUG: Record<string, string> = {
+    cockpit: 'brief', overview: 'thesis', ic: 'ic-readiness', artifacts: 'returns',
+    workflow: 'progress', stages: 'work', workspace: 'workstreams', docdesk: 'documents',
+    documents: 'generate', threads: 'channel', research: 'comparables', activity: 'audit',
   };
-  const wanted = initialTab ? (TAB_ALIAS[initialTab] || initialTab) : undefined;
+  const TAB_ALIAS: Record<string, Tab> = {
+    // the words on the tabs
+    brief: 'cockpit', thesis: 'overview', 'ic-readiness': 'ic', returns: 'artifacts',
+    progress: 'workflow', work: 'stages', workstreams: 'workspace', documents: 'docdesk',
+    generate: 'documents', channel: 'threads', comparables: 'research', audit: 'activity',
+    // and the words people actually type
+    files: 'docdesk', 'generate-a-document': 'documents', 'data-room': 'workspace',
+    dataroom: 'workspace', 'follow-ups': 'workflow', followups: 'workflow',
+    readiness: 'ic', 'key-figures': 'overview', risk: 'artifacts', irr: 'artifacts',
+    'audit-trail': 'activity', precedents: 'research', diligence: 'workspace',
+  };
+  const ALL_TABS: string[] = ['cockpit', 'overview', 'ic', 'artifacts', 'workflow', 'stages', 'workspace', 'docdesk', 'documents', 'threads', 'research', 'activity'];
+  const resolveTab = (raw?: string): Tab | undefined => {
+    if (!raw) return undefined;
+    const k = String(raw).toLowerCase();
+    if (TAB_ALIAS[k]) return TAB_ALIAS[k];
+    if (ALL_TABS.includes(k)) return k as Tab;
+    return undefined;
+  };
+  const wanted = resolveTab(initialTab);
   const [tab, setTab] = useState<Tab>(wanted || 'cockpit');
+  // A link naming a page that does not exist used to drop the reader on the brief with
+  // nothing said, so they believed they were reading the page they had been sent.
+  const [badLink, setBadLink] = useState(initialTab && !wanted ? String(initialTab) : '');
   const mounted = useRef(false);
   // Report the open page upwards so it can go in the address bar. "I could send a link
   // to the deal but not to the IC readiness page on it" was the remaining half of the
   // complaint that the URL never moved.
-  useEffect(() => { onTabChange?.(tab); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
+  useEffect(() => { onTabChange?.(TAB_SLUG[tab] || tab); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
+  // A pasted address only changed the screen if the deal changed with it, because this
+  // component is keyed on the deal and nothing re-read the page name afterwards. So a
+  // colleague's link to another page on the deal you already had open did nothing at
+  // all, which reads as a broken link rather than as a link you were already on.
+  useEffect(() => {
+    const t = resolveTab(initialTab);
+    if (t && t !== tab) { setTab(t); setBadLink(''); }
+    else if (initialTab && !t) setBadLink(String(initialTab));
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [initialTab]);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyLink = () => {
+    const url = `${window.location.origin}${window.location.pathname}#/deal/${dealId}/${TAB_SLUG[tab] || tab}`;
+    const done = () => { setCopied(true); window.setTimeout(() => setCopied(false), 2500); };
+    try {
+      navigator.clipboard.writeText(url).then(done).catch(() => {
+        // Teams and some embedded frames refuse the clipboard. Falling back to the old
+        // textarea trick beats a button that silently does nothing.
+        const ta = document.createElement('textarea');
+        ta.value = url; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); done(); } catch { /* nothing more to try */ }
+        document.body.removeChild(ta);
+      });
+    } catch { /* nothing more to try */ }
+  };
   const [askOpen, setAskOpen] = useState(false);
   const [chatSeed, setChatSeed] = useState('');
   const [chatSeedNonce, setChatSeedNonce] = useState(0);
@@ -625,7 +677,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     // have room to breathe, and it keeps the .drawer* class names so the existing
     // layout rules (head / body / the chat sub-panel) apply unchanged.
     <div className="dealpage">
-      <aside className="drawer">
+      <aside className={`drawer${askOpen && deal ? ' with-chat' : ''}`}>
         <div className="drawer-head">
           {/* The breadcrumb above this header already carries "← <where you came
               from> / <deal name>". A second identical back control 50px below it, next
@@ -649,14 +701,26 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
             everywhere; the arrow says you are leaving. */}
         {deal && !statusOnly ? <button className="chbtn spo" onClick={openDataRoom} disabled={busy === 'dataroom'} title="Open this deal's data room in a new tab">{deal.workspace?.sharePointProvisioned ? '📁 Data room ↗' : busy === 'dataroom' ? 'Opening…' : '📁 Data room'}</button> : null}
           <button className={`askbtn${askOpen ? ' on' : ''}`} onClick={() => setAskOpen((v) => !v)}>💬 {askOpen ? 'Hide the assistant' : 'Ask the assistant'}</button>
+          {/* A partner's most ordinary request of any product is "send this to a
+              colleague". She could do it only by copying out of the address bar, and
+              until this round what came out of the address bar named the wrong page. */}
+          {deal ? <button className="chbtn" onClick={copyLink} title="Copy a link to exactly this page, to paste into an email">{copied ? '✓ Link copied' : '🔗 Copy link'}</button> : null}
         </div>
 
-        {askOpen && deal ? (
-          <div className="drawer-chat">
-              <ChatPanel agents={agents} deals={deals} focusDealId={dealId} onClose={() => setAskOpen(false)} viewAsRole={viewAsRole} canWrite={!!canWrite} seed={chatSeed} seedNonce={chatSeedNonce} />
-          </div>
+        {/* A link naming a page that does not exist landed on the brief in silence, so
+            the reader believed the brief was the page they had been sent to read. */}
+        {badLink ? (
+          <div className="badlink">The link you followed asked for a page called “{badLink}”, which is not a page on a deal. You are on the deal brief. The pages on this deal are listed below.</div>
         ) : null}
 
+        {/* The assistant used to be laid over the whole deal, header and all, so with
+            it open a partner clicked "📁 Data room" and nothing happened -- repeatedly,
+            with no explanation, at exactly the moment she wanted the assistant AND the
+            files. It now sits beside the deal rather than on top of it, and the deal
+            header stays above both, because you ask the assistant ABOUT something and
+            you need to keep reading the something. */}
+        <div className="drawer-split">
+          <div className="drawer-main">
         {loading || !deal ? (
           // "Deal not found" is what the server says and it is not what happened. A deal
           // you are not cleared for answers 404 on purpose -- the deal exists, your seat
@@ -670,7 +734,13 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
               <div className="dd-meta">
                 <span className="chip">{deal.stageName || deal.stage}</span>
                 <span className="chip">Step {deal.stepNumber} of {deal.totalSteps} · {STEP_LABEL[deal.currentStep || ''] || deal.currentStep}</span>
-                <span className="chip">{money(deal.dealSize)}</span>
+                {/* Lumen Analytics is headquartered in Dublin and its diligence
+                    documents quote euros, and this header printed a dollar sign with
+                    nothing to say which currency the dollar sign meant. A partner
+                    reading a QoE in one currency and a header in another has to decide
+                    for herself whether the fund has converted, and she should not have
+                    to. The record has a reporting currency; say it. */}
+                <span className="chip" title={`This deal is reported in ${deal.currency || 'USD'}. Figures quoted from a diligence document keep that document's currency and say so.`}>{money(deal.dealSize)} {deal.currency || 'USD'}</span>
                 {/* A readiness percentage is a forecast of whether this deal can go to
                     committee. On a company the fund already owns it is not a forecast of
                     anything -- and "Owned · IC readiness 58%" is the kind of number that
@@ -1056,6 +1126,14 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                         {!isPostIC((deal as any).status) && typeof deal.daysToIC === 'number' && deal.daysToIC >= 0 ? <span className="muted">· IC in {deal.daysToIC}d</span> : null}
                         {verdict?.headline ? <span className="muted" style={{ fontSize: 12 }}>· {verdict.headline}</span> : null}
                       </div>
+                      {/* "65% ready" sat beside a board with two of six papers on file,
+                          and a partner spent ten seconds working out that two sixths is
+                          not sixty-five per cent before deciding one of the two numbers
+                          was wrong. Neither is: they measure different things. Say so
+                          where the number is, not in a tooltip she has to find. */}
+                      {!isPostIC((deal as any).status) ? (
+                        <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>Readiness is weighted across the required papers, how far the workstreams have got and what risks are still open — it is not the share of the six papers that are on file.</div>
+                      ) : null}
                       {isPostIC((deal as any).status) && (verdict?.gating || []).length ? (
                         <div style={{ marginTop: 10 }}>
                           {/* This card was printing the headline count from the verdict's
@@ -1200,6 +1278,38 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                             </div>
                           </div>
                         ))}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {/* The product records issues, counts them against IC readiness,
+                      cites "Issue log" as the basis for what it puts at the top of a
+                      partner's day, and offers a button labelled "Open issue log" --
+                      and until now that button landed here, on a tab with no issues on
+                      it. A partner pressed it, read the workstreams, and concluded she
+                      had missed a screen. There was no screen. This is it. */}
+                  {(deal as any).issues?.length ? (
+                    <section className="dd-panel">
+                      <div className="dd-panel-h">
+                        <span>Issue log</span>
+                        <span className="muted">{((deal as any).issues || []).filter((i: any) => !i.status || i.status === 'open').length} open of {((deal as any).issues || []).length}</span>
+                      </div>
+                      <div style={{ padding: '4px 14px 14px' }}>
+                        {((deal as any).issues || []).map((i: any, n: number) => {
+                          const open = !i.status || i.status === 'open';
+                          return (
+                            <div key={i.id || n} style={{ display: 'flex', gap: 10, padding: '8px 0', borderTop: n ? '1px solid var(--border, #23232c)' : 'none', opacity: open ? 1 : 0.6 }}>
+                              <span style={{ flex: '0 0 auto', marginTop: 2, fontSize: 12, color: open ? 'var(--warn)' : 'var(--good)' }}>{open ? '○' : '✓'}</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>{i.title || 'Untitled issue'}</div>
+                                <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
+                                  {[i.severity ? `${i.severity} severity` : null, i.lane ? (LANE_LABEL[i.lane] || i.lane) : null, i.owner ? ownerName(i.owner) : null, i.dueDate ? `due ${new Date(i.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : null, open ? null : 'resolved'].filter(Boolean).join(' · ')}
+                                </div>
+                                {i.resolutionPath ? <div style={{ fontSize: 12, marginTop: 4 }}>{i.resolutionPath}</div> : <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>No resolution path recorded yet.</div>}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </section>
                   ) : null}
@@ -1457,6 +1567,13 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
             </div>
           </>
         )}
+          </div>
+          {askOpen && deal ? (
+            <div className="drawer-chat">
+              <ChatPanel agents={agents} deals={deals} focusDealId={dealId} onClose={() => setAskOpen(false)} viewAsRole={viewAsRole} canWrite={!!canWrite} seed={chatSeed} seedNonce={chatSeedNonce} />
+            </div>
+          ) : null}
+        </div>
       </aside>
     </div>
   );
