@@ -200,7 +200,7 @@ export default function Cockpit({
                   {a.dueLabel ? <span>📅 {a.dueLabel}</span> : null}
                 </div>
                 {a.impact ? <div className="impact">⚡ {a.impact}</div> : null}
-                {a.basis ? <div className="sub" style={{ marginTop: 6 }}>Basis: {a.basis}</div> : null}
+                {a.basis ? <div className="sub" style={{ marginTop: 6 }}>Where this came from: {a.basis}</div> : null}
                 {canWrite ? (
                   <div className="acts">
                     {(a.actions || []).map((act, i) => (
@@ -215,8 +215,11 @@ export default function Cockpit({
                 ) : null}
               </div>
             ))}
+            {/* "Every action here routes through the existing approve-then-apply path"
+                was the reassurance, and it is the one sentence on the panel a partner
+                said she could not repeat to her committee. Same promise, said plainly. */}
             {canWrite ? (
-              <div className="note">Every action here routes through the existing approve-then-apply path — the assistant proposes, a named person commits, and the audit trail records who and when.</div>
+              <div className="note">Nothing on this panel changes a deal on its own. The assistant proposes, a named person commits, and the audit trail records who and when.</div>
             ) : null}
           </div>
 
@@ -274,7 +277,7 @@ export default function Cockpit({
                           <b>{m.aiRisk.headline}</b>
                           <div style={{ marginTop: 4 }}>{m.aiRisk.detail}</div>
                           {m.aiRisk.impact ? <div className="impact">⚡ {m.aiRisk.impact}</div> : null}
-                          {m.aiRisk.basis ? <div className="sub" style={{ marginTop: 6 }}>Basis: {m.aiRisk.basis}</div> : null}
+                          {m.aiRisk.basis ? <div className="sub" style={{ marginTop: 6 }}>Where this came from: {m.aiRisk.basis}</div> : null}
                         </div>
                       </details>
                     ) : null}

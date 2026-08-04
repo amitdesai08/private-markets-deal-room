@@ -182,7 +182,7 @@ export default function Deals({ deals, dealsLoading, onOpen, onAsk }: { deals: D
             {/* On a cold start this list is empty for the better part of twenty seconds
                 and used to say, flatly, that the firm had no deals in flight. Somebody
                 reading that on their first login reasonably concludes the sign-in failed. */}
-            {dealsLoading && !(deals || []).length ? 'Loading your deals— about fifteen seconds the first time you open the window.'
+            {dealsLoading && !(deals || []).length ? 'Loading your deals — about fifteen seconds the first time you open the window.'
               : inFlight.length ? <>No deal matches that. <button className="linkbtn" onClick={() => { setQ(''); setFilter('all'); }}>Clear the filter</button></>
               : 'No deals in flight yet. Pursue a candidate in Sourcing to launch one.'}
           </div>

@@ -103,7 +103,7 @@ export default function WorkflowDesk({
   }, [data, filter]);
 
   if (loading) return <div className="card"><div className="bd muted">Reading the workflow…</div></div>;
-  if (!data) return <div className="card"><div className="bd muted">Progress and blockers are unavailable for this deal.</div></div>;
+  if (!data) return <div className="card"><div className="bd muted">You may not have access to the progress and blockers on this deal, or they could not be loaded just now.</div></div>;
 
   const canWrite = !!data.canWrite;
   const commitments = data.commitments.filter((c) => !dismissed.has(c.id));
@@ -165,7 +165,7 @@ export default function WorkflowDesk({
                   Owner: <b>{c.owner || c.author}</b> · Due: <b>{c.due ? shortDate(c.due) : c.dueText || 'not stated'}</b>
                     {c.laneLabel ? <> · Workstream: <b>{c.laneLabel}</b></> : null}
                   {c.stepTitle ? <> · Step: <b>{c.stepTitle}</b></> : null}
-                  <div className="sub">Basis: {c.basis} · confidence {c.confidence}</div>
+                  <div className="sub">Where this came from: {c.basis} · {c.confidence === 'high' ? 'stated plainly, little room for doubt' : c.confidence === 'low' ? 'an inference — worth checking' : 'reasonably clear'}</div>
                 </div>
                 {canWrite ? (
                   <div className="acts">

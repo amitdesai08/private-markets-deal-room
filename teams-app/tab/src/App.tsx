@@ -70,11 +70,20 @@ export default function App() {
     const m = /[#/]deal\/([A-Za-z0-9_-]+)/.exec(h);
     return m ? m[1] : '';
   });
+  // The page WITHIN the open deal, so a link can point at the IC readiness board rather
+  // than just at the deal.
+  const [dealTab, setDealTab] = useState(() => {
+    const m = /[#/]deal\/[A-Za-z0-9_-]+\/([A-Za-z0-9_-]+)/.exec(window.location.hash || '');
+    return m ? m[1] : '';
+  });
   const [canViewStage2, setCanViewStage2] = useState(true);
   const [canWrite, setCanWrite] = useState(true);
   const [accFlash, setAccFlash] = useState(false);
   const [demoUsers, setDemoUsers] = useState<{ id: string; upn: string; label: string; name?: string; roleLabel?: string; agentCount?: number }[]>([]);
   const [viewAs, setViewAs] = useState('');
+  // False until the seat has been resolved and attached to outbound requests. Nothing
+  // that reads a single deal may run before it is true.
+  const [seatReady, setSeatReady] = useState(false);
   // Access profile from the orchestrator: which agents this user may use, and
   // the roles they can "view as" (own role + any lower in the hierarchy).
   const [allowedPersonas, setAllowedPersonas] = useState<string[] | null>(null);
@@ -102,7 +111,7 @@ export default function App() {
     if (m) return m[1] as MainTab;
     return legacyTab(new URLSearchParams(window.location.search).get('view'));
   });
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(() => /#\/settings\b/.test(window.location.hash || ''));
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [adminGroupsOpen, setAdminGroupsOpen] = useState(false);
   // Platform power state (sleep/wake). null until first probe; when control is on and
@@ -211,7 +220,8 @@ export default function App() {
             setViewAs((v: string) => v || chosen);
           }
         }
-      }).catch(() => {});
+        setSeatReady(true);
+      }).catch(() => { setSeatReady(true); });
     })();
   }, []);
 
@@ -247,20 +257,32 @@ export default function App() {
   // on any screen, so there was no browser Back, no bookmark, and no way to send a
   // colleague a link to a deal -- which for a partner who lives in Outlook is the
   // single most ordinary thing she asked the product to do.
+  // Opening a DIFFERENT deal starts on its brief, not on whichever page you were
+  // reading on the last one.
+  const lastDeal = useRef(openDealId);
   useEffect(() => {
-    const want = openDealId ? `#/deal/${openDealId}` : `#/${mainTab}`;
+    if (lastDeal.current !== openDealId) { lastDeal.current = openDealId; setDealTab(''); }
+  }, [openDealId]);
+
+  useEffect(() => {
+    // Settings had no address of its own, so it wore whichever page you were reading
+    // when you opened it -- and a link sent from Settings landed the recipient
+    // somewhere else entirely.
+    const want = settingsOpen ? '#/settings' : openDealId ? `#/deal/${openDealId}${dealTab ? `/${dealTab}` : ''}` : `#/${mainTab}`;
     if (window.location.hash !== want) {
       try { window.history.pushState(null, '', want); } catch { /* sandboxed frame */ }
     }
-  }, [mainTab, openDealId]);
+  }, [mainTab, openDealId, dealTab, settingsOpen]);
 
   // ...and let the browser's own Back and Forward buttons work, because a person who
   // has been given a URL that changes will press them.
   useEffect(() => {
     const onPop = () => {
       const h = window.location.hash || '';
-      const d = /[#/]deal\/([A-Za-z0-9_-]+)/.exec(h);
-      if (d) { setOpenDealId(d[1]); return; }
+      if (/#\/settings\b/.test(h)) { setSettingsOpen(true); return; }
+      setSettingsOpen(false);
+      const d = /[#/]deal\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?/.exec(h);
+      if (d) { setOpenDealId(d[1]); setDealTab(d[2] || ''); return; }
       setOpenDealId('');
       const t = /#\/(overview|sourcing|deals|fund|report)\b/.exec(h);
       if (t) setMainTab(t[1] as MainTab);
@@ -420,8 +442,11 @@ export default function App() {
             .sbn-chip.on { color: var(--good); border-color: var(--good-br); }
             .sbn-chip.off { color:var(--muted); }
           `}</style>
+          {/* "Showcase mode" read to a partner as though the whole firm on screen were a
+              sales demo rather than her own book. The data is real; only the person is
+              borrowed. Say exactly that, and say it as the thing you are doing. */}
           <div role="note" className={`sbn${accFlash ? ' flash' : ''}`}>
-            <span>Showcase mode — viewing as <strong>{persona?.name || viewAs}</strong>. Their <strong>role</strong> controls what they can open (access rules are still enforced); their <strong>job</strong> controls how the assistant frames an answer for them.</span>
+            <span>You are looking at this firm through someone else's eyes — <strong>{persona?.name || viewAs}</strong>. The deals are the real ones; only the person is borrowed. Their <strong>role</strong> controls what they can open (access rules are still enforced); their <strong>job</strong> controls how the assistant frames an answer for them.</span>
             <span className="sbn-chips">
               <span className="sbn-chip">{isAdmin ? '★ ' : ''}{roleLabel || 'role'}</span>
               <span className={`sbn-chip ${canWrite ? 'on' : 'off'}`}>{canWrite ? 'Can act · write' : 'Read-only'}</span>
@@ -474,8 +499,21 @@ export default function App() {
       ) : null}
 
       <div className="layout">
-        {openDealId ? (
-          <DealDetail dealId={openDealId} canViewStage2={canViewStage2} canWrite={canWrite} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} backLabel={backLabel} />
+        {openDealId && seatReady ? (
+          <DealDetail key={openDealId} dealId={openDealId} canViewStage2={canViewStage2} canWrite={canWrite} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} backLabel={backLabel} initialTab={(dealTab || undefined) as any} onTabChange={setDealTab} />
+        ) : openDealId ? (
+          /* A deal link opens the deal before anyone has been identified, and the first
+             request would go out anonymous -- which the backend answers as the default
+             role, i.e. with the whole record. A partner pasted a deal link into a
+             read-only analyst's window and read the IRR, the MOIC and the equity cheque
+             on a deal that seat is not on. The seat has to be attached to the request
+             before the request is made, so the deal waits for it. */
+          <main className="main">
+            <section className="panel" style={{ margin: 12 }}>
+              <div className="panel-h">Opening this deal…</div>
+              <div className="muted" style={{ padding: '10px 12px', fontSize: 13 }}>Checking what you are cleared to see before anything is loaded.</div>
+            </section>
+          </main>
         ) : (
           <main className="main">
           {settingsOpen ? (

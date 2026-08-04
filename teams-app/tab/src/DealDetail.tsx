@@ -195,13 +195,16 @@ const POST_IC = new Set(['approved', 'signing', 'signed', 'closed', 'owned', 'ex
 //     familiar, and a bar that rearranges itself destroys it. The order is now the
 //     same on every deal, and the generator is reachable from the IC readiness board
 //     and the brief's own call to action, so nothing became harder to get to.
-const TABS_OFTEN: Tab[] = ['cockpit', 'overview', 'ic', 'artifacts', 'workflow', 'stages', 'workspace', 'docdesk'];
-const TABS_RARELY: Tab[] = ['threads', 'research', 'documents', 'activity'];
+// "Generate a document" sat in the overflow, and two partners in a row found it last
+// and said it was the thing they would buy the product for -- it writes the IC deck in
+// PowerPoint and the model in Excel. The strip wraps now, so it can be on the strip.
+const TABS_OFTEN: Tab[] = ['cockpit', 'overview', 'ic', 'artifacts', 'workflow', 'stages', 'workspace', 'docdesk', 'documents'];
+const TABS_RARELY: Tab[] = ['threads', 'research', 'activity'];
 // Without the brief, the four surfaces that depend on it are not rendered at all.
 const TABS_OFTEN_PLAIN: Tab[] = ['overview', 'ic', 'stages'];
 const TABS_RARELY_PLAIN: Tab[] = ['workspace', 'artifacts', 'research', 'documents', 'activity'];
 
-export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string }) {
+export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, initialTab, onTabChange }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string; initialTab?: Tab; onTabChange?: (t: string) => void }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
   const [ic, setIc] = useState<ICReadiness | null>(null);
   const [flow, setFlow] = useState<Flow | null>(null);
@@ -215,7 +218,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   // paint, began reading it, and had it replaced under them a moment later. That reads
   // as a fault. Starting here means the async call can only ever demote the tab (on an
   // instance that has turned the brief off), never yank it.
-  const [tab, setTab] = useState<Tab>('cockpit');
+  const [tab, setTab] = useState<Tab>(initialTab || 'cockpit');
+  // Report the open page upwards so it can go in the address bar. "I could send a link
+  // to the deal but not to the IC readiness page on it" was the remaining half of the
+  // complaint that the URL never moved.
+  useEffect(() => { onTabChange?.(tab); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
   const [moreOpen, setMoreOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
   const [chatSeed, setChatSeed] = useState('');
@@ -627,7 +634,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
         ) : null}
 
         {loading || !deal ? (
-          <div className="drawer-body"><div className="muted">{loading ? 'Loading deal workspace…' : 'Deal not found.'}</div></div>
+          // "Deal not found" is what the server says and it is not what happened. A deal
+          // you are not cleared for answers 404 on purpose -- the deal exists, your seat
+          // cannot open it. Told the first way, a person reasonably concludes the record
+          // is missing and goes looking for someone to blame for losing it.
+          <div className="drawer-body"><div className="muted">{loading ? 'Loading deal workspace…' : 'This deal cannot be opened from your seat. Either it does not exist, or you are not on its deal team. If a colleague sent you the link, ask them to add you to the deal.'}</div></div>
         ) : (
           <>
             <div className="dd-topmeta">
@@ -700,9 +711,10 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                 >
                   {/* The trigger used to rename itself to whichever item you had picked,
                       so the one control that never moves changed its name four times a
-                      session and "More" appeared to vanish. It keeps its name; the dot
-                      says something inside is open, and the menu marks which. */}
-                  More{tabsRarely.includes(tab) ? ' ·' : ''} ▾
+                      session and "More" appeared to vanish. It keeps its name -- and now
+                      names what is open inside it, because a dot alone left a partner
+                      unable to tell which page she was on. */}
+                  More ▾{tabsRarely.includes(tab) ? <span style={{ opacity: 0.7, fontWeight: 500 }}> · {TAB_LABEL[tab]}</span> : null}
                 </button>
                 {moreOpen ? (
                   <div className="dd-more-menu" role="menu">
@@ -816,10 +828,15 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                       ever. Setting up a workspace belongs next to the control that does
                       it, on Diligence workstreams. Here we state the position and move
                       on -- the generate-and-download buttons above work regardless. */}
+                  {/* A partner read "No shared channel or data room is linked to this deal"
+                      here, having just opened the deal's data room two tabs away, and
+                      concluded the product contradicts itself. It does not: the deal has
+                      a data room, it is simply not mirrored into a Microsoft 365 site.
+                      Name which one we mean, every time. */}
                   {docs?.provisioning ? (
-                    <div className="muted">No shared channel or data room is linked to this deal yet. Generating and downloading any document above works as normal.</div>
+                    <div className="muted">This deal's data room lives inside the product — you can open it on Diligence workstreams. It is not mirrored into a Microsoft 365 site or Teams channel, so nothing generated here can be filed there. Generating and downloading any document above works as normal.</div>
                   ) : docs?.notConnected ? (
-                    <div className="muted">No Microsoft 365 data room is linked to this deal yet, so nothing can be saved to one. Generating and downloading documents above works as normal.</div>
+                    <div className="muted">This deal's data room lives inside the product — you can open it on Diligence workstreams. Microsoft 365 is not connected, so documents cannot be saved to a SharePoint site. Generating and downloading documents above works as normal.</div>
                   ) : docs?.error ? (
                     <div className="muted">The shared data room could not be read just now — you can generate and download documents above in the meantime.</div>
                   ) : !docs ? (

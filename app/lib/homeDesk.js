@@ -781,7 +781,11 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
         c.add(`Your ${laneWord} ${seat.laneLabels.length > 1 ? 'are' : 'is'} needed soonest on ${laneNextIC.company}, which goes to IC in ${laneNextIC.daysToIC} day${laneNextIC.daysToIC === 1 ? '' : 's'}.`, 'Deal record — target IC date');
       }
     }
-    c.add(`Across everything you can see: ${list.length} deal${list.length === 1 ? '' : 's'} carrying ${money(capital)} of enterprise value, ${notReady} not yet IC-ready.`, 'Deal list');
+    // This total spans the WHOLE book, owned companies included. The Report page
+    // reports pipeline value, which excludes them. Both were right and neither said
+    // so, and a partner read "$8.1B" here and "$6.4B" there and asked which number
+    // she was supposed to give an LP.
+    c.add(`Across everything you can see, screening to exit: ${list.length} deal${list.length === 1 ? '' : 's'} carrying ${money(capital)} of enterprise value, ${notReady} not yet IC-ready. The Report page counts pipeline value, which leaves out the companies you already own.`, 'Deal list');
   } else {
     if (seat.kind === 'oversight') {
       c.add(`You are seeing the administrator's view — every deal in the fund, ranked by urgency rather than filtered to one role.`, 'Access model — administrator');
@@ -886,8 +890,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
 
     c.add(
       openedWithJob
-        ? `Across everything you can see: ${list.length} deal${list.length === 1 ? '' : 's'} carrying ${money(capital)} of enterprise value in ${sectors || 1} sector${sectors === 1 ? '' : 's'}.`
-        : `You have ${list.length} deal${list.length === 1 ? '' : 's'} in view carrying ${money(capital)} of enterprise value across ${sectors || 1} sector${sectors === 1 ? '' : 's'}.`,
+        ? `Across everything you can see, screening to exit: ${list.length} deal${list.length === 1 ? '' : 's'} carrying ${money(capital)} of enterprise value in ${sectors || 1} sector${sectors === 1 ? '' : 's'}.`
+        : `You have ${list.length} deal${list.length === 1 ? '' : 's'} in view, screening to exit, carrying ${money(capital)} of enterprise value across ${sectors || 1} sector${sectors === 1 ? '' : 's'}.`,
       'Deal list',
     );
 

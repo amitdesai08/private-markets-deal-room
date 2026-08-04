@@ -40,7 +40,10 @@ type Connector = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  connected: 'Connected', disconnected: 'Not connected', degraded: 'Degraded',
+  // "Not connected" beside a switch already in the on position told a partner nothing
+  // about the only question she had, which was whether the firm is paying for the thing.
+  // It is not a subscription state; it means no credentials have been entered yet.
+  connected: 'Connected', disconnected: 'No sign-in details entered yet', degraded: 'Degraded',
   // "Not tested" over a header saying these sources are on read as a warning. They are
   // enabled and in use; what has not happened is a reachability check from this screen.
   disabled: 'Disabled', unknown: 'On — no test run yet', pending: 'Pending approval',

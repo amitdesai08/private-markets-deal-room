@@ -113,7 +113,7 @@ export default function ThreadsDesk({
   }
 
   if (loading) return <div className="card"><div className="bd muted">Reading the deal's conversations…</div></div>;
-  if (!data) return <div className="card"><div className="bd muted">Threads are unavailable for this deal.</div></div>;
+  if (!data) return <div className="card"><div className="bd muted">You may not have access to the conversations on this deal, or they could not be loaded just now.</div></div>;
   if (!data.threads.length) {
     return (
       <div className="card">

@@ -438,7 +438,7 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
                         {c.dueText ? <span className="chip warn">📅 {c.dueText}</span> : null}
                       </div>
                       <div className="quote">“{c.quote || c.headline}”</div>
-                      <div className="sub">Basis: {c.basis || 'detected in the deal channel'} · not recorded as a task</div>
+                      <div className="sub">Where this came from: {c.basis || 'detected in the deal channel'} · not recorded as a task</div>
                       <div className="acts">
                         <button className="btn" onClick={() => onOpen(c.dealId)}>Open {c.company} ▸</button>
                         {onAskQuestion ? (
@@ -519,7 +519,7 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
                 {/* Why this row is where it is. A ranked list that cannot answer
                     "why is this above that?" does not survive its first partner. */}
                 {a.placedBy ? <div className="sub" style={{ marginTop: 6 }}>Why it is here: {a.placedBy}</div> : null}
-                {a.basis ? <div className="sub" style={{ marginTop: 2 }}>Basis: {a.basis}</div> : null}
+                {a.basis ? <div className="sub" style={{ marginTop: 2 }}>Where this came from: {a.basis}</div> : null}
                 <div className="acts">
                   <button className="btn primary" onClick={() => onOpen(a.dealId)}>Open deal ▸</button>
                   <button className="btn link" onClick={() => onAsk(a.dealId)}>Ask the assistant</button>

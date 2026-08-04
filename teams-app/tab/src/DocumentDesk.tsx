@@ -41,10 +41,16 @@ export default function DocumentDesk({
   const [filter, setFilter] = useState<Filter>('all');
   const [q, setQ] = useState('');
   const [note, setNote] = useState('');
+  // 403/404 from this route means "withheld", not "empty". A partner read
+  // "Documents are unavailable for this deal" as "this deal has no documents" and
+  // went off to chase the deal team for files that were sitting there all along.
+  const [denied, setDenied] = useState(false);
 
   async function load() {
     setLoading(true);
-    const r = await af(`/api/deals/${dealId}/doc-desk`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    const x = await af(`/api/deals/${dealId}/doc-desk`).catch(() => null);
+    setDenied(!!x && (x.status === 403 || x.status === 404));
+    const r = x && x.ok ? await x.json().catch(() => null) : null;
     setData(r);
     setLoading(false);
   }
@@ -60,7 +66,7 @@ export default function DocumentDesk({
   }, [data, filter, q]);
 
   if (loading) return <div className="card"><div className="bd muted">Reading the deal room…</div></div>;
-  if (!data) return <div className="card"><div className="bd muted">Documents are unavailable for this deal.</div></div>;
+  if (!data) return <div className="card"><div className="bd muted">{denied ? 'You do not have access to the documents on this deal. They exist — your seat cannot open them. Ask the deal lead to add you to the deal team.' : 'The documents on this deal could not be loaded just now. Try again in a moment.'}</div></div>;
 
   const canWrite = !!data.canWrite;
   const FILTERS: [Filter, string, number][] = [

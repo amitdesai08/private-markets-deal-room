@@ -60,7 +60,7 @@ export default function AgentGuide({ roleLabel, canViewStage2, canWrite, onAsk }
           says plainly what it is, and it is one click for the person who needs it. */}
       <details className="ag">
         <summary>
-          <span className="ag-h">▸ Everything you can ask this product to do</span>
+          <span className="ag-h">Everything you can ask this product to do</span>
           {/* This one row is the entire capability list. A partner exploring on her own
               found it last, called it "the manual, folded shut", and said she would have
               used a third of what she was paying for without it. It stays collapsed --

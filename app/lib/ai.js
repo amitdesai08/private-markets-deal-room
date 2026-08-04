@@ -122,6 +122,20 @@ export function houseStyle(md) {
   // We do not run sprints; nobody in a fund says it.
   s = s.replace(/\bDD sprints?\b/g, (m) => (m.endsWith('s') ? 'focused diligence' : 'focused diligence'));
   s = s.replace(/\b(?:diligence|workstream) sprints?\b/gi, 'focused diligence');
+  // "(the deal record; the deal record.workstreams.legal)" -- the citation label with a
+  // field path glued to the end of it. The earlier rule only catches paths that begin
+  // the bracket, so this one survived and went straight to a partner.
+  s = s.replace(/\b(the deal record)((?:\.[A-Za-z0-9_]+)+)/g, '$1');
+  // A placeholder the model left in: "forces a >$X equity re-fill". An unresolved X in
+  // a sentence about money is worse than no sentence -- say we do not have the number.
+  s = s.replace(/([<>]?\s*[$\u20ac\u00a3]\s*)X\b/g, 'an undisclosed');
+  // Our internal stage keys, printed as bare lower-case tags beside every step.
+  const STAGE_WORDS = { origination: 'Origination', diligence: 'Diligence', execution: 'Execution', value: 'Value creation' };
+  s = s.replace(/(^|[\s(])`(origination|diligence|execution|value)`/g, (_m, pre, w) => `${pre}${STAGE_WORDS[w] || w}`);
+  // Report-writer's scaffolding that reads as a category, not a sentence.
+  s = s.replace(/\bSo what \(decision-grade\):/gi, 'So what:');
+  s = s.replace(/\bNOT[-\s]READY\b/g, 'not ready for committee');
+  s = s.replace(/\bIC[-\s]READY\b/g, 'ready for committee');
 
   // Collapse the blank runs the deletions leave behind.
   s = s.replace(/\n{3,}/g, '\n\n');

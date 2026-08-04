@@ -36,7 +36,7 @@ export const CONNECTORS = [
     primaryJob: 'The work already in Microsoft 365 — SharePoint files, Teams discussion & mailbox (read as you)',
     sweetSpot: 'Ground answers in a deal’s real documents, channel discussion & correspondence',
     // Endpoint is set at runtime from Settings (persisted); no fixed vendor URL.
-    configFields: [{ key: 'mcpUrl', label: 'Endpoint URL', placeholder: 'https://your-provider.example.com/api', kind: 'url' }]
+    configFields: [{ key: 'mcpUrl', label: 'Web address your provider gave you', placeholder: 'https://your-provider.example.com/api', kind: 'url' }]
   },
   {
     id: 'web', name: 'Web', kind: 'web', role: 'discover',

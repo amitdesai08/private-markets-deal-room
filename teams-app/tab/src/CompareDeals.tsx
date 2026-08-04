@@ -107,12 +107,16 @@ export default function CompareDeals({ deals, compare, onClear, onOpen }: {
           <tbody>
             {CMP_ROWS.map((r) => (
               <tr key={r.label}>
-                <td style={{ ...td, color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{r.label}</td>
+                {/* The readiness row showed a bare "100%" against a bare "65%" with
+                    nothing to say what was being measured, and a partner will not read
+                    two numbers out to a committee she cannot explain. */}
+                <td style={{ ...td, color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }} title={r.label === 'IC readiness' ? 'Weighted across required papers, workstream progress and open risks — not a count of the six required papers on the IC readiness board.' : undefined}>{r.label}</td>
                 {picked.map((d) => (<td key={d.id} style={td}>{r.get(d)}</td>))}
               </tr>
             ))}
           </tbody>
         </table>
+        <div className="muted" style={{ padding: '8px 10px', fontSize: 12 }}>IC readiness is weighted across required papers, workstream progress and open risks — it is not a count of the six required papers on a deal's IC readiness board.</div>
       </div>
     </section>
   );
