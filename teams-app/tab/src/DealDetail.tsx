@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getSsoToken } from './teams';
 import { af } from './authFetch';
 import DealArtifacts from './DealArtifacts';
@@ -100,6 +100,10 @@ const ownerName = (o?: string) => {
   return OWNER_LABEL[k] || OWNER_LABEL[k.replace(/[\s_]+/g, '-')] || o;
 };
 const VERDICT_CLASS: Record<string, string> = { READY: 'ok', CONDITIONAL: 'warn', 'NOT-READY': 'bad' };
+// The stored verdict is an enum, and the IC readiness board was printing it raw: a
+// badge reading "NOT-READY", in capitals with a hyphen, on the most-read screen in
+// the product. Nobody says that out loud in a committee.
+const VERDICT_TEXT: Record<string, string> = { READY: 'Ready for committee', CONDITIONAL: 'Ready with conditions', 'NOT-READY': 'Not ready for committee' };
 
 function relTime(iso?: string | null): string | null {
   if (!iso) return null;
@@ -231,6 +235,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   };
   const wanted = initialTab ? (TAB_ALIAS[initialTab] || initialTab) : undefined;
   const [tab, setTab] = useState<Tab>(wanted || 'cockpit');
+  const mounted = useRef(false);
   // Report the open page upwards so it can go in the address bar. "I could send a link
   // to the deal but not to the IC readiness page on it" was the remaining half of the
   // complaint that the URL never moved.
@@ -299,8 +304,12 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     setLoading(true); setNote(''); setDeal(null); setIc(null);
     // Every deal opens on its brief, including the second one you open without
     // closing the first — otherwise the tab you happened to leave behind on the last
-    // deal decides how you meet the next one.
-    setTab('cockpit');
+    // deal decides how you meet the next one. But this effect also runs on mount, and
+    // on mount it was overwriting the page named in the address: every deep link into
+    // a deal, including the correct ones the product writes itself, silently landed on
+    // the brief. A link to a colleague pointing at the IC readiness board opened the
+    // wrong screen. Honour the address the first time; reset on every deal after it.
+    if (mounted.current) setTab('cockpit'); else mounted.current = true;
     fetch('/api/flow').then((r) => r.json()).then(setFlow).catch(() => {});
     fetch('/api/config').then((r) => r.json()).then(setCfg).catch(() => {});
     fetch('/api/teams/config')
@@ -1037,7 +1046,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                     </div>
                     <div style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        {verdict?.state ? <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: verdict.state === 'READY' ? 'var(--good)' : verdict.state === 'NOT-READY' ? 'var(--bad)' : 'var(--warn)', background: verdict.state === 'READY' ? 'var(--good-bg)' : verdict.state === 'NOT-READY' ? 'var(--bad-bg)' : 'var(--warn-bg)' }}>{verdict.state}</span> : null}
+                        {verdict?.state ? <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: verdict.state === 'READY' ? 'var(--good)' : verdict.state === 'NOT-READY' ? 'var(--bad)' : 'var(--warn)', background: verdict.state === 'READY' ? 'var(--good-bg)' : verdict.state === 'NOT-READY' ? 'var(--bad-bg)' : 'var(--warn-bg)' }}>{VERDICT_TEXT[verdict.state] || verdict.state}</span> : null}
                         {/* The header pill two inches above says "Approved at IC" and this
                             said "68% ready" on the same deal. Readiness measures whether the
                             papers are fit to put in front of committee; once committee has
@@ -1090,7 +1099,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                                 <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: delta.pctChange > 0 ? 'var(--good)' : 'var(--bad)', background: delta.pctChange > 0 ? 'var(--good-bg)' : 'var(--bad-bg)' }}>{delta.pctChange > 0 ? '▲' : '▼'} {Math.abs(delta.pctChange)}% readiness</span>
                               ) : null}
                               {delta.verdictChanged && delta.prevState && delta.state ? (
-                                <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: delta.state === 'READY' ? 'var(--good)' : delta.state === 'NOT-READY' ? 'var(--bad)' : 'var(--warn)', background: 'var(--chip)' }}>Verdict {delta.prevState} → {delta.state}</span>
+                                <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: delta.state === 'READY' ? 'var(--good)' : delta.state === 'NOT-READY' ? 'var(--bad)' : 'var(--warn)', background: 'var(--chip)' }}>Verdict {VERDICT_TEXT[delta.prevState] || delta.prevState} → {VERDICT_TEXT[delta.state] || delta.state}</span>
                               ) : null}
                               {(delta.resolved || []).map((r, i) => (
                                 <span key={`r${i}`} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, color: 'var(--good)', background: 'var(--good-bg)' }}>✓ Resolved: {r.label}</span>
@@ -1371,7 +1380,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   <div className="dd-panel-h">IC readiness<span className="muted">the board below is the record — the percentage on the deal header weighs papers, workstreams and open risks together</span></div>
                   {verdict ? (
                     <div className={`verdict ${VERDICT_CLASS[verdict.state || ''] || ''}`}>
-                      <span className="verdict-state">{verdict.state}</span>
+                      <span className="verdict-state">{VERDICT_TEXT[String(verdict.state || '')] || verdict.state}</span>
                       <span className="verdict-head">{verdict.headline}</span>
                     </div>
                   ) : <div className="dd-empty-p">IC readiness available once diligence is underway.</div>}

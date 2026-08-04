@@ -31,8 +31,17 @@ export const CMP_ROWS: { label: string; get: (d: Deal) => string }[] = [
   { label: 'Deal size', get: (d) => money(d.dealSize ? d.dealSize * 1e6 : undefined) },
   { label: 'Sector', get: (d) => d.sector || '\u2014' },
   // The raw key. A partner read "Status: in_diligence" in a comparison she was about
-  // to paste into an email; underscores and lower case are how a database talks.
-  { label: 'Status', get: (d) => STATUS_TEXT[String(d.status || '')] || String(d.status || '\u2014') },
+  // to paste into an email; underscores and lower case are how a database talks. The
+  // named map covers the statuses we ship, but anything the record grows later must
+  // not arrive on screen in its raw form, so humanise whatever is left over.
+  { label: 'Status', get: (d) => {
+    const raw = String(d.status || '');
+    if (!raw) return '\u2014';
+    const named = STATUS_TEXT[raw];
+    if (named) return named;
+    const words = raw.replace(/[_-]+/g, ' ').trim();
+    return words.charAt(0).toUpperCase() + words.slice(1);
+  } },
   { label: 'Priority', get: (d) => priorityOf(d).tag },
   { label: 'Recommended action', get: (d) => priorityOf(d).why },
 ];

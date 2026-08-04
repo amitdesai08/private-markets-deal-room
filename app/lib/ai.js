@@ -135,8 +135,15 @@ export function houseStyle(md) {
   // Report-writer's scaffolding that reads as a category, not a sentence. The model
   // rewrites the parenthetical the moment you name one variant of it, so catch any
   // parenthetical the writer has attached to its own heading.
-  s = s.replace(/\bSo what\s*\([^)\n]{0,40}\):/gi, 'So what:');
-  s = s.replace(/\bBottom line\s*\([^)\n]{0,40}\):/gi, 'Bottom line:');
+  s = s.replace(/\bSo what\s*\([^)\n]{0,40}\)\s*:/gi, 'So what:');
+  s = s.replace(/\bSo what\s*\([^)\n]{0,40}\)/gi, 'So what');
+  s = s.replace(/\bBottom line\s*\([^)\n]{0,40}\)\s*:/gi, 'Bottom line:');
+  // "Where the money and risk are concentrated (Lumen only)" -- a heading that admits,
+  // in brackets, that it answered a narrower question than the one asked.
+  s = s.replace(/\s*\((?:[A-Z][A-Za-z]*\s+)?only\)/g, '');
+  // Our internal step codes, printed as though they were vocabulary: "Current step is
+  // D3", "finalize the D3 IC memo", "convert Proceed → Hold/Pass".
+  s = s.replace(/\b(?:current step is\s*)?\b([ODEV])(\d)\b(?=[\s.,;:)]|$)/g, (m) => m.replace(/[ODEV]\d/, 'this stage'));
   s = s.replace(/\bNOT[-\s]READY\b/g, 'not ready for committee');
   s = s.replace(/\bIC[-\s]READY\b/g, 'ready for committee');
   // "swing the base-case toward >10x" -- a spreadsheet operator dropped into a
@@ -168,16 +175,27 @@ export function houseStyle(md) {
 
   // Collapse the blank runs the deletions leave behind.
   s = s.replace(/\n{3,}/g, '\n\n');
-  // One reporting currency. The records are dollars; a euro sign here is the model's
-  // invention, and an identical numeral under two symbols is worse than a wrong one.
-  s = s.replace(/[\u20ac\u00a3](?=\s?[\d.])/g, '$');
+  // One reporting currency. The records are dollars; a euro sign here is usually the
+  // model's invention, and an identical numeral under two symbols is worse than a wrong
+  // one. But the seeded diligence documents on European deals are denominated in euros,
+  // and this rule was quietly restating "EUR 4.1M of ARR" from a quality-of-earnings
+  // report as "$4.1m" in an answer a partner was about to forward. Rewriting the symbol
+  // on a figure that was lifted from a document invents a number. Only normalise a bare
+  // symbol, never one the model has written as an explicit currency code.
+  s = s.replace(/(?<!EUR\s)(?<!GBP\s)[\u20ac\u00a3](?=\s?[\d.])/g, '$');
   // The profession's spellings.
   s = s.replace(/\bMoIC\b/g, 'MOIC').replace(/\bartifacts?\b/gi, (m) => (m[0] === 'A' ? 'IC papers' : 'IC papers'));
   return s;
 }
 
 // Optional `dep` overrides the deployment for this call (defaults to the app model).
-export async function complete({ system, user, maxTokens = 700, temperature = 0.4, deployment: dep = deployment }) {
+// Temperature was 0.4, and a partner asked the same question about the same unchanged
+// deal twice and was told to push it and then to proceed with it. She was right that
+// this is the whole product: an assistant that answers differently on Monday and
+// Tuesday cannot be quoted in a committee, and a partner cannot supervise a tool whose
+// job is to save them the reading. Recommendations must be reproducible; a little
+// variety in the prose is not worth a contradiction in the verdict.
+export async function complete({ system, user, maxTokens = 700, temperature = 0.1, deployment: dep = deployment }) {
   const c = clientFor(dep);
   if (!c) return null;
   const reasoning = /(^|[-_])(gpt-5|o1|o3|o4)/i.test(dep);

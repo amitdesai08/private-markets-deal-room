@@ -279,7 +279,10 @@ export default function App() {
   useEffect(() => {
     const onPop = () => {
       const h = window.location.hash || '';
-      if (/#\/settings\b/.test(h)) { setSettingsOpen(true); return; }
+      // Settings renders inside the branch that only runs when no deal is open, so
+      // opening Settings while a deal was open changed the address and nothing else.
+      // Close the deal on the way in, exactly as the gear button already does.
+      if (/#\/settings\b/.test(h)) { setSettingsOpen(true); setOpenDealId(''); return; }
       setSettingsOpen(false);
       const d = /[#/]deal\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?/.exec(h);
       if (d) { setOpenDealId(d[1]); setDealTab(d[2] || ''); return; }
