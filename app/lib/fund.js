@@ -187,6 +187,11 @@ export function fundOverview() {
       invested,
       reserves,
       dryPowder,
+      // Committed $2.6B less invested $1.19B is $1.41B, and the tile said $1.10B, so
+      // anyone who did the subtraction -- which is the first thing an LP does -- found
+      // $310M unaccounted for. The gap is the fee and expense reserve. Say so on the
+      // tile rather than leaving it to be discovered.
+      dryPowderNote: `net of a $${round(reserves / 1000, 2)}B management-fee and expense reserve.`,
       deployedPct,
       portfolioCompanies: companies.length
     },
@@ -217,7 +222,7 @@ export function fundOverview() {
     },
     ilpaSummary: [
       `Fund: ${fundMandate.name} · vintage ${fundVintage.vintageYear}`,
-      `Committed capital: $${round(fundSize / 1000, 2)}B · ${deployedPct}% invested · $${round(dryPowder / 1000, 2)}B dry powder`,
+      `Committed capital: $${round(fundSize / 1000, 2)}B · ${deployedPct}% invested · $${round(dryPowder / 1000, 2)}B dry powder (net of a $${round(reserves / 1000, 2)}B fee and expense reserve)`,
       `Net asset value (unrealised): $${round(unrealized / 1000, 2)}B across ${companies.length} portfolio companies`,
       `TVPI ${tvpi}x · DPI ${dpi}x · RVPI ${rvpi}x · net IRR ${netIrr}%`,
       `Reporting: ${fundMandate.esgPolicy}`

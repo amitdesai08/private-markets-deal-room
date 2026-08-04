@@ -14,7 +14,11 @@
 //     the model provider switched off.
 
 import { STEPS, stepIndex } from '../data/flow.js';
-import { laneLabel, ownerLabel, daysUntil, dueLabel } from './cockpit.js';
+import { laneLabel, ownerLabel, daysUntil, dueLabel, laneStatusText, CLOSED_AT_IC } from './cockpit.js';
+
+// Statuses that mean the committee has already decided. Past that point, a gap in the
+// diligence record is a filing job, not work anybody is waiting on.
+const PAST_COMMITTEE_STATUS = new Set(['approved', 'signing', 'signed', 'closed', 'owned', 'exiting', 'exited']);
 
 const iso = (v) => {
   const t = new Date(v || 0).getTime();
@@ -189,10 +193,14 @@ function stalledLanes(deal, board) {
   const fromBoard = new Map((board?.blockingWorkstreams || []).map((w) => [w.lane, w]));
   const out = [];
   for (const w of deal.workstreams || []) {
+    // A lane closed out at committee is a records gap on a decided deal, not work
+    // holding this step up. Counting it produced "4 workstreams are holding this
+    // step" on a SIGNED deal whose own audit trail records the work as done.
+    if (w.status === CLOSED_AT_IC) continue;
     const b = fromBoard.get(w.lane);
     const stopped = STATUS_STALLED.has(w.status) || (w.progress ?? 0) === 0;
     if (!b && !stopped) continue;
-    out.push({ ...w, reasons: b?.reasons || (stopped ? [`status "${String(w.status || 'not started').replace(/_/g, ' ')}"`] : []) });
+    out.push({ ...w, reasons: b?.reasons || (stopped ? [`status ${laneStatusText(w.status)}`] : []) });
   }
   return out.sort((a, b2) => (a.progress ?? 0) - (b2.progress ?? 0));
 }
@@ -206,7 +214,7 @@ function blockerAnalysis(step, deal, board, lanes) {
   const evidence = [];
   for (const w of lanes.slice(0, 3)) {
     evidence.push({
-      text: `${laneLabel(w.lane)} is at ${w.progress ?? 0}% with status "${String(w.status || 'unknown').replace(/_/g, ' ')}" (owner ${ownerLabel(w.owner, w.lane)}).`,
+      text: `${laneLabel(w.lane)} is at ${w.progress ?? 0}% and ${laneStatusText(w.status)} (owner ${ownerLabel(w.owner, w.lane)}).`,
       source: 'Workstream progress',
     });
   }
@@ -276,9 +284,19 @@ export function buildWorkflowDesk(deal, board, { role = null, commitments = [] }
   const c = citer();
   c.add(`${deal.company} is at ${done.length} of ${steps.length} steps on the flow, currently in ${current?.key} ${current?.title}.`, 'Deal record');
   const moving = lanes.filter((w) => (w.progress ?? 0) > 0);
-  const idle = lanes.length - moving.length;
+  // On a deal that has already been approved and signed, "4 have not started" reads as
+  // four pieces of outstanding work holding up completion. They are neither: diligence
+  // finished when the committee decided, and what is missing is the write-up. Say which
+  // it is, or the sentence accuses the deal team of work they are recorded as having done.
+  const settled = PAST_COMMITTEE_STATUS.has(String(deal.status || '').toLowerCase());
+  const closedAtIc = lanes.filter((w) => w.status === CLOSED_AT_IC).length;
+  const idle = lanes.length - moving.length - closedAtIc;
   if (lanes.length) {
-    c.add(`${moving.length} of ${lanes.length} diligence workstreams are moving${idle ? `; ${idle} ${idle === 1 ? 'has' : 'have'} not started` : ''}. ${moving.map((w) => `${laneLabel(w.lane)} ${w.progress}%`).join(' · ') || 'No workstream has recorded progress.'}`, 'Workstream progress');
+    const gaps = [
+      idle ? `${idle} ${idle === 1 ? 'has' : 'have'} ${settled ? 'no progress on file' : 'not started'}` : '',
+      closedAtIc ? `${closedAtIc} closed at IC with no write-up on file` : '',
+    ].filter(Boolean).join('; ');
+    c.add(`${moving.length} of ${lanes.length} diligence workstreams are moving${gaps ? `; ${gaps}` : ''}. ${moving.map((w) => `${laneLabel(w.lane)} ${w.progress}%`).join(' · ') || 'No workstream has recorded progress.'}`, 'Workstream progress');
   }
   if (current?.blocker) {
     // The headline was lowercased to splice it after a dash, which turned the defined

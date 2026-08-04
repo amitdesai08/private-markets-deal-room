@@ -27,7 +27,7 @@ import { workiqConfigured, workiqConnected, workiqUrl, workiqBackend } from './m
 export const CONNECTORS = [
   {
     id: 'm365', name: 'Microsoft 365 sign-in', kind: 'm365', role: 'identity',
-    primaryJob: 'Microsoft 365 access — Teams, SharePoint & mailbox (runs on the app’s own permissions; optional user sign-in to act as you)',
+    primaryJob: 'Microsoft 365 access — Teams, SharePoint & mailbox (signs in as the firm, not as you; optional personal sign-in to act on your behalf)',
     sweetSpot: 'App-only by default — no user sign-in needed; the deal data room is created with the app’s identity',
     loginUrl: '/api/m365/login'
   },
@@ -65,7 +65,7 @@ export const CONNECTORS = [
     mcpUrl: config.connectors.moodysMcpUrl
   },
   {
-    id: 'fabric-agent', name: 'Fund data warehouse', kind: 'fabric-agent', role: 'quality',
+    id: 'fabric-agent', name: 'Fund reporting data', kind: 'fabric-agent', role: 'quality',
     primaryJob: 'Ask the fund’s own data in plain English',
     sweetSpot: 'Questions over comps, findings, IC precedents & financials'
   },

@@ -54,10 +54,15 @@ export default function DealArtifacts({ dealId }: { dealId: string }) {
             ))}
           </div>
           {returns.sourcesUses && (
+            <>
             <div className="da-su">
               <div><b>Sources</b>{(returns.sourcesUses.sources || []).map((x: Any) => <div key={x.label}>{x.label} <span>{money(x.amount)}</span></div>)}</div>
               <div><b>Uses</b>{(returns.sourcesUses.uses || []).map((x: Any) => <div key={x.label}>{x.label} <span>{money(x.amount)}</span></div>)}</div>
             </div>
+            {returns.sourcesUses.equityBasisNote ? (
+              <div className="muted" style={{ fontSize: 11.5, padding: '6px 0 0' }}>{returns.sourcesUses.equityBasisNote}</div>
+            ) : null}
+            </>
           )}
         </section>
       )}

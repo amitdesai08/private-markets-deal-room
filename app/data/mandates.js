@@ -22,7 +22,7 @@ export const fundMandate = {
   id: 'fund-iv',
   tier: 1,
   kind: 'fund-mandate',
-  name: 'Fund IV — US Mid-Market Buyout',
+  name: 'Fund IV — Mid-Market Buyout',
   strategy: 'Control buyouts & structured minority growth',
   fundSize: '$2.6B',
   investmentPeriod: '2024–2029',
@@ -35,7 +35,7 @@ export const fundMandate = {
   // $800M does not just look wrong beside that list -- it makes the screening gate,
   // which tests deals against these constraints, wrong about every European deal it
   // passes. The constraints now describe the book.
-  geographies: ['United States', 'Northeast', 'Southeast', 'Midwest', 'Texas', 'West / California', 'Western Europe', 'Nordics', 'DACH', 'Ireland'],
+  geographies: ['United States', 'Western Europe', 'Nordics', 'DACH', 'Ireland', 'Northeast', 'Southeast', 'Midwest', 'Texas', 'West / California'],
   evMin: 100, // $M — hard enterprise-value band
   evMax: 1000,
   maxEquityPerDeal: 15, // % of fund committed capital (concentration limit)

@@ -327,7 +327,14 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
                   {framework.fund.fundSize ? <span className="chip">Fund {money(framework.fund.fundSize)}</span> : null}
                   {(framework.fund.evMin != null || framework.fund.evMax != null) ? <span className="chip">EV {money(framework.fund.evMin)}–{money(framework.fund.evMax)}</span> : null}
                   {(framework.fund.sectors || []).slice(0, 5).map((s, i) => <span className="chip" key={'s' + i}>{s}</span>)}
-                  {(framework.fund.geographies || []).slice(0, 4).map((g, i) => <span className="chip" key={'g' + i}>{g}</span>)}
+                  {/* This panel is labelled "the hard box every target must fit" and is
+                      the screen an analyst uses to decide whether a target is even
+                      eligible. slice(0,4) cut the list at "United States · Northeast ·
+                      Southeast · Midwest", so as displayed the box rejected Helvetia,
+                      Nordic Grocery, Baltic Precision and Onyx -- including the fund's
+                      largest live transaction. A constraint list you truncate is not a
+                      constraint list. */}
+                  {(framework.fund.geographies || []).map((g, i) => <span className="chip" key={'g' + i}>{g}</span>)}
                 </div>
               </div>
             ) : <div className="empty-panel">{!settled.includes('framework') ? 'Loading…' : 'The fund mandate could not be loaded. Refresh, or set it under Settings — the mandate is what every candidate is screened against.'}</div>}

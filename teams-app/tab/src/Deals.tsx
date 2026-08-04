@@ -34,9 +34,29 @@ function stageBucket(d: any): Filter {
 // The chip is the verdict, and the phase decides what the word means. "IC-ready" on a
 // deal that signed six weeks ago would be nonsense, so a post-committee READY reads
 // "In execution" — same state, honest label.
+const OWNED_STATUS = new Set(['owned', 'exiting', 'exited']);
+
+// One definition, used by both the filter and the chip count. They were written twice
+// and had already drifted: the count included companies the fund already owns while the
+// list excluded them, so the chip promised a number the page would not show. It also
+// counted deals the reader cannot open — there is nothing you can do about a deal you
+// are not on, so it does not belong in a list of things asking for your attention.
+function needsAttention(d: any): boolean {
+  if (d.locked || d.accessLevel === 'status') return false;
+  if (OWNED_STATUS.has(String(d.status || '').toLowerCase())) return false;
+  return !!d.icVerdict && (d.icVerdict.state === 'NOT-READY' || d.icVerdict.state === 'CONDITIONAL');
+}
+
 function chipFor(d: any): { tone: string; label: string } {
   const v = d.icVerdict;
   if (d.locked || d.accessLevel === 'status') return { tone: '', label: 'Status only' };
+  // A company the fund already owns is not "In execution" and is not "Conditional"
+  // because one diligence workstream has no write-up. The list is called Deals in
+  // flight; the three post-completion records in it should say what they are, and the
+  // daily briefing already gets this right ("a records gap, not outstanding work").
+  const st = String(d.status || '').toLowerCase();
+  if (st === 'exiting' || st === 'exited') return { tone: '', label: 'Exiting' };
+  if (st === 'owned') return { tone: '', label: 'Owned' };
   if (!v) return { tone: '', label: '—' };
   const post = v.phase === 'post-committee';
   if (v.state === 'READY') return post ? { tone: 'good', label: 'In execution' } : { tone: 'good', label: 'IC-ready' };
@@ -70,7 +90,7 @@ export default function Deals({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen:
     const out = inFlight.filter((d: any) => {
       if (needle && !`${d.company} ${d.sector || ''}`.toLowerCase().includes(needle)) return false;
       if (filter === 'all') return true;
-      if (filter === 'attention') return d.icVerdict && (d.icVerdict.state === 'NOT-READY' || d.icVerdict.state === 'CONDITIONAL');
+      if (filter === 'attention') return needsAttention(d);
       return stageBucket(d) === filter;
     });
     // The list arrived in whatever order the record happened to be in, which asks a
@@ -93,9 +113,7 @@ export default function Deals({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen:
     const c: Record<string, number> = { all: inFlight.length };
     for (const [k] of FILTERS) {
       if (k === 'all') continue;
-      c[k] = inFlight.filter((d: any) => (k === 'attention'
-        ? d.icVerdict && (d.icVerdict.state === 'NOT-READY' || d.icVerdict.state === 'CONDITIONAL')
-        : stageBucket(d) === k)).length;
+      c[k] = inFlight.filter((d: any) => (k === 'attention' ? needsAttention(d) : stageBucket(d) === k)).length;
     }
     return c;
   }, [inFlight]);
@@ -105,13 +123,31 @@ export default function Deals({ deals, onOpen, onAsk }: { deals: Deal[]; onOpen:
       <section className="panel">
         <div className="panel-h">
           Deals
-          <span className="muted">{shown.length} of {inFlight.length}</span>
+          {/* Home says 19, this list says 15 and the report says 19, and nothing on any
+              of the three screens accounted for the four. They are screened deals that
+              have not been launched into diligence, so they belong on Sourcing &
+              screening -- but a reader counting deals needs to be told that here. */}
+          <span className="muted">
+            {shown.length} of {inFlight.length}
+            {(deals || []).length > inFlight.length
+              ? ` · ${(deals || []).length - inFlight.length} more still in screening — see Sourcing & screening`
+              : ''}
+          </span>
         </div>
 
         <div className="dv-controls">
           <div className="dv-filters">
+            {/* A chip reading "Value & Exit 0" invites a click that empties the page and
+                tells you nothing you did not already know from the zero. Keep it visible —
+                the zero is itself a fact about the book — but stop it accepting the click. */}
             {FILTERS.map(([k, label]) => (
-              <button key={k} className={`dv-filter${filter === k ? ' on' : ''}`} onClick={() => setFilter(k)}>
+              <button
+                key={k}
+                className={`dv-filter${filter === k ? ' on' : ''}`}
+                disabled={k !== 'all' && (counts[k] ?? 0) === 0}
+                title={k !== 'all' && (counts[k] ?? 0) === 0 ? `No deals in ${label.toLowerCase()}` : undefined}
+                onClick={() => setFilter(k)}
+              >
                 {label}<span className="dv-count">{counts[k] ?? 0}</span>
               </button>
             ))}

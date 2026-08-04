@@ -913,7 +913,7 @@ const OPEN_CONDITIONS = {
     { id: 'c-glp-2', text: 'Working-capital bridge agreed with the vendor before completion', owner: 'Finance MD', status: 'proposed' }
   ],
   'demo-helvetia': [
-    { id: 'c-hel-1', text: 'Regulatory clearance filed and acknowledged in both jurisdictions', owner: 'Compliance', status: 'proposed' }
+      { id: 'c-hel-1', text: 'Regulatory clearance in both jurisdictions', owner: 'Compliance', status: 'proposed' }
   ]
 };
 

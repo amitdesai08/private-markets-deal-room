@@ -183,6 +183,9 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
   if (!rows) return <div className="ds-wrap"><style>{CSS}</style><p className="ds-empty">Loading data sources…</p></div>;
   const activeFree = rows.filter((c) => c.free && c.enabled).length;
   const freeTotal = rows.filter((c) => c.free).length;
+  // "4/4 free & open sources active" sat directly above a group of three, because the
+  // fourth free source is grouped separately further down the page. A fraction printed
+  // over a list it does not describe reads as a bug in the count.
 
   return (
     <div className="ds-wrap">
@@ -190,8 +193,8 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
       <div className="ds-head">
         <h2>Data sources</h2>
         <p>
-          Choose the market-data sources that power the Deal Room. {activeFree}/{freeTotal} free &amp; open sources active —
-          no subscription needed. Turn a source off to leave it out; sign in to enable a paid provider.
+          Choose the market-data sources that power the Deal Room. {activeFree} of {freeTotal} free &amp; open sources
+          are on across the groups below — no subscription needed. Turn a source off to leave it out; sign in to enable a paid provider.
         </p>
       </div>
 
@@ -284,7 +287,12 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
                     {c.latencyMs != null ? <span className="ds-lat">{c.latencyMs}ms</span> : null}
                     <span className="ds-actions">
                       {c.testable && c.enabled ? (
-                        <button className="ds-btn" disabled={!!busy[c.id]} onClick={() => test(c)}>Test</button>
+                        // A connection test is a read, so it stays available to everyone --
+                        // but "Test" beside three disabled admin buttons reads as the one
+                        // control this seat is allowed to change something with. Name it for
+                        // what it does instead.
+                        <button className="ds-btn" disabled={!!busy[c.id]} onClick={() => test(c)}
+                          title="Checks the connection is alive. Changes nothing.">{isAdmin ? 'Test' : 'Check status'}</button>
                       ) : null}
                       {c.connectable && c.enabled ? (
                         c.configured

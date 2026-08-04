@@ -205,14 +205,18 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
     { key: 'value', label: 'Value & Exit', re: /value|exit|owned|monitor/i },
   ];
   const phaseOf = (d: Deal) => PHASES.find((ph) => ph.re.test(`${d.stage || ''} ${d.stageName || ''}`));
+  // A deal you cannot open has its size withheld, so it contributes nothing to the
+  // stage total. Counting it in the deal count but not the money made a stage read
+  // "$0 · 1 deal", which says the deal is worthless rather than that you cannot see it.
+  // Carry the restricted count so the tile can say so.
   const byPhase = [
     ...PHASES.map((ph) => {
       const ds = deals.filter((d) => phaseOf(d)?.key === ph.key);
-      return { key: ph.key, label: ph.label, count: ds.length, capital: ds.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6 };
+      return { key: ph.key, label: ph.label, count: ds.length, restricted: ds.filter((d) => (d as any).locked).length, capital: ds.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6 };
     }),
     (() => {
       const ds = deals.filter((d) => !phaseOf(d));
-      return { key: 'other', label: 'Not yet staged', count: ds.length, capital: ds.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6 };
+      return { key: 'other', label: 'Not yet staged', count: ds.length, restricted: ds.filter((d) => (d as any).locked).length, capital: ds.reduce((s, d) => s + (d.dealSize || 0), 0) * 1e6 };
     })(),
   ].filter((ph) => ph.count > 0);
 
@@ -442,9 +446,18 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
             </div>
             <div className="legend">
               <span>
+                {/* It said "Ranked worst-first" and led with a deal at 100% IC-ready with
+                    committee in four days. The order is soonest-IC, which is the right
+                    order -- a deal that is ready still needs the papers walked into the
+                    room -- but a legend that describes a different sort than the one you
+                    are looking at makes a partner distrust the list. */}
                 {seat?.tailored && seat.laneLabels.length
-                  ? <>Ranked across <b>your {seat.laneLabels.join(' and ')} workstream{seat.laneLabels.length === 1 ? '' : 's'}</b>, on every deal you can see</>
-                  : <>Ranked worst-first across every deal you can see</>}
+                  ? <>Ranked across <b>your {seat.laneLabels.join(' and ')} workstream{seat.laneLabels.length === 1 ? '' : 's'}</b>, soonest committee first</>
+                  : <>Soonest committee first, across every deal you can see</>}
+                {/* Pointing at "Deals in flight" was wrong: the deals held back include
+                    ones still in screening, which that page does not list. Say only what
+                    is true — there are more, ranked below these. */}
+                {(home as any)?.attentionOmitted ? <> · <b>{(home as any).attentionOmitted} more</b> ranked below these</> : null}
                 {canWrite === false ? <> · <b>read-only access</b></> : null}
               </span>
             </div>
@@ -465,13 +478,11 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
                 <div className="att-l">⏰ {a.why}</div>
                 <div className="att-l">
                   {a.stageName ? <span>📍 {a.stageName}</span> : null}
-                  <span>📊 {a.readiness}% IC-ready</span>
-                    {/* Round 6 fixed the negative countdown on the deal cards and missed this
-                        list, so the highest-traffic panel in the product was still printing
-                        "IC in -14d". A negative countdown reads as broken arithmetic, and a
-                        partner who spots one discounts the other thirty-eight rows beside it.
-                        A date in the past is history; say so. */}
-                    {typeof a.icInDays === 'number' ? <span>📅 {a.icInDays > 0 ? `IC in ${a.icInDays}d` : a.icInDays === 0 ? 'IC today' : `IC was ${-a.icInDays}d ago`}</span> : null}
+                  {/* Round 9 suppressed the readiness percentage on post-IC deals in the
+                      pipeline cards 400px below this and missed this list, so one screen
+                      said "Helvetia 68% IC-ready" and "Helvetia Approved at IC". */}
+                  <span>📊 {isPostIC((a as any).status) ? 'Approved at IC' : `${a.readiness}% IC-ready`}</span>
+                    {typeof a.icInDays === 'number' && !isPostIC((a as any).status) ? <span>📅 {a.icInDays > 0 ? `IC in ${a.icInDays}d` : a.icInDays === 0 ? 'IC today' : `IC was ${-a.icInDays}d ago`}</span> : null}
                 </div>
                 {a.impact ? <div className="impact">⚡ {a.impact}</div> : null}
                 {/* Why this row is where it is. A ranked list that cannot answer
@@ -558,13 +569,13 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
       {/* Where the live capital sits in the process */}
       {shows('phases') ? (
       <section className="panel">
-        <div className="panel-h"><span>Deals by stage</span><span className="muted">{money(pipelineValue)} across {liveDeals} live deal{liveDeals === 1 ? '' : 's'}</span></div>
+        <div className="panel-h"><span>Deals by stage</span><span className="muted">{money(pipelineValue)} across {liveDeals} live deal{liveDeals === 1 ? '' : 's'}{byPhase.reduce((s, p) => s + p.restricted, 0) ? ' · sizes exclude deals you cannot open' : ''}</span></div>
         <div className="funnel">
           {byPhase.map((ph) => (
             <div key={ph.key} className="fstep">
-              <div className="fcount">{money(ph.capital)}</div>
+              <div className="fcount">{ph.restricted === ph.count ? '—' : money(ph.capital)}</div>
               <div className="flabel">{ph.label}</div>
-              <div className="fkey">{ph.count} deal{ph.count === 1 ? '' : 's'}</div>
+              <div className="fkey">{ph.count} deal{ph.count === 1 ? '' : 's'}{ph.restricted ? ` · ${ph.restricted} restricted` : ''}</div>
             </div>
           ))}
         </div>
@@ -587,10 +598,12 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
               </div>
             ))}
           </div>
+          {/* Without this, "Sourced 19 · Screened — · Shortlisted — · Awaiting decision 4"
+              reads as four measured numbers, two of which are missing. It is one measured
+              number and one derived one. Say which. */}
+          {(pipeline as any).funnelNote ? <div className="bd"><div className="muted">{(pipeline as any).funnelNote}</div></div> : null}
         </section>
       ) : null}
-
-      {/* Side-by-side comparison */}
       {compareDeals.length >= 2 ? (
         <section className="panel">
           <div className="panel-h">
@@ -709,7 +722,13 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
             )) : <div className="muted">No precedents loaded.</div>}
             {benchmarks.length ? (
               <div className="mi-bench">
-                <div className="mi-h" style={{ marginTop: 10 }}>Benchmark findings</div>
+                {/* This sat immediately under "No precedents loaded" with a bare number
+                    beside each workstream name, so it read as a continuation of the
+                    precedent list and the numbers decoded to nothing. It is a different
+                    fact — how many findings past diligences raised in each workstream —
+                    and it has to say so to be worth the space. */}
+                <div className="mi-h" style={{ marginTop: 10 }}>Findings raised in past diligences</div>
+                <div className="muted" style={{ fontSize: 11.5, marginBottom: 4 }}>Across closed deals, by workstream — a guide to where the work usually lands.</div>
                 <div className="chips">{benchmarks.map((b) => (<span key={b.workstream} className="chip">{b.workstream} · {b.total}</span>))}</div>
               </div>
             ) : null}

@@ -120,8 +120,8 @@ export const seedPortfolio = [
     addOns: { completed: 1, pipeline: 2 }
   },
   {
-    id: 'meridian-health',
-    company: 'Meridian Health Partners',
+    id: 'caldera-health',
+    company: 'Caldera Health Partners',
     sector: 'Healthcare',
     subSector: 'Multi-site specialty care',
     hq: 'Charlotte, NC',

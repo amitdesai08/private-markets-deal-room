@@ -107,10 +107,15 @@ export default function WorkflowDesk({
 
   const canWrite = !!data.canWrite;
   const commitments = data.commitments.filter((c) => !dismissed.has(c.id));
+  // Pending / In progress / Completed partition the steps; At risk and My steps are
+  // overlays cutting across them. Laid out as one undifferentiated row of chips they
+  // read as a partition that does not add up -- 5 + 1 + 1 + 10 against All 16 -- and a
+  // set of counts that fails addition is a set of counts nobody trusts.
   const FILTERS: [Filter, string, number][] = [
     ['all', 'All', data.counts.all], ['pending', 'Pending', data.counts.pending],
-    ['inProgress', 'In progress', data.counts.inProgress], ['atRisk', 'At risk', data.counts.atRisk],
-    ['completed', 'Completed', data.counts.completed], ['mine', 'My steps', data.counts.mine],
+    ['inProgress', 'In progress', data.counts.inProgress],
+    ['completed', 'Completed', data.counts.completed],
+    ['atRisk', 'At risk', data.counts.atRisk], ['mine', 'My steps', data.counts.mine],
   ];
 
   return (
@@ -185,10 +190,14 @@ export default function WorkflowDesk({
           <span className="sub">Authoritative status comes from the deal record · AI overlays are labelled separately and never change status</span>
         </div>
         <div className="pills">
-          {FILTERS.map(([k, label, n]) => (
-            <button key={k} className={`pillbtn${filter === k ? ' on' : ''}`} onClick={() => setFilter(k)}>
-              {label} ({n})
-            </button>
+          {FILTERS.map(([k, label, n], i) => (
+            <span key={k} style={{ display: 'contents' }}>
+              {/* Separates the partition from the overlays, so nobody adds the row up. */}
+              {i === 4 ? <span className="muted" style={{ fontSize: 11, alignSelf: 'center', padding: '0 2px' }}>also</span> : null}
+              <button className={`pillbtn${filter === k ? ' on' : ''}`} onClick={() => setFilter(k)}>
+                {label} ({n})
+              </button>
+            </span>
           ))}
         </div>
         {steps.length === 0 ? (

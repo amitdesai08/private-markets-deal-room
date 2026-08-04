@@ -168,13 +168,18 @@ function buildQuery(mandate, focus) {
   const evLo = mandate?.evMin ?? 100;
   const evHi = mandate?.evMax ?? 800;
   const excl = (mandate?.sectorsExcluded || []).join(', ');
+  // The geography was hard-coded to the United States while the mandate on file
+  // also permits Western Europe. A scout that silently drops half the box will
+  // never surface the kind of target the fund is already buying, and nobody
+  // reading the results would know why. Take the geography from the mandate.
+  const geos = (mandate?.geographies || []).join(', ') || 'United States';
   return [
-    `Fund mandate: US mid-market buyout fund (${mandate?.name || 'US mid-market buyout'}).`,
+    `Fund mandate: mid-market buyout fund (${mandate?.name || 'mid-market buyout'}).`,
     `Permitted sectors: ${sectors}. Excluded: ${excl}.`,
-    `Geography: United States. Enterprise value USD ${evLo}-${evHi}M (the acquisition threshold).`,
+    `Geography: ${geos}. Enterprise value USD ${evLo}-${evHi}M (the acquisition threshold).`,
     focus ? `Focus themes: ${focus}.` : 'Focus: ownership/succession, sponsor-exit, take-private and carve-out catalysts.',
-    `Return a mix of (a) private/founder/sponsor-owned targets AND (b) PUBLICLY-LISTED US companies that MEET THE ACQUISITION THRESHOLD — i.e. their market cap or enterprise value sits inside the USD ${evLo}-${evHi}M band and they are plausible take-private / buyout candidates (undervalued small- or micro-caps, activist involvement, strategic review, "exploring alternatives", proxy fights, orphaned/underfollowed public companies, or sector-consolidation targets).`,
-    'For any public company include its stock ticker. Ground every company in recent US business news (WSJ, Bloomberg, CNBC, Reuters US, Axios, PE Hub, Barron\'s, Seeking Alpha). Return only US companies.'
+    `Return a mix of (a) private/founder/sponsor-owned targets AND (b) PUBLICLY-LISTED companies that MEET THE ACQUISITION THRESHOLD — i.e. their market cap or enterprise value sits inside the USD ${evLo}-${evHi}M band and they are plausible take-private / buyout candidates (undervalued small- or micro-caps, activist involvement, strategic review, "exploring alternatives", proxy fights, orphaned/underfollowed public companies, or sector-consolidation targets).`,
+    `For any public company include its stock ticker. Ground every company in recent business news (WSJ, Bloomberg, CNBC, Reuters, Axios, PE Hub, Barron's, Financial Times, Seeking Alpha). Return only companies headquartered in: ${geos}.`
   ].join(' ');
 }
 

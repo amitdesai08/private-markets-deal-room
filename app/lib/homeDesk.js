@@ -531,8 +531,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     || String(x.deal.company || '').localeCompare(String(y.deal.company || '')));
 
 
-  const attention = ranked
-    .filter((r) => r.a.rank <= 5)
+  const qualifying = ranked.filter((r) => r.a.rank <= 5);
+  const attention = qualifying
     .slice(0, 6)
     .map((r, i) => ({
       ...r.a,
@@ -565,8 +565,18 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
       stepNumber: typeof r.deal.stageStepNumber === 'number' && r.deal.stageStepNumber > 0 ? r.deal.stageStepNumber : null,
       stepTotal: typeof r.deal.stageStepTotal === 'number' ? r.deal.stageStepTotal : null,
       readiness: num(r.deal.readiness),
+      // The tab needs this to know whether an IC readiness percentage is still a
+      // live figure or a historical one. Without it the attention list said
+      // "68% IC-ready" about a deal the same screen calls "Approved at IC".
+      status: r.deal.status || null,
       icInDays: typeof r.deal.daysToIC === 'number' ? r.deal.daysToIC : null,
     }));
+
+  // The panel was headed "across every deal you can see · 6 deals" while silently
+  // dropping the seventh and eighth off the bottom of a hard slice -- including deals
+  // with committee inside a month. A truncated list is fine; a truncated list that
+  // calls itself complete is not.
+  const attentionOmitted = Math.max(0, qualifying.length - attention.length);
 
   // Headline numbers, all derived from the deals THIS caller can see so the
   // narrative and the tiles can never disagree.
@@ -1072,6 +1082,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     // "every deal you can see is on track" to an observer holding sixteen deals, four
     // of which were not IC-ready — the reader's own tiles contradicted the sentence.
     // An empty result is not the same as a clean result.
+    attentionOmitted,
     attentionEmpty: attention.length ? null
       : !list.length ? 'There are no deals in your view yet.'
       : seat.kind === 'observer'

@@ -658,7 +658,7 @@ function jsonFromRaw(raw) {
 }
 
 // O3 · Triage — a value-creation angle + why-now brief around the weighted score.
-const TRIAGE_BRIEF_SYSTEM = `You are the Pipeline-Prioritization Agent inside "The Deal Room" for a US mid-market PE fund (Fund IV).
+const TRIAGE_BRIEF_SYSTEM = `You are the Pipeline-Prioritization Agent inside "The Deal Room" for a mid-market PE fund (Fund IV).
 Given ONE triaged candidate and its weighted triage score, write a tight prioritization brief a deal team would act on.
 Ground every point in the provided record and scores; be specific and quantitative; never invent precise figures not given.
 Respond with STRICT JSON ONLY — no prose, no fences — exactly:
@@ -696,7 +696,7 @@ Write the prioritization brief now (STRICT JSON only).`;
 }
 
 // O4 · Screening Gate — narrative around the deterministic paper-LBO memo.
-const MEMO_SYSTEM = `You are a deal sponsor writing the IC PRE-SCREEN MEMO narrative for a US mid-market PE fund (Fund IV) investment committee.
+const MEMO_SYSTEM = `You are a deal sponsor writing the IC PRE-SCREEN MEMO narrative for a mid-market PE fund (Fund IV) investment committee.
 You are given the deterministic paper-LBO returns and the candidate record. Write the qualitative memo sections that wrap those numbers.
 Ground everything in the provided facts; be decisive and specific; never contradict or restate the provided returns figures — reference them.
 Respond with STRICT JSON ONLY — no prose, no fences — exactly:
@@ -738,7 +738,7 @@ Write the memo narrative now (STRICT JSON only).`;
 
 // D3 · Final IC Memo — thesis, value-creation narrative and exit rationale around
 // the diligence-backed numbers and findings synthesis.
-const FINAL_MEMO_SYSTEM = `You are the deal sponsor writing the FINAL INVESTMENT COMMITTEE MEMO narrative for a US mid-market PE fund (Fund IV), after confirmatory due diligence is complete.
+const FINAL_MEMO_SYSTEM = `You are the deal sponsor writing the FINAL INVESTMENT COMMITTEE MEMO narrative for a mid-market PE fund (Fund IV), after confirmatory due diligence is complete.
 You are given the deterministic diligence-backed returns, the QoE-adjusted financials, and the diligence findings synthesis. Write the qualitative sections that wrap those facts.
 Ground everything in the provided facts; be decisive and specific; never contradict the provided returns or findings — reference them. This is the comprehensive, diligence-backed memo (not the earlier pre-screen).
 Respond with STRICT JSON ONLY — no prose, no fences — exactly:
@@ -771,7 +771,7 @@ Write the final IC memo narrative now (STRICT JSON only).`;
 
 // D2 · Findings report — a short synthesis line + the go/no-go read across the
 // severity-rated workstream findings.
-const FINDINGS_SYSTEM = `You are the deal-team VP synthesizing DUE-DILIGENCE FINDINGS for a US mid-market PE fund's deal team.
+const FINDINGS_SYSTEM = `You are the deal-team VP synthesizing DUE-DILIGENCE FINDINGS for a mid-market PE fund's deal team.
 Given the severity-rated findings across workstreams, write a tight synthesis a partner would read before the IC.
 Ground everything in the provided findings; be decisive; classify the overall read. Respond with STRICT JSON ONLY — no prose, no fences — exactly:
 {"synthesis":"<=3 sentence read across the workstreams","goNoGo":"<=1 sentence: proceed / proceed-with-reprice / renegotiate / walk, with why"}`;

@@ -506,6 +506,15 @@ export function applyStatusTier(s) {
   // per-lane and per-check substance in prose. The state alone survives, because a
   // metadata seat is entitled to know a deal is not ready without being told why.
   if (s.icVerdict) s.icVerdict = { state: s.icVerdict.state, headline: null, gating: [], phase: s.icVerdict.phase, basis: null };
+  // Enterprise value was masked on the deal card and then published everywhere else:
+  // the "Deals by stage" column ("$300M · Diligence & Approval · 1 deal" when the
+  // restricted deal is the only one in that stage), the header total, the next-IC
+  // tile, the daily briefing, and a row of the LP report sitting above an enabled
+  // Print button. A mask applied per-card is not a mask -- it is a label. The figure
+  // is removed at the record boundary so no downstream surface can republish it.
+  s.dealSize = null;
+  s.targetICDate = null;
+  s.daysToIC = null;
   s.locked = true;
   return s;
 }
@@ -1669,7 +1678,12 @@ function reachedIndex(c) {
   return REACHED[c.stage] ?? 2;
 }
 
-export function getStage1Funnel() {
+// The funnel counted the whole book regardless of who was asking, so an analyst on
+// four deals saw "Sourced 19" sitting beside tiles that correctly said "4 live deals"
+// -- inside a report with a Certify for LP use button on it. Every other number on
+// those pages is scoped to the caller; this one now is too.
+export function getStage1Funnel(identity, viewAsRole = null) {
+  const scoped = arguments.length > 0;
   const all = candidates;
   const reachedAtLeast = (n) => all.filter((c) => reachedIndex(c) >= n).length;
   const activeAt = (s) => all.filter((c) => c.disposition === 'active' && c.stage === s).length;
@@ -1679,7 +1693,7 @@ export function getStage1Funnel() {
   // a list naming nineteen of them, which makes the whole tile look broken. Count what
   // is actually on the page instead of counting an empty table.
   const fromDeals = !all.length;
-  const dealList = fromDeals ? (listDeals(null) || []) : [];
+  const dealList = fromDeals ? (scoped ? listDeals(identity, viewAsRole) : listDeals(null)) || [] : [];
   const nDeals = dealList.length;
   const awaiting = dealList.filter((d) => ['sourced', 'screened', 'shortlisted'].includes(String(d.status || ''))).length;
   return {
@@ -1712,14 +1726,14 @@ export function getStage1Funnel() {
       { key: 'O4', step: 'Go / no-go', label: 'Awaiting decision', count: fromDeals ? awaiting : reachedAtLeast(5), active: activeAt('O4') }
     ],
     funnelNote: fromDeals
-      ? 'Screening and shortlist yield are not tracked in this instance — nothing has been screened through it yet. Sourced and awaiting-decision are counted from the deals themselves.'
+      ? `Screening and shortlist yield are not tracked in this instance — nothing has been screened through it yet. Sourced and awaiting-decision are counted from the ${scoped ? 'deals you can see' : 'deals themselves'}.`
       : null
   };
 }
 
 // Backward-compatible alias for the top-bar/home funnel (same {key,label,count}).
-export function getPipelineFunnel() {
-  return getStage1Funnel();
+export function getPipelineFunnel(identity, viewAsRole = null) {
+  return arguments.length ? getStage1Funnel(identity, viewAsRole) : getStage1Funnel();
 }
 
 // The actionable cohort at a stage — active candidates awaiting the step action.

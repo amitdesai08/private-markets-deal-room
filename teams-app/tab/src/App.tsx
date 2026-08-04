@@ -175,8 +175,16 @@ export default function App() {
           if (ctx.demoUsers.length) {
             let saved = '';
             try { saved = localStorage.getItem('dr.viewAs') || ''; } catch { /* storage blocked */ }
+            // An explicit ?dr_as= in the URL is a deliberate instruction and used to be
+            // silently ignored whenever a previous choice had been stored -- so a link
+            // shared to show someone the analyst's view opened on whoever the recipient
+            // last was, with nothing on screen to say the link had been overruled.
+            let fromUrl = '';
+            try { fromUrl = new URLSearchParams(window.location.search).get('dr_as') || ''; } catch { /* no location */ }
+            const urlOk = !!fromUrl && ctx.demoUsers.some((u: any) => u.id === fromUrl || u.upn === fromUrl);
             const ok = !!saved && ctx.demoUsers.some((u: any) => u.id === saved || u.upn === saved);
-            const chosen = ok ? saved : ctx.demoUsers[0].id;
+            const chosen = urlOk ? fromUrl : ok ? saved : ctx.demoUsers[0].id;
+            if (urlOk) { try { localStorage.setItem('dr.viewAs', fromUrl); } catch { /* storage blocked */ } }
             // Set the header BEFORE the state update. React runs child effects before
             // parent ones, so the dashboard's first identity-aware fetch went out before
             // the effect below had attached x-dr-as -- and the reply it cached was the
@@ -637,6 +645,8 @@ details[open] > summary:before { content: "\\25BE "; }
 .dv-filters { display: flex; gap: 4px; flex-wrap: wrap; }
 .dv-filter { border: 1px solid var(--border); background: none; color: var(--muted); border-radius: 14px; padding: 4px 10px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 .dv-filter:hover { color: var(--fg); }
+.dv-filter:disabled { opacity: .45; cursor: default; }
+.dv-filter:disabled:hover { color: var(--muted); }
 .dv-filter.on { color: #fff; background: var(--accent); border-color: var(--accent); }
 .dv-count { opacity: .7; font-weight: 500; }
 .dv-search { margin-left: auto; border: 1px solid var(--border); background: var(--bg); color: var(--fg); border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 13px; min-width: 180px; }
@@ -903,7 +913,12 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .dd-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
 .dd-thesis { color: var(--fg); font-size: 13px; margin: 8px 0 4px; }
 .dd-panel { border: 1px solid var(--border); border-radius: 12px; background: var(--card); margin-top: 14px; overflow: hidden; }
-.dd-panel-h { font-weight: 700; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+/* Every one of these headers is written as Title<span className="muted">qualifier</span>,
+   and with no layout on the container the two ran straight into each other — the deal
+   page was printing "Deal workspaceset up by Simone Garnett". Match .panel-h: the
+   qualifier belongs on the right, in its own column. */
+.dd-panel-h { font-weight: 700; padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.dd-panel-h .muted { font-weight: 400; text-align: right; }
 .verdict { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
 .verdict-state { font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--chip); white-space: nowrap; }
 .verdict.ok .verdict-state { background: var(--good-bg); border: 1px solid var(--good-br); color: var(--good); }

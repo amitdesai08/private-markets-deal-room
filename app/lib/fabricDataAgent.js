@@ -73,7 +73,7 @@ async function askGrounded(question) {
     maxTokens: 500,
   }).catch(() => null);
   if (!answer) {
-    return { mode: 'unconfigured', answer: 'The fund data warehouse is not connected, so questions in plain English are off. An administrator can connect it under Settings → Data sources.', citations: [] };
+    return { mode: 'unconfigured', answer: 'Fund reporting data is not connected, so questions in plain English are off. An administrator can connect it under Settings — Data sources.', citations: [] };
   }
   return {
     mode: 'grounded',

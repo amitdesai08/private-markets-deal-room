@@ -43,9 +43,42 @@ const humanise = (slug) =>
     .map((w) => (ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(' ');
 
+// Lane owners are stored as persona ids like 'finance-md'. When no real person is
+// mapped, humanise() turned that into "Finance MD" -- a role code with the hyphen
+// taken out, which is not a name and does not tell a partner who to chase. The tab
+// already carried this map; the backend composers that write blocker prose did not,
+// so the same deal named "Finance Partner" on one tab and "Finance MD" on the next.
+const ROLE_TITLE = {
+  'retail-md': 'Commercial Partner', 'finance-md': 'Finance Partner', 'legal-md': 'General Counsel',
+  'tax-md': 'Finance Partner — tax', 'ai-md': 'AI Partner', 'supply-md': 'Supply Chain Partner',
+  'esg-md': 'Operating Partner — ESG', 'ops-md': 'Operating Partner', 'partner': 'Partner',
+  'analyst': 'Analyst', 'deal-team': 'Deal Team', 'admin': 'Administrator',
+};
+
+// One human phrase per workstream status, for every surface that puts a status into
+// a sentence. The blocker card was interpolating the raw enum -- 'Financial / QoE is
+// at 0% with status "closed at ic"' -- which is the database talking, not the product.
+const LANE_STATUS_TEXT = {
+  not_started: 'not started',
+  in_progress: 'in progress',
+  complete: 'complete',
+  blocked: 'blocked',
+  on_hold: 'on hold',
+  closed_at_ic: 'closed at IC with no write-up on file',
+};
+export function laneStatusText(status) {
+  const k = String(status || '').toLowerCase();
+  return LANE_STATUS_TEXT[k] || (k ? k.replace(/_/g, ' ') : 'not recorded');
+}
+
+// A lane closed out at committee is not outstanding work. It never gets to be a
+// blocker, an "at risk" overlay, or a "not yet started" count.
+export const CLOSED_AT_IC = 'closed_at_ic';
+
 export function ownerLabel(id, lane) {
   const name = personaName(id);
   if (name) return name;
+  if (id && ROLE_TITLE[id]) return ROLE_TITLE[id];
   if (id && !LANE_LABEL[id]) return /[-_]/.test(String(id)) ? humanise(id) : String(id);
   return laneLabel(lane);
 }
@@ -185,7 +218,9 @@ function buildAttention(deal, board, role) {
   //    critical path even when nothing has formally been logged as blocking. Lanes
   //    that have not started at all are a different problem (kick-off, not velocity),
   //    so they are called out separately rather than crowned "critical path".
-  const lanes = (deal.workstreams || []).filter((w) => w.status !== 'complete');
+  // Lanes closed out at committee are excluded outright: they are a records gap on a
+  // decided deal, not a workstream anybody is waiting on.
+  const lanes = (deal.workstreams || []).filter((w) => w.status !== 'complete' && w.status !== CLOSED_AT_IC);
   const notStarted = lanes.filter((w) => !(w.progress > 0));
   const inFlight = lanes.filter((w) => w.progress > 0);
 
@@ -330,10 +365,19 @@ function buildBriefing(deal, board, attention, sinceIso) {
   const lanes = deal.workstreams || [];
   if (lanes.length) {
     const moving = lanes.filter((w) => w.progress > 0);
-    const idle = lanes.length - moving.length;
+    // Telling the sponsor of a SIGNED deal that four workstreams were "never started"
+    // is worse than saying nothing: it is the product accusing the deal team of not
+    // doing work its own audit trail records them doing. Closed-at-IC lanes are a gap
+    // in the record and are described as one.
+    const closedAtIc = lanes.filter((w) => w.status === CLOSED_AT_IC).length;
+    const idle = lanes.length - moving.length - closedAtIc;
     const laneTxt = moving.map((w) => `${laneLabel(w.lane)} ${w.progress}%`).join(' · ');
+    const tail = [
+      idle ? `${idle} further workstream${idle === 1 ? '' : 's'} not yet started` : '',
+      closedAtIc ? `${closedAtIc} closed at IC with no write-up on file` : '',
+    ].filter(Boolean).join(' and ');
     if (moving.length) {
-      add(`Diligence stands at ${laneTxt}${idle ? `, with ${idle} further workstream${idle === 1 ? '' : 's'} not yet started` : ''}.`, 'Workstream progress');
+      add(`Diligence stands at ${laneTxt}${tail ? `, with ${tail}` : ''}.`, 'Workstream progress');
     } else {
       add(lanes.length === 1
         ? `The ${laneLabel(lanes[0].lane)} workstream has not recorded any progress yet.`

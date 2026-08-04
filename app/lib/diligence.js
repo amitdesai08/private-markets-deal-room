@@ -16,6 +16,11 @@
 import { buildReturns, paperLbo } from './screening.js';
 import { money as fmtMoney, symbolFor } from './money.js';
 
+// Deals past the committee decision. Diligence templates that speak in the future
+// tense are wrong about these, and the wrongness is not cosmetic: it restates the
+// EBITDA the entry multiple and the leverage covenant are struck on.
+const PAST_COMMITTEE = new Set(['approved', 'signing', 'signed', 'closed', 'owned', 'exiting', 'exited']);
+
 // Module-level default keeps $ for any helper without a per-deal shadow; each
 // builder below redeclares a currency-aware `money(m)` from the deal's currency.
 const money = (m) => fmtMoney(m);
@@ -171,11 +176,26 @@ function workstreamFindings(deal) {
   const add = (workstream, severity, finding, impact, basis = 'templated') => out.push({ workstream, severity, finding, impact, basis });
 
   // Financial / QoE — EBITDA haircut sized off margin quality.
+  //
+  // On a deal that has already been through committee this template was inventing a
+  // SECOND EBITDA and putting it in the future tense: the key figures said "$92M
+  // (LTM) — QoE final", the audit trail said the final QoE disallowed $2.1M of
+  // add-backs, and the risk register said a QoE yet to happen would take EBITDA to
+  // $86M. Recomputed on $86M the deal's own headline multiple and leverage both move,
+  // and the leverage breaches the covenant the IC minuted. One EBITDA per deal; on a
+  // decided deal the QoE is history and is written as history.
+  const decided = PAST_COMMITTEE.has(String(deal.status || '').toLowerCase());
   const haircut = f.ebitdaMargin < 10 ? 18 : f.ebitdaMargin < 15 ? 12 : 6;
   const adjEbitda = round(f.ebitda * (1 - haircut / 100));
-  add('financial', haircut >= 15 ? 'reprice' : 'condition',
-    `QoE normalises EBITDA down ${haircut}% (${money(f.ebitda)} → ${money(adjEbitda)}) after removing unsupported add-backs and owner-comp normalisation.`,
-    haircut >= 15 ? `Repricing lever — reset entry EV against ${money(adjEbitda)} adjusted EBITDA.` : 'Reflected in the model and the SPA net-working-capital peg.');
+  if (decided) {
+    add('financial', 'clear',
+      `QoE completed. Unsupported add-backs and owner-comp normalisation were removed before the figures were fixed, so ${money(f.ebitda)} is the adjusted EBITDA the entry multiple and leverage are struck on.`,
+      'Settled — carried into the SPA completion mechanism.', 'templated');
+  } else {
+    add('financial', haircut >= 15 ? 'reprice' : 'condition',
+      `QoE normalises EBITDA down ${haircut}% (${money(f.ebitda)} → ${money(adjEbitda)}) after removing unsupported add-backs and owner-comp normalisation.`,
+      haircut >= 15 ? `Repricing lever — reset entry EV against ${money(adjEbitda)} adjusted EBITDA.` : 'Reflected in the model and the SPA net-working-capital peg.');
+  }
   add('financial', 'condition', `Net-working-capital peg set at ~${money(round(f.revenue * 0.12))} from a 12–24 month seasonality analysis.`, 'Becomes the SPA true-up mechanism at close.');
 
   // Commercial — customer concentration is the classic binary risk.
@@ -464,7 +484,13 @@ export function buildReturnsModel(deal) {
   return {
     kind: 'returns', company: deal.company, owner: 'fund-cfo',
     entry: { evEbitda: r.entryMultiple, impliedEvEbitda: r.impliedMultiple, leverage: r.leverage, entryEV: base.entryEV, ebitda: f.ebitda, holdYears: r.holdYears },
-    sourcesUses: { sources, uses, totalSources: sources.reduce((s, x) => s + x.amount, 0), totalUses: uses.reduce((s, x) => s + x.amount, 0) },
+    sourcesUses: { sources, uses, totalSources: sources.reduce((s, x) => s + x.amount, 0), totalUses: uses.reduce((s, x) => s + x.amount, 0),
+      // The returns are struck on the equity funding the purchase price. Sources & Uses
+      // shows the equity CHEQUE, which also funds the fee load and is net of rollover,
+      // so the two numbers differ by design -- and back-solving MOIC off the line on
+      // screen gave 2.80x against a headline of 2.76x, which reads as an error in the
+      // model rather than a difference in what is being counted.
+      equityBasisNote: `Returns are struck on ${fmtMoney(round(base.equityIn), symbolFor(deal))} of equity funding the purchase price. The equity cheque above also funds fees and is shown net of management rollover.` },
     scenarios: [
       { name: 'Downside', ...r.scenarios.downside },
       { name: 'Base', ...r.scenarios.base },
@@ -493,12 +519,23 @@ export function buildValueCreationPlan(deal) {
     { lever: 'Margin expansion (pricing + cost-out)', contribution: round(deltaEbitda * 0.30), owner: 'operating-partner' },
     { lever: 'Buy-and-build / bolt-ons', contribution: round(deltaEbitda * 0.25), owner: 'principal' },
   ];
-  const levers = [
+  const sizedLevers = [
     { name: 'Pricing optimisation', workstream: 'commercial', impact: round(f.revenue * 0.015), timeline: 'Days 1–100', owner: 'Operating Partner + Commercial MD' },
     { name: 'Procurement & COGS cost-out', workstream: 'operational', impact: round(f.revenue * 0.02), timeline: 'Months 3–12', owner: 'Operating Partner + Supply MD' },
     { name: 'SG&A efficiency', workstream: 'operational', impact: round(f.revenue * 0.01), timeline: 'Months 3–9', owner: 'Operating Partner' },
     { name: 'AI / digital productivity', workstream: 'tech', impact: round(f.revenue * 0.01), timeline: 'Months 6–18', owner: 'AI MD' },
-    { name: 'Buy-and-build platform', workstream: 'commercial', impact: null, timeline: 'Year 1+', owner: 'Principal' },
+  ];
+  // The card headlines "$92M → $129M (+$37M)" and then lists levers adding to $22M with
+  // buy-and-build showing nothing at all, so the plan appeared to be $15M short of its
+  // own target with no explanation. Bolt-ons genuinely are not sized at this stage --
+  // they depend on which targets are available -- so the line carries the residual and
+  // says outright that it is a residual rather than a bottom-up number.
+  const leverResidual = round(Math.max(0, deltaEbitda - sizedLevers.reduce((s, l) => s + (l.impact || 0), 0)));
+  const levers = [
+    ...sizedLevers,
+    { name: 'Buy-and-build platform', workstream: 'commercial', impact: leverResidual || null,
+      impactBasis: leverResidual ? 'Residual to plan — not yet sized bottom-up' : null,
+      timeline: 'Year 1+', owner: 'Principal' },
   ];
   const valueBridge = [
     { source: 'EBITDA growth', value: round((exitEbitda - entryEbitda) * r.entryMultiple) },
@@ -583,7 +620,10 @@ export function buildIoi(deal) {
     diligence: '6–8 week confirmatory diligence (QoE, commercial, legal, tax, ops) subject to access & exclusivity.',
     conditions: ['Management meeting & data-room access', 'Board / IC support to proceed', 'No material adverse change'],
     validity: '30 days from submission.',
-    headline: `Non-binding IOI at ${money(evLow)}–${money(evHigh)} EV (${r.entryMultiple}x EV/EBITDA), all-cash, subject to confirmatory diligence.`,
+    // The range was headlined against a single multiple, so "$552M–$736M EV (7x
+    // EV/EBITDA)" invited the reader to divide and find neither end matched. State the
+    // multiple as a range too, since that is what an indication of interest is.
+    headline: `Non-binding IOI at ${money(evLow)}–${money(evHigh)} EV (${(evLow / Math.max(1, f.ebitda)).toFixed(1)}x–${(evHigh / Math.max(1, f.ebitda)).toFixed(1)}x EV/EBITDA), all-cash, subject to confirmatory diligence.`,
   };
 }
 

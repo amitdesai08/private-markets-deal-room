@@ -90,7 +90,9 @@ function relTime(iso?: string | null): string | null {
   const s = Math.max(0, Math.round((Date.now() - t) / 1000));
   if (s < 60) return 'just now';
   const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
+  // "18m ago" on a screen where every other figure is money in millions reads as
+  // eighteen months at a glance. Spell the unit out; there is room for it.
+  if (m < 60) return `${m} min ago`;
   const h = Math.round(m / 60);
   if (h < 24) return `${h}h ago`;
   const d = Math.round(h / 24);
@@ -850,7 +852,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   </section>
 
                   <section className="dd-panel">
-                    <div className="dd-panel-h">{STEP_LABEL[viewStep] || viewStep} — deliverable{viewProduces.length ? <span className="muted" style={{ fontWeight: 400 }}> · {viewProduces.join(' · ')}</span> : null}</div>
+                    <div className="dd-panel-h">{STEP_LABEL[viewStep] || viewStep} — deliverable{viewProduces.length ? <span className="muted" style={{ fontWeight: 400 }}>{viewProduces.join(' · ')}</span> : null}</div>
                     {stepRun?.markdown ? (
                       <div style={{ padding: '12px 16px' }}>
                         {stepRun.when ? <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>Generated {new Date(stepRun.when).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}{stepRun.artifacts?.length ? ` · ${stepRun.artifacts.join(', ')}` : ''}</div> : null}
@@ -949,7 +951,12 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                       </div>
                       {blockers.length ? (
                         <div style={{ marginTop: 10 }}>
-                          <div className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700, marginBottom: 4 }}>Top blockers</div>
+                          {/* "Top blockers" on a deal that has been approved is the wrong
+                              word -- nothing is blocking a decision that has been taken.
+                              What is left are the compliance items the approval was made
+                              subject to, and calling them blockers is what produced four
+                              different answers to "what is outstanding on Helvetia". */}
+                          <div className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700, marginBottom: 4 }}>{isPostIC((deal as any).status) ? 'Outstanding after approval' : 'Top blockers'}</div>
                           {blockers.slice(0, 3).map((b, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
                               <span style={{ color: 'var(--bad)' }}>○</span>
@@ -1232,7 +1239,29 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                       <span className="verdict-head">{verdict.headline}</span>
                     </div>
                   ) : <div className="dd-empty-p">IC readiness available once diligence is underway.</div>}
+                  {/* The headline said "3 obligations still outstanding" and the body was a
+                      six-item PRE-IC paperwork checklist -- the three obligations appeared
+                      nowhere on the tab that exists to report them, while the Home card two
+                      clicks away printed all three verbatim. On a decided deal, what is
+                      outstanding goes first and the paperwork history goes underneath. */}
+                  {isPostIC((deal as any).status) && (verdict?.gating || []).length ? (
+                    <div style={{ padding: '0 14px 12px' }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, margin: '4px 0 6px' }}>
+                        Outstanding after IC ({verdict!.gating!.length})
+                      </div>
+                      {verdict!.gating!.map((g: string, i: number) => (
+                        <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12.5, padding: '4px 0' }}>
+                          <span style={{ color: 'var(--warn, #d9a441)' }}>○</span>
+                          <span>{g}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                   {(ic?.requiredArtifacts?.items || []).length ? (
+                    <>
+                      {isPostIC((deal as any).status) ? (
+                        <div className="dd-panel-h" style={{ marginTop: 4 }}>Papers required at the committee<span className="muted">○ means still not on file</span></div>
+                      ) : null}
                     <div className="dd-artifacts">
                       {ic!.requiredArtifacts!.items!.map((a) => (
                         <div key={a.key} className={`artifact ${a.complete ? 'done' : 'todo'}`}>
@@ -1242,6 +1271,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                         </div>
                       ))}
                     </div>
+                    </>
                   ) : null}
                 </section>
               )}

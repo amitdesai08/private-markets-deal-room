@@ -374,10 +374,10 @@ api.post('/fund/report/certifications/:id/archive', async (req, res) => {
   res.json(r);
 });
 
-api.get('/pipeline', (_req, res) => res.json(getPipelineFunnel())); // alias (funnel)
+api.get('/pipeline', (req, res) => res.json(getPipelineFunnel(requestingIdentity(req), requestingViewAs(req)))); // alias (funnel)
 
 // Stage-1 origination cohort funnel
-api.get('/stage1/funnel', (_req, res) => res.json(getStage1Funnel()));
+api.get('/stage1/funnel', (req, res) => res.json(getStage1Funnel(requestingIdentity(req), requestingViewAs(req))));
 api.get('/stage1/pipeline', (_req, res) => res.json(getPipeline()));
 api.get('/stage1/cohort/:stage', (req, res) => res.json(getCohort(req.params.stage)));
 api.get('/stage1/pass-reasons', (_req, res) => res.json(getPassReasons()));

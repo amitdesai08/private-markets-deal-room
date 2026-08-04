@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 type Concentration = { name: string; equity: number; pctOfFund: number; pctOfInvested: number; limitPct: number | null; status: string };
 type Overview = {
   fund: { name: string; strategy: string; vintageYear: number; investmentPeriod: string; fundSizeLabel: string };
-  capital: { committed: number; invested: number; reserves: number; dryPowder: number; deployedPct: number; portfolioCompanies: number };
+  capital: { committed: number; invested: number; reserves: number; dryPowder: number; deployedPct: number; portfolioCompanies: number; dryPowderNote?: string };
   performance: { grossMoic: number; netMoic: number; grossIrrPct: number; netIrrPct: number; dpi: number; rvpi: number; tvpi: number; realized: number; unrealized: number; totalValue: number };
   concentration: { maxSectorPct: number; maxDealPct: number; bySector: Concentration[]; byRegion: Concentration[]; largestPosition: { company: string; pctOfFund: number; limitPct: number; status: string } };
   lpTerms: { preferredReturnPct: number; carryPct: number; managementFeePct: number; esgPolicy: string };
@@ -113,7 +113,7 @@ export default function Fund() {
       {/* Fund / LP headline */}
       <div className="fnd-kpis">
         <Kpi v={ov.fund.fundSizeLabel} l="Committed capital" s={`${ov.capital.deployedPct}% invested`} />
-        <Kpi v={usd(ov.capital.invested)} l="Invested" s={`${usd(ov.capital.dryPowder)} dry powder`} />
+        <Kpi v={usd(ov.capital.invested)} l="Invested" s={`${usd(ov.capital.dryPowder)} dry powder — ${ov.capital.dryPowderNote || 'net of reserves'}`} />
         <Kpi v={`${p.tvpi.toFixed(2)}x`} l="TVPI (gross)" s={`DPI ${p.dpi.toFixed(2)}x · RVPI ${p.rvpi.toFixed(2)}x`} />
         <Kpi v={`${p.grossMoic.toFixed(2)}x`} l="Gross MOIC" s={`Net ${p.netMoic.toFixed(2)}x`} />
         <Kpi v={`${p.grossIrrPct}%`} l="Gross IRR" s={`Net ${p.netIrrPct}%`} />
@@ -164,6 +164,14 @@ export default function Fund() {
             <span className="dot warn" /> {pf.statusCounts.watch} watch ·
             <span className="dot bad" /> {pf.statusCounts.underperform} underperform · {pf.addOnsClosed} add-ons closed
           </span>
+        </div>
+        {/* "6 portfolio companies" here and three deals whose status reads Owned or
+            Exiting on Deals in flight are two non-overlapping sets, and nothing on
+            either screen said so -- leaving a partner to work out for themselves
+            whether the fund holds six companies or nine. It holds six; the other three
+            have completed but have not been onboarded to portfolio reporting yet. */}
+        <div className="fnd-note">
+          Companies onboarded to portfolio reporting. Transactions that have completed but are not yet onboarded stay under Deals in flight.
         </div>
         <div className="fnd-table">
           <div className="fnd-tr fnd-th">
@@ -315,6 +323,7 @@ const CSS = `
 .fnd-panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
 .fnd-panel-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 700; flex-wrap: wrap; }
 .fnd-mut { color: var(--muted); font-size: 12px; font-weight: 400; }
+.fnd-note { color: var(--muted); font-size: 11.5px; padding: 8px 16px 0; }
 .fnd-wrap .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 3px 0 8px; vertical-align: middle; }
 .fnd-wrap .dot.ok { background: var(--good); } .fnd-wrap .dot.warn { background: var(--warn); } .fnd-wrap .dot.bad { background: var(--bad); }
 .fnd-table { display: flex; flex-direction: column; }

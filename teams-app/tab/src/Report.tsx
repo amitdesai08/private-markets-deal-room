@@ -187,17 +187,24 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
 
           {pipeline?.funnel?.length ? (
             <section className="rpt-section">
-              <h2 className="rpt-h">Origination funnel</h2>
+              <h2 className="rpt-h">Origination funnel <span className="rpt-mut">within your access</span></h2>
               <div className="rpt-funnel">
                 {pipeline.funnel.map((f) => (
                   <div key={f.key} className="rpt-fstep"><div className="c">{f.count == null ? '—' : f.count}</div><div className="fl">{f.label}</div></div>
                 ))}
               </div>
+              {/* The sourcing screen carried this caveat and the report did not, so the one
+                  page an LP is invited to certify was the one page that showed "Screened —"
+                  with no explanation, beside a table whose Status column says Screened. */}
+              {(pipeline as any).funnelNote ? <p className="rpt-note">{(pipeline as any).funnelNote}</p> : null}
             </section>
           ) : null}
 
           <section className="rpt-section">
-            <h2 className="rpt-h">Deals in flight <span className="rpt-mut">{deals.length} live · pipeline, not portfolio holdings</span></h2>
+            {/* Headed "Deals in flight", which is the name of a page that shows a smaller
+                set — this table also lists deals still in screening. Two different counts
+                under one name is how a reader stops trusting either. Name what it is. */}
+            <h2 className="rpt-h">Every deal you can see <span className="rpt-mut">{deals.length} records · screening, pipeline and transactions not yet onboarded to portfolio reporting</span></h2>
             {deals.length === 0 ? (
               <p className="rpt-note">No deals are live yet. Sourced candidates that pass screening appear here.</p>
             ) : (
@@ -212,11 +219,14 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
                       <td>{d.sector || '—'}</td>
                       <td>{d.stageName || d.stage || '—'}</td>
                       <td>{STATUS_TEXT[String(d.status || '')] || d.status || '—'}</td>
-                      <td className="num">{isPostIC(d.status) ? 'Approved' : `${d.readiness ?? 0}%`}</td>
+                      {/* A deal this reader is not on is masked on the deal list and was
+                          printed in full here -- company, sector, stage, readiness and EV --
+                          on the one page in the product with a Certify for LP use button. */}
+                      <td className="num">{(d as any).locked ? 'Restricted' : isPostIC(d.status) ? 'Approved' : `${d.readiness ?? 0}%`}</td>
                       {/* dealSize is stored in millions. The two other call sites in this file
                           already scale it; this one did not, so an $380M deal printed as "$380"
                           in a table headed Size, four lines under a KPI tile reading $8.1B. */}
-                      <td className="num">{money((d.dealSize || 0) * 1e6)}</td>
+                      <td className="num">{(d as any).locked || d.dealSize == null ? '—' : money((d.dealSize || 0) * 1e6)}</td>
                     </tr>
                   ))}
                 </tbody>
