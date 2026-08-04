@@ -670,6 +670,16 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     .filter((d) => awaitingCommittee(d) && typeof d.daysToIC === 'number' && d.daysToIC >= 0)
     .sort((a, b) => a.daysToIC - b.daysToIC);
   const nearest = upcoming[0] || null;
+  // A flat "none scheduled" sat directly above a queue card reading "IC in 55d", which
+  // looks like the tile is simply broken. The exclusion above is right — that date is a
+  // target on a deal nobody has launched yet — but the tile has to say so, or the reader
+  // has to guess which of the two numbers to believe.
+  const targeted = list
+    .filter((d) => !awaitingCommittee(d) && dealPhase(d) === 'origination' && typeof d.daysToIC === 'number' && d.daysToIC >= 0)
+    .sort((a, b) => a.daysToIC - b.daysToIC)[0] || null;
+  const noIcSub = targeted
+    ? `nothing booked — earliest target ${targeted.daysToIC}d, not yet launched`
+    : 'none scheduled';
 
   // The phase strip is built from the SAME authority as every verdict counter on the
   // page. It used to use `phaseOf` alone — a regex over the stage code — which
@@ -955,7 +965,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${diligenceCount} in diligence` },
     { key: 'capital', label: 'Enterprise value', value: money(capital), sub: list.length ? `avg ${money(capital / list.length)} · ${sectors || 1} sector${sectors === 1 ? '' : 's'}` : '—' },
     { key: 'readiness', label: 'Not IC-ready', value: String(notReady), sub: `${icReady} ready for IC · ${openObligations} with conditions open` },
-    { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
+    { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : noIcSub },
   ];
   let kpis = portfolioKpis;
   if (seat.kind === 'observer') {
@@ -989,12 +999,12 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
       // through committee. Six signed companies with an open obligation is a different
       // management problem from a live deal awaiting approval.
       { key: 'obligations', label: 'Deals with conditions open', value: String(openObligations), sub: `${openConditionCount} condition${openConditionCount === 1 ? '' : 's'} or compliance check${openConditionCount === 1 ? '' : 's'} not yet cleared` },
-      { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
+      { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : noIcSub },
     ];
   } else if (seat.kind === 'deal-lead') {
     const soon = list.filter((d) => typeof d.daysToIC === 'number' && d.daysToIC >= 0 && d.daysToIC <= 21 && awaitingCommittee(d)).length;
     kpis = [
-      { key: 'to-gate', label: 'IC within 3 weeks', value: String(soon), sub: nearest ? `soonest ${nearest.company}, ${nearest.daysToIC}d` : 'none scheduled' },
+      { key: 'to-gate', label: 'IC within 3 weeks', value: String(soon), sub: nearest ? `soonest ${nearest.company}, ${nearest.daysToIC}d` : noIcSub },
       { key: 'notready', label: 'Not yet ready for IC', value: String(notReady), sub: `${icReady} ready for IC` },
       { key: 'commitments', label: 'Untracked follow-ups', value: String(workiq.total), sub: workiq.total ? `across ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'}` : 'nothing outstanding' },
       { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
@@ -1005,7 +1015,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
       { key: 'capital', label: 'Enterprise value', value: money(capital), sub: `${list.length} deal${list.length === 1 ? '' : 's'} · ${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
       { key: 'owned', label: 'Completed', value: String(val?.count || 0), sub: val ? `${money(val.capital)} now in value creation` : 'none completed yet' },
       { key: 'obligations', label: 'Deals with conditions open', value: String(openObligations), sub: `${openConditionCount} outstanding on signed or completed deals` },
-      { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
+      { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : noIcSub },
     ];
   } else if (seat.kind === 'screening') {
     const orig = phases.find((p) => p.key === 'origination')?.count || 0;
@@ -1014,7 +1024,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
       { key: 'origination', label: 'In origination', value: String(orig), sub: 'screened, not yet launched' },
       { key: 'diligence', label: 'In diligence', value: String(dil), sub: 'live workstreams' },
       { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
-      { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : 'none scheduled' },
+      { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : noIcSub },
     ];
   } else if (seat.kind === 'value') {
     const val = phases.find((p) => p.key === 'value');

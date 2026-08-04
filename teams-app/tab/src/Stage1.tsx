@@ -420,7 +420,9 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
           </section>
 
           <section className="panel">
-            <div className="panel-h">News & filings<span className="muted">{(desk?.companies || []).length} companies · {(desk?.catalysts || []).length} catalysts</span></div>
+            {/* "0 companies · 7 catalysts" reads as seven events found on no companies. The
+                  seven are the kinds of event being watched for, and none has fired. */}
+              <div className="panel-h">News & filings<span className="muted">{(desk?.companies || []).length} companies tracked · {(desk?.catalysts || []).length} catalyst types watched</span></div>
             {desk?.catalysts?.length ? <div className="cand-tags" style={{ padding: '10px 16px 0' }}>{(desk.catalysts || []).map((c) => <span className="chip" key={c.id}>{c.icon ? `${c.icon} ` : ''}{c.label}</span>)}</div> : null}
             {!desk ? <div className="empty-panel">Loading…</div> : !(desk.companies || []).length ? <div className="empty-panel">No news on any tracked company yet. Add a source under Settings → Data sources.</div> : (
               <div className="cand-list">

@@ -184,7 +184,12 @@ function buildAttention(deal, board, role) {
     items.push({
       kind: 'risk',
       kindLabel: 'Blocking',
-      title: `${blocking.length} diligence workstreams are short of ${preIC ? 'IC-ready' : 'closed out'}`,
+      // Was "short of IC-ready", which names the 80% committee bar the workstream panel
+      // measures against -- and this row does not count that bar. It counts the lanes
+      // the readiness board has formally flagged as blocking, which on Lumen was two
+      // while the panel showed two below the bar AND two not started. Same screen, two
+      // populations, one label. Say which population this is.
+      title: `${blocking.length} diligence workstreams are flagged as blocking ${preIC ? 'IC' : 'the next gate'}`,
       why: `${named.join(', ')} — none has closed out yet.`,
       owner: ownerLabel(worst.owner, worstLane),
       due: null,
@@ -369,9 +374,17 @@ function buildBriefing(deal, board, attention, sinceIso) {
   });
   if (recent.length) {
     const top = recent.slice(0, 3).map((a) => `${a.actor || 'Someone'} ${a.action || 'updated the deal'}`);
-    add(`Since your last visit there ${recent.length === 1 ? 'has been 1 update' : `have been ${recent.length} updates`} on this deal — ${top.join('; ')}.`, 'Deal audit trail');
+    // "Since your last visit" was a promise the product could not keep: with no `since`
+    // it reports the whole audit trail, so a first-ever visit was told what had changed
+    // since a visit that never happened -- and on a quiet deal it asserted "unchanged"
+    // to a reader who had never seen it. Only claim a delta when a window was supplied.
+    add(since
+      ? `Since your last visit there ${recent.length === 1 ? 'has been 1 update' : `have been ${recent.length} updates`} on this deal — ${top.join('; ')}.`
+      : `Latest recorded activity on this deal — ${top.join('; ')}.`, 'Deal audit trail');
   } else {
-    add(`Nothing new has been recorded on ${deal.company} since your last visit. The position below is unchanged.`, 'Deal audit trail');
+    add(since
+      ? `Nothing new has been recorded on ${deal.company} since your last visit. The position below is unchanged.`
+      : `No activity has been recorded on ${deal.company} yet.`, 'Deal audit trail');
   }
 
   // Where it stands. Only lanes with real movement are worth naming; the rest are

@@ -640,7 +640,13 @@ export const demoStageDeals = [
     currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'E2',
     stageName: 'Signing (SPA)',
-    status: 'signed',
+    // The record said "signed" while the deal sat on step E2 with the SPA still in
+    // signing, so Home and the Report printed "Signed" against a deal page that
+    // printed "No deliverable yet" and a thesis that says "SPA in signing". Signed
+    // or not signed is the most consequential binary on a live transaction, and the
+    // Report screen is one click from being certified for LP distribution. The step
+    // is the fact; the status has to agree with it.
+    status: 'signing',
     sponsorPersona: 'partner',
     leadAnalyst: 'analyst',
     targetICDate: daysFromNow(-14),

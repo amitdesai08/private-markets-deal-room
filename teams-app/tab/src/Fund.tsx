@@ -193,10 +193,26 @@ export default function Fund({ deals, onOpenDeal }: { deals?: { id: string; comp
             Exiting on Deals in flight are two non-overlapping sets, and nothing on
             either screen said so -- leaving a partner to work out for themselves
             whether the fund holds six companies or nine. It holds six; the other three
-            have completed but have not been onboarded to portfolio reporting yet. */}
-        <div className="fnd-note">
-          Companies onboarded to portfolio reporting. Transactions that have completed but are not yet onboarded stay under Deals in flight.
-        </div>
+            have completed but have not been onboarded to portfolio reporting yet.
+            A general footnote was not enough: the reader still had to go and count the
+            other set themselves, and the assistant was diagnosing the difference as a
+            data fault and telling partners to escalate it. Name the deals and the money,
+            here, so the two screens reconcile on the page rather than in someone's head. */}
+        {(() => {
+          const OWNED = new Set(['owned', 'exiting', 'exited']);
+          const held = new Set((pf.companies || []).map((c) => c.company));
+          const pending = (deals || []).filter((d) => OWNED.has(String(d.status || '').toLowerCase()) && !held.has(d.company));
+          return (
+            <div className="fnd-note">
+              Companies onboarded to portfolio reporting. Transactions that have completed but are not yet onboarded stay under Deals in flight.
+              {pending.length ? (
+                <> Today that is <b>{pending.length}</b> — {pending.map((d) => d.company).join(', ')}. Their value is not in the figures above.
+                  {onOpenDeal ? <> <button className="chbtn" onClick={() => onOpenDeal(pending[0].id)}>Open {pending[0].company} ▸</button></> : null}
+                </>
+              ) : null}
+            </div>
+          );
+        })()}
         <div className="fnd-table">
           <div className="fnd-tr fnd-th">
             <span className="c-co">Company</span>

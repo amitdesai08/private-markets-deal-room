@@ -82,6 +82,23 @@ export function houseStyle(md) {
   // "daysToIC -26" is a field name and a sign convention. Say what the deal pages say.
   s = s.replace(/\bdaysToIC[:\s]*(-?\d+)\b/gi, (_m, n) => (Number(n) < 0 ? `IC was ${Math.abs(Number(n))} days ago` : `IC in ${n} days`));
 
+  // Record keys were reaching the screen as if they were names: the assistant listed
+  // "**demo-meridian** — Meridian Logistics (status: owned)". The key is ours, not the
+  // reader's, and the "demo-" half of it announces to a prospect that the book in front
+  // of them is invented. Take the key and leave the company name standing.
+  s = s.replace(/\**\s*demo-[a-z0-9-]+\s*\**\s*(?:\u2014|\u2013|-)\s*/gi, '');
+  s = s.replace(/\bdemo-[a-z0-9-]+\b/gi, 'the deal');
+
+  // Field paths dressed up as citations — "(the deal record: count = 6)",
+  // "(the deal record: risks/compliance)". A source note is meant to tell a partner
+  // where to go and check; a path into our own object graph tells them nothing.
+  s = s.replace(/\(\s*\**\s*the deal record\s*:[^)]*\)/gi, '(the deal record)');
+  s = s.replace(/\(\s*\**\s*risks?(?:\s*\/\s*compliance)?\s*\**\s*\)/gi, '(the risk register)');
+  s = s.replace(/\band\s+\(the risk register\)/gi, 'and the risk register');
+
+  // Not a phrase anybody in the market uses.
+  s = s.replace(/\bpress trade\b/gi, 'press ahead');
+
   // Collapse the blank runs the deletions leave behind.
   s = s.replace(/\n{3,}/g, '\n\n');
   // One reporting currency. The records are dollars; a euro sign here is the model's

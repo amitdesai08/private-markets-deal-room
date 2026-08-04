@@ -590,7 +590,21 @@ export default function Dashboard({ pipeline, deals, market, config, onAsk, onAs
       {/* Where the live capital sits in the process */}
       {shows('phases') ? (
       <section className="panel">
-        <div className="panel-h"><span>Deals by stage</span><span className="muted">{money(pipelineValue)} across {preCompletion.length} deal{preCompletion.length === 1 ? '' : 's'} pre-completion{excludedHoldings ? ` · excludes ${excludedHoldings} owned or exiting` : ''}{byPhase.reduce((s, p) => s + p.restricted, 0) ? ' · and deals you cannot open' : ''}</span></div>
+        {/* The qualifier excluded the owned and exiting deals and the tiles underneath
+            then displayed them as a fourth column, so the disclaimer was disproved by
+            the very next line: "$6.4B across 16" sat on top of tiles summing to $8.1B
+            across 19. The tiles are the truth; the header now describes them and names
+            the pre-completion subset rather than pretending the rest are not there.
+            "and deals you cannot open" read as an addition too — they are already in
+            the count, with their size withheld. */}
+        {(() => {
+          const shownValue = byPhase.reduce((s, p) => s + p.capital, 0);
+          const shownCount = byPhase.reduce((s, p) => s + p.count, 0);
+          const restricted = byPhase.reduce((s, p) => s + p.restricted, 0);
+          return (
+            <div className="panel-h"><span>Deals by stage</span><span className="muted">{money(shownValue)} across {shownCount} deal{shownCount === 1 ? '' : 's'}{excludedHoldings ? ` · ${money(pipelineValue)} of it pre-completion` : ''}{restricted ? ` · includes ${restricted} you cannot open, size withheld` : ''}</span></div>
+          );
+        })()}
         <div className="funnel">
           {byPhase.map((ph) => (
             <div key={ph.key} className="fstep">

@@ -59,11 +59,19 @@ type Citations = { score?: number; totalClaims?: number; sourcedClaims?: number;
 // most of them -- printed its step code twice, once as the marker and once as the
 // label. Anything still missing now falls back to the step's own title, which the
 // data already carries, rather than to the code.
+//
+// The execution and ownership entries were then written from memory and came out a
+// step adrift: V1 read "Onboarding" and V2 "Value creation", while the flow itself
+// calls V1 "Value creation" and V2 "Portfolio monitoring". E3 read "Conditions" where
+// the flow says "Closing". Two tabs of the same deal therefore disagreed about which
+// step the deal was on, and in execution these words carry contractual meaning --
+// closing and conditions are not interchangeable. Every entry below is now the flow's
+// own title, shortened only where the full title does not fit a tab.
 const STEP_LABEL: Record<string, string> = {
   O1: 'Sourced', O2: 'Screening', O3: 'Shortlist', O4: 'Go / no-go',
-  D1: 'Plan', D2: 'Diligence', D3: 'Synthesis', D4: 'IC approval', D5: 'Archive',
-  E1: 'Structuring', E2: 'Signing', E3: 'Conditions', E4: 'Completion',
-  V1: 'Onboarding', V2: 'Value creation', V3: 'Exit readiness',
+  D1: 'Workspace set-up', D2: 'Diligence', D3: 'Synthesis', D4: 'IC approval', D5: 'Archive',
+  E1: 'Financing & structuring', E2: 'Signing', E3: 'Closing', E4: 'Onboarding & handover',
+  V1: 'Value creation', V2: 'Portfolio monitoring', V3: 'Exit',
 };
 const LANE_LABEL: Record<string, string> = {
   commercial: 'Commercial', financial: 'Financial', legal: 'Legal', tax: 'Tax',
@@ -139,7 +147,11 @@ type ActivityEntry = { actor?: string; action?: string; when?: string; via?: str
 const TAB_LABEL: Record<Tab, string> = {
   cockpit: 'Deal brief',
   threads: 'Deal channel',
-  workflow: 'Tasks & blockers',
+  // Named "Tasks & blockers" and containing neither: it holds completed steps, the
+  // audit of who moved the deal on, and the follow-ups people have promised. A reader
+  // looking for their task list opened it, found none, and concluded the product had
+  // lost them. Named for what is on it.
+  workflow: 'Progress & follow-ups',
   ic: 'IC readiness',
   stages: 'Work the deal',
   docdesk: 'Documents',
@@ -172,8 +184,19 @@ const POST_IC = new Set(['approved', 'signing', 'signed', 'closed', 'owned', 'ex
 // deal" -- pointed into the hidden half. Work the deal and Diligence workstreams are
 // where the deal is actually worked; they come back into the strip, and four genuine
 // reference surfaces stay under More.
-const TABS_OFTEN: Tab[] = ['cockpit', 'overview', 'ic', 'workflow', 'stages', 'workspace', 'docdesk', 'threads'];
-const TABS_RARELY: Tab[] = ['artifacts', 'research', 'documents', 'activity'];
+// Round 13: two more corrections, both about a navigation bar that has to be learnable.
+// (a) "Returns, plan & risk" -- the LBO returns, the sources and uses, the EBITDA
+//     bridge, the risk register, the IOI and the LOI -- was under More while
+//     "Deal channel", which is a link to a Teams conversation, held a top-row slot.
+//     Those are the pages a partner reads before a committee. They swap.
+// (b) The strip was composed per deal: pre-committee deals had "Generate a document"
+//     spliced in at position four, so the fourth tab meant a different thing on
+//     Helvetia than on Lumen. Muscle memory is most of what makes software feel
+//     familiar, and a bar that rearranges itself destroys it. The order is now the
+//     same on every deal, and the generator is reachable from the IC readiness board
+//     and the brief's own call to action, so nothing became harder to get to.
+const TABS_OFTEN: Tab[] = ['cockpit', 'overview', 'ic', 'artifacts', 'workflow', 'stages', 'workspace', 'docdesk'];
+const TABS_RARELY: Tab[] = ['threads', 'research', 'documents', 'activity'];
 // Without the brief, the four surfaces that depend on it are not rendered at all.
 const TABS_OFTEN_PLAIN: Tab[] = ['overview', 'ic', 'stages'];
 const TABS_RARELY_PLAIN: Tab[] = ['workspace', 'artifacts', 'research', 'documents', 'activity'];
@@ -558,20 +581,9 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   const behind = workbench.filter((r) => r.state === 'amber').length;
   const closedAtIc = workbench.filter((r) => r.w.status === 'closed_at_ic').length;
 
-  // On a deal still heading to committee, producing the papers IS the work. "Generate a
-  // document" sat third in an overflow menu while the IC readiness board -- which the
-  // brief sends you to -- listed the missing memo with no way to start it. It moves into
-  // the strip for pre-committee deals, and the market reference material takes its place
-  // under More. Nothing is removed either way.
-  const preCommittee = !!deal && !POST_IC.has(String(deal.status || ''));
-  const tabsOften: Tab[] = (() => {
-    const base = cockpitOn ? TABS_OFTEN : TABS_OFTEN_PLAIN;
-    if (!preCommittee || base.includes('documents')) return base;
-    const at = base.indexOf('ic');
-    const out = [...base];
-    out.splice(at >= 0 ? at + 1 : out.length, 0, 'documents');
-    return out;
-  })();
+  // The tab strip is deliberately the same on every deal — see TABS_OFTEN. Pre-committee
+  // deals used to get "Generate a document" spliced in, which moved everything after it.
+  const tabsOften: Tab[] = cockpitOn ? TABS_OFTEN : TABS_OFTEN_PLAIN;
   const tabsRarely: Tab[] = (cockpitOn ? TABS_RARELY : TABS_RARELY_PLAIN).filter((t) => !tabsOften.includes(t));
   const RYG_DOT: Record<string, string> = { red: 'var(--bad)', amber: 'var(--warn)', green: 'var(--good)' };
 
@@ -677,7 +689,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   aria-expanded={moreOpen}
                   onClick={() => setMoreOpen((v) => !v)}
                 >
-                  {tabsRarely.includes(tab) ? TAB_LABEL[tab] : 'More'} ▾
+                  {/* The trigger used to rename itself to whichever item you had picked,
+                      so the one control that never moves changed its name four times a
+                      session and "More" appeared to vanish. It keeps its name; the dot
+                      says something inside is open, and the menu marks which. */}
+                  More{tabsRarely.includes(tab) ? ' ·' : ''} ▾
                 </button>
                 {moreOpen ? (
                   <div className="dd-more-menu" role="menu">
@@ -878,7 +894,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                             <button className="btn primary" disabled={!!busy} title={curProduces.length ? `Generates: ${curProduces.join(', ')}` : undefined} onClick={() => act('run', `/api/deals/${dealId}/steps/${deal.currentStep}/run`)}>{busy === 'run' ? 'Running…' : `⚙ Run ${STEP_LABEL[deal.currentStep || ''] || 'step'}`}</button>
                             <button className="btn" disabled={!!busy} onClick={() => act('advance', `/api/deals/${dealId}/advance`)}>{busy === 'advance' ? 'Advancing…' : 'Advance to next step →'}</button>
                             {deal.currentStep && /^d[34]/i.test(deal.currentStep) ? <button className="btn ghost" onClick={() => setTab('documents')}>📤 Generate IC deck / memo</button> : null}
-                            <button className="btn ghost" disabled={!!busy} onClick={() => act('back', `/api/deals/${dealId}/back`)}>← Back a step</button>
+                            {/* Returning a whole stage asks first; moving back one step,
+                                which is the same kind of damage on a smaller scale, did
+                                not. On a live transaction it sits one pixel-width from
+                                "Advance", and undoing it means re-running the step. */}
+                            <button className="btn ghost" disabled={!!busy} onClick={() => { if (window.confirm('Move this deal back one step?\n\nThe current step will be reopened and marked incomplete.')) act('back', `/api/deals/${dealId}/back`); }}>← Back a step</button>
                             {prevStage ? (
                               <button className="btn ghost" disabled={!!busy} title={`Reopen this deal at the start of ${prevStage.name}`} onClick={() => { if (window.confirm(`Return this deal to “${prevStage.name}”?\n\nIt will reopen at the start of that stage and any later steps will be marked incomplete.`)) act('back-stage', `/api/deals/${dealId}/back-stage`); }}>{busy === 'back-stage' ? 'Returning…' : `⏮ Return to ${prevStage.name}`}</button>
                             ) : null}
@@ -960,7 +980,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                         <button className="btn" disabled={!!busy} onClick={() => act('advance', `/api/deals/${dealId}/advance`)}>
                           {busy === 'advance' ? 'Advancing…' : 'Advance to next step →'}
                         </button>
-                        <button className="btn ghost" disabled={!!busy} onClick={() => act('back', `/api/deals/${dealId}/back`)}>← Back a step</button>
+                        <button className="btn ghost" disabled={!!busy} onClick={() => { if (window.confirm('Move this deal back one step?\n\nThe current step will be reopened and marked incomplete.')) act('back', `/api/deals/${dealId}/back`); }}>← Back a step</button>
                       </>
                     )}
                   </div>
@@ -986,14 +1006,27 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                         {!isPostIC((deal as any).status) && typeof deal.daysToIC === 'number' && deal.daysToIC >= 0 ? <span className="muted">· IC in {deal.daysToIC}d</span> : null}
                         {verdict?.headline ? <span className="muted" style={{ fontSize: 12 }}>· {verdict.headline}</span> : null}
                       </div>
-                      {blockers.length ? (
+                      {isPostIC((deal as any).status) && (verdict?.gating || []).length ? (
                         <div style={{ marginTop: 10 }}>
-                          {/* "Top blockers" on a deal that has been approved is the wrong
-                              word -- nothing is blocking a decision that has been taken.
-                              What is left are the compliance items the approval was made
-                              subject to, and calling them blockers is what produced four
-                              different answers to "what is outstanding on Helvetia". */}
-                          <div className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700, marginBottom: 4 }}>{isPostIC((deal as any).status) ? 'Outstanding after approval' : 'Top blockers'}</div>
+                          {/* This card was printing the headline count from the verdict's
+                              gating list and the items themselves from the blocker list.
+                              Two collections, one card: it read "2 obligations still
+                              outstanding" above a single row naming KYC, which is not one
+                              of the two. The distinction matters legally — an unsatisfied
+                              condition precedent stops completion, an incomplete KYC pack
+                              does not. Count and list now come from the same place. */}
+                          <div className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700, marginBottom: 4 }}>Outstanding after approval</div>
+                          {verdict!.gating!.slice(0, 3).map((g: string, i: number) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
+                              <span style={{ color: 'var(--warn, #d9a441)' }}>○</span>
+                              <span style={{ flex: 1, minWidth: 0 }}>{g}</span>
+                            </div>
+                          ))}
+                          {verdict!.gating!.length > 3 ? <button className="chbtn" style={{ marginTop: 4 }} onClick={() => setTab('ic')}>{verdict!.gating!.length - 3} more ▸</button> : null}
+                        </div>
+                      ) : blockers.length ? (
+                        <div style={{ marginTop: 10 }}>
+                          <div className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700, marginBottom: 4 }}>Top blockers</div>
                           {blockers.slice(0, 3).map((b, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
                               <span style={{ color: 'var(--bad)' }}>○</span>
@@ -1081,7 +1114,12 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                     <section className="dd-panel">
                       <div className="dd-panel-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span>Workstream status</span>
-                        <span style={{ fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: atRisk ? 'var(--bad)' : 'var(--muted)', background: atRisk ? 'var(--bad-bg)' : 'var(--chip)' }}>{atRisk ? `${atRisk} at risk` : behind ? `${behind} behind` : closedAtIc === workbench.length ? `${closedAtIc} closed at IC` : 'All on track'}</span>
+                        {/* "All on track" was printed over four workstreams reading
+                            "Closed at IC — no write-up on file", because the closed-at-IC
+                            case only spoke up when it accounted for every row. Three
+                            finished workstreams do not make a clean bill of health for the
+                            four with nothing on file. Say the gap whenever there is one. */}
+                        <span style={{ fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: atRisk ? 'var(--bad)' : 'var(--muted)', background: atRisk ? 'var(--bad-bg)' : 'var(--chip)' }}>{atRisk ? `${atRisk} at risk` : behind ? `${behind} behind` : closedAtIc ? `${closedAtIc} closed at IC, no write-up` : 'All on track'}</span>
                       </div>
                       <div style={{ padding: '4px 14px 14px' }}>
                         {workbench.map(({ w, state, reason }, i) => (
