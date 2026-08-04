@@ -710,7 +710,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
         {/* A link naming a page that does not exist landed on the brief in silence, so
             the reader believed the brief was the page they had been sent to read. */}
         {badLink ? (
-          <div className="badlink">The link you followed asked for a page called “{badLink}”, which is not a page on a deal. You are on the deal brief. The pages on this deal are listed below.</div>
+          <div className="badlink">The link you followed asked for a page called “{badLink}”, which is not a page on a deal. You are on {TAB_LABEL[tab]}. The pages on this deal are listed below.</div>
         ) : null}
 
         {/* The assistant used to be laid over the whole deal, header and all, so with

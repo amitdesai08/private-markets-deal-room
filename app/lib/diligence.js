@@ -114,22 +114,36 @@ export function enforceFigures(md, deal) {
   const c = canonicalFigures(deal);
   if (!md || !c) return md;
   let s = String(md);
-  const near = (re, correct) => {
-    s = s.replace(re, (whole, num) => {
+  // Every pattern below captures THREE groups -- what comes before the number, the
+  // number, and what comes after -- and rebuilds the match from them. An earlier
+  // version captured only the number and then did whole.replace(num, correct), which
+  // turned "Base case 22.5% IRR" into "222.5% IRR": the engine had backtracked into
+  // the middle of the number, matched "2.5", and the string replace found that "2.5"
+  // inside "22.5". A guard that corrupts the figure it is guarding is worse than no
+  // guard, so the position is now explicit rather than searched for.
+  // (?<![\d.]) and (?![\d.]) stop a match ever starting or ending part-way through a
+  // number.
+  const fix = (re, correct) => {
+    s = s.replace(re, (whole, pre, num, post) => {
       const got = Number(num);
       if (!Number.isFinite(got) || Math.abs(got - correct) < 0.05) return whole;
-      return whole.replace(String(num), String(correct));
+      return `${pre}${correct}${post}`;
     });
   };
-  // "entry multiple of 9.4x", "entry EV/EBITDA 9.4x", "paying 9.4x"
-  near(/\b(?:entry|paying|purchase)[^.\n]{0,28}?(\d{1,2}(?:\.\d{1,2})?)\s*x\b/gi, c.entryMultiple);
-  near(/\b(\d{1,2}(?:\.\d{1,2})?)\s*x\s*(?:EV\s*\/\s*EBITDA|entry)\b/gi, c.entryMultiple);
-  // "base IRR of 21%", "21% IRR"
-  near(/\b(?:base[^.\n]{0,18})?(\d{1,3}(?:\.\d)?)\s*%\s*(?:gross\s*)?IRR\b/gi, c.irr);
-  near(/\bIRR[^.\n]{0,18}?(\d{1,3}(?:\.\d)?)\s*%/gi, c.irr);
-  // "2.6x MOIC"
-  near(/\b(\d(?:\.\d{1,2})?)\s*x\s*MOIC\b/gi, c.moic);
-  near(/\bMOIC[^.\n]{0,14}?(\d(?:\.\d{1,2})?)\s*x/gi, c.moic);
+  const N = '(?<![\\d.])(\\d{1,3}(?:\\.\\d{1,2})?)(?![\\d.])';
+  // The gap between a label and its number is deliberately tiny and cannot cross a
+  // comma, semicolon or full stop. A looser gap made "...2.76x MOIC, entry at 5.5x
+  // EV/EBITDA" match as MOIC-then-5.5 and rewrite the entry multiple with the MOIC.
+  const OF = '\\s*(?:of|is|at|:|=)?\\s*';
+  // "entry multiple of 9.4x", "paying 9.4x", "9.4x EV/EBITDA"
+  fix(new RegExp(`((?:entry|paying|purchase)[^.,;\\n]{0,28}?)${N}(\\s*x\\b)`, 'gi'), c.entryMultiple);
+  fix(new RegExp(`()${N}(\\s*x\\s*(?:EV\\s*\\/\\s*EBITDA|entry)\\b)`, 'gi'), c.entryMultiple);
+  // "base case 21% IRR", "IRR of 21%"
+  fix(new RegExp(`()${N}(\\s*%\\s*(?:gross\\s*)?IRR\\b)`, 'gi'), c.irr);
+  fix(new RegExp(`(\\bIRR${OF})${N}(\\s*%)`, 'gi'), c.irr);
+  // "2.6x MOIC", "MOIC of 2.6x"
+  fix(new RegExp(`()${N}(\\s*x\\s*MOIC\\b)`, 'gi'), c.moic);
+  fix(new RegExp(`(\\bMOIC${OF})${N}(\\s*x)`, 'gi'), c.moic);
   return s;
 }
 
