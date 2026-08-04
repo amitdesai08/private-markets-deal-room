@@ -161,7 +161,7 @@ export function houseStyle(md) {
   // it were citing a source rather than reading the deal's own record: `IC readiness:
   // not ready for committee — "Not ready for committee — 4 required items..."`. The
   // quotes hid the repetition from the rule below, so they come off first.
-  s = s.replace(/["\u201c\u201d]((?:not )?ready for committee[^"\u201c\u201d\n]{0,300})["\u201c\u201d]/gi, '$1');
+  s = s.replace(/["\u201c\u201d]((?:(?:not )?ready for committee|\d+ (?:required item|workstream))[^"\u201c\u201d\n]{0,300})["\u201c\u201d]/gi, '$1');
   // Two different fields carry the same readiness enum, so once both were spelled out
   // in words the reader got the answer twice in a row, and the second copy pushed the
   // part that mattered — the outstanding items — off to the right. Three rounds were
@@ -171,7 +171,7 @@ export function houseStyle(md) {
   // and drops the duplicate. Only collapsed when the two readings are identical; "not
   // ready" followed by "ready" is two fields disagreeing, which a reader should see
   // rather than have quietly tidied away.
-  s = s.replace(/\b((?:not )?ready for committee)([^\n]{0,26}?)((?:not )?ready for committee)\b/gi,
+  s = s.replace(/\b((?:not )?ready for committee)([^\n]{0,44}?)((?:not )?ready for committee)\b/gi,
     (m, a, sep, b) => (a.toLowerCase() === b.toLowerCase() ? a + sep : m));
   // Dropping a duplicate leaves its punctuation behind: "shows: ; 4 items", "— — 4".
   // A dash needs air on both sides; a colon, semicolon or comma only on the right.

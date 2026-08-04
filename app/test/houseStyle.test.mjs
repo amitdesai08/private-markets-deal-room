@@ -48,6 +48,12 @@ test('quotation marks around the readiness field do not hide the repetition', ()
   assert.doesNotMatch(out, /"/, `a stray quotation mark was left behind: ${out}`);
 });
 
+test('the record is read, not cited -- no quotation marks around its own fields', () => {
+  const out = houseStyle('Blocked: "2 workstreams blocking: Legal DD, ESG / Environmental".');
+  assert.doesNotMatch(out, /"/, out);
+  assert.match(out, /2 workstreams blocking: Legal DD, ESG \/ Environmental/);
+});
+
 test('a contradiction between two fields is left visible, not tidied away', () => {
   const out = houseStyle('Status: NOT-READY. IC-READY per the board.');
   assert.match(out, /not ready for committee/i);
