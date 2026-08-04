@@ -657,6 +657,13 @@ api.post('/deals/:id/checklist/:itemId/cycle', async (req, res) => {
 // IC Readiness Cockpit — the decision-grade board (7 questions + verdict),
 // grounded in real Fabric/OneLake market intelligence.
 api.get('/deals/:id/ic-readiness', (req, res) => {
+  const raw = getDealRaw(req.params.id);
+  if (!raw) return res.status(404).json({ error: 'not-found' });
+  // A forwarded link to this board named an unannounced target, priced it, and disclosed
+  // an unfiled EU merger-control position to a seat that 404s on the deal itself.
+  if (dealAccessLevel(requestingIdentity(req), raw, requestingViewAs(req)) !== 'full') {
+    return res.status(404).json({ error: 'not-found' });
+  }
   const board = getICReadiness(req.params.id);
   if (!board) return res.status(404).json({ error: 'not-found' });
   res.json(board);
@@ -987,27 +994,46 @@ api.get('/deals/:id/recent', async (req, res) => {
 
 // Lifecycle-stage decision artifacts derived from the live deal record:
 // LBO/returns (Fund CFO), value-creation plan (Operating Partner), risk register.
+//
+// Every one of these is deal detail and every one of them used to answer 200 on an id
+// the very same seat 404s on. A forwarded link to the readiness board named an
+// unannounced target, priced it, and disclosed an unfiled EU merger-control position to
+// an analyst who is not on the deal. The rule already existed on this file; it simply
+// stopped short of these six routes.
+function dealArtifactGate(req, res) {
+  const raw = getDealRaw(req.params.id);
+  if (!raw) { res.status(404).json({ error: 'not-found' }); return false; }
+  const level = dealAccessLevel(requestingIdentity(req), raw, requestingViewAs(req));
+  // 404, not 403: a refusal that confirms the deal exists is most of the disclosure.
+  if (level !== 'full') { res.status(404).json({ error: 'not-found' }); return false; }
+  return true;
+}
 api.get('/deals/:id/returns', (req, res) => {
+  if (!dealArtifactGate(req, res)) return;
   const out = getDealReturns(req.params.id);
   if (!out) return res.status(404).json({ error: 'not-found' });
   res.json(out);
 });
 api.get('/deals/:id/value-creation', (req, res) => {
+  if (!dealArtifactGate(req, res)) return;
   const out = getDealValueCreation(req.params.id);
   if (!out) return res.status(404).json({ error: 'not-found' });
   res.json(out);
 });
 api.get('/deals/:id/risk-register', (req, res) => {
+  if (!dealArtifactGate(req, res)) return;
   const out = getDealRiskRegister(req.params.id);
   if (!out) return res.status(404).json({ error: 'not-found' });
   res.json(out);
 });
 api.get('/deals/:id/ioi', (req, res) => {
+  if (!dealArtifactGate(req, res)) return;
   const out = getDealIoi(req.params.id);
   if (!out) return res.status(404).json({ error: 'not-found' });
   res.json(out);
 });
 api.get('/deals/:id/loi', (req, res) => {
+  if (!dealArtifactGate(req, res)) return;
   const out = getDealLoi(req.params.id);
   if (!out) return res.status(404).json({ error: 'not-found' });
   res.json(out);
@@ -1595,6 +1621,12 @@ api.post('/deals/:id/actions/:actionId', async (req, res) => {
 api.post('/deals/:id/chat', async (req, res) => {
   const deal = getDealRaw(req.params.id);
   if (!deal) return res.status(404).json({ error: 'deal not found' });
+  // Asked about a deal it 404s on, this route described the target, its enterprise value,
+  // its carve-out EBITDA and its TSA. The gate was on the record and not on the
+  // conversation about the record.
+  if (dealAccessLevel(requestingIdentity(req), deal, requestingViewAs(req)) !== 'full') {
+    return res.status(404).json({ error: 'deal not found' });
+  }
   const persona = personaById[req.body?.personaId] || getPersonas()[0];
   const message = (req.body?.message || '').toString().slice(0, 2000);
   if (!message) return res.status(400).json({ error: 'message required' });
@@ -1618,7 +1650,7 @@ api.get('/persona-agents', (_req, res) => res.json(personaAgentsInfo()));
 // "view as" (their own + every lower one). The tab uses this to show only the agents
 // the user is entitled to and to offer a downward view-as.
 api.post('/me/access', (req, res) => {
-  res.json(describeAccess(requestingIdentity(req), req.body?.viewAsRole || null));
+  res.json(describeAccess(requestingIdentity(req), requestingViewAs(req)));
 });
 
 // Role-aware capabilities — "what can you do?". Scoped to the caller's role so a new user
@@ -1842,7 +1874,10 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   const previousResponseId = req.body?.previousResponseId ? String(req.body.previousResponseId) : undefined;
   // ---- RBAC (requesting user; optional view-as a lower role) ----
   const identity = requestingIdentity(req);
-  const viewAs = req.body?.viewAsRole || null;
+  // requestingViewAs, not the body alone: the seat arrives in a header on every GET, and
+  // reading only the body meant the portfolio assistant ran unscoped and read out seven
+  // deals the caller cannot open, with their sizes.
+  const viewAs = requestingViewAs(req);
   // The specific persona the caller signed in AS (e.g. ai-md) — drives the domain
   // voice of the read-only / downgraded fallbacks below.
   const askerPersona = actingPersona(req);
@@ -1896,7 +1931,10 @@ api.post('/deal-agent/chat', async (req, res) => {
   const previousResponseId = req.body?.previousResponseId ? String(req.body.previousResponseId) : undefined;
   // ---- RBAC: gate Stage-2 deal access by the requesting user's role ----
   const identity = requestingIdentity(req);
-  const viewAs = req.body?.viewAsRole || null;
+  // requestingViewAs, not the body alone: the seat arrives in a header on every GET, and
+  // reading only the body meant the portfolio assistant ran unscoped and read out seven
+  // deals the caller cannot open, with their sizes.
+  const viewAs = requestingViewAs(req);
   // The specific persona the caller signed in AS (e.g. ai-md) — the assistant answers
   // in that partner's domain voice via the persona lens.
   const askerPersona = actingPersona(req);
@@ -2057,3 +2095,4 @@ hydrate()
       console.log(`The Deal Room listening on :${port} — AI mode: ${info.mode} (${info.model})`);
     });
   });
+

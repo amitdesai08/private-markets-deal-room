@@ -269,6 +269,10 @@ export function accessFor(identity, viewAsRole = null) {
   const actualRole = actualRoleFor(identity);
   let role = actualRole;
   if (viewAsRole && roleSpec(viewAsRole) && rankOf(viewAsRole) <= rankOf(actualRole)) role = viewAsRole;
+  // A seat we do not recognise is a refusal, not a no-op. Asking to be viewed as "guest"
+  // used to be ignored, which left the caller on the default -- so a typo, or a probe,
+  // was answered with MORE access than the role it named.
+  else if (viewAsRole && !roleSpec(viewAsRole)) role = 'member';
   const spec = roleSpec(role) || roleSpec('member') || BUILTIN_ROLE.member;
   // View-as may only ever NARROW, and that is enforced here rather than left to the
   // rank comparison above.

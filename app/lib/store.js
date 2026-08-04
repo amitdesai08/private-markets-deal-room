@@ -516,6 +516,13 @@ export function applyStatusTier(s) {
   s.dealSize = null;
   s.targetICDate = null;
   s.daysToIC = null;
+  // The masked enterprise value was reconstructable from the row that masked it: the
+  // same object shipped entryMultiple 8.3 and ebitda 29 beside a nulled dealSize, and
+  // 8.3 x 29 is the figure above it. The single readiness percentage stays on purpose --
+  // a metadata seat is entitled to know a deal is not ready -- but the returns model and
+  // the key figures behind it are deal detail.
+  s.figures = null;
+  s.keyFigures = [];
   s.locked = true;
   return s;
 }

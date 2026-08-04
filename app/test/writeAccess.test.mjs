@@ -26,10 +26,13 @@ test('view-as MEMBER is the guardrail floor — read-only, no personas', () => {
 });
 
 test('view-as can only narrow: it never elevates write capability', () => {
-  // A caller viewing "as" a role is downgraded to that role; an unknown/out-of-range
-  // viewAs is ignored (you keep your own, never gain a higher one).
+  // A caller viewing "as" a role is downgraded to that role. An unknown viewAs used to be
+  // IGNORED, which meant asking to be seen as "guest" was answered with the caller's own
+  // default seat -- more access than the role they named, and a probe that reads as a
+  // no-op. A seat we do not recognise now falls to the floor instead.
   const asAnalyst = accessFor(null, 'analyst');
   const asBogus = accessFor(null, 'not-a-role');
   assert.equal(asAnalyst.canWrite, false, 'downgrade removes write');
-  assert.equal(asBogus.canWrite, true, 'unknown viewAs is ignored — keeps own (deal-team) write, not elevated');
+  assert.equal(asBogus.role, 'member', 'an unrecognised seat falls to the floor');
+  assert.equal(asBogus.canWrite, false, 'and the floor is read-only');
 });

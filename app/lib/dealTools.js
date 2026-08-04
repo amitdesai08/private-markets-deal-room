@@ -155,7 +155,7 @@ export function searchDealSummaries(query, { identity, viewAsRole } = {}) {
   const terms = q.split(/\s+/).filter(Boolean);
   // Identity-aware: a caller only searches deals they may see; system callers (no
   // identity) get the confidential-excluding agent list.
-  const base = identity ? listDeals(identity, viewAsRole) : listAgentDeals();
+  const base = identity || viewAsRole ? listDeals(identity, viewAsRole) : listAgentDeals();
   return base
     .filter((s) => {
       const hay = `${s.company} ${s.sector} ${s.subSector} ${s.thesis}`.toLowerCase();
@@ -179,7 +179,7 @@ export function dispatchTool(name, args, { scope = 'portfolio', focusId, focusCo
       const s = summaryFor(focusId);
       return { scoped_to: focusCompany, deals: s ? [dealSummary(s)] : [], note: `Scoped to ${focusCompany}; other deals are not accessible in this conversation.` };
     }
-    const base = enforce ? listDeals(identity, viewAsRole) : listAgentDeals();
+    const base = enforce || viewAsRole ? listDeals(identity, viewAsRole) : listAgentDeals();
     return { deals: base.map(dealSummary) };
   }
   if (name === 'get_deal') {
