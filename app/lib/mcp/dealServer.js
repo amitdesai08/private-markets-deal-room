@@ -35,6 +35,7 @@ import {
 } from '../dealTools.js';
 import { resolvePersona, PERSONAS } from '../personaPolicy.js';
 import { getDealRaw } from '../store.js';
+import { dealAccessLevel } from '../userPolicy.js';
 
 // The hosted MCP is a SHARED read surface: Foundry calls it with the agent's credentials,
 // not the end user's, so it cannot resolve per-user need-to-know. It therefore NEVER returns
@@ -42,10 +43,23 @@ import { getDealRaw } from '../store.js';
 // through the app's identity-gated path. Returns a refusal payload, or null when allowed.
 function confidentialBlock(dealId) {
   const raw = dealId ? getDealRaw(dealId) : null;
-  return raw && raw.confidential
-    ? { error: 'access-denied', reason: 'This deal is restricted to its named team; it is not available through this shared surface.' }
-    : null;
+  if (raw && raw.confidential) {
+    return { error: 'access-denied', reason: 'This deal is restricted to its named team; it is not available through this shared surface.' };
+  }
+  // Anything above the floor is need-to-know, and this surface cannot establish who is
+  // asking. An analyst asked the assistant to name every deal in the fund and was read
+  // seven companies with their cheque sizes -- correctly withheld by the API a moment
+  // earlier, and handed over here because the model asked instead of the person.
+  if (raw && dealAccessLevel(null, raw, MCP_FLOOR_ROLE) !== 'full') {
+    return { error: 'access-denied', reason: 'Deal detail is need-to-know and is resolved per user. Use the deal summaries already provided in your context, which are scoped to the person asking; do not answer from this tool.' };
+  }
+  return null;
 }
+
+// What this surface may enumerate: the least-privileged real seat. It cannot resolve the
+// caller, so it answers as the person entitled to least.
+const MCP_FLOOR_ROLE = 'member';
+const floorScope = () => ({ scope: 'portfolio', identity: null, viewAsRole: MCP_FLOOR_ROLE });
 
 const SERVER_INFO = { name: 'deal-room-mcp', version: '2.5.0' };
 const READ_TOOLS = ['list_deals', 'get_deal', 'search_deals', 'list_pipeline', 'get_candidate', 'get_candidate_artifact', 'get_deal_artifact', 'get_ic_readiness', 'get_returns', 'get_value_creation', 'get_risk_register', 'get_fund_overview', 'get_portfolio', 'get_fund_value', 'get_market_intel', 'get_citation_audit', 'get_companies', 'get_company', 'get_next_actions'];
@@ -87,7 +101,7 @@ export function buildDealMcpServer(auth = { mode: 'disabled' }) {
   // ---- READ: Stage-2 deals (existing contracts) ---------------------------
   server.registerTool('list_deals',
     { title: 'List deals', description: TOOL_DESCRIPTIONS.list_deals, inputSchema: {} },
-    async () => toContent(dispatchTool('list_deals', {}, { scope: 'portfolio' })));
+    async () => toContent(dispatchTool('list_deals', {}, floorScope())));
 
   server.registerTool('get_deal',
     {
@@ -97,11 +111,11 @@ export function buildDealMcpServer(auth = { mode: 'disabled' }) {
         sections: z.array(z.string()).optional().describe('Optional subset: summary, financials, workstreams, memo, compliance, risks, activity. Unknown values are ignored.')
       }
     },
-    async ({ deal_id, sections }) => toContent(confidentialBlock(deal_id) || dispatchTool('get_deal', { deal_id, sections }, { scope: 'portfolio' })));
+    async ({ deal_id, sections }) => toContent(confidentialBlock(deal_id) || dispatchTool('get_deal', { deal_id, sections }, floorScope())));
 
   server.registerTool('search_deals',
     { title: 'Search deals', description: TOOL_DESCRIPTIONS.search_deals, inputSchema: { query: z.string().describe('Keywords, e.g. a company name or a sector.') } },
-    async ({ query }) => toContent(dispatchTool('search_deals', { query }, { scope: 'portfolio' })));
+    async ({ query }) => toContent(dispatchTool('search_deals', { query }, floorScope())));
 
   // ---- READ: Stage-1 funnel + artifacts -----------------------------------
   server.registerTool('list_pipeline',
@@ -312,3 +326,4 @@ export function dealMcpInfo() {
 export function dealMcpReadonlyInfo() {
   return { path: '/mcp-ro', readTools: READ_TOOLS, toolCount: READ_TOOLS.length };
 }
+

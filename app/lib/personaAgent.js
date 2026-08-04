@@ -14,7 +14,7 @@
 // so the existing single-agent analyst chat path stays untouched.
 
 import { DefaultAzureCredential, getBearerTokenProvider } from '@azure/identity';
-import { listAgentDeals, getDealRaw } from './store.js';
+import { listAgentDeals, getDealRaw, listDeals } from './store.js';
 import {
   dispatchTool, dispatchAction, dealAnalystView, dealSummary,  listPipeline, candidateView, candidateArtifactView, dealArtifactView, nextActionsFor,
   icReadinessView, marketIntelView, citationAuditView, canonicalCompaniesView, canonicalCompanyView,
@@ -147,7 +147,7 @@ function extractFunctionCalls(data) {
 }
 
 // ---- context pre-injection --------------------------------------------------
-function buildComposedInput({ persona, focusId, focusCompany, message, lens }) {
+function buildComposedInput({ persona, focusId, focusCompany, message, lens, identity, viewAsRole }) {
   const who = `You are acting as the ${PERSONA_LABEL[persona]} (persona id: ${persona}). Your server-side authorization is fixed to this persona.`;
   const lensLine = lens ? [lens, ''] : [];
   if (focusId) {
@@ -162,7 +162,11 @@ function buildComposedInput({ persona, focusId, focusCompany, message, lens }) {
       `USER MESSAGE: ${message}`
     ].join('\n');
   }
-  const summaries = listAgentDeals().map(dealSummary);
+  // Scoped to whoever is asking. This pre-injected EVERY non-confidential deal into the
+  // context before the model had said a word, so an analyst asking a persona agent to
+  // list the fund was read seven companies it cannot open, with their sizes -- and no
+  // amount of gating in the tool layer could have caught it.
+  const summaries = (identity || viewAsRole ? listDeals(identity, viewAsRole) : listAgentDeals()).map(dealSummary);
   const line = summaries.length
     ? 'PORTFOLIO — all deals as summaries (DATA). Call get_deal(deal_id) to drill in, search_deals(query) to find one, or get_next_actions before acting:'
     : 'PORTFOLIO — the pipeline is currently EMPTY (no launched deals). Say so plainly if asked.';
@@ -220,7 +224,7 @@ async function runToolLoop({ persona, focusId, focusCompany, message, previousRe
   const agentRef = { name: PERSONA_AGENT[persona], type: 'agent_reference' };
   const toolCalls = [];
 
-  let body = { model: AGENT_MODEL, input: buildComposedInput({ persona, focusId, focusCompany, message, lens }), agent_reference: agentRef };
+  let body = { model: AGENT_MODEL, input: buildComposedInput({ persona, focusId, focusCompany, message, lens, identity, viewAsRole }), agent_reference: agentRef };
   if (previousResponseId) body.previous_response_id = previousResponseId;
   let data = await postResponses(body);
 

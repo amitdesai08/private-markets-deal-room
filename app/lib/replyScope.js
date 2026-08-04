@@ -1,0 +1,51 @@
+// A last line of defence over anything an assistant says.
+//
+// The routes, the tool layer and the shared MCP were all scoped, and an analyst asking
+// "name every deal in the fund" was still read seven companies it cannot open, with their
+// cheque sizes. Somewhere between a correctly-scoped context and the reply, the model
+// obtained names it was never handed. For a disclosure boundary that is not a bug to
+// chase in prose and hope; it is a check to enforce.
+//
+// This does not excuse the root cause. It guarantees the outcome while the root cause is
+// found, in the same way the figures guard checks the numbers rather than trusting the
+// instruction not to invent them.
+import { listDeals, getDealRaw } from './store.js';
+import { dealAccessLevel } from './userPolicy.js';
+
+// Every company name on the book that THIS caller may not see.
+function hiddenNames(identity, viewAsRole) {
+  const visible = new Set(listDeals(identity, viewAsRole).map((d) => d.id));
+  const out = [];
+  for (const s of listDeals()) {
+    if (visible.has(s.id)) continue;
+    const raw = getDealRaw(s.id);
+    if (dealAccessLevel(identity, raw, viewAsRole) === 'full') continue;
+    if (s.company) out.push({ id: s.id, company: String(s.company) });
+  }
+  return out;
+}
+
+const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Returns { text, redacted } — redacted lists what was removed, for the audit line.
+export function redactHiddenDeals(text, identity, viewAsRole) {
+  if (!text) return { text, redacted: [] };
+  let hidden;
+  try { hidden = hiddenNames(identity, viewAsRole); } catch { return { text, redacted: [] }; }
+  if (!hidden.length) return { text, redacted: [] };
+
+  let s = String(text);
+  const hit = hidden.filter((h) => s.includes(h.company));
+  if (!hit.length) return { text: s, redacted: [] };
+
+  // A whole line naming a hidden deal goes, rather than leaving the sentence around it —
+  // "— 640 EUR" with the company removed still discloses that a deal of that size exists.
+  const lines = s.split('\n');
+  const kept = lines.filter((line) => !hit.some((h) => line.includes(h.company)));
+  s = kept.join('\n');
+  // Anything left inline (mid-sentence) is replaced rather than deleted.
+  for (const h of hit) s = s.replace(new RegExp(escape(h.company), 'g'), 'a deal you are not on');
+
+  const note = '\n\n_Some deals were left out of this answer because they are restricted to their named teams. Ask a deal-team member or an administrator if you should be on one._';
+  return { text: (s.trim() + note), redacted: hit.map((h) => h.id) };
+}

@@ -112,6 +112,7 @@ import { companyFundamentals } from './lib/filings.js';
 import { leiLookup, leiUltimateParent } from './lib/providers/gleif.js';
 import { gdeltNews } from './lib/providers/gdelt.js';
 import { chatDealAgent, dealAgentInfo } from './lib/dealAgent.js';
+import { redactHiddenDeals } from './lib/replyScope.js';
 import { chatOrchestrator, orchestrationEnabled, orchestratorInfo } from './lib/purposeAgent.js';
 import { capabilitiesFor, capabilitiesNarrative, isCapabilityQuestion } from './lib/capabilities.js';
 import { chatPersonaAgent, personaAgentsInfo } from './lib/personaAgent.js';
@@ -519,7 +520,7 @@ api.get('/deals/:id/documents', async (req, res) => {
   if (!deal) return res.status(404).json({ error: 'not-found' });
   const identity = requestingIdentity(req);
   const gate = authorizeDealContent(identity, deal, requestingViewAs(req));
-  if (!gate.ok) return res.status(403).json({ denied: true, reason: gate.reason });
+  if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ denied: true, reason: gate.reason });
   // Auto-provision the data room on first access — a deal on the platform shouldn't
   // need a manual “launch”. If M365 is connected and there's no Teams/SharePoint space
   // yet, kick provisioning off in the background and report progress (the UI polls).
@@ -546,7 +547,7 @@ api.post('/deals/:id/documents/:kind', async (req, res) => {
   if (!deal) return res.status(404).json({ error: 'not-found' });
   const identity = requestingIdentity(req);
   const gate = authorizeDealContent(identity, deal, requestingViewAs(req));
-  if (!gate.ok) return res.status(403).json({ denied: true, reason: gate.reason });
+  if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ denied: true, reason: gate.reason });
   // Destination: 'download' streams a personal working copy to the requester
   // (built on their license, needs no Graph); 'sharepoint' publishes into the
   // shared deal data room (write-gated). A per-user OBO Graph token — trusted
@@ -657,13 +658,7 @@ api.post('/deals/:id/checklist/:itemId/cycle', async (req, res) => {
 // IC Readiness Cockpit — the decision-grade board (7 questions + verdict),
 // grounded in real Fabric/OneLake market intelligence.
 api.get('/deals/:id/ic-readiness', (req, res) => {
-  const raw = getDealRaw(req.params.id);
-  if (!raw) return res.status(404).json({ error: 'not-found' });
-  // A forwarded link to this board named an unannounced target, priced it, and disclosed
-  // an unfiled EU merger-control position to a seat that 404s on the deal itself.
-  if (dealAccessLevel(requestingIdentity(req), raw, requestingViewAs(req)) !== 'full') {
-    return res.status(404).json({ error: 'not-found' });
-  }
+  if (!dealArtifactGate(req, res)) return;
   const board = getICReadiness(req.params.id);
   if (!board) return res.status(404).json({ error: 'not-found' });
   res.json(board);
@@ -1004,9 +999,21 @@ function dealArtifactGate(req, res) {
   const raw = getDealRaw(req.params.id);
   if (!raw) { res.status(404).json({ error: 'not-found' }); return false; }
   const level = dealAccessLevel(requestingIdentity(req), raw, requestingViewAs(req));
-  // 404, not 403: a refusal that confirms the deal exists is most of the disclosure.
-  if (level !== 'full') { res.status(404).json({ error: 'not-found' }); return false; }
-  return true;
+  if (level === 'full') return true;
+  // 404 only when the deal is genuinely invisible to this seat -- a refusal that confirms
+  // an unannounced target exists is most of the disclosure. But a STATUS row is already
+  // in the reader's own list, so denying its existence is a lie they can disprove by
+  // scrolling up: an analyst was told four tabs of a deal on their own screen did not
+  // exist. Where the row is visible, say why, in the words the product already uses.
+  if (level === 'status') {
+    res.status(403).json({
+      error: 'status-only',
+      detail: 'This deal has advanced past screening and its detail is restricted to the deal team. You can see where it stands; ask a deal-team member or an administrator to be added.',
+    });
+    return false;
+  }
+  res.status(404).json({ error: 'not-found' });
+  return false;
 }
 api.get('/deals/:id/returns', (req, res) => {
   if (!dealArtifactGate(req, res)) return;
@@ -1042,6 +1049,7 @@ api.get('/deals/:id/loi', (req, res) => {
 // Source-citation audit — numeric claims in IC materials mapped to source facts;
 // unsourced figures flagged (point 5).
 api.get('/deals/:id/citations', (req, res) => {
+  if (!dealArtifactGate(req, res)) return;
   const audit = getCitationAudit(req.params.id);
   if (!audit) return res.status(404).json({ error: 'not-found' });
   res.json(audit);
@@ -1100,7 +1108,7 @@ api.post('/deals/:id/assistant-actions', async (req, res) => {
   if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only; you cannot apply changes.' });
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
-  if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
+  if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ error: 'forbidden', detail: gate.reason });
   const { kind, args = {} } = req.body || {};
   const by = actingName(req) || access.roleLabel || 'You';
   let r;
@@ -1125,7 +1133,7 @@ api.get('/deals/:id/workiq-notes', (req, res) => {
   const viewAs = requestingViewAs(req);
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
-  if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
+  if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ error: 'forbidden', detail: gate.reason });
   res.json({ notes: listWorkiqNotes(req.params.id) });
 });
 api.post('/deals/:id/workiq-notes', (req, res) => {
@@ -1135,7 +1143,7 @@ api.post('/deals/:id/workiq-notes', (req, res) => {
   if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only; you cannot publish Work IQ notes.' });
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
-  if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
+  if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ error: 'forbidden', detail: gate.reason });
   const text = String(req.body?.text || '').slice(0, 2000);
   if (!text.trim()) return res.status(400).json({ error: 'text-required' });
   const asId = req.body?.as || req.headers['x-dr-as'] || identity?.oid || identity?.upn || identity?.name;
@@ -1160,7 +1168,7 @@ api.delete('/deals/:id/workiq-notes/:noteId', (req, res) => {
   if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only; you cannot remove Work IQ notes.' });
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
-  if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
+  if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ error: 'forbidden', detail: gate.reason });
   const removed = deleteWorkiqNote(req.params.id, req.params.noteId);
   res.json({ ok: true, removed });
 });
@@ -1173,7 +1181,7 @@ api.get('/deals/:id/workiq-corpus', (req, res) => {
   const viewAs = requestingViewAs(req);
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
-  if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
+  if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ error: 'forbidden', detail: gate.reason });
   res.json(corpusForDeal(deal));
 });
 
@@ -1183,7 +1191,7 @@ api.get('/deals/:id/activity', (req, res) => {
   const viewAs = requestingViewAs(req);
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
-  if (!gate.ok) return res.status(403).json({ error: 'forbidden', detail: gate.reason });
+  if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ error: 'forbidden', detail: gate.reason });
   res.json({ activity: (deal.activity || []).slice(0, 60) });
 });
 
@@ -1624,8 +1632,12 @@ api.post('/deals/:id/chat', async (req, res) => {
   // Asked about a deal it 404s on, this route described the target, its enterprise value,
   // its carve-out EBITDA and its TSA. The gate was on the record and not on the
   // conversation about the record.
-  if (dealAccessLevel(requestingIdentity(req), deal, requestingViewAs(req)) !== 'full') {
-    return res.status(404).json({ error: 'deal not found' });
+  {
+    const level = dealAccessLevel(requestingIdentity(req), deal, requestingViewAs(req));
+    if (level === 'status') {
+      return res.status(403).json({ reply: 'This deal has advanced past screening and its detail is restricted to the deal team. Ask a deal-team member or an administrator to be added.', denied: true });
+    }
+    if (level !== 'full') return res.status(404).json({ error: 'deal not found' });
   }
   const persona = personaById[req.body?.personaId] || getPersonas()[0];
   const message = (req.body?.message || '').toString().slice(0, 2000);
@@ -1889,13 +1901,14 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   if (dealId) {
     const d = getDealRaw(dealId);
     const gate = authorizeDealContent(identity, d, viewAs);
-    if (!gate.ok) return res.status(403).json({ reply: gate.reason, denied: true, role: access.role });
+    if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'deal not found' }) : res.status(403).json({ reply: gate.reason, denied: true, role: access.role });
   }
   // Read-only users (analyst / member roles) never reach the write-capable persona
   // agents — answer via the read-only deal analyst instead.
   if (!access.canWrite) {
     try {
       const out = await chatDealAgent({ message, dealId, scope: dealId ? 'deal' : 'portfolio', identity, viewAsRole: viewAs, askerPersona });
+      out.reply = redactHiddenDeals(out.reply, identity, viewAs).text;
       return res.json({ ...out, role: access.role, readOnly: true });
     } catch (err) {
       return res.status(500).json({ error: 'chat failed', detail: String(err?.message || err) });
@@ -1906,7 +1919,8 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   if (!authz.ok) {
     try {
       const out = await chatDealAgent({ message, dealId, scope: dealId ? 'deal' : 'portfolio', identity, viewAsRole: viewAs, askerPersona });
-      return res.json({ reply: `${authz.reason}\n\n${out.reply || ''}`.trim(), downgraded: true, role: access.role });
+      const safe = redactHiddenDeals(out.reply, identity, viewAs).text;
+      return res.json({ reply: `${authz.reason}\n\n${safe || ''}`.trim(), downgraded: true, role: access.role });
     } catch (err) {
       return res.status(500).json({ error: 'chat failed', detail: String(err?.message || err) });
     }
@@ -1914,6 +1928,7 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   try {
     const out = await chatPersonaAgent({ persona: authz.persona, message, dealId, previousResponseId, identity, viewAsRole: viewAs });
     if (out?.error && !out.reply) return res.status(400).json(out);
+    out.reply = redactHiddenDeals(out.reply, identity, viewAs).text;
     res.json({ ...out, role: access.role });
   } catch (err) {
     res.status(500).json({ error: 'persona-agent chat failed', detail: String(err?.message || err) });
@@ -1947,13 +1962,14 @@ api.post('/deal-agent/chat', async (req, res) => {
   if (dealId) {
     const d = getDealRaw(dealId);
     const gate = authorizeDealContent(identity, d, viewAs);
-    if (!gate.ok) return res.status(403).json({ reply: gate.reason, denied: true, role: gate.access.role });
+    if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'deal not found' }) : res.status(403).json({ reply: gate.reason, denied: true, role: gate.access.role });
   }
   try {
     const out = orchestrationEnabled()
       ? await chatOrchestrator({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs, askerPersona })
       : await chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs, askerPersona });
     if (out?.error && !out.reply) return res.status(400).json(out);
+    out.reply = redactHiddenDeals(out.reply, identity, viewAs).text;
     // Assistant proposes concrete next steps (user approves) — deterministic, grounded in
     // deal state. Only for a deal-scoped, write-capable, authorised caller.
     const effDealId = out.dealId || dealId;
@@ -2082,7 +2098,14 @@ app.get('/', (_req, res) =>
 
 const port = config.server.port;
 
+// Exported so the disclosure tests can drive the real HTTP surface. The leaks that
+// mattered were all routes, and in-process tests of the policy library could not see them.
+export { app };
+
 // Rehydrate persisted state from Cosmos before accepting traffic (P1/P5).
+// Only when run as the process entry point: the disclosure tests import this module to
+// drive the real routes, and a second listener on the configured port would hang them.
+if (process.env.DEAL_ROOM_NO_LISTEN !== '1') {
 hydrate()
   .then(async (h) => {
     console.log(`Datastore: ${h.mode} — ${h.companies ?? 0} companies, ${h.deals ?? 0} deals, ${h.signals ?? 0} signals`);
@@ -2095,4 +2118,7 @@ hydrate()
       console.log(`The Deal Room listening on :${port} — AI mode: ${info.mode} (${info.model})`);
     });
   });
+}
+
+
 
