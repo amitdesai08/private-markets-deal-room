@@ -99,6 +99,16 @@ export function houseStyle(md) {
   // Not a phrase anybody in the market uses.
   s = s.replace(/\bpress trade\b/gi, 'press ahead');
 
+  // Our workstream status keys, written at a partner as though they were English. One
+  // answer used `closed_at_ic` seven times, including "by definition in our records
+  // model". She worked out what it meant and said she would not read it aloud -- which
+  // is the right instinct and also the end of the demo. The keys are ours; say the
+  // thing they mean.
+  s = s.replace(/`?\bclosed_at_ic\b`?/gi, 'closed at IC');
+  s = s.replace(/`?\bin_progress\b`?/gi, 'in progress');
+  s = s.replace(/`?\bnot_started\b`?/gi, 'not started');
+  s = s.replace(/\bby definition in our records model\b/gi, 'on the record');
+
   // Collapse the blank runs the deletions leave behind.
   s = s.replace(/\n{3,}/g, '\n\n');
   // One reporting currency. The records are dollars; a euro sign here is the model's

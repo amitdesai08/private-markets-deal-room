@@ -4,14 +4,16 @@
 an investment committee, a deal team. It assumes you know deals and assumes nothing
 about software.
 
-**How long:** 25 minutes at a walking pace, or 12 if you do Acts 1, 4 and 7 only.
+**How long:** 25 minutes at a walking pace. If the meeting before yours overruns, drop
+Acts 2 and 6 — that is 19 minutes and the story still holds. Never drop Act 7.
 
 **Before you present it once,** sit with this document open beside the live product and
-click through it. Every screen name, tile and button below has been checked against the
-product — but a demo you have not driven yourself is a demo that will surprise you.
+click through it. Every screen name, tile and button below was checked against the
+product on 3 August 2026 — but the product moves. If you find a line that has not aged
+well, **correct it here** rather than working around it live.
 
-> Every claim in this script has been verified on screen. If you find one that has not
-> aged well, correct it here rather than working around it live.
+> There is a one-page card at the end of this document. Take that into the room, not
+> these twenty pages.
 
 ---
 
@@ -79,8 +81,9 @@ which before anyone asks — it is the first question every committee asks.
 
 ## Act 1 · Home — *what needs you today* ⏱ 4 min
 
-Press **Home**. Read it top to bottom; it is built to be read that way. There are eight
-panels and they arrive in this order.
+Press **Home**. Read it top to bottom; it is built to be read that way. The screen says
+*"Showing all 8 sections"* — there are nine things to look at, because the strip of four
+figures is not a switchable section. They arrive in this order.
 
 **1. Daily briefing** *(▤ Composed)*. A written account of the fund's position, in
 sentences, for whoever is signed in. A partner and an analyst get different briefings
@@ -126,9 +129,14 @@ screening yield, because targets you passed on never entered the record.
 **8. Pipeline deals** — all 19 in one list, with a **Compare** control: tick two to four
 and put them side by side on the same decision fields.
 
-**9. Market intelligence** — comparables and precedents. **On the demonstration book
-this is empty.** Say: *"That is the panel that fills from your own past deals. This
-book has no history behind it."*
+**9. Market intelligence.** Two of its three blocks are empty on the demonstration book
+— *"No comparables loaded"*, *"No precedents loaded"* — because those fill from your own
+past transactions. **The third is full, so point at that one:** *"Findings raised in past
+diligences — across closed deals, by workstream"*, with Legal 22, Tax 21, Commercial 18,
+Financial 18, Operational 17.
+
+> "That is where the problems have historically been found. It is the difference between
+> guessing where to put the diligence hours and knowing."
 
 **→ Next:** press **Sourcing & screening**.
 
@@ -195,8 +203,10 @@ Execution · Value & Exit**.
 
 Press any row to open a deal.
 
-> "It takes about ten seconds. It is assembling the whole deal — the workstreams, the
+> "Give it fifteen seconds. It is assembling the whole deal — the workstreams, the
 > committee papers, the documents and the audit trail."
+
+Say that sentence slowly; it exactly fills the gap.
 
 **→ Next:** open **Helvetia Diagnostics**.
 
@@ -219,7 +229,7 @@ before you click anything:
 | **Returns, plan & risk** | The returns model, sources and uses, the EBITDA bridge, the risk register, the IOI and the LOI. |
 | **Progress & follow-ups** | Steps completed, who moved the deal on, and what people have promised. |
 | **Work the deal** | The sixteen steps of the lifecycle. Run a step, or move the deal on. |
-| **Diligence workstreams** | Financial, Legal, Tax, Commercial, ESG and the rest — status, owner, findings. The **data room** is at the bottom of this tab. |
+| **Diligence workstreams** | Financial, Legal, Tax, Commercial, ESG and the rest — status, owner, findings. The **data room** sits partway down, above the findings. |
 | **Documents** | Generate a committee memo or deck from the record. |
 | **More ▾** | Deal channel, Comparables & precedents, Generate a document, Audit trail. |
 
@@ -227,12 +237,19 @@ Four things to show, in this order.
 
 ### 1. It tells you where to start
 
-**Above the tabs**, before the brief begins, is a one-line instruction: *"Where to
-start · Drive to close · Approved at IC — advance execution and closing"*, with a button
-**Go to Work the deal ▸**. Read it, then press it, then come back.
+**Above the tabs**, before the brief begins, is a one-line instruction: **Where to
+start**, then the urgency, then what to do — on Helvetia, *"Drive to close · Normal
+urgency · Approved at IC — advance execution and closing"* with a button **Go to Work the
+deal ▸**. Read it, press it, come back.
 
 Below it is the brief itself *(✦ AI)*: prose, not a dashboard, ending with **Ask next** —
 four questions written for this deal that you can press instead of typing.
+
+**Keep scrolling; the brief does not end there.** Below *Ask next* come **What needs my
+attention** (the two open compliance items on this deal, each with an owner and a way in),
+a chat box, **Milestones & dependencies** (all sixteen steps, ten completed), **What
+changed**, **Value creation** and **Recent activity**. Pause on the first and on
+Milestones; scroll past the rest.
 
 ### 2. The numbers agree with each other
 
@@ -248,7 +265,8 @@ file"*.
 > workstreams were signed off at committee with nothing written up afterwards. That is
 > a records gap, not outstanding work — and knowing the difference is the whole job."
 
-Scroll to the bottom of this tab for the **data room**: fourteen numbered folders, the
+Scroll a little way down this tab for the **data room** — or press **📁 Data room** in the
+deal header at the top of the page, which is quicker. Fourteen numbered folders, the
 named adviser on each workstream, playbook templates. **This is not a copy of your data
 room — it is your data room, in SharePoint, opened from here.**
 
@@ -270,6 +288,11 @@ roam — it is that **it only ever roams inside what your role permits**.
 Say that line whether or not the answer looks right. It is the honest position, and a
 room that hears you say it will trust the rest of the demo more, not less.
 
+**What it cannot do.** It cannot move a deal to the next step, change a status, approve
+anything or send anything. Where it proposes an action, a named person presses Apply and
+the audit trail records who and when. Have that ready — "it drafts" is not a complete
+answer to a committee.
+
 **→ Next:** press **Fund & Portfolio**.
 
 ---
@@ -279,6 +302,9 @@ room that hears you say it will trust the rest of the demo more, not less.
 **The fund.** Committed capital, invested, dry powder, and the returns — TVPI, DPI,
 RVPI, gross and net MOIC, gross and net IRR, total value. Each carries a note on how it
 was worked out.
+
+**The watchlist** comes next. The names going the wrong way, each with the one KPI that
+is off plan.
 
 **Portfolio monitoring.** The companies the fund already owns: hold period, entry versus
 current valuation, EBITDA, MOIC, IRR, progress through the value-creation plan, status.
@@ -291,13 +317,13 @@ button to open it.
 > somebody will spot. So the product tells you the answer instead of leaving you to
 > work it out."
 
-**The watchlist.** The names going the wrong way, each with the one KPI that is off
-plan.
-
 **Concentration against LPA limits.** Sector and single-position exposure against the
 caps in your own fund agreement.
 
 > "That is the panel that ends a conversation with an LP before it starts."
+
+Below it are **Portfolio & pipeline health** and an **LP report summary**. If you have
+the time, open the second — it is the quarterly letter's numbers, already assembled.
 
 **→ Next:** press **Report**.
 
@@ -307,8 +333,14 @@ caps in your own fund agreement.
 
 Every figure with its source, its as-of date and how it was worked out, in one place.
 
-It arrives marked **"Draft — not certified"**, and there is a **✓ Certify for LP use**
-button.
+**The first thing on the screen is a Power BI banner** — *"Deal Room Report · Open in
+Power BI ↗"*. Get in front of it rather than being surprised by it:
+
+> "The report is built in Power BI — the same reporting tool your finance team already
+> uses — embedded here. So it prints, it travels, and your analysts can already drive it."
+
+Then point at the header. It arrives marked **"Draft — not certified"**, and there is a
+**✓ Certify for LP use** button.
 
 > "Nothing reaches an investor until a named person presses that button, and pressing it
 > freezes a dated copy that cannot then be edited. Until then it says draft, on every
@@ -330,7 +362,8 @@ Open the person dropdown and choose **Chidi Anagonye — Analyst — Northeast c
 
 Watch what happens:
 
-- **Deals in flight** drops from 15 to 4.
+- **Deals in flight** drops from 15 to **3** — the header reads *"3 of 3 · 1 more still in
+  screening"*. Home shows 4 because Home counts the screening one too.
 - A deal they are not cleared for still appears — *"Status only · Beacon Hill Biotech 🔒
   · You are not on this deal team"* — by name and status, with no valuation, no
   diligence and no documents. It is honest that it exists rather than pretending it does
@@ -351,9 +384,13 @@ Switch back to the partner before you continue.
 
 ## Act 8 · Where the data comes from ⏱ 2 min
 
-Press **⚙ Settings**. It lists every outside source the product may use — SEC EDGAR
-(company filings), news, company-identity registries, web search, and the paid market
-providers if your firm subscribes — and **you can turn any of them off**.
+Press **⚙ Settings**. It lists every outside source the product may use, and **you can
+turn any of them off**. Stay at the top of the page, where the free sources are — company
+filings, news, the legal-entity register, web search. **Switch one off in front of them.**
+
+The paid providers below it read *"Not connected"* because this fund does not subscribe;
+say that rather than letting somebody read it as broken. The sign-in boxes at the foot of
+the page are for an IT team on the day of setup and are not part of this conversation.
 
 > "You decide what this thing is allowed to look at. And the deal material itself never
 > leaves your own Microsoft tenant — the data room is your SharePoint, the conversation
@@ -363,6 +400,10 @@ Close with:
 
 > "One place to run a deal, built on the tools you already pay for and already trust,
 > and every number on it will tell you where it came from."
+
+**Then ask for something.** A working session with the deal team, or a conversation about
+what it would take to load their own deals. A demo that ends without an ask ends without
+a decision.
 
 ---
 
@@ -390,11 +431,50 @@ caught without any of these.
 
 | What you see | What to do |
 |---|---|
-| A deal takes ten seconds to open | Expected — it is assembling the full record. Keep talking. |
+| A deal takes fifteen seconds to open | Expected — it is assembling the full record. Have your sentence ready. |
 | A panel is empty (candidate pipeline, ranked targets, analyst research, news, comparables, IC precedents) | Expected on the demonstration book. Say what fills it and move on. Never click around hunting for content. |
 | The funnel does not respond | It is a counter, not a filter. Read it. |
 | An answer looks wrong | Say the line from Act 4: the assistant drafts, the IC readiness tab is the record. Then show the tab. This is a better moment than a smooth one. |
 | You are lost | Press a main tab. There are only five and they always work. |
+
+---
+
+## The one-page card
+
+*Print this page. Leave the rest at your desk.*
+
+**The five tabs:** Home · Sourcing & screening · Deals in flight · Fund & Portfolio ·
+Report. Lost? Press one.
+
+**The nine deal tabs, same order every time:** Deal brief · Thesis & key figures ·
+IC readiness · Returns, plan & risk · Progress & follow-ups · Work the deal ·
+Diligence workstreams · Documents · More ▾
+
+**The six sentences to say:**
+
+1. *"Everything today is a demonstration book — invented companies, invented numbers, and
+   the market panels are demonstration data too."* — first, before anything.
+2. *"39 promises made in a Teams channel that nobody wrote down. It does not chase them.
+   It tells you they exist."* — Home, Untracked follow-ups.
+3. *"A mandate is a rule from your investors. A theme is a partner's judgement. Confusing
+   them is how a fund wastes a quarter."* — Sourcing framework.
+4. *"That is a records gap, not outstanding work — and knowing the difference is the whole
+   job."* — Diligence workstreams, on the four closed at IC.
+5. *"The assistant drafts. The IC readiness tab is the record. Nothing reaches a committee
+   paper unchecked."* — after any assistant answer.
+6. *"The restricted deal is never sent to the browser. Nothing to inspect, nothing to
+   switch back on."* — Act 7, as the analyst.
+
+**The four traps:**
+
+- The origination funnel does **not** click. Read it.
+- A deal takes **fifteen** seconds to open. Say sentence 4 while it loads.
+- Six panels are empty on the demonstration book. Know which, and do not hunt.
+- Do not quote a cost, a setup time or a CRM answer. Say you will come back with it.
+
+**Timing:** 25 minutes. Short of time, drop Acts 2 and 6 — 19 minutes. **Never drop Act 7.**
+
+**End with an ask.**
 
 ---
 

@@ -84,7 +84,7 @@ so you never mix “feature order” with “act order” mid-demo:
 
 > **60-second pre-flight (before the room):** confirm the **“sign in as”** switcher flips the deal
 > counts (**9 → 7** for the analyst), the top consumer deal opens with **returns/risks populated**,
-> and one **Apply ▸** writes to the **Activity** trail. If *Apply* is flaky, treat it as optional.
+> and one **Apply ▸** writes to the **audit trail**. If *Apply* is flaky, treat it as optional.
 
 ---
 
@@ -97,7 +97,7 @@ so you never mix “feature order” with “act order” mid-demo:
 
 ## 2 · Identity-aware access (2 min) — *the differentiator*
 
-The demo roster is **The Good Place** — one character per RBAC tier, so the access
+The demo people are placeholder names — one per access tier, so the access
 **separation and guardrails** are the story. Use the single top-bar **"sign in as"**
 dropdown (it shows **Name — Role**, no clutter):
 
@@ -136,15 +136,15 @@ dropdown (it shows **Name — Role**, no clutter):
 1. From **Home**, open a deal (e.g. the top consumer deal). Each stage names its
    **👤 owner persona** — the senior expertise stays in the background, so the
    surface reads like a deal team's own workspace, not a chatbot.
-2. On the deal's **Overview**, call out the **Deal brief**:
+2. On the deal's **Deal brief** tab, call out the **Deal brief**:
    - **IC readiness breakdown** — the **READY / CONDITIONAL / NOT-READY** verdict, the
      readiness %, days-to-IC, and the **top 3 blockers**, each with a one-click **Resolve ▸**.
    - **“What changed since last check?”** — a the what-changed line showing readiness/verdict moves
      and newly-blocking vs resolved items since the last review (no history table — a lean
      single mark that only rewrites on real change).
    - **Next best action** — a deterministic strip that jumps to the exact tab to act.
-3. **Workspace** tab — the **diligence workbench**: every workstream as a **red/amber/green** row
-   (red/amber/green) with owner, progress and the blocking reason, plus a persistent
+3. **Diligence workstreams** tab — the **diligence workbench**: every workstream as a **red/amber/green** row
+    with owner, progress and the blocking reason, plus a persistent
    **“N at risk”** count.
 4. **Decision artifacts** tab — show the four cards:
    - **LBO / Returns** — entry multiple, sources & uses, base/upside/downside **IRR & MOIC** vs the hurdle. Click **Returns model (Excel)** to download the real workbook (Summary · Sources & Uses · Scenarios · Sensitivity).
@@ -175,7 +175,7 @@ Open the **Fund & Portfolio** tab — the *post-IC* lens most tools stop short o
    mandate's hard caps — compliance-by-design.
 4. As **IR** or **Operating Partner**, ask the agent: *"How does the fund read to
    our LPs?"* or *"Where's the biggest EBITDA-bridge lever across the portfolio?"*
-   (backed by `get_fund_overview` / `get_portfolio`).
+   (backed by the fund and portfolio record).
 
 > "The deal didn't end at IC — it became a company we own, and the same governed
 > record now tracks its value creation, its marks and its fit to the mandate."
@@ -208,7 +208,7 @@ Ask:
 > answer — it **proposes concrete next steps** grounded in the deal's state (e.g. *“Log
 > this blocking workstream as an issue”*, *“Mark this issue resolved”*). It **never acts
 > on its own**: each proposal is a chip you **Apply ▸**. Applying writes the change to the
-> live record and a **fully-attributed audit entry** — open the deal's **Activity** tab to
+> live record and a **fully-attributed audit entry** — open the deal's **Audit trail** (under **More ▾**) to
 > show *who did what, when*, with a **“via assistant · you approved”** badge on every
 > assistant-applied change. That's the governance answer to “can the AI change things?” —
 > yes, but only when a human approves, and always on the record.
@@ -227,8 +227,7 @@ this in-app Report tab.)
 
 Open **Settings (⚙) → Data Sources → Files, chats & email**: paste the MCP endpoint and **Connect**. Once
 connected, the internal-data agents gain **governed, delegated** M365 tools —
-`workiq_search_files` (SharePoint/OneDrive), `workiq_read_channel` (Teams) and
-`workiq_search_mail` (Outlook) — so a diligence question can draw on the deal's real
+the deal’s own SharePoint files, Teams channel and Outlook mail — so a diligence question can draw on the deal's real
 documents, channel discussion and correspondence. Your **external** news tool can
 **never** reach inside your firm's documents: the boundary between outside data and
 your confidential estate is enforced and logged, so nothing leaks across it.
@@ -274,11 +273,11 @@ your confidential estate is enforced and logged, so nothing leaks across it.
 
 | Feature | Where |
 |---|---|
-| RBAC / demo roster (5 Good Place tiers) | top-bar **"sign in as"** (single dropdown, Name — Role) |
-| Deal brief (verdict + top blockers + “what changed” delta + next best action) | deal → **Overview** |
-| Diligence workbench (red/amber/green workstreams) | deal → **Workspace** tab |
+| Access tiers, one demo person each | top-bar person dropdown (Name — Role) |
+| Deal brief (verdict + top blockers + “what changed” delta + next best action) | deal → **Deal brief** |
+| Diligence workbench (red/amber/green workstreams) | deal → **Diligence workstreams** tab |
 | Side-by-side compare (2–4 deals + Copy table) | **Home** → tick **+ Compare** |
-| Assistant approve-to-apply + audit trail | in-deal **💬 Ask** → **Apply ▸** · deal **Activity** tab · `POST /api/deals/:id/assistant-actions` · `GET /api/deals/:id/activity` |
+| Assistant approve-to-apply + audit trail | in-deal **💬 Ask** → **Apply ▸** · deal **Audit trail** (under **More ▾**) · `POST /api/deals/:id/assistant-actions` · `GET /api/deals/:id/activity` |
 | Lifecycle (15 stages, 6 gates) | **Lifecycle** tab · `GET /api/lifecycle` |
 | Decision artifacts | deal → **Decision artifacts** tab · `/api/deals/:id/{returns,value-creation,risk-register,ioi,loi}` |
 | Returns Excel | deal → **Documents** → *Returns model (Excel)* |

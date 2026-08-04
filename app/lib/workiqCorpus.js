@@ -331,11 +331,21 @@ function generatedFiles(deal) {
   (deal.workstreams || []).forEach((w, i) => {
     const f = LANE_FILE[w.lane];
     if (!f) return;
+    // A workstream the committee closed out carries a progress figure of 0, so the file
+    // list read "Workstream 0% complete" against the same four the tab immediately above
+    // reports as finished. One screen said "finished, just unwritten" at the top and
+    // "nought per cent" at the bottom, and a partner walking a room through it had no
+    // answer for the second. The percentage is only meaningful while the work is running.
+    const state = w.status === 'closed_at_ic'
+      ? 'Closed at IC'
+      : w.status === 'complete'
+        ? 'Workstream complete'
+        : `Workstream ${w.progress ?? 0}% complete`;
     out.push({
       deal: deal.id,
       name: `${co} — ${f[0]}`,
       type: 'driveItem',
-      summary: `${f[1]} Workstream ${w.progress ?? 0}% complete${(w.findings || [])[0]?.text ? ` — ${w.findings[0].text}` : ''}`,
+      summary: `${f[1]} ${state}${(w.findings || [])[0]?.text ? ` — ${w.findings[0].text}` : ''}`,
       lastModified: at(3 + i, 9 + i, 20),
     });
   });

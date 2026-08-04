@@ -69,8 +69,9 @@ Thesis & key figures · IC readiness · Returns, plan & risk · Progress & follo
 Work the deal · Diligence workstreams · Documents · More ▾**.
 
 Two rules the interface holds itself to: every figure says what it is counting and
-what it excludes, and no screen contradicts the screen next to it. If the product
-cannot show you something, it says so rather than leaving a gap.
+what it excludes, and where a number is not in the figures above it, the screen names
+what is missing rather than leaving you to work it out. If the product cannot show you
+something, it says so rather than leaving a gap.
 
 For a click-by-click tour written for someone who has never seen it, read the
 [demo walkthrough](docs/Demos/DEMO-WALKTHROUGH.md).
