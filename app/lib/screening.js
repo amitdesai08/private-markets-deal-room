@@ -287,6 +287,11 @@ const HOLD_YEARS = 5;
 // MOIC/IRR up to absurd numbers.
 const MAX_DEBT_TO_EV = 0.6;
 
+// The most EBITDA growth we are willing to compound for the whole hold at screening
+// grade. A 41%-growth asset gets 15%; the upside of being right about the rest is
+// argued in the IC paper, not smuggled into the headline return.
+const UNDERWRITTEN_GROWTH_CAP = 0.15;
+
 function paperLbo(c, { entryMult, leverageMult, ebitdaCagr, exitMult }) {
   const entryEbitda = Math.max(1, c.ebitda || 1);
   const entryEV = entryEbitda * entryMult;
@@ -294,8 +299,12 @@ function paperLbo(c, { entryMult, leverageMult, ebitdaCagr, exitMult }) {
   const equityIn = Math.max(1, entryEV - debt);
   const exitEbitda = entryEbitda * Math.pow(1 + ebitdaCagr, HOLD_YEARS);
   const exitEV = exitEbitda * exitMult;
-  // Assume ~50% of initial debt paid down from cumulative FCF over the hold.
-  const debtAtExit = debt * 0.5;
+  // Cash available to repay debt tracks margin. A flat 50% had a 7.6%-margin grocer
+  // deleveraging exactly like a 30%-margin software business -- and since the debt cap
+  // makes EBITDA and entry multiple cancel out of the MOIC, that constant plus a
+  // constant growth default was why every deal returned the same IRR.
+  const paydown = clamp(0.5 + ((c.ebitdaMargin ?? 15) - 15) / 100, 0.3, 0.7);
+  const debtAtExit = debt * (1 - paydown);
   const equityOut = Math.max(0, exitEV - debtAtExit);
   const moic = equityOut / equityIn;
   const irr = moic > 0 ? Math.pow(moic, 1 / HOLD_YEARS) - 1 : -1;
@@ -313,7 +322,10 @@ export function buildReturns(c) {
   // so we model at the ceiling AND flag that the current ask is unfinanceable.
   const baseMult = impliedMult == null ? 8 : clamp(impliedMult, 5, MAX_ENTRY_MULT);
   const entryAboveCeiling = impliedMult != null && impliedMult > MAX_ENTRY_MULT;
-  const g = clamp((c.growth ?? 6) / 100, -0.05, 0.25);
+  // Nobody underwrites a fast-growing asset's current rate for five straight years at
+  // screening. Cap what we are willing to put in the model, and say so in the
+  // assumptions rather than quietly compounding 41% into a headline return.
+  const g = clamp((c.growth ?? 6) / 100, -0.05, UNDERWRITTEN_GROWTH_CAP);
   const scenarios = {
     downside: paperLbo(c, { entryMult: baseMult, leverageMult: 4.5, ebitdaCagr: Math.max(0, g - 0.04), exitMult: baseMult - 1 }),
     base: paperLbo(c, { entryMult: baseMult, leverageMult: 5, ebitdaCagr: g, exitMult: baseMult }),
@@ -334,9 +346,10 @@ export function buildReturns(c) {
     grade: 'screening',
     assumptions: [
       'Screening-grade paper LBO — an indicative heuristic, not an IC model.',
-      '~50% of entry debt repaid from cumulative free cash flow over the hold.',
+      'Debt repaid from cumulative free cash flow over the hold, at a rate that tracks EBITDA margin.',
+      `EBITDA growth underwritten at the recorded rate, capped at ${Math.round(UNDERWRITTEN_GROWTH_CAP * 100)}% a year.`,
       'No explicit cash interest, cash taxes, capex or working-capital drag.',
-      'Deterministic EBITDA CAGR to a fixed-multiple exit.'
+      'Deterministic EBITDA CAGR to a fixed-multiple exit — no multiple expansion is underwritten.'
     ]
   };
 }

@@ -31,17 +31,43 @@ const round = (n) => Math.round(n);
 // A launched deal exposes: company, sector, subSector, dealSize (EV $M), hq,
 // keyFigures, workstreams[], thesis. We derive EBITDA/revenue from keyFigures.
 function dealFinancials(deal) {
+  // Every figure on the record is in $M. "$1.94B" was being stripped to 1.94, so a
+  // £1.94bn grocer was modelled as a £1.94m one -- which is where a $0M working-capital
+  // peg and four $0M value-creation levers came from, each with a method attached.
   const num = (label, fallback) => {
     const kf = (deal.keyFigures || []).find((k) => new RegExp(label, 'i').test(k.label));
-    const v = kf ? Number(String(kf.value).replace(/[^0-9.]/g, '')) : NaN;
-    return Number.isFinite(v) ? v : fallback;
+    if (!kf) return fallback;
+    const raw = String(kf.value);
+    const v = Number(raw.replace(/[^0-9.]/g, ''));
+    if (!Number.isFinite(v)) return fallback;
+    if (/b(n|illion)?\b/i.test(raw)) return v * 1000;
+    if (/\bk\b|thousand/i.test(raw)) return v / 1000;
+    return v;
   };
   const ev = deal.dealSize || 300;
+  // Deliberately not ARR: it is a different metric, and pairing a recorded ARR with a
+  // derived EBITDA produced a 50% margin on a business that has neither figure recorded.
   const revenue = num('revenue', round(ev * 1.2));
-  const ebitda = num('ebitda', round(ev * 0.12));
+  const ebitda = num('ebitda(?! margin)', round(ev * 0.12));
   const marginKf = (deal.keyFigures || []).find((k) => /margin/i.test(k.label));
   const ebitdaMargin = marginKf ? Number(String(marginKf.value).replace(/[^0-9.]/g, '')) : (revenue ? +((ebitda / revenue) * 100).toFixed(1) : 12);
-  return { ev, revenue, ebitda, ebitdaMargin };
+  return { ev, revenue, ebitda, ebitdaMargin, growth: dealGrowth(deal) };
+}
+
+// The growth rate the record already holds. Left unread, every deal was modelled at the
+// same default 7% -- and because the leverage cap makes EBITDA and entry multiple cancel
+// out of the paper LBO, that one default was the ONLY thing driving returns. Nineteen
+// deals therefore reported an identical 22.5% IRR and 2.76x MOIC, on a comparison table
+// whose entire purpose is to tell them apart.
+export function dealGrowth(deal) {
+  if (Number.isFinite(deal?.growth)) return deal.growth;
+  const kf = (deal?.keyFigures || []).find((k) => /growth|cagr|nrr/i.test(k.label));
+  if (kf) {
+    const v = Number(String(kf.value).replace(/[^0-9.]/g, ''));
+    // NRR is expressed as 118%, meaning 18% net expansion.
+    if (Number.isFinite(v)) return /nrr/i.test(kf.label) && v > 100 ? +(v - 100).toFixed(1) : v;
+  }
+  return 7;
 }
 
 // A candidate-shaped object so we can reuse the Stage-1 paper-LBO returns engine.
@@ -50,7 +76,7 @@ function dealAsCandidate(deal) {
   return {
     company: deal.company, sector: deal.sector, ownership: deal.ownership || 'private',
     dealSize: f.ev, revenue: f.revenue, ebitda: f.ebitda, ebitdaMargin: f.ebitdaMargin,
-    growth: deal.growth ?? 7, keywords: deal.keywords || [], sources: deal.sources || []
+    growth: f.growth, keywords: deal.keywords || [], sources: deal.sources || []
   };
 }
 
@@ -74,15 +100,37 @@ export function canonicalFigures(deal) {
     const f = dealFinancials(deal);
     const r = buildReturns(dealAsCandidate(deal));
     const base = r.scenarios.base;
+    // A multiple the record STATES beats one we derive. Great Lakes Precision is in
+    // signing and carries "8.1x EV/EBITDA — Signed structure, high confidence", with no
+    // EBITDA line; we invented an EBITDA at 12% of enterprise value, divided by it, and
+    // published 8.3x in the comparison table beside the contractual 8.1x on the deal's
+    // own header. On a signed deal the multiple is not ours to recompute.
+    const statedMult = (() => {
+      const kf = (deal.keyFigures || []).find((k) => /entry multiple|ev\s*\/\s*ebitda/i.test(k.label));
+      const v = kf ? Number(String(kf.value).replace(/[^0-9.]/g, '')) : NaN;
+      return Number.isFinite(v) && v > 0 ? +v.toFixed(1) : null;
+    })();
+    const entryMultiple = statedMult ?? (r.impliedMultiple ?? r.entryMultiple);
+    // Keep EBITDA consistent with whichever multiple we publish, rather than leaving a
+    // derived EBITDA that no longer divides into it.
+    const ebitdaRecorded = (deal.keyFigures || []).some((k) => /ebitda(?! margin)/i.test(k.label));
+    const ebitda = !ebitdaRecorded && statedMult ? round(f.ev / statedMult) : f.ebitda;
     return {
       currency: symbolFor(deal),
       currencyCode: deal.currency || 'USD',
-      entryMultiple: r.entryMultiple,
+      entryMultiple,
+      entryMultipleSource: statedMult ? 'recorded' : 'derived',
+      // The paper LBO models at a financeable ceiling when the ask is above it. Reporting
+      // that ceiling as the entry multiple told a partner she was paying 20x on a deal
+      // whose own enterprise value over its own EBITDA is 41x.
+      modelledEntryMultiple: r.entryMultiple,
+      entryAboveCeiling: !!r.entryAboveCeiling,
       leverage: r.leverage,
       irr: base.irr,
       moic: base.moic,
       holdYears: r.holdYears,
-      ebitda: f.ebitda,
+      ebitda,
+      ebitdaSource: ebitdaRecorded ? 'recorded' : statedMult ? 'implied by the recorded entry multiple' : 'derived',
       revenue: f.revenue,
       ev: f.ev,
     };
@@ -99,6 +147,9 @@ export function figuresBlock(deal) {
     'AUTHORITATIVE FIGURES — these are the deal\'s own numbers, as shown on its Returns, plan & risk page.',
     'Quote them exactly. Do not recalculate, adjust, round differently, or convert the currency.',
     `Entry multiple: ${c.entryMultiple}x EV/EBITDA. Leverage: ${c.leverage}. Hold: ${c.holdYears} years.`,
+    c.entryAboveCeiling
+      ? `The ask at ${c.entryMultiple}x is above what this structure can finance; the returns below are modelled at a ${c.modelledEntryMultiple}x entry and only hold if the price can be reset. Say so whenever you quote them.`
+      : null,
     `Base case: ${c.irr}% IRR, ${c.moic}x MOIC.`,
     `LTM EBITDA: ${m(c.ebitda)}. Revenue: ${m(c.revenue)}. Enterprise value: ${m(c.ev)}.`,
     `Reporting currency: ${c.currencyCode}. Where a diligence document states a figure in another currency, keep that document's currency and say which document it came from.`,
@@ -106,14 +157,30 @@ export function figuresBlock(deal) {
 }
 
 // A last line of defence over the generated prose. We only touch a figure that is
-// unambiguously one of ours -- an entry multiple, an IRR, a MOIC or a leverage -- and
-// only when it disagrees with the record. Anything else the model wrote is left alone,
-// because silently rewriting numbers we do not own would be a worse fault than the one
-// we are fixing.
+// unambiguously one of ours -- an entry multiple, an IRR or a MOIC -- and only when it
+// disagrees with the record. Anything else the model wrote is left alone, because
+// silently rewriting numbers we do not own would be a worse fault than the one we are
+// fixing. (There is deliberately no leverage pattern; the comment used to claim one.)
 export function enforceFigures(md, deal) {
   const c = canonicalFigures(deal);
   if (!md || !c) return md;
   let s = String(md);
+  // Contexts where a figure that differs from the base case is CORRECT, and correcting
+  // it destroys the meaning:
+  //   "downside 1.8x, base 2.8x, upside 3.4x MOIC"  -- three scenarios became one
+  //   "the fund's 2.5-3.5x MOIC hurdle"             -- a range became a point
+  //   "expensing them moves the entry multiple from 9.4x to 10.1x"  -- a SOURCED QoE
+  //     finding on the deal's own record, rewritten to 8.3x with a delta the QoE never
+  //     wrote. That is the guard inventing a diligence result.
+  const PROTECTED = /\b(downside|upside|hurdle|range|target|between|from|scenario|sensitivit|at exit|threshold)\b/i;
+  const protectedAt = (text, idx) => {
+    const from = Math.max(0, idx - 70);
+    const window = text.slice(from, idx + 70);
+    if (PROTECTED.test(window)) return true;
+    // Another figure of the same unit close by means this one is part of a list.
+    const sameUnit = window.match(/\d+(?:\.\d+)?\s*x/g) || [];
+    return sameUnit.length > 1;
+  };
   // Every pattern below captures THREE groups -- what comes before the number, the
   // number, and what comes after -- and rebuilds the match from them. An earlier
   // version captured only the number and then did whole.replace(num, correct), which
@@ -124,9 +191,10 @@ export function enforceFigures(md, deal) {
   // (?<![\d.]) and (?![\d.]) stop a match ever starting or ending part-way through a
   // number.
   const fix = (re, correct) => {
-    s = s.replace(re, (whole, pre, num, post) => {
+    s = s.replace(re, (whole, pre, num, post, idx, full) => {
       const got = Number(num);
       if (!Number.isFinite(got) || Math.abs(got - correct) < 0.05) return whole;
+      if (protectedAt(full, idx)) return whole;
       return `${pre}${correct}${post}`;
     });
   };
@@ -396,7 +464,7 @@ export function buildFinalMemoBase(deal, { findings } = {}) {
     generated: false,
     company: deal.company,
     recommendation,
-    execSummary: `${deal.company} — final IC recommendation: ${recommendation}. A ${money(f.ev)} ${deal.sector.toLowerCase()} buyout at ~${returns.entryMultiple}x adjusted EBITDA. Base case ${returns.scenarios.base.moic}x / ${returns.scenarios.base.irr}% IRR over a ${returns.holdYears}-year hold. ${fr.headline}`,
+    execSummary: `${deal.company} — final IC recommendation: ${recommendation}. A ${money(f.ev)} ${deal.sector.toLowerCase()} buyout at ~${returns.entryMultiple}x LTM EBITDA. Base case ${returns.scenarios.base.moic}x / ${returns.scenarios.base.irr}% IRR over a ${returns.holdYears}-year hold. ${fr.headline}`,
     thesis: `Control buyout of ${deal.company} with value creation from EBITDA growth, margin/operational improvement and debt paydown — not multiple expansion. ${deal.thesis || ''}`.trim(),
     valueCreation: [
       'Organic growth: commercial execution on the validated demand thesis.',
@@ -406,8 +474,12 @@ export function buildFinalMemoBase(deal, { findings } = {}) {
     ],
     financials: {
       revenue: f.revenue, ebitda: f.ebitda, ebitdaMargin: f.ebitdaMargin,
-      adjustedEbitda: round(f.ebitda * (f.ebitdaMargin < 15 ? 0.88 : 0.94)),
-      note: 'Adjusted EBITDA per QoE (normalised add-backs); the LBO is modelled off the adjusted figure.'
+      // This is our own provision, not a QoE result. It was captioned "per QoE" beside
+      // an authorisation sentence reading "at 5.5x adjusted EBITDA" -- while the returns
+      // were struck on the reported figure, so the word "adjusted" was carrying more
+      // than a turn it had not earned in the one sentence a committee votes on.
+      provisionEbitda: round(f.ebitda * (f.ebitdaMargin < 15 ? 0.88 : 0.94)),
+      note: 'Reported LTM EBITDA. The returns above are struck on this figure. A modelled diligence provision is shown separately on the risk register and is not a QoE result \u2014 no quality-of-earnings work has been completed.'
     },
     returns,
     synthesis,
@@ -425,7 +497,7 @@ export function buildFinalMemoBase(deal, { findings } = {}) {
     },
     ask: fr.counts.stopper
       ? 'No authorization sought — recommend declining or restructuring around the deal-stopper.'
-      : `Authorize up to ${money(round(returns.scenarios.base.entryEV))} EV at ${returns.entryMultiple}x adjusted EBITDA, a ${money(equityCheck)} equity check from the fund, and committed debt at ~${returns.leverage} leverage.`,
+      : `Authorize up to ${money(round(returns.scenarios.base.entryEV))} EV at ${returns.entryMultiple}x reported LTM EBITDA, a ${money(equityCheck)} equity check from the fund, and committed debt at ~${returns.leverage} leverage.`,
     hurdle: { irr: 20, moic: 2.0, note: 'Fund targets 20–25%+ gross IRR and 2.5–3.5x MOIC in the base case.' }
   };
 }
@@ -470,7 +542,7 @@ export function buildExecutionPack(deal, { memo } = {}) {
       champion: 'Deal sponsor (sector Partner) presents; IC evaluates thesis, valuation, structure, exit and risks.'
     },
     spaTerms: [
-      { term: 'Purchase price', detail: `${money(ev)} enterprise value at ${returns.entryMultiple}x adjusted EBITDA (cash-free / debt-free).` },
+      { term: 'Purchase price', detail: `${money(ev)} enterprise value at ${returns.entryMultiple}x reported LTM EBITDA (cash-free / debt-free).` },
       { term: 'Price mechanism', detail: 'Completion accounts with a net-working-capital true-up to the agreed peg.' },
       { term: 'Reps & warranties', detail: 'Customary fundamental + business warranties; disclosure schedules from DD.' },
       { term: 'Indemnity / escrow', detail: 'W&I insurance primary; ~0.5–1.0% escrow for fundamental/specific items.' },
@@ -716,7 +788,7 @@ export function buildIoi(deal) {
   return {
     kind: 'ioi', company: deal.company, owner: 'principal',
     type: 'Non-binding Indication of Interest',
-    valuation: { low: evLow, mid: evMid, high: evHigh, basis: `${r.entryMultiple}x EV/EBITDA on ~${money(f.ebitda)} adjusted EBITDA (cash-free / debt-free).` },
+    valuation: { low: evLow, mid: evMid, high: evHigh, basis: `${r.entryMultiple}x EV/EBITDA on ~${money(f.ebitda)} reported LTM EBITDA (cash-free / debt-free).` },
     structure: [
       { term: 'Consideration', detail: 'All-cash on a cash-free / debt-free basis with a normalised NWC peg.' },
       { term: 'Financing', detail: `Sponsor equity + ~${r.leverage} senior leverage; no financing contingency.` },

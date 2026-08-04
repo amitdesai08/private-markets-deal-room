@@ -75,6 +75,18 @@ async function getDemoProfiles() {
   return _demoProfiles || [];
 }
 
+// Switching demo mode has to take effect on the very next request, not up to fifteen
+// seconds later. The switch reloads the page, the reload landed inside this cache, and a
+// switch that reloads you straight back into the old answer reads as a switch that does
+// nothing at all — which is exactly how it was reported.
+app.use((req, _res, next) => {
+  if (req.method === 'POST' && /^\/api\/(admin\/)?demo-mode$/.test(req.path || '')) {
+    _demoProfiles = null;
+    _demoProfilesAt = 0;
+  }
+  next();
+});
+
 // Teams app status (interface-level; data status comes from the shared backend).
 app.get('/api/teams/config', (_req, res) =>
   res.json({

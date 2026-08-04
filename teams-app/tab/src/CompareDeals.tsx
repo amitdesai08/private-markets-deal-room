@@ -77,11 +77,15 @@ export function useCompare() {
 
 export function CompareButton({ id, compare, toggle }: { id: string; compare: string[]; toggle: (id: string) => void }) {
   const on = compare.includes(id);
+  const full = !on && compare.length >= 4;
   return (
     <button
-      className={`comparebtn${on ? ' on' : ''}`}
-      title={on ? 'Remove from the comparison' : 'Compare this deal with another \u2014 pick 2 to 4'}
-      onClick={(e) => { e.stopPropagation(); toggle(id); }}
+      className={`comparebtn${on ? ' on' : ''}${full ? ' isoff' : ''}`}
+      // aria-disabled, not disabled: picking the fourth deal would otherwise disable the
+      // button a keyboard user is standing on and drop their focus to the top of the page.
+      aria-disabled={full}
+      title={on ? 'Remove from the comparison' : full ? 'You can compare up to four deals at once.' : 'Compare this deal with another \u2014 pick 2 to 4'}
+      onClick={(e) => { e.stopPropagation(); if (!full) toggle(id); }}
     >{on ? '\u2713 Comparing' : '+ Compare'}</button>
   );
 }

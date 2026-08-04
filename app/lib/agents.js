@@ -798,7 +798,7 @@ export async function generateFinalMemo(deal, memoBase) {
   const r = memoBase.returns;
   const synth = (memoBase.synthesis || []).map((s) => `${s.workstream}: ${s.worst}`).join('; ');
   const user = `TARGET: ${deal.company} — ${deal.sector}, ${money(deal.dealSize)} EV.
-QoE-ADJUSTED FINANCIALS: revenue ${money(memoBase.financials.revenue)}, adjusted EBITDA ${money(memoBase.financials.adjustedEbitda)} (${memoBase.financials.ebitdaMargin}% reported margin).
+QoE STATUS: no quality-of-earnings work has been completed. Revenue ${money(memoBase.financials.revenue)}, reported LTM EBITDA ${money(memoBase.financials.ebitda)} (${memoBase.financials.ebitdaMargin}% margin). Any haircut you see is our own modelled provision, not a QoE result — never call it one.
 DILIGENCE-BACKED RETURNS: ${r.entryMultiple}x entry, ${r.leverage} leverage, ${r.holdYears}-yr hold. Base ${r.scenarios.base.moic}x / ${r.scenarios.base.irr}% IRR; downside ${r.scenarios.downside.irr}%; upside ${r.scenarios.upside.irr}%. Meets hurdle (>=2.0x/>=20%): ${r.meetsHurdle}.
 DD FINDINGS SYNTHESIS (worst severity per workstream): ${synth || 'clean'}.
 DETERMINISTIC RECOMMENDATION: ${memoBase.recommendation}.

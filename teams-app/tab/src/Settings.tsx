@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import DataSources from './DataSources';
 import Admin from './Admin';
 import DocTemplates from './DocTemplates';
@@ -12,6 +12,29 @@ export default function Settings({ isAdmin, ssoToken, viewAs, onClose }: {
   const [tab, setTab] = useState<'sources' | 'templates' | 'admin'>('sources');
   const showAdmin = isAdmin && tab === 'admin';
   const showTemplates = isAdmin && tab === 'templates';
+
+  // Demo mode is switched here as well as in Access administration, because switching it
+  // OFF takes the administration tab away with it: outside Teams the demo profile is the
+  // only thing making anyone an administrator. The switch has to outlive the thing it
+  // switches off.
+  const [demo, setDemo] = useState<{ demoMode: boolean; demoModeConfigurable: boolean } | null>(null);
+  const [demoBusy, setDemoBusy] = useState(false);
+  useEffect(() => {
+    fetch('/api/demo-mode').then((r) => r.json()).then(setDemo).catch(() => setDemo(null));
+  }, []);
+  const toggleDemo = async () => {
+    if (!demo) return;
+    setDemoBusy(true);
+    try {
+      const next = await fetch('/api/demo-mode', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ on: !demo.demoMode }),
+      }).then((r) => r.json());
+      setDemo(next);
+      // The roster, the persona switcher and every access answer are resolved at load.
+      window.location.reload();
+    } catch { setDemoBusy(false); }
+  };
 
   return (
     <div className="settings">
@@ -27,6 +50,21 @@ export default function Settings({ isAdmin, ssoToken, viewAs, onClose }: {
           ? 'Data sources, document templates and access administration. Kept here so the deal views stay focused on your pipeline.'
           : 'Where the market and news data on your deals comes from. Kept here so the deal views stay focused on your pipeline.'}</p>
       </div>
+      {demo?.demoModeConfigurable ? (
+        <div className="set-demo">
+          <div>
+            <div className="set-demo-t">Demo mode is {demo.demoMode ? 'on' : 'off'}</div>
+            <div className="set-demo-s">
+              {demo.demoMode
+                ? 'You can sign in as one of the showcase people and look at the firm through their eyes. Turn this off to use the product as yourself.'
+                : 'The product is running as itself — no showcase people, no borrowed identities. Turn it back on to demonstrate the access model.'}
+            </div>
+          </div>
+          <button className="btn" disabled={demoBusy} onClick={toggleDemo}>
+            {demoBusy ? 'Switching…' : demo.demoMode ? 'Turn demo mode off' : 'Turn demo mode on'}
+          </button>
+        </div>
+      ) : null}
       <nav className="set-tabs">
         <button className={tab === 'sources' ? 'on' : ''} onClick={() => setTab('sources')}>Data sources</button>
         {isAdmin ? <button className={tab === 'templates' ? 'on' : ''} onClick={() => setTab('templates')}>Document templates</button> : null}
@@ -41,6 +79,10 @@ export default function Settings({ isAdmin, ssoToken, viewAs, onClose }: {
 
 const CSS = `
 .settings { padding: 4px 0 0; }
+.set-demo { display: flex; align-items: center; gap: 16px; margin: 10px 20px 0; padding: 12px 14px; border: 1px solid var(--border, #2a2a35); border-radius: 10px; background: var(--card); }
+.set-demo > div { flex: 1; min-width: 0; }
+.set-demo-t { font-weight: 650; font-size: 13px; }
+.set-demo-s { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .set-head { padding: 8px 20px 0; }
 .set-back { border: none; background: none; color: var(--accent, #6ea8fe); cursor: pointer; font-size: 12.5px; padding: 4px 0; }
 .set-head h2 { margin: 6px 0 4px; font-size: 20px; }

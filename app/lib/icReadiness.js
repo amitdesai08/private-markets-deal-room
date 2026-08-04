@@ -20,6 +20,7 @@
 // deal's documents/filings — so the board is defensible, not decorative.
 
 import { buildReturns, fmtMoney as money } from './screening.js';
+import { canonicalFigures, dealGrowth } from './diligence.js';
 
 const LANE_LABEL = {
   commercial: 'Commercial DD', techai: 'Tech / AI DD', operations: 'Operations DD',
@@ -151,7 +152,7 @@ export function changedAssumptions(deal) {
 
 const ASSUMPTION_LABELS = {
   revenue: 'Revenue (LTM)', ebitda: 'EBITDA (LTM)', ebitdaMargin: 'EBITDA margin',
-  entryMultiple: 'Entry multiple', baseIrr: 'Base-case IRR', baseMoic: 'Base-case MoIC', dealSize: 'Enterprise value'
+  entryMultiple: 'Entry multiple', baseIrr: 'Base-case IRR', baseMoic: 'Base-case MOIC', dealSize: 'Enterprise value'
 };
 
 // The current key assumptions, from the deal's key figures + the returns engine.
@@ -166,10 +167,10 @@ export function currentAssumptions(deal) {
     else if (/ebitda margin/i.test(f.label)) kf.ebitdaMargin = num(f.value);
     else if (/ebitda/i.test(f.label)) kf.ebitda = num(f.value);
   }
-  const cand = { ...deal, revenue: kf.revenue, ebitda: kf.ebitda, growth: deal.growth };
+  const cand = { ...deal, revenue: kf.revenue, ebitda: kf.ebitda, growth: dealGrowth(deal) };
   let entryMultiple = null, baseIrr = null, baseMoic = null;
   try {
-    const r = buildReturns({ ebitda: kf.ebitda ?? 0, dealSize: deal.dealSize ?? 0, growth: deal.growth ?? 6, revenue: kf.revenue ?? 0 });
+    const r = buildReturns({ ebitda: kf.ebitda ?? 0, dealSize: deal.dealSize ?? 0, growth: dealGrowth(deal), revenue: kf.revenue ?? 0 });
     entryMultiple = r.entryMultiple;
     baseIrr = r.scenarios?.base?.irr ?? null;
     baseMoic = r.scenarios?.base?.moic ?? null;
@@ -201,19 +202,30 @@ function supportingSources(deal, allIssues) {
 // ---- 6. The exact IC ask ---------------------------------------------------
 function icAsk(deal) {
   if (deal.icAsk) return { ...deal.icAsk, source: 'set' };
-  // Derive from the returns engine + deal fields when not explicitly set.
+  // The sentence a committee chair reads out. It used to disagree with the deal's own
+  // Returns page in two ways at once: it defaulted growth to 6 where every other caller
+  // uses the recorded rate, and it read `scenarios.base.equity`, a field the returns
+  // engine has never returned -- so the "exact" equity cheque was always the silent
+  // fallback of 45% of EV. Both now come from the one canonical call.
+  const c = canonicalFigures(deal);
   const kf = currentAssumptions(deal);
+  // Built from the canonical EBITDA, not this module's own reader. Where a deal records
+  // no EBITDA line the local reader returned 0, the paper LBO floored it at 1, and the
+  // committee was asked to approve a $3M equity cheque on a $240M enterprise value.
+  const ebitdaForAsk = c?.ebitda ?? kf.ebitda ?? 0;
   let r = null;
-  try { r = buildReturns({ ebitda: kf.ebitda ?? 0, dealSize: deal.dealSize ?? 0, growth: deal.growth ?? 6, revenue: kf.revenue ?? 0 }); } catch { /* best effort */ }
+  try { r = buildReturns({ ebitda: ebitdaForAsk, dealSize: deal.dealSize ?? 0, growth: dealGrowth(deal), revenue: c?.revenue ?? kf.revenue ?? 0, ebitdaMargin: c?.ebitda && c?.revenue ? +((c.ebitda / c.revenue) * 100).toFixed(1) : undefined }); } catch { /* best effort */ }
   const ev = deal.dealSize ?? null;
-  const equity = r?.scenarios?.base?.equity ?? (ev != null ? Math.round(ev * 0.45) : null);
+  const equity = r?.scenarios?.base?.equityIn ?? (ev != null ? Math.round(ev * 0.45) : null);
+  const irr = c?.irr ?? r?.scenarios?.base?.irr ?? null;
+  const moic = c?.moic ?? r?.scenarios?.base?.moic ?? null;
   return {
     enterpriseValue: ev != null ? money(ev) : '—',
-    entryMultiple: r ? `${r.entryMultiple}x adj. EBITDA` : '—',
+    entryMultiple: c?.entryMultiple != null ? `${c.entryMultiple}x LTM EBITDA` : r ? `${r.entryMultiple}x LTM EBITDA` : '—',
     equityCheck: equity != null ? money(equity) : '—',
     structure: 'Control buyout · completion accounts with NWC true-up',
-    hurdle: r ? `${r.hurdle.irr}% IRR / ${r.hurdle.moic}x MoIC` : '20% IRR / 2.0x MoIC',
-    baseCase: r?.scenarios?.base ? `${r.scenarios.base.irr}% IRR · ${r.scenarios.base.moic}x MoIC` : '—',
+    hurdle: r ? `${r.hurdle.irr}% IRR / ${r.hurdle.moic}x MOIC` : '20% IRR / 2.0x MOIC',
+    baseCase: irr != null && moic != null ? `${irr}% IRR · ${moic}x MOIC` : '—',
     source: 'derived'
   };
 }

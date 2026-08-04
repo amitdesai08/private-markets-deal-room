@@ -1704,6 +1704,26 @@ api.post('/admin/demo-mode', async (req, res) => {
   await setDemoMode(!!req.body?.on);
   res.json({ demoMode: demoModeActive(), demoModeConfigurable: demoProfilesEnabled });
 });
+
+// The same switch, reachable without being an admin — but ONLY on a deployment that was
+// built to run demos.
+//
+// Turning demo mode off was a one-way door. Outside Teams the only thing making anyone an
+// administrator IS the demo profile, so switching demo off removed the roster, which
+// removed the identity, which removed the Access administration tab — the tab containing
+// the switch. The product had to be redeployed to get back.
+//
+// This is not a privilege escalation: DEMO_PROFILES is a deploy-time flag, and a
+// deployment carrying it already offers every caller a persona switcher. Where it is off,
+// this route refuses exactly as the admin one does.
+api.get('/demo-mode', (_req, res) => {
+  res.json({ demoMode: demoModeActive(), demoModeConfigurable: demoProfilesEnabled });
+});
+api.post('/demo-mode', async (req, res) => {
+  if (!demoProfilesEnabled) return res.status(409).json({ error: 'demo mode is disabled for this deployment (DEMO_PROFILES is off)' });
+  await setDemoMode(!!req.body?.on);
+  res.json({ demoMode: demoModeActive(), demoModeConfigurable: demoProfilesEnabled });
+});
 // Re-apply the demo fixture over the persisted showcase deals.
 //
 // hydrate() only inserts a seeded deal when its id is absent, so on any environment that

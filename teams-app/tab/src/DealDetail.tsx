@@ -278,6 +278,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [initialTab]);
   const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLButtonElement | null>(null);
   // A deal opened on an 806px screen left a 216px slot to read it in: 73% of the
   // window was header that never changed, and the deal brief -- 3,500px of it --
   // came through a letterbox. None of those bands was wrong on its own, which is
@@ -811,13 +812,22 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
             {!statusOnly && (
             <div className="dd-tabs">
               {tabsOften.map((t) => (
-                <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>{TAB_LABEL[t]}</button>
+                <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} aria-current={tab === t ? 'page' : undefined} onClick={() => setTab(t)}>{TAB_LABEL[t]}</button>
               ))}
               <span className="dd-tabdiv" aria-hidden="true" />
-              <div className="dd-more" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setMoreOpen(false); }}>
+              {/* Escape closes it. Without that a keyboard user who opened the menu had to
+                  tab through every item in it to get back out. */}
+              <div
+                className="dd-more"
+                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setMoreOpen(false); }}
+                onKeyDown={(e) => { if (e.key === 'Escape' && moreOpen) { e.stopPropagation(); setMoreOpen(false); moreRef.current?.focus(); } }}
+              >
                 <button
+                  ref={moreRef}
                   className={`dd-tab${tabsRarely.includes(tab) ? ' on' : ''}`}
                   aria-expanded={moreOpen}
+                  aria-haspopup="true"
+                  aria-current={tabsRarely.includes(tab) ? 'page' : undefined}
                   onClick={() => setMoreOpen((v) => !v)}
                 >
                   {/* The trigger used to rename itself to whichever item you had picked,
@@ -828,9 +838,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   More ▾{tabsRarely.includes(tab) ? <span style={{ opacity: 0.7, fontWeight: 500 }}> · {TAB_LABEL[tab]}</span> : null}
                 </button>
                 {moreOpen ? (
-                  <div className="dd-more-menu" role="menu">
+                  // Deliberately NOT role="menu": that announces arrow-key movement
+                  // between items, which this does not implement.
+                  <div className="dd-more-menu">
                     {tabsRarely.map((t) => (
-                      <button key={t} role="menuitem" className={`dd-more-item${tab === t ? ' on' : ''}`} onClick={() => { setTab(t); setMoreOpen(false); }}>
+                      <button key={t} aria-current={tab === t ? 'page' : undefined} className={`dd-more-item${tab === t ? ' on' : ''}`} onClick={() => { setTab(t); setMoreOpen(false); }}>
                         {t === 'documents' && !cockpitOn ? 'Documents' : TAB_LABEL[t]}
                       </button>
                     ))}

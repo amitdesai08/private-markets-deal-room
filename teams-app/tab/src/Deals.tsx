@@ -184,7 +184,7 @@ export default function Deals({
     <div className="dealsview">
       <section className="panel">
         <div className="panel-h">
-          Deals
+          Deals in flight
           {/* Home says 19, this list says 15 and the report says 19, and nothing on any
               of the three screens accounted for the four. They are screened deals that
               have not been launched into diligence, so they belong on Sourcing &
@@ -205,10 +205,13 @@ export default function Deals({
             {FILTERS.map(([k, label]) => (
               <button
                 key={k}
-                className={`dv-filter${filter === k ? ' on' : ''}`}
-                disabled={k !== 'all' && (counts[k] ?? 0) === 0}
+                className={`dv-filter${filter === k ? ' on' : ''}${k !== 'all' && (counts[k] ?? 0) === 0 ? ' isoff' : ''}`}
+                aria-pressed={filter === k}
+                // Not `disabled`: a zero is a fact about the book and the chip should stay
+                // readable and reachable, it just has nothing to show you.
+                aria-disabled={k !== 'all' && (counts[k] ?? 0) === 0}
                 title={k !== 'all' && (counts[k] ?? 0) === 0 ? `No deals in ${label.toLowerCase()}` : undefined}
-                onClick={() => onFilterChange(k)}
+                onClick={() => { if (k === 'all' || (counts[k] ?? 0) > 0) onFilterChange(k); }}
               >
                 {label}<span className="dv-count">{counts[k] ?? 0}</span>
               </button>
@@ -227,7 +230,7 @@ export default function Deals({
             A partner spent ten minutes hunting every tab, the overflow menu and Settings
             for a way to put two deals side by side, and concluded the product could not
             do it. A capability nobody can find is a capability you did not build. */}
-        <div className="muted" style={{ padding: '0 14px 10px', fontSize: 12.5 }}>
+        <div className="muted" role="status" style={{ padding: '0 14px 10px', fontSize: 12.5 }}>
           {compare.length ? `${compare.length} picked to compare${compare.length < 2 ? ' — pick one more' : ''}` : 'Press + Compare on any two to four deals to put them side by side.'}
           {compareCapNote ? <span style={{ color: 'var(--warn)', marginLeft: 8 }}>{compareCapNote}</span> : null}
         </div>
@@ -292,8 +295,11 @@ export default function Deals({
       <CompareDeals deals={deals} compare={compare} onClear={() => onCompareChange([])} onOpen={onOpen} />
 
       {/* The stage tools that used to justify a tab of their own, under the list they
-          apply to rather than beside it. */}
-      <StageGuide stage={filter === 'execution' ? 'execution' : filter === 'value' ? 'value' : 'diligence'} />
+          apply to rather than beside it. Only when a stage has actually been chosen: on
+          "All" it was quietly showing diligence guidance under a mixed list. */}
+      {filter === 'diligence' || filter === 'execution' || filter === 'value' ? (
+        <StageGuide stage={filter === 'execution' ? 'execution' : filter === 'value' ? 'value' : 'diligence'} />
+      ) : null}
     </div>
   );
 }

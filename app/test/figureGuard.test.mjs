@@ -71,6 +71,45 @@ test('a figure the guard does not own is never touched', () => {
   assert.equal(enforceFigures(md, deal), md);
 });
 
+// A partner read a QoE finding on the deal's own record -- "expensing them moves the
+// entry multiple from 9.4x to 10.1x" -- and found the product had rewritten the 9.4 to
+// the base case and left the 10.1 standing, inventing a delta the QoE never wrote.
+test('a scenario range, a hurdle and a sourced finding are all left alone', () => {
+  const deal = anyDeal();
+  for (const md of [
+    'Downside 1.8x, base 2.8x, upside 3.4x MOIC.',
+    "The fund's hurdle is a 2.5-3.5x MOIC over the hold.",
+    'Expensing them moves the entry multiple from 9.4x to 10.1x.',
+    'Sensitivity: 18% IRR at the downside case and 27% IRR at the upside.',
+  ]) {
+    assert.equal(enforceFigures(md, deal), md, `the guard rewrote: ${md}`);
+  }
+});
+
+test('a stated entry multiple beats one we derive', () => {
+  // A signed deal records its multiple. Deriving one from an invented EBITDA put 8.3x in
+  // the comparison table beside the contractual 8.1x on the deal's own header.
+  const stated = seededDeals.find((d) => (d.keyFigures || []).some((k) => /entry multiple/i.test(k.label)));
+  if (!stated) return;
+  const kf = stated.keyFigures.find((k) => /entry multiple/i.test(k.label));
+  const recorded = Number(String(kf.value).replace(/[^0-9.]/g, ''));
+  const c = canonicalFigures(stated);
+  assert.equal(c.entryMultiple, +recorded.toFixed(1), `${stated.company} publishes ${c.entryMultiple}x against a recorded ${recorded}x`);
+  assert.equal(c.entryMultipleSource, 'recorded');
+});
+
+test('the published EBITDA divides into the published multiple', () => {
+  for (const d of seededDeals) {
+    const c = canonicalFigures(d);
+    if (!c || !c.ebitda || !c.entryMultiple) continue;
+    const implied = c.ev / c.ebitda;
+    assert.ok(
+      Math.abs(implied - c.entryMultiple) < 0.65,
+      `${d.company}: ${c.ev} / ${c.ebitda} = ${implied.toFixed(1)}x but the record publishes ${c.entryMultiple}x`,
+    );
+  }
+});
+
 // A rule that reaches too far is the same fault as no rule: the partner still gets a
 // wrong number, and now the product put it there. "...MOIC, entry at 5.5x EV/EBITDA"
 // once matched as MOIC-then-5.5 and overwrote the entry multiple with the MOIC.

@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react';
 import { af } from './authFetch';
 import { Narrative, SourceList, Tag, clock, STATUS_TEXT, isPostIC, readinessText, type Para } from './deskUi';
 import { DASH_MODULES, readHidden, writeHidden, rememberWho, type ModuleKey } from './dashLayout';
+import { CMP_ROWS } from './CompareDeals';
 import type { Pipeline, Deal, MarketIntel, BackendConfig } from './types';
 
 type HomeAttention = {
@@ -54,7 +55,7 @@ function money(n?: number): string {
   return `$${Math.round(n)}`;
 }
 
-export default function Dashboard({ pipeline, deals, dealsLoading, market, config, onAsk, onAskQuestion, onOpen, canWrite, roleLabel, viewerKey, layoutKey, onGoSourcing }: {
+export default function Dashboard({ pipeline, deals, dealsLoading, market, config, onAsk, onAskQuestion, onOpen, canWrite, roleLabel, viewerKey, layoutKey, onGoSourcing, compare, onCompareChange }: {
   pipeline: Pipeline | null; deals: Deal[]; dealsLoading?: boolean; market: MarketIntel | null;
   config: BackendConfig | null; onAsk: (dealId: string) => void; onAskQuestion?: (q: string) => void;
   onOpen: (dealId: string) => void; canWrite?: boolean; roleLabel?: string | null;
@@ -69,6 +70,11 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
   // A first-run message that names the next step but cannot take you there is only
   // half an answer.
   onGoSourcing?: () => void;
+  // The SAME selection the deals list uses. They were two trays wearing one name: you
+  // picked three deals here, stepped over to the list to check a gating item, came back
+  // and found nothing selected.
+  compare: string[];
+  onCompareChange: (v: string[]) => void;
 }) {
   const fabric = config?.fabric || market?.info;
   const comps = market?.comparableDeals || [];
@@ -265,19 +271,19 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
   ].filter((ph) => ph.count > 0);
 
   // Side-by-side comparison: pick 2–4 deals and scan the same decision fields at once.
-  const [compare, setCompare] = useState<string[]>([]);
-  const toggleCompare = (id: string) => setCompare((c) => c.includes(id) ? c.filter((x) => x !== id) : c.length >= 4 ? c : [...c, id]);
+  const [compareCapNote, setCompareCapNote] = useState('');
+  const toggleCompare = (id: string) => {
+    if (!compare.includes(id) && compare.length >= 4) {
+      setCompareCapNote('You can compare up to four deals at once. Remove one to add another.');
+      return;
+    }
+    setCompareCapNote('');
+    onCompareChange(compare.includes(id) ? compare.filter((x) => x !== id) : [...compare, id]);
+  };
   const compareDeals = compare.map((id) => deals.find((d) => d.id === id)).filter(Boolean) as Deal[];
-  const CMP_ROWS: { label: string; get: (d: Deal) => string }[] = [
-    { label: 'Stage', get: (d) => d.stageName || d.stage || '—' },
-    { label: 'IC readiness', get: (d) => `${d.readiness ?? 0}%` },
-    { label: 'Days to IC', get: (d) => typeof d.daysToIC === 'number' ? (d.daysToIC >= 0 ? `${d.daysToIC}d` : 'past') : '—' },
-    { label: 'Deal size', get: (d) => money(d.dealSize ? d.dealSize * 1e6 : undefined) },
-    { label: 'Sector', get: (d) => d.sector || '—' },
-    { label: 'Status', get: (d) => d.status || '—' },
-    { label: 'Priority', get: (d) => priority(d).tag },
-    { label: 'Recommended action', get: (d) => priority(d).why },
-  ];
+  // Home used to define its own eight rows, which had already drifted: no entry
+  // multiple, no leverage, no return, and it printed the raw status key. One
+  // definition, shared with the deals list.
   // Copying to the clipboard is invisible, so the button reports on itself for two
   // seconds. Without it the only way to know it worked was to go and paste.
   const [copied, setCopied] = useState(false);
@@ -406,7 +412,7 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
       {heroLeft || heroRight ? (
       <div className={heroLeft && heroRight ? 'grid g2' : 'grid'}>
         {heroLeft ? (
-        <div style={{ minWidth: 0 }}>
+        <div className="hero-l" style={{ minWidth: 0 }}>
           {showBriefing ? (
           <div className="card aicard">
             <div className="hd">
@@ -417,15 +423,18 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
         <h3>Daily briefing</h3>
               <Tag kind="new" />
               <span className="spacer" />
-              <button className="btn link compact" onClick={loadHome}>↻ Refresh</button>
               {/* A partner reads this before a 7am call in a car. She asked to send it
                   to herself and there was no way to get a single word of it off the
                   screen -- the one thing this product writes for her every morning was
-                  the one thing she could not take with her. */}
+                  the one thing she could not take with her. Six identically weighted
+                  buttons meant the one she wanted was the third of six; it now reads as
+                  the action and Refresh moves to the end, where a maintenance control
+                  belongs. */}
+              <button className="btn compact" onClick={emailBriefing} disabled={!home}>✉ Email it to me</button>
               <button className="btn link compact" onClick={copyBriefing} disabled={!home}>{briefCopied ? '✓ Copied' : '⧉ Copy'}</button>
-              <button className="btn link compact" onClick={emailBriefing} disabled={!home}>✉ Email</button>
               <button className="btn link compact" onClick={() => window.print()} disabled={!home}>⎙ Print</button>
               <button className="btn link compact" onClick={() => setEvidence((v) => !v)}>🔍 Evidence</button>
+              <button className="btn link compact" onClick={loadHome}>↻ Refresh</button>
               <button className="btn link compact" onClick={() => setBriefOpen((v) => !v)}>{briefOpen ? 'Hide' : 'Show'}</button>
             </div>
             {briefOpen ? (
@@ -539,7 +548,23 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
 
         {/* ---------------- Attention queue ---------------- */}
         {heroRight ? (
-        <div style={{ minWidth: 0 }}>
+        <div className="hero-r" style={{ minWidth: 0 }}>
+          {/* The four numbers a partner opens the product for sat THIRD in this column,
+              behind up to eight agenda rows and six attention rows -- about a thousand
+              pixels of scroll before the first figure. The old comment claimed they sat
+              beside the queue; they sat under it. */}
+          {showKpis ? (
+          <div className="kpis">
+            {kpiRow.map((k) => (
+              <div key={k.key || k.label} className="kpi">
+                <div className="kpi-v">{k.value}</div>
+                <div className="kpi-l">{k.label}</div>
+                <div className="kpi-s">{k.sub}</div>
+              </div>
+            ))}
+          </div>
+          ) : null}
+
           {/* A partner four days out from committee had to open six deals, one at a
               time, to work out which of them were actually going and what each still
               owed -- then type the agenda into an email herself. The product held both
@@ -645,20 +670,6 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
             <div className="note">
               Opening a deal takes you to that deal's own page. Nothing here changes a deal — it only tells you where to look first.
             </div>
-          </div>
-          ) : null}
-
-          {/* KPI row sits beside the queue so the headline numbers and the work to be
-              done are read together rather than on separate screens. */}
-          {showKpis ? (
-          <div className="kpis">
-            {kpiRow.map((k) => (
-              <div key={k.key || k.label} className="kpi">
-                <div className="kpi-v">{k.value}</div>
-                <div className="kpi-l">{k.label}</div>
-                <div className="kpi-s">{k.sub}</div>
-              </div>
-            ))}
           </div>
           ) : null}
         </div>
@@ -773,7 +784,7 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
             <span>Compare deals</span>
             <span className="muted" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button className="askbtn" onClick={copyCompare}>{copied ? '✓ Copied' : '⧉ Copy as text'}</button>
-              <button className="askbtn" onClick={() => setCompare([])}>Clear</button>
+              <button className="askbtn" onClick={() => onCompareChange([])}>Clear</button>
             </span>
           </div>
           <div style={{ overflowX: 'auto', padding: '4px 14px 14px' }}>
@@ -804,7 +815,8 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
       {/* Deals */}
       {shows('deals') ? (
       <section className="panel">
-          <div className="panel-h"><span>Pipeline deals</span><span className="muted">{deals.length} active{compare.length ? ` · ${compare.length} selected to compare` : ' · pick 2–4 to compare'}</span></div>
+          <div className="panel-h"><span>Every deal you can see</span><span className="muted">{deals.length} active{compare.length ? ` · ${compare.length} selected to compare` : ' · pick 2–4 to compare'}</span></div>
+          {compareCapNote ? <div className="muted" role="status" style={{ padding: '0 16px 8px', color: 'var(--warn)' }}>{compareCapNote}</div> : null}
         {deals.length === 0 ? (
           <div className="empty-panel">
             No deals are live yet. Sourced candidates that pass screening appear here.
@@ -843,7 +855,12 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
                       already guards for this; the cards did not. */}
                   <span className="muted">{(d as any).locked ? 'Restricted \u2014 you are not on this deal team. Ask the deal lead or an administrator for access.' : <>{readinessText(d as any)}{!isPostIC((d as any).status) && typeof d.daysToIC === 'number' ? (d.daysToIC > 0 ? ` · IC in ${d.daysToIC}d` : d.daysToIC === 0 ? ' · IC today' : ' · IC date passed') : ''}</>}</span>
                   <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button className={`askbtn${compare.includes(d.id) ? ' on' : ''}`} title="Add to comparison" onClick={(e) => { e.stopPropagation(); toggleCompare(d.id); }}>{compare.includes(d.id) ? '✓ Compare' : '+ Compare'}</button>
+                    <button
+                      className={`askbtn${compare.includes(d.id) ? ' on' : ''}${!compare.includes(d.id) && compare.length >= 4 ? ' isoff' : ''}`}
+                      title={compare.includes(d.id) ? 'Remove from the comparison' : compare.length >= 4 ? 'You can compare up to four deals at once.' : 'Add to comparison'}
+                      aria-disabled={!compare.includes(d.id) && compare.length >= 4}
+                      onClick={(e) => { e.stopPropagation(); toggleCompare(d.id); }}
+                    >{compare.includes(d.id) ? '✓ Compare' : '+ Compare'}</button>
                     <button className="askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
                   </span>
                 </div>

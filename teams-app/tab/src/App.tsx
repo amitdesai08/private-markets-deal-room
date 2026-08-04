@@ -171,7 +171,10 @@ export default function App() {
   // which one to open without opening either.
   const mainTabs: [typeof mainTab, string][] = [
     ['overview', 'Home'], ['sourcing', 'Sourcing & screening'], ['deals', 'Deals in flight'], ['fund', 'Fund & Portfolio'],
-    ['report', 'Report'],
+    // Four of the five tabs name a subject; the fifth named a file format, and the LP
+    // report actually lives under Fund & Portfolio. Two doors plausibly led to a report
+    // and only one of them was called Report.
+    ['report', 'Firm reporting'],
   ];
 
   // The breadcrumb names the exact view you came from, so going back is a known
@@ -556,14 +559,20 @@ export default function App() {
           going back to the list first and waiting for it to rebuild. People stopped
           moving between contexts and opened a second browser tab instead, which is how
           you end up with two personas and two stale sessions at once. */}
-      <nav className="maintabs">
-        {mainTabs.map(([k, label]) => (
-          <button
-            key={k}
-            className={`maintab${!settingsOpen && mainTab === k && !openDealId ? ' on' : ''}`}
-            onClick={() => { setSettingsOpen(false); setOpenDealId(''); setMainTab(k); }}
-          >{label}</button>
-        ))}
+      <nav className="maintabs" aria-label="Main">
+        {mainTabs.map(([k, label]) => {
+          const on = !settingsOpen && mainTab === k && !openDealId;
+          return (
+            <button
+              key={k}
+              className={`maintab${on ? ' on' : ''}`}
+              // Which page you are on was carried by colour alone, so a screen-reader
+              // user heard five identical buttons.
+              aria-current={on ? 'page' : undefined}
+              onClick={() => { setSettingsOpen(false); setOpenDealId(''); setMainTab(k); }}
+            >{label}</button>
+          );
+        })}
       </nav>
       {openDealId ? (
         <nav className="crumbs" aria-label="Breadcrumb">
@@ -605,7 +614,7 @@ export default function App() {
           ) : mainTab === 'overview' ? (
             <>
               <AgentGuide roleLabel={roleLabel} canViewStage2={canViewStage2} canWrite={canWrite} onAsk={() => setChatOpen(true)} />
-                <Dashboard pipeline={pipeline} deals={deals} dealsLoading={dealsLoading} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} viewerKey={`${viewAs}|${viewAsRole}`} layoutKey={viewAs} onGoSourcing={() => setMainTab('sourcing')} />
+                <Dashboard pipeline={pipeline} deals={deals} dealsLoading={dealsLoading} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} viewerKey={`${viewAs}|${viewAsRole}`} layoutKey={viewAs} onGoSourcing={() => setMainTab('sourcing')} compare={dealsCompare} onCompareChange={setDealsCompare} />
             </>
           ) : mainTab === 'sourcing' ? (
             <Stage1 deals={deals} onChanged={refreshData} onOpenDeal={setOpenDealId} />
@@ -669,6 +678,10 @@ button { color: inherit; }
 .g2 { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); }
 .g3 { grid-template-columns: minmax(0, 260px) minmax(0, 1.4fr) minmax(0, 320px); }
 @media (max-width: 1150px) { .g2, .g3 { grid-template-columns: 1fr; } }
+/* Stacked, the columns fall in source order, which put the four headline numbers below
+   the whole briefing -- the exact position they were moved out of. The visual fix lived
+   in the grid; the reading order lives in the DOM. */
+@media (max-width: 1150px) { .grid.g2 { display: flex; flex-direction: column; } .grid.g2 > .hero-r { order: -1; } }
 
 /* --- card --- */
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); margin-bottom: 12px; }
@@ -855,6 +868,10 @@ details[open] > summary:before { content: "\\25BE "; }
 .dv-filter:hover { color: var(--fg); }
 .dv-filter:disabled { opacity: .45; cursor: default; }
 .dv-filter:disabled:hover { color: var(--muted); }
+/* Refused rather than removed: these stay focusable and readable, they just have
+   nothing behind them. */
+.isoff { opacity: .45; cursor: default; }
+.dv-filter.isoff:hover, .comparebtn.isoff:hover, .askbtn.isoff:hover { color: var(--muted); border-color: var(--border); background: var(--chip); }
 .dv-filter.on { color: #fff; background: var(--accent); border-color: var(--accent); }
 .dv-count { opacity: .7; font-weight: 500; }
 .dv-search { margin-left: auto; border: 1px solid var(--border); background: var(--bg); color: var(--fg); border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 13px; min-width: 180px; }
@@ -909,6 +926,9 @@ details[open] > summary:before { content: "\\25BE "; }
 .modrow .sub { display: block; }
 .modrow.off .modname, .modrow.off .sub { opacity: .5; }
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+/* In the narrow hero column auto-fit fits three, so the fourth tile sat alone beside
+   empty space -- on the strip a partner reads first. */
+.dash .grid.g2 .kpis { grid-template-columns: repeat(2, 1fr); }
 .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); }
 .kpi-v { font-size: 24px; font-weight: 700; }
 .kpi-l { font-size: 13px; margin-top: 2px; }
