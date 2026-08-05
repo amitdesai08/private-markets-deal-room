@@ -332,45 +332,50 @@ test('a templated register row never reports a finding', () => {
 // -- was a monitor, fell out of the three killers, and appeared nowhere at all, while
 // two rows nobody wrote were printed under "what could kill it".
 test('a recorded finding is never pushed off the page by boilerplate', () => {
-  let withRecorded = 0;
+  // Read off the WORKSTREAMS, not the register. A positive finding is graded clear and
+  // clear rows never reach the register, so a deal whose diligence produced only good
+  // news had seven named authors and a page announcing that nobody had written anything.
+  // Asking the register whether anybody worked on the deal was the wrong question.
+  let withWritten = 0;
   for (const [id, c] of CASES) {
     const d = seededDeals.find((x) => x.id === id);
-    const recorded = buildRiskRegister(d).risks.filter((r) => r.basis === 'recorded');
-    if (!recorded.length) {
+    const written = (d.workstreams || []).flatMap((w) => (w.findings || []).filter((f) => f && f.text));
+    if (!written.length) {
       assert.ok(
-        c.notOnRecord.some((n) => /written by a named author/i.test(n)),
-        `${id}: an entirely templated register does not say so`,
+        c.notOnRecord.some((n) => /Nobody has written a finding/i.test(n)),
+        `${id}: a deal nobody has written on does not say so`,
       );
       continue;
     }
-    withRecorded += 1;
-    for (const r of recorded) {
-      assert.ok(c.recordedFindings.some((x) => x.finding === r.risk), `${id}: a recorded finding is absent from the case`);
+    withWritten += 1;
+    for (const f of written) {
+      assert.ok(c.recordedFindings.some((x) => x.finding === String(f.text).trim()), `${id}: a written finding is absent from the case`);
     }
   }
-  assert.ok(withRecorded > 0, 'no deal carried a recorded finding — the guard would be inert');
+  assert.ok(withWritten > 0, 'no deal carried a written finding — the guard would be inert');
 });
 
 // "Committed: $670M enterprise value at 4.1x" over $134M of EBITDA -- and 670 over 134
-// is 5.0x. The multiple was the one stated on the record, the enterprise value was the
-// one the model funds, and nothing said they were struck on different numbers. A
-// committee reading 4.1x against a base exit at 5.0x sees a turn of multiple expansion
-// that is not in the case.
-test('where the stated multiple and the funded enterprise value disagree, the page says so', () => {
-  let mismatched = 0;
+// is 5.0x. The cause was a FLOOR of 5x on the entry multiple, so the model bought a deal
+// whose own record implies 4.1x at 5x instead, and every page downstream inherited a
+// purchase price 22% above the one on the deal.
+//
+// The first attempt at this wrote a sentence admitting the contradiction and left the
+// numbers alone; a partner still could not state the purchase price. The floor is gone,
+// so this asserts the stronger contract -- the funded enterprise value and the published
+// multiple tie, on every deal -- rather than that the mismatch is well described. That
+// is deliberately stricter than what it replaced.
+test('the funded enterprise value and the published entry multiple always tie', () => {
   for (const d of seededDeals) {
     const e = buildReturnsModel(d).entry;
     if (!e) continue;
     const implied = +(e.entryEV / Math.max(1, e.ebitda)).toFixed(1);
-    const ties = Math.abs(implied - e.evEbitda) <= 0.15;
-    assert.equal(e.ties, ties, `${d.id}: the reconciliation flag disagrees with the arithmetic`);
-    if (!ties) {
-      mismatched += 1;
-      assert.ok(e.entryNote, `${d.id}: ${e.evEbitda}x published over an enterprise value implying ${implied}x, with no note`);
-      assert.match(e.entryNote, new RegExp(`${implied}x`), `${d.id}: the note does not state the implied multiple`);
-    }
+    assert.ok(
+      Math.abs(implied - e.evEbitda) <= 0.15,
+      `${d.id}: publishes ${e.evEbitda}x over an enterprise value of ${e.entryEV} on EBITDA of ${e.ebitda}, which is ${implied}x`,
+    );
+    assert.equal(e.ties, true, `${d.id}: the reconciliation flag disagrees with the arithmetic`);
   }
-  assert.ok(mismatched > 0, 'no deal exercised the mismatch path — the guard would be inert');
 });
 
 // The severity map tested for grades the record does not use, so all 34 written findings
@@ -410,14 +415,15 @@ test('a row that quotes a finding does not deny one exists', () => {
   }
 });
 
-// "None was written by a named author against this company" printed on a deal with six
-// named findings, because the claim tested the three-row slice rather than the register.
-test('the no-author claim is made about the register, not about three rows of it', () => {
+// "None was written by a named author against this company" printed on a deal with seven,
+// because the claim tested the register -- where positives, which is what those seven
+// were, never appear.
+test('the no-author claim is made about the whole deal, not about the register', () => {
   for (const [id, c] of CASES) {
     const d = seededDeals.find((x) => x.id === id);
-    const hasRecorded = buildRiskRegister(d).risks.some((r) => r.basis === 'recorded');
-    const claims = c.notOnRecord.some((n) => /Nothing on this deal.s risk register was written by a named author/i.test(n));
-    assert.equal(claims, !hasRecorded, `${id}: the no-author claim disagrees with the register`);
+    const authored = (d.workstreams || []).some((w) => (w.findings || []).some((f) => f && f.text));
+    const claims = c.notOnRecord.some((n) => /Nobody has written a finding/i.test(n));
+    assert.equal(claims, !authored, `${id}: the no-author claim disagrees with the workstreams`);
   }
 });
 
@@ -452,4 +458,44 @@ test('the sourcing badge does not claim a clean bill over a contradiction it can
     }
   }
   assert.ok(caveated > 0, 'no deal exercised the caveat path — the guard would be inert');
+});
+
+// A mechanical SPA working-capital true-up that appears on every deal in the fund was
+// presented to a committee as one of the three things most likely to kill it, alongside
+// a consent point quoted with its own evidence that it was closed. A committee that
+// reads three rows and finds none of them capable of killing anything stops reading.
+test('only a stopper or a repricing item is presented as a thing that could kill the deal', () => {
+  for (const [id, c] of CASES) {
+    for (const r of c.againstIt) {
+      assert.ok(r.severity === 'stopper' || r.severity === 'reprice',
+        `${id}: a ${r.severityLabel} is presented as a killer — "${r.risk.slice(0, 70)}"`);
+    }
+    // And nothing is lost by the narrowing: a condition is an obligation and belongs on
+    // the outstanding list, where a reader can act on it.
+    for (const cond of c.conditions) {
+      assert.ok(c.outstanding.some((o) => o.text === cond.condition), `${id}: a condition fell off both lists`);
+    }
+  }
+});
+
+// $73M is 12% of $610M -- the screening default -- fired on a deal whose record carries
+// a diligenced "Adj. EBITDA $142M" at high confidence, because the label pattern
+// required the word EBITDA to start the label. The product then told a committee that an
+// asset the fund owns "is below the 20% / 2x hurdle on both legs" using an EBITDA it had
+// invented, while the real one sat on the same record. At $142M the entry is 4.3x, not
+// 8.4x, and the deal does not fail.
+test('a recorded EBITDA is used however its label is worded', () => {
+  let matched = 0;
+  for (const d of seededDeals) {
+    const kf = (d.keyFigures || []).find((k) => /ebitda/i.test(k.label) && !/margin|vs|growth|uplift|delta|change/i.test(k.label));
+    if (!kf) continue;
+    const stated = Number(String(kf.value).replace(/[^0-9.]/g, ''));
+    if (!Number.isFinite(stated) || /%/.test(String(kf.value))) continue;
+    matched += 1;
+    const e = buildReturnsModel(d).entry;
+    const dflt = Math.round((d.dealSize || 0) * 0.12);
+    assert.notEqual(e.ebitda, dflt === stated ? -1 : dflt,
+      `${d.id}: "${kf.label} ${kf.value}" is on the record and the screening default fired anyway`);
+  }
+  assert.ok(matched > 3, 'too few deals record an EBITDA for this guard to mean anything');
 });

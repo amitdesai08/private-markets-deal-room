@@ -25,6 +25,7 @@ import { buildReturnsModel, buildRiskRegister, canonicalFigures } from './dilige
 import { computeICReadiness } from './icReadiness.js';
 import { validateCitations } from './citations.js';
 import { compsForDeal } from './fabric.js';
+import { ownerLabel } from './cockpit.js';
 import { money as fmtMoney, symbolFor } from './money.js';
 
 const SEVERITY_RANK = { stopper: 0, reprice: 1, condition: 2, monitor: 3 };
@@ -76,7 +77,16 @@ function figureBasis(kind, canon, deal) {
 // that told a reader whether anybody had looked.
 function againstIt(register) {
   return (register.risks || [])
-    .filter((r) => r.severity !== 'monitor')
+    // A deal-stopper, or something that moves the price. Nothing else.
+    //
+    // This admitted closing conditions, so a mechanical working-capital true-up that
+    // appears on every deal in the fund was presented to a committee as one of the three
+    // things most likely to kill the deal, alongside a consent point quoted with its own
+    // evidence that it was closed. A committee that reads three rows and finds none of
+    // them capable of killing anything stops reading the section. Conditions have not
+    // disappeared -- they are obligations, and they are on the outstanding list where a
+    // reader can act on them.
+    .filter((r) => r.severity === 'stopper' || r.severity === 'reprice')
     // Severity first, and within a severity a row somebody wrote before a row nobody
     // did. A committee reading three killers should be reading the three things the
     // diligence found, where the diligence found anything.
@@ -375,11 +385,11 @@ export function buildDealCase(deal) {
     notOnRecord.push(`${b.label}: ${b.reasons.join('; ')}${b.dueDate ? ` — due ${b.dueDate}` : ''}.`);
   }
   if (undated.length) notOnRecord.push(`No completion date is committed on the record for any of the ${undated.length} outstanding workstream${undated.length === 1 ? '' : 's'} above.`);
-  // A deal with six named findings on its register was told, on the same object that
-  // lists their authors, "none was written by a named author against this company",
-  // because this tested the three-row slice rather than the register.
-  if (!(register.risks || []).some((r) => r.basis === 'recorded')) {
-    notOnRecord.push('Nothing on this deal\u2019s risk register was written by a named author. Every row is the standard set for its workstream.');
+  // A deal with seven named authors was told "nothing on this register was written by a
+  // named author", because the claim read the register -- where positives never appear.
+  const authored = (deal.workstreams || []).some((w) => (w.findings || []).some((f) => f && f.text));
+  if (!authored) {
+    notOnRecord.push('Nobody has written a finding on any workstream of this deal. Every row on the register is the standard set for its lane.');
   } else if (risks.length && risks.every((r) => r.basis === 'templated')) {
     notOnRecord.push('The three items above are standard rows for their workstreams. What diligence actually found is listed separately.');
   }
@@ -408,9 +418,23 @@ export function buildDealCase(deal) {
     // disallowed" -- was graded a monitor and therefore fell out of the three killers,
     // so the page printed two rows nobody wrote and left out the one somebody did.
     // Boilerplate must never be able to push a recorded finding off the page.
-    recordedFindings: (register.risks || [])
-      .filter((r) => r.basis === 'recorded')
-      .map((r) => ({ finding: r.risk, workstream: r.workstream || null, owner: r.owner || null, severity: r.severity, severityLabel: r.severityLabel })),
+    // Everything anybody wrote on this deal, at any grade, taken off the workstreams
+    // rather than off the register. A positive finding is graded `clear` and `clear` rows
+    // are filtered off the register -- so a deal whose diligence produced only good news
+    // had seven named authors, nothing on its register, and a page announcing that
+    // nobody had written anything. Reading the register to find out whether anybody
+    // worked on the deal was the wrong question all along.
+    recordedFindings: (deal.workstreams || []).flatMap((w) => (w.findings || [])
+      .filter((f) => f && f.text)
+      .map((f) => ({
+        finding: String(f.text).trim(),
+        workstream: w.label || w.lane,
+        owner: w.owner ? ownerLabel(w.owner, w.lane) : null,
+        severity: f.severity || null,
+        // Good news is on this page too, and marked as good news. It was being dropped
+        // entirely, which flatters nobody and hides who did the work.
+        supportive: /^(positive|neutral)$/i.test(String(f.severity || '')),
+      }))),
     figures: [
       { label: 'Enterprise value', value: `${canon.currency}${canon.ev}M`, basis: figureBasis('ev', canon, deal) },
       { label: 'LTM EBITDA', value: `${canon.currency}${canon.ebitda}M`, basis: figureBasis('ebitda', canon, deal) },

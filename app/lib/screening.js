@@ -325,7 +325,16 @@ export function buildReturns(c) {
   // Use the actual implied entry multiple when it's within a financeable range;
   // above the LBO ceiling the paper deal only works if the entry can be renegotiated,
   // so we model at the ceiling AND flag that the current ask is unfinanceable.
-  const baseMult = impliedMult == null ? 8 : clamp(impliedMult, 5, MAX_ENTRY_MULT);
+  // This was clamp(impliedMult, 5, MAX_ENTRY_MULT) — a FLOOR of 5x as well as a ceiling.
+  // Meridian's own record implies 4.1x, so the model bought it at 5x instead, and every
+  // page downstream inherited a purchase price 22% above the one on the deal: "$670M
+  // enterprise value at 4.1x", where 670 over 134 is 5.0x. The reconciliation sentence
+  // added last round documented the contradiction instead of removing it, and a partner
+  // still could not state the purchase price. A cheap entry is a cheap entry; there is
+  // no reason to model a deal as dearer than it is. The ceiling stays, because an ask
+  // above the financeable limit genuinely cannot be underwritten as asked, and that case
+  // already says so in terms.
+  const baseMult = impliedMult == null ? 8 : Math.min(impliedMult, MAX_ENTRY_MULT);
   const entryAboveCeiling = impliedMult != null && impliedMult > MAX_ENTRY_MULT;
   // Nobody underwrites a fast-growing asset's current rate for five straight years at
   // screening. Cap what we are willing to put in the model, and say so in the

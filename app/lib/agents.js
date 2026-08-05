@@ -81,6 +81,7 @@ function caseBlock(deal) {
     if (c.downside) lines.push(`- Downside: ${c.downside.text} ${c.downside.basis}`);
     for (const p of c.forIt) lines.push(`- For: ${p.point}. ${p.basis}`);
     for (const r of c.againstIt) lines.push(`- Against [${r.severityLabel}]: ${r.risk}${r.basisNote ? ` — ${r.basisNote}` : ''}`);
+    for (const r of (c.recordedFindings || [])) lines.push(`- Diligence found${r.supportive ? ' (supportive)' : ''} [${r.workstream}${r.owner ? `, ${r.owner}` : ''}]: ${r.finding}`);
     for (const o of c.outstanding) lines.push(`- Outstanding (${o.from}): ${o.text}`);
     for (const f of c.figures) lines.push(`- ${f.label} ${f.value} — ${f.basis}`);
     if (c.writtenRecommendation) {

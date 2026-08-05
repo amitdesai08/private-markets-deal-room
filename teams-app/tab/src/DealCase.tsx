@@ -135,7 +135,7 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
                 reading "cyber posture is adequate" pass for a finding. */}
             {r.basisNote ? <div className="dc-basis dc-templated">{r.basisNote}</div> : null}
           </div>
-        )) : <div className="muted">Nothing on the register above a monitor.</div>}
+        )) : <div className="muted">Nothing on the register would stop the deal or move the price. What has to be settled before signing is listed below.</div>}
       </section>
 
       {!!(c.figures || []).length && (
@@ -177,7 +177,7 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
           {c.recordedFindings.map((r: Any, i: number) => (
             <div key={i} className="dc-point">
               <div className="dc-pt">{r.finding}</div>
-              <div className="dc-basis">{r.workstream}{r.owner ? ` · ${r.owner}` : ''} · written against this company</div>
+              <div className="dc-basis">{r.workstream}{r.owner ? ` · ${r.owner}` : ''}{r.supportive ? ' · supportive' : ''}</div>
             </div>
           ))}
         </section>

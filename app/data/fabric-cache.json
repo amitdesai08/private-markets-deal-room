@@ -290,7 +290,7 @@
   ],
   "icPrecedents": [
     {
-      "deal": "Meridian Logistics - control buyout",
+      "deal": "Calder Freightways - control buyout",
       "sector": "Industrials & Logistics",
       "decision": "Approved",
       "votesFor": 5,
@@ -305,7 +305,7 @@
       "meetingDate": "2026-03-16"
     },
     {
-      "deal": "Cascadia Timber Partners - carve-out",
+      "deal": "Wychwood Forest Products - carve-out",
       "sector": "Industrials & Logistics",
       "decision": "Approved subject to conditions",
       "votesFor": 4,
@@ -320,7 +320,7 @@
       "meetingDate": "2026-02-04"
     },
     {
-      "deal": "Great Lakes Precision - bolt-on",
+      "deal": "Ferrand Engineering - bolt-on",
       "sector": "Industrials & Logistics",
       "decision": "Declined",
       "votesFor": 2,
