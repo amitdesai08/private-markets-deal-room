@@ -243,6 +243,18 @@ const RAIL_TABS: Tab[] = ['threads', 'activity'];
 // Surfaces that cannot render without the brief behind them.
 const NEEDS_BRIEF: Tab[] = ['cockpit', 'workflow'];
 
+// Where a page is, in the words now on the screen. Two label vocabularies were live at
+// once in the release whose subject was labels: the redesigned row said "The work", while
+// the button that sends you there still said "Work the deal" and a broken link told you
+// you were on "Thesis & key figures" — a name that no longer appears anywhere.
+const groupOf = (t: Tab) => TAB_GROUPS.find((g) => g.tabs.includes(t));
+const pathLabel = (t: Tab): string => {
+  if (RAIL_TABS.includes(t)) return TAB_LABEL[t];
+  const g = groupOf(t);
+  if (!g) return TAB_LABEL[t];
+  return g.tabs.length > 1 ? `${g.label} · ${SUB_LABEL[t] || TAB_LABEL[t]}` : g.label;
+};
+
 export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, initialTab, onTabChange }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string; initialTab?: string; onTabChange?: (t: string) => void }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
   const [ic, setIc] = useState<ICReadiness | null>(null);
@@ -312,6 +324,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     else if (initialTab && !t) setBadLink(String(initialTab));
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [initialTab]);
+  const [accessAsk, setAccessAsk] = useState<'idle' | 'sending' | 'done' | 'already'>('idle');
   // A deal opened on an 806px screen left a 216px slot to read it in: 73% of the
   // window was header that never changed, and the deal brief -- 3,500px of it --
   // came through a letterbox. None of those bands was wrong on its own, which is
@@ -643,21 +656,21 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   if (deal && !statusOnly) {
     if (nbaPostIc) {
       const isValue = /value|exit|owned|monitor/i.test(nbaCtx);
-      nba = { title: isValue ? 'Monitor value creation' : 'Drive to close', reason: isValue ? 'Post-IC — track the 100-day plan and KPIs vs the underwriting.' : 'Approved at IC — advance execution and closing.', urgency: 'Normal', primaryLabel: TAB_LABEL.stages, primaryTab: 'stages' };
+      nba = { title: isValue ? 'Monitor value creation' : 'Drive to close', reason: isValue ? 'Post-IC — track the 100-day plan and KPIs vs the underwriting.' : 'Approved at IC — advance execution and closing.', urgency: 'Normal', primaryLabel: pathLabel('stages'), primaryTab: 'stages' };
     } else if (nbaDays != null && nbaDays >= 0 && nbaDays <= 21 && nbaReadiness < 80) {
       // The verdict enum used to be spliced in here as "(READY)" / "(NOT-READY)", which
       // is the raw state and is already rendered in English on the IC readiness tab.
-      nba = { title: 'Close diligence gaps before IC', reason: `IC in ${nbaDays}d but only ${nbaReadiness}% ready — resolve the open items holding readiness back.`, urgency: 'High', primaryLabel: TAB_LABEL.ic, primaryTab: 'ic' };
+      nba = { title: 'Close diligence gaps before IC', reason: `IC in ${nbaDays}d but only ${nbaReadiness}% ready — resolve the open items holding readiness back.`, urgency: 'High', primaryLabel: pathLabel('ic'), primaryTab: 'ic' };
     } else if (nbaReadiness >= 80) {
       // This sentence names two pieces of work, and the banner only offered one of them.
       // During IC week the memo is the thing a partner opens most, and it sits tenth of
       // twelve in the rarely-used row -- exactly the wrong place for the one week it
       // matters. It gets its own button while this banner is showing.
-      nba = { title: 'Prepare for Investment Committee', reason: `${nbaReadiness}% ready — finalise the memo and the returns, plan and risk pages.`, urgency: (nbaDays != null && nbaDays >= 0 && nbaDays <= 14) ? 'High' : 'Normal', primaryLabel: TAB_LABEL.artifacts, primaryTab: 'artifacts', secondaryLabel: 'Generate the IC memo', secondaryTab: 'documents' };
+      nba = { title: 'Prepare for Investment Committee', reason: `${nbaReadiness}% ready — finalise the memo and the returns, plan and risk pages.`, urgency: (nbaDays != null && nbaDays >= 0 && nbaDays <= 14) ? 'High' : 'Normal', primaryLabel: pathLabel('artifacts'), primaryTab: 'artifacts', secondaryLabel: 'Generate the IC memo', secondaryTab: 'documents' };
     } else if (nbaReadiness < 40) {
-      nba = { title: 'Advance diligence', reason: `Early at ${nbaReadiness}% ready — run the diligence workstreams to progress.`, urgency: 'Normal', primaryLabel: TAB_LABEL.stages, primaryTab: 'stages' };
+      nba = { title: 'Advance diligence', reason: `Early at ${nbaReadiness}% ready — run the diligence workstreams to progress.`, urgency: 'Normal', primaryLabel: pathLabel('stages'), primaryTab: 'stages' };
     } else {
-      nba = { title: 'Keep diligence moving', reason: `${nbaReadiness}% ready — close the next workstream items toward IC.`, urgency: 'Normal', primaryLabel: TAB_LABEL.ic, primaryTab: 'ic' };
+      nba = { title: 'Keep diligence moving', reason: `${nbaReadiness}% ready — close the next workstream items toward IC.`, urgency: 'Normal', primaryLabel: pathLabel('ic'), primaryTab: 'ic' };
     }
   }
 
@@ -764,7 +777,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
         {/* A link naming a page that does not exist landed on the brief in silence, so
             the reader believed the brief was the page they had been sent to read. */}
         {badLink ? (
-          <div className="badlink">The link you followed asked for a page called “{badLink}”, which is not a page on a deal. You are on {TAB_LABEL[tab]}. The pages on this deal are listed below.</div>
+          <div className="badlink">The link you followed asked for a page called “{badLink}”, which is not a page on a deal. You are on {pathLabel(tab)}. The pages on this deal are listed below.</div>
         ) : null}
 
         {/* The assistant used to be laid over the whole deal, header and all, so with
@@ -847,13 +860,15 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
             {!statusOnly && (
             <>
-            <div className="dd-tabs" role="tablist" aria-label="Deal sections">
+            {/* Navigation, not an ARIA tablist: there is no tabpanel and no arrow-key
+                movement, and claiming both told a screen-reader user to expect behaviour
+                that does not exist. The rail is a separate group because it is not part
+                of the same set. */}
+            <nav className="dd-tabs" aria-label="Deal sections">
               {groups.map((g) => (
                 <button
                   key={g.key}
-                  role="tab"
                   className={`dd-tab${activeGroup?.key === g.key ? ' on' : ''}`}
-                  aria-selected={activeGroup?.key === g.key}
                   aria-current={activeGroup?.key === g.key ? 'page' : undefined}
                   onClick={() => { if (!g.tabs.includes(tab)) setTab(g.tabs[0]); }}
                 >
@@ -874,21 +889,20 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   {TAB_LABEL[t]}
                 </button>
               ))}
-            </div>
+            </nav>
             {activeGroup && activeGroup.tabs.length > 1 && !RAIL_TABS.includes(tab) ? (
-              <div className="dd-sub" role="tablist" aria-label={`${activeGroup.label} sections`}>
+              <nav className="dd-subtabs" aria-label={`${activeGroup.label} sections`}>
                 {activeGroup.tabs.map((t) => (
                   <button
                     key={t}
-                    role="tab"
                     className={`dd-subtab${tab === t ? ' on' : ''}`}
-                    aria-selected={tab === t}
+                    aria-current={tab === t ? 'page' : undefined}
                     onClick={() => setTab(t)}
                   >
                     {SUB_LABEL[t] || TAB_LABEL[t]}
                   </button>
                 ))}
-              </div>
+              </nav>
             ) : null}
             </>
             )}
@@ -910,6 +924,30 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                     <div><div className="muted" style={{ fontSize: 12 }}>Stage</div><div style={{ fontWeight: 600 }}>{deal.stageName || deal.stage || '—'}</div></div>
                     <div><div className="muted" style={{ fontSize: 12 }}>Status</div><div style={{ fontWeight: 600, textTransform: 'capitalize' }}>{deal.status || '—'}</div></div>
                     <div><div className="muted" style={{ fontSize: 12 }}>IC readiness</div><div style={{ fontWeight: 600 }}>{deal.readiness ?? 0}%</div></div>
+                  </div>
+                  {/* The panel used to end by telling the reader to go and find a human,
+                      while a finished request-and-approve API sat uncalled. Asking is now
+                      something you can do from the screen that refused you. */}
+                  <div style={{ marginTop: 16 }}>
+                    {accessAsk === 'done' ? (
+                      <div className="muted">Asked. It is with the deal team — nothing has changed about what you can see yet.</div>
+                    ) : accessAsk === 'already' ? (
+                      <div className="muted">You have already asked. It is with the deal team.</div>
+                    ) : (
+                      <button
+                        className="btn primary"
+                        disabled={accessAsk === 'sending'}
+                        onClick={async () => {
+                          setAccessAsk('sending');
+                          try {
+                            const r = await af(`/api/deals/${dealId}/request-access`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+                            setAccessAsk(r.status === 409 ? 'already' : r.ok ? 'done' : 'idle');
+                          } catch { setAccessAsk('idle'); }
+                        }}
+                      >
+                        {accessAsk === 'sending' ? 'Asking…' : 'Ask to join the deal team'}
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (

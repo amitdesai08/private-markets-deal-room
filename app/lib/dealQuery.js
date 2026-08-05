@@ -161,7 +161,10 @@ export function dealFacets(rows) {
   };
   return {
     phase: tally(phase).map((f) => ({ ...f, label: f.value[0].toUpperCase() + f.value.slice(1) })),
-    stage: tally((d) => d.stage).map((f) => ({ ...f, label: all.find((d) => d.stage === f.value)?.stageName || f.value })),
+    // Tallied by the stage's NAME, not its code. Four codes share the name "Diligence &
+    // Approval", so a facet keyed on the code offered four identical-looking choices, and
+    // the only thing that told them apart was the internal code a reader never sees.
+    stage: tally((d) => d.stageName || d.stage),
     status: tally((d) => d.status),
     sector: tally((d) => d.sector),
     lane: tally((d) => (d.workstreams || []).map((w) => w.lane)),

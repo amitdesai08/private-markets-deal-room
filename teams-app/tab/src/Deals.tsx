@@ -14,11 +14,17 @@ import StageGuide from './StageGuide';
 
 const money = (n?: number) => (n == null ? '—' : n >= 1000 ? `$${(n / 1000).toFixed(1)}B` : `$${n}M`);
 
-export type DealsFilter = 'all' | 'diligence' | 'execution' | 'value' | 'attention';
+export type DealsFilter = 'all' | 'origination' | 'diligence' | 'execution' | 'value' | 'attention';
 
+// The chips have to account for every row, or they teach the reader the filter bar is
+// decorative. Origination had no chip and no rows: those deals were only in Sourcing &
+// screening, which is the funnel that CREATES deals rather than the list of them — so an
+// analyst whose book is 45% origination could not reach nearly half of it from the deal
+// list, and the pointer to the other view was a sentence.
 const FILTERS: [DealsFilter, string][] = [
   ['all', 'All'],
   ['attention', 'Needs attention'],
+  ['origination', 'Origination'],
   ['diligence', 'Diligence'],
   ['execution', 'Execution'],
   ['value', 'Value & Exit'],
@@ -29,6 +35,7 @@ function stageBucket(d: any): DealsFilter {
   if (st.startsWith('E')) return 'execution';
   if (st.startsWith('V')) return 'value';
   if (st.startsWith('D')) return 'diligence';
+  if (st.startsWith('O')) return 'origination';
   return 'all';
 }
 
@@ -106,13 +113,9 @@ export default function Deals({
 }) {
   const [compareCapNote, setCompareCapNote] = useState('');
 
-  const inFlight = useMemo(
-    () => (deals || []).filter((d) => {
-      const st = String((d as any).stage || '').toUpperCase();
-      return st.startsWith('D') || st.startsWith('E') || st.startsWith('V');
-    }),
-    [deals],
-  );
+  // Every deal this reader can see. It used to be D/E/V only, with the origination deals
+  // reachable solely from another view.
+  const inFlight = useMemo(() => (deals || []), [deals]);
 
   const shown = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -186,21 +189,13 @@ export default function Deals({
     <div className="dealsview">
       <section className="panel">
         <div className="panel-h">
-          Deals in flight
-          {/* Home says 19, this list says 15 and the report says 19, and nothing on any
-              of the three screens accounted for the four. They are screened deals that
-              have not been launched into diligence, so they belong on Sourcing &
-              screening -- but a reader counting deals needs to be told that here. */}
-          {/* The count that does not appear in this list needs a route, not a sentence:
-              origination can be five of an analyst's eleven deals, and "see Sourcing &
-              screening" was prose you could not click. */}
+          Deals
+          {/* Every deal this reader can see, origination included. The count used to
+              exclude them and point at another view in prose you could not click. */}
           <span className="muted">
             {shown.length} of {inFlight.length}
-            {(deals || []).length > inFlight.length
-              ? <> · <button className="linkbtn" onClick={() => onGoToSourcing?.()}>
-                  {(deals || []).length - inFlight.length} more still in screening
-                </button></>
-              : ''}
+            {' · '}
+            <button className="linkbtn" onClick={() => onGoToSourcing?.()}>the screening funnel</button>
           </span>
         </div>
 
@@ -249,7 +244,7 @@ export default function Deals({
                 reading that on their first login reasonably concludes the sign-in failed. */}
             {dealsLoading && !(deals || []).length ? 'Loading your deals — about fifteen seconds the first time you open the window.'
               : inFlight.length ? <>No deal matches that. <button className="linkbtn" onClick={() => { onQueryChange(''); onFilterChange('all'); }}>Clear the filter</button></>
-              : 'No deals in flight yet. Pursue a candidate in Sourcing to launch one.'}
+              : 'No deals yet. Pursue a candidate in Sourcing to launch one.'}
           </div>
         ) : (
           <div className="dv-rows">

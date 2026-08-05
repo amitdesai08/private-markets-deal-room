@@ -37,7 +37,7 @@ const ORCHESTRATOR: Agent = {
   ],
 };
 
-const DEALS_FILTERS: DealsFilter[] = ['all', 'attention', 'diligence', 'execution', 'value'];
+const DEALS_FILTERS: DealsFilter[] = ['all', 'attention', 'origination', 'diligence', 'execution', 'value'];
 
 // The list view, as an address. Only non-default state is written, so a plain list stays
 // a plain '#/deals'.
@@ -1274,7 +1274,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .dd-rail.on { color: var(--accent); border-bottom-color: var(--accent); }
 /* Sub-navigation inside a group. A segmented control rather than a second tab row, so
    there is never any doubt about which of the two rows is the page you are on. */
-.dd-sub { display: flex; flex-wrap: wrap; gap: 2px; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.dd-subtabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .dd-subtab { border: 1px solid transparent; background: none; color: var(--muted); padding: 5px 11px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .dd-subtab:hover { background: var(--hover); color: var(--fg); }
 .dd-subtab.on { background: var(--chip); border-color: var(--border); color: var(--fg); }
