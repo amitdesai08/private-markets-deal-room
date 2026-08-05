@@ -471,8 +471,12 @@ test('the sourcing badge does not claim a clean bill over a contradiction it can
     if (derived) {
       caveated += 1;
       assert.equal(c.citations.clean, false, `${id}: reported clean over a multiple struck on a screening default`);
-      assert.equal(c.citations.score, null, `\demo-sterling: a score published over a price that cannot be relied on`);
-      assert.match(c.citations.summary, /cannot be relied on/i, `\demo-sterling: the badge does not say what it measures`);
+      assert.equal(c.citations.score, null, `${id}: a score published over a price that cannot be relied on`);
+      assert.ok(c.citations.scoreWithheld, `${id}: no score and no reason for withholding it`);
+      // And the summary states the fraction rather than asserting every claim traced --
+      // it was hardcoded to "every claim it tested does trace to a source" and printed on
+      // a deal reporting two of three.
+      assert.match(c.citations.summary, new RegExp(`${c.citations.sourced} of ${c.citations.total} claim`), `${id}: the badge does not state what it actually tested`);
     }
   }
   assert.ok(caveated > 0, 'no deal exercised the caveat path — the guard would be inert');
@@ -677,11 +681,16 @@ test('a critical-path item is a deal-stopper on the register, not a condition', 
 // One deal carried "QoE supports $46M LTM EBITDA; $2.1M of add-backs disallowed" as a
 // thing diligence found AND as a thing still to do, inflating the count of what is
 // outstanding on the deal going to committee that week.
-test('a written finding is not also counted as outstanding', () => {
+test('a finding that reports its own closure is not counted as outstanding', () => {
+  // The first version of this dropped ANY register row whose text also appeared as a
+  // written finding, so a refrigerant capex obligation graded a closing condition
+  // disappeared from the paper altogether -- out of the outstanding list, into a run of
+  // positives. A committee reading the case alone would have signed without knowing.
+  // Only a row that reports its own closure drops out.
+  const RESOLVED = /reflected in the [\d.]+x|no objection in writing|already (?:taken|deducted|reflected)|substantially agreed|is sticky and re-prices well|bound at signing/i;
   for (const [id, c] of CASES) {
-    const written = new Set(c.recordedFindings.map((r) => r.finding));
     for (const row of c.outstanding) {
-      assert.ok(!written.has(row.text), `${id}: a finding somebody wrote is also counted as outstanding`);
+      assert.doesNotMatch(row.text, RESOLVED, `${id}: a row that reports its own closure is counted as outstanding`);
     }
   }
 });
@@ -718,7 +727,10 @@ test('what nobody has looked at is on the page', () => {
   for (const [id, c] of CASES) {
     const d = seededDeals.find((x) => x.id === id);
     const monitors = buildRiskRegister(d).risks.filter((r) => r.severity === 'monitor');
-    if (!monitors.length) continue;
+    // Not on a decided deal: work that will never now be done is a records gap, not a
+    // known unknown, and 'voice-of-customer work has not been commissioned' on a signed
+    // and archived transaction told a reader nothing they could act on.
+    if (!monitors.length || c.decided) continue;
     carried += 1;
     for (const m of monitors) {
       assert.ok(c.notYetKnown.some((u) => u.item === m.risk), `${id}: an unexamined item is on the register and not on the case`);
@@ -744,7 +756,7 @@ test('a base case that misses the hurdle names the failure first', () => {
     const unevidenced = /screening default|not a diligenced figure|not a completed result/i
       .test(c.figures.find((f) => /EBITDA/.test(f.label)).basis);
     if (unevidenced) {
-      assert.match(c.againstIt[0].risk, /nobody has diligenced/i, `${id}: unevidenced price is not the first killer`);
+      assert.match(c.againstIt[0].risk, /nobody has diligenced|rests on a draft/i, `${id}: the unevidenced price is not the first killer`);
     } else {
       assert.equal(c.againstIt[0].risk, c.baseCase.text, `${id}: the failed hurdle is not the first killer`);
     }
@@ -836,4 +848,53 @@ test('every outstanding row carries a date or says there is none', () => {
       assert.ok(row.dueDate || row.dueNote, `${id}: an outstanding row with neither a date nor a note about its absence`);
     }
   }
+});
+
+// The exclusion that keeps self-resolving rows out of the killers is written at the top
+// of the selection and the promotion loop four hundred lines later put them straight
+// back, so the deal going to committee still listed "reflected in the 7.8x entry" and
+// "both counterparties have indicated no objection in writing" as two of the three
+// things that could kill it. The fix was written and then bypassed.
+test('no killer reports its own resolution, whatever route it arrived by', () => {
+  const RESOLVED = /reflected in the [\d.]+x|no objection in writing|already (?:taken|deducted|reflected)|substantially agreed|is sticky and re-prices well|bound at signing/i;
+  for (const [id, c] of CASES) {
+    for (const r of c.againstIt) {
+      assert.doesNotMatch(r.risk, RESOLVED, `${id}: a killer says in its own words that it is dealt with — "${r.risk.slice(0, 70)}"`);
+    }
+  }
+});
+
+// "Downside breaks the hurdle: 19% IRR is below the 20%" put one point of IRR in a model
+// among the three things most likely to lose the money. And on a company already owned
+// and in exit preparation, a modelled downside sensitivity was the single named killer.
+test('a downside is only a killer when it misses by something worth a vote', () => {
+  for (const [id, c] of CASES) {
+    const row = c.againstIt.find((r) => /^Downside breaks the hurdle/.test(r.risk));
+    if (!row) continue;
+    assert.equal(c.decided, false, `${id}: a modelled sensitivity is a named killer on a decided deal`);
+    assert.ok(c.downside.moic < 1.8 || c.downside.irr < 18,
+      `${id}: a downside missing by less than a rounding tolerance is presented as a killer`);
+  }
+});
+
+// "Nobody has produced it" is true of a screening default and false of a QoE draft, and
+// the killer said it anyway -- four sections above the page's own line reading "Recorded
+// from CIM p.14 / QoE draft at high confidence". A draft is not a result and it is not
+// nothing.
+test('a draft price and an unproduced price are described differently', () => {
+  let drafts = 0;
+  let unproduced = 0;
+  for (const [id, c] of CASES) {
+    const basis = c.figures.find((f) => /EBITDA/.test(f.label)).basis;
+    const first = c.againstIt[0];
+    if (/not a completed result/i.test(basis)) {
+      drafts += 1;
+      assert.match(first.risk, /rests on a draft/i, `${id}: a draft-sourced price is not described as a draft`);
+      assert.doesNotMatch(first.risk, /nobody has produced|nobody has diligenced/i, `${id}: says nobody produced a figure a draft produced`);
+    } else if (/screening default|not a diligenced figure/i.test(basis) && !c.decided) {
+      unproduced += 1;
+      assert.match(first.risk, /nobody has diligenced/i, `${id}: an unproduced price is not named as one`);
+    }
+  }
+  assert.ok(drafts > 0 && unproduced > 0, 'both price paths must be exercised or the guard is half inert');
 });
