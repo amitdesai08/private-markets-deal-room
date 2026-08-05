@@ -587,6 +587,11 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   // calls itself complete is not.
   const attentionOmitted = Math.max(0, qualifying.length - attention.length);
 
+  // Rows the reader can see the existence of but not the detail of. Every number below
+  // is computed from the deals with detail, so wherever one of them is used to reassure,
+  // this count has to be said in the same breath.
+  const restricted = list.filter((d) => d.accessLevel === 'status' || d.locked).length;
+
   // Headline numbers, all derived from the deals THIS caller can see so the
   // narrative and the tiles can never disagree.
   const capital = list.reduce((s, d) => s + num(d.dealSize), 0) * 1e6;
@@ -747,8 +752,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   // Facts an observer CAN be told. Stage, status and target date survive the metadata
   // tier, so a seat with no workstream access is not a seat with nothing to say —
   // building an empty box and apologising for it is worse than reporting what is there.
-  const observerNearCommittee = list.filter((d) => awaitingCommittee(d) && typeof d.daysToIC === 'number' && d.daysToIC >= 0 && d.daysToIC <= 14).length;
-  const observerOverdue = list.filter((d) => awaitingCommittee(d) && typeof d.daysToIC === 'number' && d.daysToIC < 0).length;
+  const observerNearCommittee = list.filter((d) => awaitingCommittee(d) && typeof d.daysToIC === 'number' && d.daysToIC >= 0 && d.daysToIC <= 14).length;  const observerOverdue = list.filter((d) => awaitingCommittee(d) && typeof d.daysToIC === 'number' && d.daysToIC < 0).length;
 
   // ---- the narrative -------------------------------------------------------
   const c = citer();
@@ -936,7 +940,16 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
         attention[0].basis,
       );
     } else {
-      c.add('Every deal in view is either on track or past the readiness bar. There is nothing competing for your attention today.', 'IC readiness board');
+      // "There is nothing competing for your attention today" was being said to a seat
+      // holding six masked rows, three of which had a committee inside the fortnight. The
+      // dates were not absent, they were redacted — and absent had been rendered as fine.
+      // A reassurance may only ever be built out of what the reader can actually see.
+      c.add(
+        restricted
+          ? `Nothing on the deals you can see in full needs attention today. ${restricted} ${restricted === 1 ? 'deal shows' : 'deals show'} status only — ask the deal team if you need ${restricted === 1 ? 'its date' : 'their dates'}.`
+          : 'Every deal in view is either on track or past the readiness bar. There is nothing competing for your attention today.',
+        'IC readiness board',
+      );
     }
 
     // The committee seat's opener already leads with the date and the ready/not-ready
@@ -985,7 +998,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     // a claim; this seat is only entitled to make claims about status and dates.
     kpis = [
       portfolioKpis[0], portfolioKpis[1],
-      { key: 'near', label: 'IC within 14 days', value: String(observerNearCommittee), sub: observerNearCommittee && nearest ? `soonest: ${nearest.company}, in ${nearest.daysToIC} day${nearest.daysToIC === 1 ? '' : 's'}` : 'none in the next two weeks' },
+      { key: 'near', label: 'IC within 14 days', value: restricted ? `${observerNearCommittee} of ${list.length - restricted}` : String(observerNearCommittee), sub: observerNearCommittee && nearest ? `soonest: ${nearest.company}, in ${nearest.daysToIC} day${nearest.daysToIC === 1 ? '' : 's'}` : (restricted ? `${restricted} ${restricted === 1 ? 'deal does' : 'deals do'} not show dates at your access level` : 'none in the next two weeks') },
       { key: 'passed', label: 'Past target IC date', value: String(observerOverdue), sub: observerOverdue ? 'still shown as pre-IC' : 'none overdue' },
     ];
   } else if (isLaneSeat) {
@@ -1123,6 +1136,9 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     // of which were not IC-ready — the reader's own tiles contradicted the sentence.
     // An empty result is not the same as a clean result.
     attentionOmitted,
+    // Rows the reader can see exist but not open. Published so no surface has to infer
+    // "nothing to worry about" from a list it cannot fully read.
+    restricted,
     attentionEmpty: attention.length ? null
       : !list.length ? 'There are no deals in your view yet.'
       : seat.kind === 'observer'

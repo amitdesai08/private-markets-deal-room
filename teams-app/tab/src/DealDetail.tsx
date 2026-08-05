@@ -205,8 +205,15 @@ const POST_IC = new Set(['approved', 'signing', 'signed', 'closed', 'owned', 'ex
 const TABS_OFTEN: Tab[] = ['cockpit', 'overview', 'ic', 'artifacts', 'workflow', 'stages', 'workspace', 'docdesk', 'documents'];
 const TABS_RARELY: Tab[] = ['threads', 'research', 'activity'];
 // Without the brief, the four surfaces that depend on it are not rendered at all.
-const TABS_OFTEN_PLAIN: Tab[] = ['overview', 'ic', 'stages'];
-const TABS_RARELY_PLAIN: Tab[] = ['workspace', 'artifacts', 'research', 'documents', 'activity'];
+//
+// Documents and the deal channel are on this set too, even though an early-stage deal has
+// little in either. They were absent, not empty — and an origination target DOES carry
+// papers: every screened deal has its investment screen on record, which was reachable
+// through the API and through no tab in the product. An absent tab reads as "this product
+// does not do that", and the reader leaves for SharePoint and stays there. A tab set that
+// changes shape per deal is also not a promise about where anything lives.
+const TABS_OFTEN_PLAIN: Tab[] = ['overview', 'ic', 'stages', 'docdesk'];
+const TABS_RARELY_PLAIN: Tab[] = ['workspace', 'artifacts', 'research', 'documents', 'threads', 'activity'];
 
 export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, initialTab, onTabChange }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string; initialTab?: string; onTabChange?: (t: string) => void }) {
   const [deal, setDeal] = useState<DealFull | null>(null);

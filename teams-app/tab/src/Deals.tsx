@@ -90,6 +90,7 @@ export default function Deals({
   onFilterChange,
   onQueryChange,
   onCompareChange,
+  onGoToSourcing,
 }: {
   deals: Deal[];
   dealsLoading?: boolean;
@@ -101,6 +102,7 @@ export default function Deals({
   onFilterChange: (v: DealsFilter) => void;
   onQueryChange: (v: string) => void;
   onCompareChange: (v: string[]) => void;
+  onGoToSourcing?: () => void;
 }) {
   const [compareCapNote, setCompareCapNote] = useState('');
 
@@ -189,26 +191,31 @@ export default function Deals({
               of the three screens accounted for the four. They are screened deals that
               have not been launched into diligence, so they belong on Sourcing &
               screening -- but a reader counting deals needs to be told that here. */}
+          {/* The count that does not appear in this list needs a route, not a sentence:
+              origination can be five of an analyst's eleven deals, and "see Sourcing &
+              screening" was prose you could not click. */}
           <span className="muted">
             {shown.length} of {inFlight.length}
             {(deals || []).length > inFlight.length
-              ? ` · ${(deals || []).length - inFlight.length} more still in screening — see Sourcing & screening`
+              ? <> · <button className="linkbtn" onClick={() => onGoToSourcing?.()}>
+                  {(deals || []).length - inFlight.length} more still in screening
+                </button></>
               : ''}
           </span>
         </div>
 
         <div className="dv-controls">
           <div className="dv-filters">
-            {/* A chip reading "Value & Exit 0" invites a click that empties the page and
-                tells you nothing you did not already know from the zero. Keep it visible —
-                the zero is itself a fact about the book — but stop it accepting the click. */}
-            {FILTERS.map(([k, label]) => (
+            {/* A chip that is empty for THIS reader is noise on a row read left to right:
+                "Value & Exit 0" told an analyst who holds no owned company nothing, every
+                morning, and chips that visibly do not sum to All teach people the filter
+                bar is decorative. It stays visible while the reader is standing on it, so
+                the bar never reshapes under a click. */}
+            {FILTERS.filter(([k]) => k === 'all' || filter === k || (counts[k] ?? 0) > 0).map(([k, label]) => (
               <button
                 key={k}
                 className={`dv-filter${filter === k ? ' on' : ''}${k !== 'all' && (counts[k] ?? 0) === 0 ? ' isoff' : ''}`}
                 aria-pressed={filter === k}
-                // Not `disabled`: a zero is a fact about the book and the chip should stay
-                // readable and reachable, it just has nothing to show you.
                 aria-disabled={k !== 'all' && (counts[k] ?? 0) === 0}
                 title={k !== 'all' && (counts[k] ?? 0) === 0 ? `No deals in ${label.toLowerCase()}` : undefined}
                 onClick={() => { if (k === 'all' || (counts[k] ?? 0) > 0) onFilterChange(k); }}

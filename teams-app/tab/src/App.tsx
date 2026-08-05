@@ -339,7 +339,13 @@ export default function App() {
     if (window.location.hash !== want) {
       // Typing in the search box must not push a history entry per keystroke, or Back
       // becomes a way to retype what you just typed.
-      const sameRoute = window.location.hash.split('?')[0] === want.split('?')[0];
+      //
+      // Nor must moving between a deal's tabs. Reading five tabs of one deal pushed five
+      // entries, so Back walked you backwards through what you had just read and took
+      // five presses to return to the list you came from. People stop trusting Back, and
+      // then never reach the filter restore above. Only OPENING a deal is a new place.
+      const routeKey = (h: string) => h.split('?')[0].replace(/^(#\/deal\/[A-Za-z0-9_-]+)\/.*$/, '$1');
+      const sameRoute = routeKey(window.location.hash) === routeKey(want);
       try {
         if (sameRoute) window.history.replaceState(null, '', want);
         else window.history.pushState(null, '', want);
@@ -679,6 +685,7 @@ export default function App() {
               onFilterChange={setDealsFilter}
               onQueryChange={setDealsQuery}
               onCompareChange={setDealsCompare}
+              onGoToSourcing={() => setMainTab('sourcing')}
             />
           )}
           </main>

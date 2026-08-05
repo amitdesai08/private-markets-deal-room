@@ -56,15 +56,42 @@ function matchesIc(d, want) {
   return true;
 }
 
+// Sort keys are named after the fields they sort, because `?sort=daysToIC` is what
+// anyone reading the payload will send. It was the one sort a deal professional actually
+// wants — what is closest to committee — and it was the one that silently did nothing.
 const SORTS = {
-  ic: (a, b) => (num(a.daysToIC) ?? 1e9) - (num(b.daysToIC) ?? 1e9),
-  size: (a, b) => (num(b.dealSize) ?? -1) - (num(a.dealSize) ?? -1),
+  daysToIC: (a, b) => (num(a.daysToIC) ?? 1e9) - (num(b.daysToIC) ?? 1e9),
+  dealSize: (a, b) => (num(b.dealSize) ?? -1) - (num(a.dealSize) ?? -1),
   readiness: (a, b) => (num(b.readiness) ?? -1) - (num(a.readiness) ?? -1),
   company: (a, b) => norm(a.company).localeCompare(norm(b.company)),
   stage: (a, b) => norm(a.stage).localeCompare(norm(b.stage)),
 };
+const SORT_ALIAS = { ic: 'daysToIC', size: 'dealSize', daystoic: 'daysToIC', dealsize: 'dealSize' };
 
 export const SORT_KEYS = Object.keys(SORTS);
+
+const resolveSort = (key) => SORTS[key] ? key : SORT_ALIAS[norm(key)] || null;
+
+// What is wrong with the request, in the words of someone who has to fix it. Silent
+// coercion is the most expensive failure an API has: given a parameter called `ic` beside
+// `stage` and `status`, a reasonable engineer sends `ic=ready`, gets every row back with a
+// 200, and ships it believing it filtered.
+export function validateDealQuery(params = {}) {
+  const errors = [];
+  const ic = params.icWithinDays ?? params.ic;
+  if (ic !== undefined && ic !== '' && !/^(overdue|past|none|\d+d?)$/i.test(String(ic).trim())) {
+    errors.push(`icWithinDays must be a whole number of days, or one of: overdue, none — got "${ic}"`);
+  }
+  if (params.sort && !resolveSort(String(params.sort).replace(/^-/, ''))) {
+    errors.push(`sort must be one of: ${SORT_KEYS.join(', ')} (prefix with - to reverse) — got "${params.sort}"`);
+  }
+  for (const key of ['limit', 'offset']) {
+    const v = params[key];
+    if (v === undefined || v === '') continue;
+    if (!/^\d+$/.test(String(v).trim())) errors.push(`${key} must be a whole number that is zero or more — got "${v}"`);
+  }
+  return errors;
+}
 
 // Returns the rows plus what was asked for and what it cost, so a list can say "12 of 19"
 // rather than showing twelve and calling itself complete.
@@ -75,7 +102,7 @@ export function queryDeals(rows, params = {}) {
   const status = norm(params.status);
   const lane = params.lane;
   const laneStatus = params.laneStatus || params.lane_status;
-  const ic = params.ic;
+  const ic = params.icWithinDays ?? params.ic;
   const sector = norm(params.sector);
 
   let out = all.filter((d) => (!q || searchable(d).includes(q))
@@ -87,8 +114,7 @@ export function queryDeals(rows, params = {}) {
 
   const rawSort = String(params.sort || '').trim();
   const desc = rawSort.startsWith('-');
-  const key = norm(desc ? rawSort.slice(1) : rawSort);
-  const applied = SORTS[key] ? key : null;
+  const applied = resolveSort(desc ? rawSort.slice(1) : rawSort);
   if (applied) {
     out = out.slice().sort(SORTS[applied]);
     if (desc) out.reverse();
@@ -109,5 +135,38 @@ export function queryDeals(rows, params = {}) {
     // started". A count with no statement of what produced it is not an explanation.
     filtered: !!(q || stage || status || lane || laneStatus || ic || sector),
     sort: applied ? `${desc ? '-' : ''}${applied}` : null,
+  };
+}
+
+// What you may filter by, with live counts, for THIS caller. Without it there is no way
+// to learn the vocabulary: the values are not in any payload, there is no schema route,
+// and the tab gave up and hard-coded a chip list that has since drifted from the data.
+// Facets let the chips build themselves from what is actually there.
+export function dealFacets(rows) {
+  const all = Array.isArray(rows) ? rows : [];
+  const tally = (pick) => {
+    const m = new Map();
+    for (const d of all) {
+      const v = pick(d);
+      for (const one of Array.isArray(v) ? v : [v]) {
+        if (one === null || one === undefined || one === '') continue;
+        m.set(one, (m.get(one) || 0) + 1);
+      }
+    }
+    return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([value, count]) => ({ value, count }));
+  };
+  const phase = (d) => {
+    const s = String(d.stage || '').toUpperCase();
+    return PHASE[s[0]?.toLowerCase()] || null;
+  };
+  return {
+    phase: tally(phase).map((f) => ({ ...f, label: f.value[0].toUpperCase() + f.value.slice(1) })),
+    stage: tally((d) => d.stage).map((f) => ({ ...f, label: all.find((d) => d.stage === f.value)?.stageName || f.value })),
+    status: tally((d) => d.status),
+    sector: tally((d) => d.sector),
+    lane: tally((d) => (d.workstreams || []).map((w) => w.lane)),
+    laneStatus: tally((d) => (d.workstreams || []).map((w) => w.status || 'not_started')),
+    sort: SORT_KEYS,
+    icWithinDays: 'a whole number of days, or "overdue", or "none"',
   };
 }

@@ -153,8 +153,9 @@ import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent,
 import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
 import { buildCockpit } from './lib/cockpit.js';
 import { buildWorkflowDesk, buildThreads, buildDocumentDesk, detectCommitments } from './lib/dealDesk.js';
+import { ownerLabel } from './lib/cockpit.js';
 import { buildHomeDesk } from './lib/homeDesk.js';
-import { queryDeals } from './lib/dealQuery.js';
+import { queryDeals, validateDealQuery, dealFacets } from './lib/dealQuery.js';
 
 // Cosmos bookkeeping — _rid, _self, _etag, _attachments, _ts — was shipping to the client
 // on every deal read. It is not secret, it is noise, and it tells a reader the product is
@@ -306,12 +307,21 @@ api.get('/lifecycle', (_req, res) => res.json({ phases: lifecycleByPhase(), stag
 // only narrow what this caller may already see. The unfiltered total travels in headers
 // rather than the body because the body is an array and the tab depends on that.
 api.get('/deals', (req, res) => {
+  // A bad parameter is answered, not ignored. `ic=ready` used to return every row with a
+  // 200, so an integrator would ship it believing it had filtered.
+  const errors = validateDealQuery(req.query || {});
+  if (errors.length) return res.status(400).json({ error: 'bad-query', detail: errors });
   const rows = listDeals(requestingIdentity(req), requestingViewAs(req));
   const q = queryDeals(rows, req.query || {});
   res.set('X-Deal-Total', String(q.total));
   res.set('X-Deal-Matched', String(q.matched));
   if (q.sort) res.set('X-Deal-Sort', q.sort);
   res.json(q.deals);
+});
+
+// The filter vocabulary, with counts, scoped to this caller.
+api.get('/deals/facets', (req, res) => {
+  res.json(dealFacets(listDeals(requestingIdentity(req), requestingViewAs(req))));
 });
 
 // Portfolio cockpit for the home page: the same grounded, cited briefing the deal
@@ -1612,15 +1622,49 @@ api.post('/deals/:id/request-access', (req, res) => {
   const access = accessFor(identity, viewAs);
   const who = identity?.name || identity?.upn || access.roleLabel || 'A colleague';
   const note = String(req.body?.reason || '').slice(0, 500);
-  recordAccessRequest(raw, { who, role: access.role, reason: note });
+  const r = recordAccessRequest(raw, { who, role: access.role, reason: note });
+  if (r?.already) {
+    return res.status(409).json({
+      error: 'already-requested',
+      requestedAt: r.request.requestedAt,
+      detail: `You asked to join ${raw.company} on ${new Date(r.request.requestedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}. It is with the deal team.`,
+    });
+  }
   res.json({
     requested: true,
     deal: raw.company,
-    // Who to expect it from, by name where the record has one, because "an administrator"
-    // is not a person anyone can chase.
-    withWhom: dealTeamOf(raw).length ? dealTeamOf(raw) : null,
+    requestedAt: r?.request?.requestedAt || null,
+    // Who to expect it from, in names rather than the role keys the record stores.
+    withWhom: dealTeamOf(raw).length ? dealTeamOf(raw).map(ownerLabel) : null,
     detail: `Your request to join ${raw.company} has been recorded on the deal's audit trail. The deal team decides; nothing has changed about what you can see yet.`,
   });
+});
+
+// The other end of that request. An ask with no queue to land in is a message nobody
+// receives: to find one, an approver would have had to open every deal and scroll its
+// audit trail. Scoped to the deals this caller could actually decide on.
+api.get('/access-requests', (req, res) => {
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  const mine = listDeals(identity, viewAs).filter((d) => d.accessLevel !== 'status').map((d) => d.id);
+  const access = accessFor(identity, viewAs);
+  if (!access.canWrite) return res.json({ requests: [], canDecide: false });
+  res.json({ requests: openAccessRequests(mine), canDecide: true });
+});
+
+api.post('/deals/:id/access-requests/:requestId', (req, res) => {
+  const raw = getDealRaw(req.params.id);
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  if (!raw) return res.status(404).json({ error: 'deal not found' });
+  const gate = authorizeDealContent(identity, raw, viewAs);
+  if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'deal not found' }) : res.status(403).json({ denied: true, reason: gate.reason });
+  if (!gate.access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'Deciding who joins a deal team is a deal-team action.' });
+  const approve = req.body?.decision === 'approve';
+  const out = decideAccessRequest(raw.id, req.params.requestId, { approve, decidedBy: identity?.name || gate.access.roleLabel });
+  if (out?.error === 'not-found') return res.status(404).json(out);
+  if (out?.error) return res.status(409).json(out);
+  res.json(out);
 });
 
 // ---- Territories + deal groups (customizable tags) -------------------------

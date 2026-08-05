@@ -516,6 +516,9 @@ export function applyStatusTier(s) {
   s.dealSize = null;
   s.targetICDate = null;
   s.daysToIC = null;
+  // Redact the whole family or none of it: the agreed date and the countdown were nulled
+  // while projectedICDate shipped intact, and the withheld date reads straight off it.
+  s.projectedICDate = null;
   // The masked enterprise value was reconstructable from the row that masked it: the
   // same object shipped entryMultiple 8.3 and ebitda 29 beside a nulled dealSize, and
   // 8.3 x 29 is the figure above it. The single readiness percentage stays on purpose --
@@ -2432,13 +2435,68 @@ let issueSeq = 1;
 export function recordAccessRequest(deal, { who, role, reason } = {}) {
   return mutateDeal(deal.id, (d) => {
     const at = new Date().toISOString();
+    d.accessRequests = Array.isArray(d.accessRequests) ? d.accessRequests : [];
+    const key = String(who || 'unknown').toLowerCase();
+    const open = d.accessRequests.find((r) => String(r.who || '').toLowerCase() === key && r.status === 'open');
+    // Asking twice is not a second request. Without this the only feedback was a sentence,
+    // so a reader who could not tell whether they had already asked asked again — and left
+    // three identical lines on the audit trail of a deal they cannot open.
+    if (open) return { already: true, request: open };
+    const request = {
+      id: `access-${d.id}-${d.accessRequests.length + 1}`,
+      who: who || 'A colleague',
+      role: role || null,
+      reason: reason ? String(reason).slice(0, 500) : null,
+      requestedAt: at,
+      status: 'open',
+      decidedBy: null,
+      decidedAt: null,
+    };
+    d.accessRequests.push(request);
     d.activity = d.activity || [];
     d.activity.unshift({
       actor: who || 'A colleague',
       action: `Asked to join the deal team${role ? ` (currently ${role})` : ''}${reason ? ` — "${String(reason).slice(0, 200)}"` : ''}.`,
       when: at,
     });
-    return { ok: true };
+    return { ok: true, request };
+  });
+}
+
+// Open requests across every deal, for an approver's queue. Callers scope this to the
+// deals they may decide on.
+export function openAccessRequests(dealIds = null) {
+  const want = dealIds ? new Set(dealIds) : null;
+  const out = [];
+  for (const d of deals) {
+    if (want && !want.has(d.id)) continue;
+    for (const r of d.accessRequests || []) {
+      if (r.status === 'open') out.push({ ...r, dealId: d.id, company: d.company });
+    }
+  }
+  return out.sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
+}
+
+export function decideAccessRequest(dealId, requestId, { approve, decidedBy } = {}) {
+  return mutateDeal(dealId, (d) => {
+    const r = (d.accessRequests || []).find((x) => x.id === requestId);
+    if (!r) return { error: 'not-found' };
+    if (r.status !== 'open') return { error: 'already-decided', request: r };
+    r.status = approve ? 'approved' : 'declined';
+    r.decidedBy = decidedBy || 'The deal team';
+    r.decidedAt = new Date().toISOString();
+    // Approving adds them to the team, which is what makes the decision mean something.
+    if (approve) {
+      d.team = Array.isArray(d.team) ? d.team : [];
+      if (r.role && !d.team.includes(r.role)) d.team.push(r.role);
+    }
+    d.activity = d.activity || [];
+    d.activity.unshift({
+      actor: r.decidedBy,
+      action: `${approve ? 'Approved' : 'Declined'} ${r.who}'s request to join the deal team.`,
+      when: r.decidedAt,
+    });
+    return { ok: true, request: r };
   });
 }
 
