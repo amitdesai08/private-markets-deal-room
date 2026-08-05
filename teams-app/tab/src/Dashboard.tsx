@@ -340,11 +340,10 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
       .then(() => { setAgendaCopied(true); window.setTimeout(() => setAgendaCopied(false), 2500); })
       .catch(() => {});
   };
-  // Which column each block sits in. These had drifted from the markup: the left was
-  // gated on the follow-ups card, which renders on the right, so the flags described a
-  // layout that had not existed for some time.
-  const heroLeft = showBriefing || showAgenda;
-  const heroRight = showAttention || showKpis || showFollowups;
+  // Which column each block sits in. These had drifted from the markup once already, so
+  // they are named for the blocks that are actually there.
+  const heroLeft = showBriefing || showAttention;
+  const heroRight = showKpis || showAgenda || showFollowups;
   const showFunnel = shows('funnel') && !!pipeline?.funnel?.length;
   // Named for the person, so the customise panel can say whose arrangement this is.
   const arrangementFor = seat?.label ? `the ${seat.label}` : 'you';
@@ -409,14 +408,18 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
   return (
     <div className="dash">
       {/* ================= Portfolio cockpit =================
-          Reading on the left — the briefing, then the committee agenda. What needs a
-          person on the right — the four numbers, the attention queue, the follow-ups.
+          Prose in the wide column — the briefing, then what needs a person. Numbers and
+          lists in the narrow one — the four figures, the committee agenda, the follow-ups.
 
           The columns are independent stacks, so the row is as tall as the taller of the
-          two and a short column leaves dead space beside the long one. With the agenda on
-          the right the left held one card against four, and on a wide monitor that was
-          roughly a screen of nothing under the briefing. Either side can still be emptied
-          by choice, in which case the other takes the full width. */}
+          two and a short column leaves dead space beside the long one. Measured on a
+          1920px monitor the split had been 1668px against 3024px — thirteen hundred pixels
+          of nothing under the briefing, which is what a partner reported. Moving one card
+          across only moved the hole: the split is now driven by what each block is made
+          of. Wrapping prose needs the width and gets shorter when it has it; a list of
+          committee dates and a column of figures read fine narrow, and stay short.
+          Either side can still be emptied by choice, in which case the other takes the
+          full width. */}
       {heroLeft || heroRight ? (
       <div className={heroLeft && heroRight ? 'grid g2' : 'grid'}>
         {heroLeft ? (
@@ -485,66 +488,6 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
             Composed from the deal record, the IC readiness board and your team's deal channels &mdash; no AI model writes it,
             and it never changes a deal's recorded status. Where a source exists, it is shown.
             </div>
-          </div>
-          ) : null}
-
-          {/* A partner four days out from committee had to open six deals, one at a
-              time, to work out which of them were actually going and what each still
-              owed -- then type the agenda into an email herself. The product held both
-              halves of that answer and had never been asked to put them together. */}
-          {showAgenda ? (
-          <div className="card">
-            <div className="hd">
-              <h3>Next IC agenda</h3>
-              <span className="spacer" />
-              <span className="chip">{agendaRows.length} due within 4 weeks</span>
-              <button className="btn link compact" onClick={copyAgenda}>{agendaCopied ? '✓ Copied' : 'Copy agenda'}</button>
-            </div>
-            <div className="bd">
-              {agendaRows.map((d, i) => {
-                const v = (d as any).icVerdict?.state;
-                const state = v === 'READY' ? 'Ready for committee' : v === 'CONDITIONAL' ? 'Ready with conditions' : 'Not ready for committee';
-                const owes: string[] = ((d as any).icVerdict?.gating || []).slice(0, 2);
-                return (
-                  <div className="commit" key={d.id}>
-                    <div className="att-t">
-                      <span className="name">{i + 1}. {d.company}</span>
-                      <span className={`chip${v === 'READY' ? '' : ' warn'}`}>{state}</span>
-                      <span className="chip">{d.daysToIC}d</span>
-                    </div>
-                    <div className="sub">{owes.length ? `Still owes: ${owes.join('; ')}` : 'Nothing outstanding on the readiness board.'}</div>
-                    <div className="acts">
-                      {/* The company is the heading of this row. Repeating it in the button
-                          made every action on the screen a different width and a different
-                          set of words for the same act. */}
-                      <button className="btn link" onClick={() => onOpen(d.id)}>Open deal ▸</button>
-                    </div>
-                  </div>
-                );
-              })}
-              <div className="sub">Ordered by committee date, from each deal's own record. Copying gives you the list as text, ready to paste into the invitation.</div>
-            </div>
-          </div>
-          ) : null}
-
-        </div>
-        ) : null}
-
-        {/* ---------------- Attention queue ---------------- */}
-        {heroRight ? (
-        <div className="hero-r" style={{ minWidth: 0 }}>
-          {/* The four numbers a partner opens the product for sat THIRD in this column,
-              behind up to eight agenda rows and six attention rows -- about a thousand
-              pixels of scroll before the first figure. */}
-          {showKpis ? (
-          <div className="kpis">
-            {kpiRow.map((k) => (
-              <div key={k.key || k.label} className="kpi">
-                <div className="kpi-v">{k.value}</div>
-                <div className="kpi-l">{k.label}</div>
-                <div className="kpi-s">{k.sub}</div>
-              </div>
-            ))}
           </div>
           ) : null}
 
@@ -617,6 +560,66 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
             ) : null}
             <div className="note">
               Opening a deal takes you to that deal's own page. Nothing here changes a deal — it only tells you where to look first.
+            </div>
+          </div>
+          ) : null}
+
+        </div>
+        ) : null}
+
+        {/* ---------------- Attention queue ---------------- */}
+        {heroRight ? (
+        <div className="hero-r" style={{ minWidth: 0 }}>
+          {/* The four numbers a partner opens the product for sat THIRD in this column,
+              behind up to eight agenda rows and six attention rows -- about a thousand
+              pixels of scroll before the first figure. */}
+          {showKpis ? (
+          <div className="kpis">
+            {kpiRow.map((k) => (
+              <div key={k.key || k.label} className="kpi">
+                <div className="kpi-v">{k.value}</div>
+                <div className="kpi-l">{k.label}</div>
+                <div className="kpi-s">{k.sub}</div>
+              </div>
+            ))}
+          </div>
+          ) : null}
+
+          {/* A partner four days out from committee had to open six deals, one at a
+              time, to work out which of them were actually going and what each still
+              owed -- then type the agenda into an email herself. The product held both
+              halves of that answer and had never been asked to put them together. */}
+          {showAgenda ? (
+          <div className="card">
+            <div className="hd">
+              <h3>Next IC agenda</h3>
+              <span className="spacer" />
+              <span className="chip">{agendaRows.length} due within 4 weeks</span>
+              <button className="btn link compact" onClick={copyAgenda}>{agendaCopied ? '✓ Copied' : 'Copy agenda'}</button>
+            </div>
+            <div className="bd">
+              {agendaRows.map((d, i) => {
+                const v = (d as any).icVerdict?.state;
+                const state = v === 'READY' ? 'Ready for committee' : v === 'CONDITIONAL' ? 'Ready with conditions' : 'Not ready for committee';
+                const owes: string[] = ((d as any).icVerdict?.gating || []).slice(0, 2);
+                return (
+                  <div className="commit" key={d.id}>
+                    <div className="att-t">
+                      <span className="name">{i + 1}. {d.company}</span>
+                      <span className={`chip${v === 'READY' ? '' : ' warn'}`}>{state}</span>
+                      <span className="chip">{d.daysToIC}d</span>
+                    </div>
+                    <div className="sub">{owes.length ? `Still owes: ${owes.join('; ')}` : 'Nothing outstanding on the readiness board.'}</div>
+                    <div className="acts">
+                      {/* The company is the heading of this row. Repeating it in the button
+                          made every action on the screen a different width and a different
+                          set of words for the same act. */}
+                      <button className="btn link" onClick={() => onOpen(d.id)}>Open deal ▸</button>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="sub">Ordered by committee date, from each deal's own record. Copying gives you the list as text, ready to paste into the invitation.</div>
             </div>
           </div>
           ) : null}
