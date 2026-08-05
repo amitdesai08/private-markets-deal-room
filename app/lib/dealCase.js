@@ -31,7 +31,12 @@ import { money as fmtMoney, symbolFor } from './money.js';
 const SEVERITY_RANK = { stopper: 0, reprice: 1, condition: 2, monitor: 3 };
 // A row that reports its own resolution. These are real diligence outcomes and they
 // belong on the page -- under what diligence found, not under what could kill the deal.
-const RESOLVED_IN_TEXT = /reflected in the [\d.]+x|no objection in writing|already (?:taken|deducted|reflected)|substantially agreed|is sticky and re-prices well|bound at signing|costed into the model/i;
+//
+// The first pass listed the four strings that had been caught in review, which fixed
+// those four and not the class: "warehouse consolidation ON TRACK; one site slipped a
+// quarter on lease timing" was then promoted to a thing that could kill the deal. What
+// these have in common is a clause reporting that the thing is handled.
+const RESOLVED_IN_TEXT = /reflected in the [\d.]+x|no objection in writing|already (?:taken|deducted|reflected)|substantially agreed|re-prices well|bound at signing|costed into the model|\bon track\b|\bin place\b|\bagreed\b|\bsecured\b|\bcleared\b|\bcompleted\b|no material .{0,30}(identified|exposure)|within tolerance|is clean\b|verified against/i;
 
 // Findings quote multiples of their own, and one of them read "expensing them moves the
 // entry multiple from 9.4x to 10.1x" on a deal whose ask, base case and provision all say
@@ -524,16 +529,17 @@ export function buildDealCase(deal) {
   // said nothing could kill it, twelve lines above its own downside reading "1.72x is
   // below the 2x and 11.4% IRR is below the 20%".
   //
-  // Only where the base case cleared. Where it did not, the base and the downside are the
-  // same finding stated twice -- one model, one problem.
-  //
-  // And only where the miss is material, and only before the committee. "Downside breaks
-  // the hurdle: 19% IRR is below the 20%" put one point of IRR in a model among the three
-  // things most likely to lose the money; and on a company already owned and in exit
-  // preparation, a modelled downside sensitivity was the single named killer.
+  // It goes LAST, after everything the diligence actually found has had a slot. The
+  // returns model restating itself was consuming a killer on thirteen deals, and on two
+  // of them it cost the last slot outright: a technology lane nobody had opened, and a
+  // change-of-control consent on two of the five largest customers, neither of which made
+  // the list because the scenario table had already taken the space. Only where the base
+  // case cleared (or the two are one problem stated twice), only where the miss is
+  // material, and only before the committee has sat.
   const downside = theDownside(deal, returns, canon);
   const materialMiss = downside && (downside.moic < (returns.hurdle?.moic ?? 2) * 0.9 || downside.irr < (returns.hurdle?.irr ?? 20) - 2);
-  if (!decided && returns.meetsHurdle && downside && !downside.clearsHurdle && materialMiss && risks.length < 3) {
+  const addDownsideKiller = () => {
+    if (decided || !returns.meetsHurdle || !downside || downside.clearsHurdle || !materialMiss || risks.length >= 3) return;
     risks.push({
       risk: downside.text,
       severity: 'reprice',
@@ -545,7 +551,7 @@ export function buildDealCase(deal) {
       basis: 'the returns model',
       basisNote: null,
     });
-  }
+  };
   const REGULATORY = /merger control|antitrust|regulatory clearance|competition|cfius|foreign investment|change of control consent|takeover code|rule 2\.7|irrevocable|critical path|financing condition/i;
   const CANDIDATES = [
     ...(board.verdict?.gating || []).map((g) => ({ text: String(g), from: 'Committee readiness' })),
@@ -571,7 +577,11 @@ export function buildDealCase(deal) {
     if (!REGULATORY.test(cand.text) && !cand.written) continue;
     if (risks.some((r) => String(r.risk).toLowerCase().includes(cand.text.toLowerCase().slice(0, 25)))) continue;
     risks.push({
-      risk: cand.text,
+      // Promoted rows were pushed with raw register text, so the reconciler wired through
+      // the rest of the page was bypassed on exactly the rows most likely to quote a
+      // multiple -- and one deal published "from 9.4x to 10.1x" in the killers and
+      // "roughly 0.7x against the 8.3x" in the outstanding list, sixty lines apart.
+      risk: fix(cand.text),
       // The register's own grade travels with the row. Regrading it here put the same
       // sentence at two severities inside one object, which is the fault this page was
       // fixed for two rounds ago.
@@ -609,6 +619,8 @@ export function buildDealCase(deal) {
       basisNote: null,
     });
   }
+  // Last, so nothing the diligence found is crowded out by the model restating itself.
+  addDownsideKiller();
   // One killer that quotes another verbatim inside itself is one killer. A committee was
   // handed three of which two were the same rebate finding -- once on its own and once
   // embedded in the modelled allowance that argues with it -- and the paper said so.
@@ -690,17 +702,25 @@ export function buildDealCase(deal) {
   const call = register.counts.stopper && !decided
     ? 'DECLINE'
     : (tooEarly || priceOnly)
-      ? 'NOT ON THIS PRICE — THE EBITDA IS NOT ON THE RECORD'
+      // "THE EBITDA IS NOT ON THE RECORD" is false where a QoE draft produced it, and the
+      // page said so on a deal whose own figures block reads "Recorded from CIM p.14 /
+      // QoE draft at high confidence". One phrase per state; a draft is its own state.
+      ? (priceFromDraft ? 'NOT ON THIS PRICE — THE EBITDA IS A DRAFT' : 'NOT ON THIS PRICE — THE EBITDA IS NOT ON THE RECORD')
       : decided
     ? 'ALREADY DECIDED'
     : register.counts.stopper ? 'DECLINE'
       : !returns.meetsHurdle ? 'DO NOT PROCEED ON THESE TERMS'
         : openCount ? 'PROCEED, SUBJECT TO CONDITIONS'
           : 'PROCEED';
-  const because = tooEarly
+  const because = register.counts.stopper && !decided
+    // DECLINE was firing off a reason word-for-word identical to the price call's, so two
+    // deals gave the same explanation and different verdicts with nothing to say why.
+    // A decline is about the stopper on the register, and it names it.
+    ? `${register.counts.stopper} deal-stopper on the register: ${(register.risks || []).find((r) => r.severity === 'stopper')?.risk || ''}`
+    : tooEarly
     ? `${lanesWorked ? `${lanesWorked} of ${laneTotal} workstreams have produced anything` : 'No workstream has produced anything'} and the entry multiple rests on a figure nobody has diligenced. The returns below clear the hurdle arithmetically; they are arithmetic on the asking price, not a view on the company.`
     : priceOnly
-      ? `${lanesWorked} of ${laneTotal} workstreams have produced something, but the entry multiple still rests on an EBITDA nobody has diligenced. The returns cannot carry a recommendation until it is on the record.`
+      ? `${lanesWorked} of ${laneTotal} workstreams have produced something, but the entry multiple still rests on ${priceFromDraft ? `a draft — ${String(ebitdaKf.source).trim()}` : 'an EBITDA nobody has diligenced'}. The returns cannot carry a recommendation until ${priceFromDraft ? 'the final result is' : 'it is'} on the record.`
       : decided
     ? `${deal.stageName || deal.stage} — the committee has ruled on this deal. What follows is the case as the record now stands, not a request for authorisation.`
     : register.counts.stopper
@@ -792,7 +812,9 @@ export function buildDealCase(deal) {
     // work that will never now be done.
     notYetKnown: (register.risks || [])
       .filter((r) => r.severity === 'monitor')
-      .map((r) => ({ item: fix(r.risk), workstream: r.workstream || null, owner: r.owner || null, basis: r.basis || null })),
+      // `basis: 'templated'` was being shipped to the reader -- the product telling a
+      // committee about its own plumbing. The sentence already says it in words.
+      .map((r) => ({ item: fix(r.risk), workstream: r.workstream || null, owner: r.owner || null, standardRow: (r.basis || 'templated') === 'templated' })),
     // Everything on the register that somebody actually wrote, at any severity. On a
     // signed deal the one real finding -- "Final QoE issued; $2.1M of add-backs
     // disallowed" -- was graded a monitor and therefore fell out of the three killers,

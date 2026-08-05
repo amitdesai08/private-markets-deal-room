@@ -935,15 +935,57 @@ test('a multiple quoted inside a finding is reconciled to the one on the page', 
 // for one condition means the committee cannot rely on the verdict word, which is the
 // only word on the page some readers will read.
 test('one state, one verdict word', () => {
-  const byState = new Map();
+  // Three deals in the same state returned DECLINE, NOT ENOUGH ON THE RECORD TO DECIDE
+  // and NOT ON THIS PRICE. The verdict word is the only thing on the page some readers
+  // read. A draft price and an unproduced price are DIFFERENT states -- "the EBITDA is
+  // not on the record" is false where a QoE draft produced it -- so they are counted
+  // apart, and each must have exactly one word.
+  const groups = new Map();
   for (const [id, c] of CASES) {
     if (c.decided) continue;
     const d = seededDeals.find((x) => x.id === id);
     if (buildRiskRegister(d).risks.some((r) => r.severity === 'stopper')) continue;
     const basis = c.figures.find((f) => /EBITDA/.test(f.label)).basis;
-    if (!/screening default|not a diligenced figure|not a completed result/i.test(basis)) continue;
-    byState.set(c.recommendation.call, (byState.get(c.recommendation.call) || 0) + 1);
+    const draft = /not a completed result/i.test(basis);
+    const unproduced = /screening default|not a diligenced figure/i.test(basis);
+    if (!draft && !unproduced) continue;
+    const key = draft ? 'draft' : 'unproduced';
+    if (!groups.has(key)) groups.set(key, new Set());
+    groups.get(key).add(c.recommendation.call);
   }
-  assert.ok(byState.size > 0, 'no deal exercised the unevidenced-price state — the guard would be inert');
-  assert.equal(byState.size, 1, `one state returned ${byState.size} different verdict words: ${[...byState.keys()].join(' / ')}`);
+  assert.ok(groups.size > 0, 'no deal exercised an unevidenced-price state — the guard would be inert');
+  for (const [state, words] of groups) {
+    assert.equal(words.size, 1, `the "${state}" state returned ${words.size} different verdict words: ${[...words].join(' / ')}`);
+  }
+});
+
+// The returns model restating itself was consuming a killer slot on thirteen deals, and
+// on two of them it cost the last slot outright: a technology lane nobody had opened,
+// and a change-of-control consent on two of the five largest customers, neither of which
+// made the list because the scenario table had already taken the space.
+test('the scenario table never crowds out something diligence found', () => {
+  for (const [id, c] of CASES) {
+    const fromModel = c.againstIt.filter((r) => r.basis === 'the returns model').length;
+    const fromRecord = c.againstIt.length - fromModel;
+    if (c.againstIt.length < 3) continue;
+    // With a full list, at most one slot may go to the model restating itself, and only
+    // once everything on the record has had one.
+    assert.ok(fromModel <= 1 || fromRecord === 0,
+      `${id}: ${fromModel} of 3 killers are the returns model talking about itself`);
+  }
+});
+
+// "Warehouse consolidation on track; one site slipped a quarter on lease timing" was
+// promoted to a thing that could kill the deal. The previous fix listed the four strings
+// caught in review, which fixed those four and not the class.
+test('a row reporting that the thing is handled is never a killer', () => {
+  const HANDLED = /\bon track\b|\bin place\b|\bsecured\b|\bcleared\b|no objection in writing|costed into the model|within tolerance|re-prices well/i;
+  for (const [id, c] of CASES) {
+    for (const r of c.againstIt) {
+      // Only rows drawn from the register. The composed rows describe an absence and
+      // legitimately use words like "no completed result is on the record".
+      if (r.basis === 'the returns model' || r.basis === 'the deal record') continue;
+      assert.doesNotMatch(r.risk, HANDLED, `${id}: a killer reports that it is handled — "${r.risk.slice(0, 70)}"`);
+    }
+  }
 });
