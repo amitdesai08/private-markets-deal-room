@@ -1063,6 +1063,20 @@ export function buildRiskRegister(deal) {
         : null,
     }));
   const counts = { stopper: 0, reprice: 0, condition: 0, monitor: 0 };
+  // A timetable somebody else controls is not a condition. A listed take-private carried
+  // "Takeover Code (rule 2.7) timetable and irrevocables are the critical path" graded a
+  // closing condition, so the register reported status green and zero deal-stoppers,
+  // while the case page and the assistant both called that row the thing that kills the
+  // deal. Three surfaces of one product, two answers. On a public bid the 2.7 clock IS
+  // the deal-stopper; grading it here means every surface reads the same row.
+  const CRITICAL_PATH = /takeover code|rule 2\.7|irrevocable|critical path|merger control|antitrust clearance|cfius|foreign investment review/i;
+  for (const rk of risks) {
+    if (rk.severity !== 'stopper' && CRITICAL_PATH.test(rk.risk)) {
+      rk.severity = 'stopper';
+      rk.severityLabel = SEVERITY.stopper?.label || 'Deal-stopper';
+      rk.mitigation = 'A clearance that does not come, or a timetable somebody else controls, is not a condition to be waived.';
+    }
+  }
   for (const rk of risks) if (counts[rk.severity] != null) counts[rk.severity]++;
   const status = counts.stopper ? 'red' : counts.reprice ? 'amber' : 'green';
   // A ten-row register whose every row is boilerplate reported status "green" and a

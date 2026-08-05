@@ -234,15 +234,26 @@ function theBaseCase(deal, returns, canon) {
     // which is the one test this section exists to pass.
     exit: Number.isFinite(base.exitEbitda) && Number.isFinite(base.exitEV)
       ? (() => {
-        const xm = +(base.exitEV / Math.max(1, base.exitEbitda)).toFixed(1);
+        const mult = (s) => (s && Number.isFinite(s.exitEV) && Number.isFinite(s.exitEbitda) ? +(s.exitEV / Math.max(1, s.exitEbitda)).toFixed(1) : null);
+        const xm = mult(base);
         const delta = +(xm - canon.entryMultiple).toFixed(1);
-        // Some deals exit a turn above entry and nothing said when or why, so a reader
-        // was left inferring the policy by diffing two numbers in one sentence.
+        // "No multiple expansion is assumed" was true of the base case and printed as
+        // though it were true of the model. One deal exits its upside a full turn above
+        // entry, and that turn is carrying the upside IRR. An undeclared assumption is a
+        // gap; a declared assumption that is false in two scenarios out of three is a
+        // misstatement, and it is the sentence a partner repeats in the room.
+        const others = (returns.scenarios || [])
+          .filter((s) => !/base/i.test(s.name))
+          .map((s) => ({ name: s.name, x: mult(s) }))
+          .filter((s) => s.x != null);
+        const spread = others.length
+          ? ` The other scenarios do not hold it flat: ${others.map((s) => `${s.name.toLowerCase()} exits at ${s.x}x`).join(' and ')}.`
+          : '';
         const note = Math.abs(delta) < 0.05
-          ? ' No multiple expansion is assumed: the case is made on EBITDA growth and debt paydown alone.'
+          ? ` The base case assumes no multiple expansion — it is made on EBITDA growth and debt paydown alone.${spread}`
           : delta > 0
-            ? ` That is ${delta}x of multiple expansion, which the case depends on and the record does not evidence.`
-            : ` That is ${Math.abs(delta)}x below entry — the case is made without any help from the exit multiple.`;
+            ? ` The base case assumes ${delta}x of multiple expansion, which it depends on and the record does not evidence.${spread}`
+            : ` The base case exits ${Math.abs(delta)}x below entry — it is made without any help from the exit multiple.${spread}`;
         return `Exit modelled at ${m(base.exitEbitda)} of EBITDA and ${m(base.exitEV)} of enterprise value — ${xm}x, against ${canon.entryMultiple}x at entry.${note}`;
       })()
       : null,
@@ -464,7 +475,12 @@ export function buildDealCase(deal) {
     for (const g of (v.gating || [])) add(g, 'committee readiness');
     for (const r of conditions) add(r.risk, 'risk register', r.owner || null);
     for (const r of (register.risks || []).filter((x) => x.severity === 'reprice')) add(r.risk, 'risk register', r.owner || null);
-    return rows;
+    // A finding somebody has written and closed is not an outstanding item. One deal
+    // carried "QoE supports $46M LTM EBITDA; $2.1M of add-backs disallowed" as a thing
+    // diligence found AND as a thing still to do, which inflated the count of what is
+    // outstanding by one on the deal going to committee that week.
+    const done = new Set((deal.workstreams || []).flatMap((w) => (w.findings || []).map((f) => String(f?.text || '').trim())));
+    return rows.filter((r) => !done.has(r.text));
   })();
   const openCount = outstanding.length;
   // Whether there is enough on the record to strike a view at all. The call read the
@@ -512,6 +528,12 @@ export function buildDealCase(deal) {
   if (!(deal.memoSections || []).length) notOnRecord.push('No IC memo sections have been opened on this deal.');
   else if (written < (deal.memoSections || []).length) notOnRecord.push(`${(deal.memoSections || []).length - written} of ${(deal.memoSections || []).length} memo sections are unwritten.`);
   if (canon.ebitdaSource === 'derived') notOnRecord.push('No EBITDA has been recorded from diligence; the entry multiple rests on a screening default.');
+  // Five unrelated companies -- consumer audio, cinema advertising, document outsourcing,
+  // footwear and gene therapy -- returned 8.3x, 20.3% IRR and 2.51x MOIC to the decimal.
+  // The model runs on the fund default wherever no growth rate is recorded, so those are
+  // not five views; they are one calculation with five names on it, and the page should
+  // say so before anybody quotes one of them as a return.
+  if (returns.indicativeNote) notOnRecord.push(returns.indicativeNote);
   if (returns.provision) notOnRecord.push(returns.provision.note);
   // Every open item carries an owner and a workstream and not one carries a date. That
   // is a fact about the record and it belongs here rather than being left for a reader

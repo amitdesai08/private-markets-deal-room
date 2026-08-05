@@ -629,3 +629,74 @@ test('multiple expansion in the exit is declared, or its absence is', () => {
     assert.match(c.baseCase.exit, /multiple expansion|below entry/i, `${id}: the exit does not say whether it assumes expansion`);
   }
 });
+
+// "No multiple expansion is assumed" was true of the base case and printed as though it
+// were true of the model. One deal exits its upside a full turn above entry, and that
+// turn is carrying the upside IRR. A declared assumption that is false in two scenarios
+// out of three is a misstatement, and it is the sentence a partner repeats in the room.
+test('the exit declaration is about the base case and does not speak for the others', () => {
+  let spread = 0;
+  for (const [id, c] of CASES) {
+    const d = seededDeals.find((x) => x.id === id);
+    const r = buildReturnsModel(d);
+    const mult = (s) => +(s.exitEV / Math.max(1, s.exitEbitda)).toFixed(1);
+    const base = r.scenarios.find((s) => /base/i.test(s.name));
+    const others = r.scenarios.filter((s) => !/base/i.test(s.name));
+    assert.match(c.baseCase.exit, /The base case (assumes|exits)/i, `${id}: the exit speaks for the whole model`);
+    if (others.some((s) => Math.abs(mult(s) - mult(base)) > 0.05)) {
+      spread += 1;
+      assert.match(c.baseCase.exit, /do not hold it flat/i, `${id}: the other scenarios move the multiple and the page does not say so`);
+    }
+  }
+  assert.ok(spread > 0, 'no deal exercised the moving-multiple path — the guard would be inert');
+});
+
+// A timetable somebody else controls is not a condition. A listed take-private carried
+// "Takeover Code (rule 2.7) timetable and irrevocables are the critical path" graded a
+// closing condition, so the register reported status green and zero deal-stoppers while
+// the case page and the assistant both called that row the thing that kills the deal.
+test('a critical-path item is a deal-stopper on the register, not a condition', () => {
+  const CRITICAL = /takeover code|rule 2\.7|merger control|antitrust clearance|cfius/i;
+  let found = 0;
+  for (const d of seededDeals) {
+    for (const r of buildRiskRegister(d).risks) {
+      if (!CRITICAL.test(r.risk)) continue;
+      found += 1;
+      assert.equal(r.severity, 'stopper', `${d.id}: "${r.risk.slice(0, 50)}" graded ${r.severity}`);
+    }
+  }
+  assert.ok(found > 0, 'no deal carried a critical-path row — the guard would be inert');
+});
+
+// One deal carried "QoE supports $46M LTM EBITDA; $2.1M of add-backs disallowed" as a
+// thing diligence found AND as a thing still to do, inflating the count of what is
+// outstanding on the deal going to committee that week.
+test('a written finding is not also counted as outstanding', () => {
+  for (const [id, c] of CASES) {
+    const written = new Set(c.recordedFindings.map((r) => r.finding));
+    for (const row of c.outstanding) {
+      assert.ok(!written.has(row.text), `${id}: a finding somebody wrote is also counted as outstanding`);
+    }
+  }
+});
+
+// Five unrelated companies -- consumer audio, cinema advertising, document outsourcing,
+// footwear and gene therapy -- returned 8.3x, 20.3% IRR and 2.51x MOIC to the decimal.
+// Those are not five views; they are one calculation with five names on it.
+test('an indicative return says on the case that it is indicative', () => {
+  // No seeded deal omits a growth rate, so this builds one. The path is live in
+  // production, where the screened cohort carries none: five unrelated companies --
+  // consumer audio, cinema advertising, document outsourcing, footwear and gene therapy
+  // -- returned 8.3x, 20.3% IRR and 2.51x MOIC to the decimal, because the model runs on
+  // the fund default and those are one calculation with five names on it.
+  const donor = seededDeals.find((d) => d.workstreams && d.workstreams.length);
+  const bare = {
+    ...donor,
+    id: 'test-no-growth',
+    growth: undefined,
+    keyFigures: (donor.keyFigures || []).filter((k) => !/growth|cagr|nrr/i.test(k.label)),
+  };
+  assert.equal(buildReturnsModel(bare).indicative, true, 'the fixture does not exercise the indicative path');
+  const c = buildDealCase(bare);
+  assert.ok(c.notOnRecord.some((n) => /Indicative only/i.test(n)), 'indicative returns are not declared as such');
+});
