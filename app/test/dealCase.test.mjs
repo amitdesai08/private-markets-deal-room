@@ -10,7 +10,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildDealCase } from '../lib/dealCase.js';
 import { seededDeals } from '../data/deals.js';
-import { buildReturnsModel, buildRiskRegister } from '../lib/diligence.js';
+import { buildReturnsModel, buildRiskRegister, reconcileFindingText } from '../lib/diligence.js';
 import { caseBlock } from '../lib/agents.js';
 import { loadFabric } from '../lib/fabric.js';
 
@@ -562,7 +562,7 @@ test('no deal is recommended on returns computed from a figure nobody diligenced
     const unevidenced = /screening default|not a diligenced figure/i.test(ebitda.basis);
     if (c.decided || !unevidenced || !lanes2.length || opened * 2 >= lanes2.length) continue;
     early += 1;
-    assert.equal(c.recommendation.call, 'NOT ENOUGH ON THE RECORD TO DECIDE',
+    assert.equal(c.recommendation.call, 'NOT ON THIS PRICE — THE EBITDA IS NOT ON THE RECORD',
       `${id}: nothing diligenced and no evidenced price, but the call is ${c.recommendation.call}`);
   }
   assert.ok(early > 0, 'no deal exercised the nothing-diligenced path — the guard would be inert');
@@ -607,7 +607,7 @@ test('the not-enough-on-the-record call is decided on evidence, not on a typed s
     // Half the lanes, not one of them. A deal with six unopened workstreams and an
     // undiligenced price is not decidable because one analyst opened one tab.
     if (!unevidenced || !lanes.length || worked * 2 >= lanes.length) continue;
-    assert.equal(c.recommendation.call, 'NOT ENOUGH ON THE RECORD TO DECIDE',
+    assert.equal(c.recommendation.call, 'NOT ON THIS PRICE — THE EBITDA IS NOT ON THE RECORD',
       `${id}: no lane has produced evidence and the price is unevidenced, but the call is ${c.recommendation.call}`);
     assert.equal(c.forIt.some((p) => /Base case|Downside/i.test(p.point)), false,
       `${id}: a return computed off an undiligenced denominator is offered as a point in favour`);
@@ -681,16 +681,20 @@ test('a critical-path item is a deal-stopper on the register, not a condition', 
 // One deal carried "QoE supports $46M LTM EBITDA; $2.1M of add-backs disallowed" as a
 // thing diligence found AND as a thing still to do, inflating the count of what is
 // outstanding on the deal going to committee that week.
-test('a finding that reports its own closure is not counted as outstanding', () => {
-  // The first version of this dropped ANY register row whose text also appeared as a
-  // written finding, so a refrigerant capex obligation graded a closing condition
-  // disappeared from the paper altogether -- out of the outstanding list, into a run of
-  // positives. A committee reading the case alone would have signed without knowing.
-  // Only a row that reports its own closure drops out.
-  const RESOLVED = /reflected in the [\d.]+x|no objection in writing|already (?:taken|deducted|reflected)|substantially agreed|is sticky and re-prices well|bound at signing/i;
+test('a vendor reassurance does not remove a condition from the outstanding list', () => {
+  // The resolved-in-text filter was written for the killers list and was also stripping
+  // the closing-conditions list, which is the one list whose whole purpose is rows that
+  // are NOT yet resolved. It removed a change-of-control consent on two of the five
+  // largest customers, on the deal going to committee: "both counterparties have
+  // indicated no objection in writing" is an indication, not a consent.
   for (const [id, c] of CASES) {
-    for (const row of c.outstanding) {
-      assert.doesNotMatch(row.text, RESOLVED, `${id}: a row that reports its own closure is counted as outstanding`);
+    const d = seededDeals.find((x) => x.id === id);
+    const conditions = buildRiskRegister(d).risks.filter((r) => r.severity === 'condition');
+    for (const cond of conditions) {
+      assert.ok(
+        c.outstanding.some((r) => r.text === cond.risk || r.text.includes(cond.risk.slice(0, 40))),
+        `${id}: a closing condition is not on the outstanding list — "${cond.risk.slice(0, 60)}"`,
+      );
     }
   }
 });
@@ -897,4 +901,49 @@ test('a draft price and an unproduced price are described differently', () => {
     }
   }
   assert.ok(drafts > 0 && unproduced > 0, 'both price paths must be exercised or the guard is half inert');
+});
+
+// "Expensing them moves the entry multiple from 9.4x to 10.1x" on a deal whose ask, base
+// case and provision all say 8.3x. 8.3x and 9.4x are the same number on the same page and
+// a reader stops there. `reconcileFindingText` was written for exactly this -- its own
+// comment records the committee member who counted four multiples on one deal and said
+// they would not repeat any of them -- and it was never called from anywhere. Written,
+// not wired, which is the same shape as the filter bypassed the round before.
+test('a multiple quoted inside a finding is reconciled to the one on the page', () => {
+  // The stored records carry the absolute wording; the seed carries the relative one, so
+  // this drives the reconciler directly rather than passing on a fixture that never
+  // exercises it. Production is where "expensing them moves the entry multiple from 9.4x
+  // to 10.1x" appeared on a deal whose ask, base case and provision all said 8.3x.
+  const d = seededDeals.find((x) => x.id === 'lumen-analytics');
+  const raw = 'Capitalised development costs sit above peer practice; expensing them moves the entry multiple from 9.4x to 10.1x.';
+  const out = reconcileFindingText(raw, d);
+  assert.notEqual(out, raw, 'the reconciler left an absolute multiple that contradicts the page');
+  assert.doesNotMatch(out, /from 9\.4x/, 'the contradicting multiple survives');
+
+  // And it is wired: every text the case publishes goes through it.
+  for (const [id, c] of CASES) {
+    const published = c.ask ? c.ask.entryMultiple : null;
+    if (!Number.isFinite(published)) continue;
+    for (const t of [...c.againstIt.map((r) => r.risk), ...c.outstanding.map((r) => r.text)]) {
+      const m = /entry multiple (?:from|to|of|becomes) ([\d.]+)x/i.exec(t);
+      if (m) assert.ok(Number(m[1]) >= published - 0.15, `${id}: a finding quotes ${m[1]}x where the page publishes ${published}x`);
+    }
+  }
+});
+// Three deals in the same state -- an entry multiple on an EBITDA nobody has produced --
+// returned DECLINE, NOT ENOUGH ON THE RECORD TO DECIDE and NOT ON THIS PRICE. Three names
+// for one condition means the committee cannot rely on the verdict word, which is the
+// only word on the page some readers will read.
+test('one state, one verdict word', () => {
+  const byState = new Map();
+  for (const [id, c] of CASES) {
+    if (c.decided) continue;
+    const d = seededDeals.find((x) => x.id === id);
+    if (buildRiskRegister(d).risks.some((r) => r.severity === 'stopper')) continue;
+    const basis = c.figures.find((f) => /EBITDA/.test(f.label)).basis;
+    if (!/screening default|not a diligenced figure|not a completed result/i.test(basis)) continue;
+    byState.set(c.recommendation.call, (byState.get(c.recommendation.call) || 0) + 1);
+  }
+  assert.ok(byState.size > 0, 'no deal exercised the unevidenced-price state — the guard would be inert');
+  assert.equal(byState.size, 1, `one state returned ${byState.size} different verdict words: ${[...byState.keys()].join(' / ')}`);
 });

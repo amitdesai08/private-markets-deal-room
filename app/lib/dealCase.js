@@ -21,7 +21,7 @@
 // unit; and asked a committee to authorise money on deals that had already signed.
 // Every one of those is the same fault: a sentence written once and then not checked
 // against the number it was about to sit beside. The guards are in the tests.
-import { buildReturnsModel, buildRiskRegister, canonicalFigures } from './diligence.js';
+import { buildReturnsModel, buildRiskRegister, canonicalFigures, reconcileFindingText } from './diligence.js';
 import { computeICReadiness } from './icReadiness.js';
 import { validateCitations } from './citations.js';
 import { compsForDeal } from './fabric.js';
@@ -31,7 +31,16 @@ import { money as fmtMoney, symbolFor } from './money.js';
 const SEVERITY_RANK = { stopper: 0, reprice: 1, condition: 2, monitor: 3 };
 // A row that reports its own resolution. These are real diligence outcomes and they
 // belong on the page -- under what diligence found, not under what could kill the deal.
-const RESOLVED_IN_TEXT = /reflected in the [\d.]+x|no objection in writing|already (?:taken|deducted|reflected)|substantially agreed|is sticky and re-prices well|bound at signing/i;
+const RESOLVED_IN_TEXT = /reflected in the [\d.]+x|no objection in writing|already (?:taken|deducted|reflected)|substantially agreed|is sticky and re-prices well|bound at signing|costed into the model/i;
+
+// Findings quote multiples of their own, and one of them read "expensing them moves the
+// entry multiple from 9.4x to 10.1x" on a deal whose ask, base case and provision all say
+// 8.3x. 8.3x and 9.4x are the same number on the same page and a reader stops there.
+// `reconcileFindingText` was written for exactly this, its own comment records the
+// committee member who counted four multiples on one deal and said they would not repeat
+// any of them -- and it was never called from anywhere. Written, not wired, which is the
+// same shape as the filter that was bypassed last round.
+const reconciled = (deal) => (text) => reconcileFindingText(String(text || ''), deal);
 
 // Statuses at or past the committee decision. On these the committee is not being asked
 // for money — it has already been given. Printing "Authorise up to $290M" and "DO NOT
@@ -109,7 +118,7 @@ function figureBasis(kind, canon, deal) {
 // "cyber posture is adequate" — a template cannot identify an exposure or pronounce a
 // posture adequate. The API was honest about it and this page was dropping the one field
 // that told a reader whether anybody had looked.
-function againstIt(register) {
+function againstIt(register, fix) {
   return (register.risks || [])
     // A deal-stopper, or something that moves the price. Nothing else.
     //
@@ -138,7 +147,7 @@ function againstIt(register) {
       || ((a.basis === 'recorded' ? 0 : 1) - (b.basis === 'recorded' ? 0 : 1)))
     .slice(0, 3)
     .map((r) => ({
-      risk: r.risk,
+      risk: fix(r.risk),
       severity: r.severity,
       severityLabel: r.severityLabel,
       likelihood: r.likelihood || null,
@@ -479,7 +488,8 @@ export function buildDealCase(deal) {
   const priceUnproduced = canon.ebitdaSource === 'derived'
     || (canon.ebitdaSource === 'recorded' && ebitdaKf && UNDILIGENCED_SOURCE.test(String(ebitdaKf.source || '')));
   const priceUnevidenced = priceUnproduced || priceFromDraft;
-  const risks = againstIt(register);
+  const fix = reconciled(deal);
+  const risks = againstIt(register, fix);
   // Narrowing the killers to stoppers and repricing items was right and went one step
   // too far: the seeded registers grade almost nothing at those levels, so the deal four
   // days from committee arrived with a section headed "what could kill it" containing
@@ -641,16 +651,15 @@ export function buildDealCase(deal) {
       rows.push({ text: String(text), from, owner: owner || null, dueDate: due || null, dueNote: due ? null : 'No date is committed on the record.' });
     };
     for (const g of (v.gating || [])) add(g, 'committee readiness');
-    for (const r of conditions) add(r.risk, 'risk register', r.owner || null, r.dueDate);
-    for (const r of (register.risks || []).filter((x) => x.severity === 'reprice')) add(r.risk, 'risk register', r.owner || null, r.dueDate);
-    // A finding somebody has written and CLOSED is not an outstanding item. This was
-    // testing every written finding, so a condition was deleted from the outstanding
-    // list purely because somebody had written it up -- and a refrigerant capex
-    // obligation graded a closing condition disappeared from the paper altogether, into
-    // a run of positives under what diligence found. A committee reading the case alone
-    // would have signed without knowing about it. Only rows that report their own
-    // closure drop out.
-    return rows.filter((r) => !RESOLVED_IN_TEXT.test(r.text));
+    for (const r of conditions) add(fix(r.risk), 'risk register', r.owner || null, r.dueDate);
+    for (const r of (register.risks || []).filter((x) => x.severity === 'reprice')) add(fix(r.risk), 'risk register', r.owner || null, r.dueDate);
+    // A vendor's reassurance is not a resolution, and this filter -- written for the
+    // killers list -- was also stripping the closing-conditions list, which is the one
+    // list whose whole purpose is rows that are NOT yet resolved. It removed a
+    // change-of-control consent on two of the five largest customers, on the deal going
+    // to committee: "both counterparties have indicated no objection in writing" is an
+    // indication, not a consent, and it belongs in front of a committee.
+    return rows;
   })();
   const openCount = outstanding.length;
   // Whether there is enough on the record to strike a view at all. The call read the
@@ -673,15 +682,16 @@ export function buildDealCase(deal) {
   // proceeding on returns computed from a figure it admits nobody produced is not being
   // serious about the money, whatever else is on the page.
   const priceOnly = !decided && !tooEarly && priceUnevidenced;
+  // Three deals in the same state -- an entry multiple on an EBITDA nobody has produced
+  // -- returned DECLINE, NOT ENOUGH ON THE RECORD TO DECIDE and NOT ON THIS PRICE. Three
+  // names for one condition means the committee cannot rely on the verdict word, which is
+  // the only word on the page some readers will read. One state, one phrase; how far the
+  // diligence has otherwise got is said in the reason.
   const call = register.counts.stopper && !decided
-    // A deal-stopper outranks everything. It was being outranked by the price caveat,
-    // which is a weaker statement about a lesser problem.
     ? 'DECLINE'
-    : tooEarly
-      ? 'NOT ENOUGH ON THE RECORD TO DECIDE'
-      : priceOnly
-        ? 'NOT ON THIS PRICE — NOBODY HAS DILIGENCED THE EBITDA'
-        : decided
+    : (tooEarly || priceOnly)
+      ? 'NOT ON THIS PRICE — THE EBITDA IS NOT ON THE RECORD'
+      : decided
     ? 'ALREADY DECIDED'
     : register.counts.stopper ? 'DECLINE'
       : !returns.meetsHurdle ? 'DO NOT PROCEED ON THESE TERMS'
@@ -754,6 +764,12 @@ export function buildDealCase(deal) {
       state: v.state || null,
       headline: String(v.headline || '')
         .replace(/[.;]?\s*\d+ items?\s+(?:remain open on|on)\s+the risk register(?:\s+are still open)?(?:\s+and do not gate the committee)?\.?/i, '')
+        // "Past the IC decision — no obligation or unopened workstream outstanding",
+        // directly above outstandingCount: 1. The board is answering a narrower question
+        // than the one the sentence appears to answer, and the two sat adjacent.
+        .replace(/\s*—\s*no obligation or unopened workstream outstanding\.?/i, outstanding.length
+          ? ` — no committee obligation and no unopened workstream. ${outstanding.length} item${outstanding.length === 1 ? ' is' : 's are'} still outstanding, listed below.`
+          : ' — nothing outstanding on the record.')
         .trim() || null,
       gating: v.gating || [],
     },
@@ -774,9 +790,9 @@ export function buildDealCase(deal) {
     // Not on a decided deal. "Voice-of-customer work has not been commissioned yet" on a
     // signed and archived transaction is not a known unknown; it is a records gap about
     // work that will never now be done.
-    notYetKnown: decided ? [] : (register.risks || [])
+    notYetKnown: (register.risks || [])
       .filter((r) => r.severity === 'monitor')
-      .map((r) => ({ item: r.risk, workstream: r.workstream || null, owner: r.owner || null, basis: r.basis || null })),
+      .map((r) => ({ item: fix(r.risk), workstream: r.workstream || null, owner: r.owner || null, basis: r.basis || null })),
     // Everything on the register that somebody actually wrote, at any severity. On a
     // signed deal the one real finding -- "Final QoE issued; $2.1M of add-backs
     // disallowed" -- was graded a monitor and therefore fell out of the three killers,
@@ -791,7 +807,7 @@ export function buildDealCase(deal) {
     recordedFindings: (deal.workstreams || []).flatMap((w) => (w.findings || [])
       .filter((f) => f && f.text)
       .map((f) => {
-        const text = String(f.text).trim();
+        const text = fix(String(f.text).trim());
         // The register may have regraded this row -- a takeover timetable written as a
         // caution is a deal-stopper -- and publishing the author's grade beside the
         // register's put the same sentence at two severities inside one object.
