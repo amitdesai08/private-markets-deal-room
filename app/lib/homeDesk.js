@@ -545,12 +545,17 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   // named in one line instead.
   //
   // Except for the seat that owns that phase. To a sourcing seat those same rows ARE the
-  // work, and cutting them empties the one queue they came here for.
+  // work, and cutting them empties the one queue they came here for — but not all of
+  // them, or the list becomes the deal list with a new heading. An analyst was shown 11
+  // of 11, five of them reading "Screened, not yet launched into diligence", and the
+  // three that mattered were buried among them.
   const isOwnPhase = (r) => !!promoted && phaseOf(r.deal)?.key === promoted;
-  const substantive = ranked_.filter((r) => r.a.impact || r.a.verdict || (r.a.gating && r.a.gating.length) || isOwnPhase(r));
-  const quiet = ranked_.length - substantive.length;
+  const substantive = ranked_.filter((r) => r.a.impact || r.a.verdict || (r.a.gating && r.a.gating.length));
+  const ownQuiet = ranked_.filter((r) => !substantive.includes(r) && isOwnPhase(r)).slice(0, 3);
+  const kept = ranked_.filter((r) => substantive.includes(r) || ownQuiet.includes(r));
+  const quiet = ranked_.length - kept.length;
   // Never cut to nothing: a desk of entirely quiet deals still needs its top of the list.
-  const qualifying = substantive.length >= 3 ? substantive : ranked_.slice(0, Math.min(3, ranked_.length));
+  const qualifying = kept.length >= 3 ? kept : ranked_.slice(0, Math.min(3, ranked_.length));
   // Send the whole qualifying set. A hard slice here meant the panel could say "6 deals"
   // and "7 more ranked below these" in the same sentence with no control anywhere on the
   // page to reach the other seven — a partner reads the list as the list, and walks into

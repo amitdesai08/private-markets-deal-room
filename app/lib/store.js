@@ -2432,7 +2432,7 @@ const ISSUE_STATUSES = new Set(['open', 'mitigating', 'resolved']);
 const CONDITION_STATUSES = new Set(['proposed', 'accepted', 'satisfied']);
 let issueSeq = 1;
 
-export function recordAccessRequest(deal, { who, role, reason } = {}) {
+export function recordAccessRequest(deal, { who, person, role, reason } = {}) {
   return mutateDeal(deal.id, (d) => {
     const at = new Date().toISOString();
     d.accessRequests = Array.isArray(d.accessRequests) ? d.accessRequests : [];
@@ -2445,6 +2445,7 @@ export function recordAccessRequest(deal, { who, role, reason } = {}) {
     const request = {
       id: `access-${d.id}-${d.accessRequests.length + 1}`,
       who: who || 'A colleague',
+      person: person || null,
       role: role || null,
       reason: reason ? String(reason).slice(0, 500) : null,
       requestedAt: at,
@@ -2485,10 +2486,14 @@ export function decideAccessRequest(dealId, requestId, { approve, decidedBy } = 
     r.status = approve ? 'approved' : 'declined';
     r.decidedBy = decidedBy || 'The deal team';
     r.decidedAt = new Date().toISOString();
-    // Approving adds them to the team, which is what makes the decision mean something.
-    if (approve) {
+    // Approving used to push the requester's ROLE onto the team, so admitting one person
+    // admitted everybody holding that role — the exact widening the confidential rule
+    // exists to prevent. Only a named person is added. Where the request came from a seat
+    // with no name, the decision is recorded and the team is left alone, because there is
+    // nobody to add.
+    if (approve && r.person) {
       d.team = Array.isArray(d.team) ? d.team : [];
-      if (r.role && !d.team.includes(r.role)) d.team.push(r.role);
+      if (!d.team.includes(r.person)) d.team.push(r.person);
     }
     d.activity = d.activity || [];
     d.activity.unshift({

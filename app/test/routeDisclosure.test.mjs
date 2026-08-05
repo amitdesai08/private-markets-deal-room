@@ -4,6 +4,7 @@
 // routes leaked afterwards, including /citations sitting directly beneath the six I had
 // just gated. This file drives the HTTP surface.
 import test from 'node:test';
+import { seededDeals } from '../data/deals.js';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 process.env.DEAL_ROOM_NO_LISTEN = '1';
@@ -102,4 +103,35 @@ test('an unrecognised seat sees no more than the floor', async () => {
     const n = (await (await get('/api/deals', bogus)).json()).length;
     assert.ok(n <= floor, `"${bogus}" saw ${n} deals against a floor of ${floor}`);
   }
+});
+
+test('the agent refuses a status-tier deal, with or without a signed-in identity', async () => {
+  // The guard read `identity && dealAccessLevel(...) === "none"`. Two faults in one line:
+  // the `identity &&` skipped it entirely for every demo seat and every view-as caller,
+  // and `=== "none"` let a STATUS-tier deal through with the unredacted record behind it.
+  // Only the outer HTTP gate stood between that and a reader, which makes it the leak
+  // that appears the day a route changes.
+  const { chatDealAgent } = await import('../lib/dealAgent.js');
+  const { chatOrchestrator } = await import('../lib/purposeAgent.js');
+  const { dealAccessLevel } = await import('../lib/userPolicy.js');
+  const { getDealRaw } = await import('../lib/store.js');
+
+  const statusDeal = seededDeals.find((d) => dealAccessLevel(null, getDealRaw(d.id) || d, 'member') === 'status');
+  assert.ok(statusDeal, 'fixture must contain a status-tier deal for a member, or this asserts nothing');
+
+  for (const [name, fn] of [['deal agent', chatDealAgent], ['orchestrator', chatOrchestrator]]) {
+    const out = await fn({ message: 'What is the deal size and entry multiple?', dealId: statusDeal.id, scope: 'deal', identity: null, viewAsRole: 'member' });
+    assert.equal(out.denied, true, `${name}: answered a status-tier deal for a seat that may not open it`);
+  }
+});
+
+test('a cleared seat is still answered', async () => {
+  // The inverse mistake: a gate so broad it refuses the people it is meant to serve.
+  const { chatDealAgent } = await import('../lib/dealAgent.js');
+  const { dealAccessLevel } = await import('../lib/userPolicy.js');
+  const { getDealRaw } = await import('../lib/store.js');
+  const open = seededDeals.find((d) => dealAccessLevel(null, getDealRaw(d.id) || d, 'deal-team') === 'full');
+  assert.ok(open, 'fixture must contain a deal a cleared seat can open');
+  const out = await chatDealAgent({ message: 'Summarise this deal.', dealId: open.id, scope: 'deal', identity: null, viewAsRole: 'deal-team' });
+  assert.notEqual(out.denied, true, 'a cleared seat was refused its own deal');
 });

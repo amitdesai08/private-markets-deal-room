@@ -280,7 +280,9 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
     const raw = dealId ? getDealRaw(dealId) : null;
     if (!raw) {
       effScope = 'portfolio';
-    } else if (identity && dealAccessLevel(identity, raw, viewAsRole) === 'none') {
+    } else if (dealAccessLevel(identity, raw, viewAsRole) !== 'full') {
+      // See dealAgent.js: `identity && ... === 'none'` skipped the check for every seat
+      // without a signed-in identity, and passed status-tier deals through unredacted.
       return { reply: 'You do not have access to this deal.', denied: true, citations: [], scope: 'deal', dealId };
     } else {
       focusId = raw.id;

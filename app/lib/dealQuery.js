@@ -59,10 +59,16 @@ function matchesIc(d, want) {
 // Sort keys are named after the fields they sort, because `?sort=daysToIC` is what
 // anyone reading the payload will send. It was the one sort a deal professional actually
 // wants — what is closest to committee — and it was the one that silently did nothing.
+//
+// One rule for direction: plain is ascending, `-` is descending, on every field. Each
+// comparator used to carry its own idea of "most interesting first", so `dealSize` and
+// `readiness` came back descending while `daysToIC` and `company` came back ascending,
+// and `-dealSize` therefore meant ascending. You had to run all five to learn which way
+// each one pointed.
 const SORTS = {
   daysToIC: (a, b) => (num(a.daysToIC) ?? 1e9) - (num(b.daysToIC) ?? 1e9),
-  dealSize: (a, b) => (num(b.dealSize) ?? -1) - (num(a.dealSize) ?? -1),
-  readiness: (a, b) => (num(b.readiness) ?? -1) - (num(a.readiness) ?? -1),
+  dealSize: (a, b) => (num(a.dealSize) ?? -1) - (num(b.dealSize) ?? -1),
+  readiness: (a, b) => (num(a.readiness) ?? -1) - (num(b.readiness) ?? -1),
   company: (a, b) => norm(a.company).localeCompare(norm(b.company)),
   stage: (a, b) => norm(a.stage).localeCompare(norm(b.stage)),
 };
@@ -76,19 +82,48 @@ const resolveSort = (key) => SORTS[key] ? key : SORT_ALIAS[norm(key)] || null;
 // coercion is the most expensive failure an API has: given a parameter called `ic` beside
 // `stage` and `status`, a reasonable engineer sends `ic=ready`, gets every row back with a
 // 200, and ships it believing it filtered.
-export function validateDealQuery(params = {}) {
+export function validateDealQuery(params = {}, rows = null) {
   const errors = [];
   const ic = params.icWithinDays ?? params.ic;
   if (ic !== undefined && ic !== '' && !/^(overdue|past|none|\d+d?)$/i.test(String(ic).trim())) {
     errors.push(`icWithinDays must be a whole number of days, or one of: overdue, none — got "${ic}"`);
   }
   if (params.sort && !resolveSort(String(params.sort).replace(/^-/, ''))) {
-    errors.push(`sort must be one of: ${SORT_KEYS.join(', ')} (prefix with - to reverse) — got "${params.sort}"`);
+    errors.push(`sort must be one of: ${SORT_KEYS.join(', ')} (prefix with - to reverse; plain is ascending) — got "${params.sort}"`);
   }
   for (const key of ['limit', 'offset']) {
     const v = params[key];
     if (v === undefined || v === '') continue;
     if (!/^\d+$/.test(String(v).trim())) errors.push(`${key} must be a whole number that is zero or more — got "${v}"`);
+  }
+  // Half the filters used to fail silently: ?status=bogus, ?lane=bogus and
+  // ?laneStatus=not-started all answered 200 with an empty array. An empty result that
+  // means "you typed it wrong" is indistinguishable from one that means "no such deals",
+  // and the vocabulary is nowhere in the payload — laneStatus is not_started, with an
+  // underscore, which nobody guesses. Checked against what this caller can actually see.
+  if (Array.isArray(rows)) {
+    const known = (pick) => {
+      const s = new Set();
+      for (const d of rows) for (const v of [].concat(pick(d) ?? [])) if (v) s.add(norm(v));
+      return s;
+    };
+    const check = (key, values, hint) => {
+      const want = norm(params[key]);
+      if (!want || values.has(want)) return;
+      errors.push(`${key} must be one of: ${[...values].sort().join(', ') || '(nothing on your deals)'} — got "${params[key]}"${hint ? ` (${hint})` : ''}`);
+    };
+    check('status', known((d) => d.status));
+    check('sector', known((d) => d.sector));
+    check('lane', known((d) => (d.workstreams || []).map((w) => w.lane)));
+    check('laneStatus', known((d) => (d.workstreams || []).map((w) => w.status || 'not_started')));
+    const stageWant = norm(params.stage);
+    if (stageWant && !/^[odev]\d?$/.test(stageWant)) {
+      const names = known((d) => d.stageName);
+      const phases = new Set(Object.values(PHASE));
+      if (![...names].some((n) => n.includes(stageWant)) && !phases.has(stageWant)) {
+        errors.push(`stage must be a phase (${[...phases].join(', ')}), a step code, or part of a stage name — got "${params.stage}"`);
+      }
+    }
   }
   return errors;
 }

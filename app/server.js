@@ -309,11 +309,12 @@ api.get('/lifecycle', (_req, res) => res.json({ phases: lifecycleByPhase(), stag
 // only narrow what this caller may already see. The unfiltered total travels in headers
 // rather than the body because the body is an array and the tab depends on that.
 api.get('/deals', (req, res) => {
-  // A bad parameter is answered, not ignored. `ic=ready` used to return every row with a
-  // 200, so an integrator would ship it believing it had filtered.
-  const errors = validateDealQuery(req.query || {});
-  if (errors.length) return res.status(400).json({ error: 'bad-query', detail: errors });
   const rows = listDeals(requestingIdentity(req), requestingViewAs(req));
+  // A bad parameter is answered, not ignored. `ic=ready` used to return every row with a
+  // 200, so an integrator would ship it believing it had filtered. Validated against what
+  // this caller can see, so the error names the values that actually exist for them.
+  const errors = validateDealQuery(req.query || {}, rows);
+  if (errors.length) return res.status(400).json({ error: 'bad-query', detail: errors });
   const q = queryDeals(rows, req.query || {});
   res.set('X-Deal-Total', String(q.total));
   res.set('X-Deal-Matched', String(q.matched));
@@ -1624,7 +1625,7 @@ api.post('/deals/:id/request-access', async (req, res) => {
   const access = accessFor(identity, viewAs);
   const who = identity?.name || identity?.upn || access.roleLabel || 'A colleague';
   const note = String(req.body?.reason || '').slice(0, 500);
-  const r = await recordAccessRequest(raw, { who, role: access.role, reason: note });
+  const r = await recordAccessRequest(raw, { who, person: identity?.oid || identity?.upn || null, role: access.role, reason: note });
   if (r?.already) {
     return res.status(409).json({
       error: 'already-requested',

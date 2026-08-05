@@ -311,9 +311,13 @@ export async function chatDealAgent({ message, dealId, scope, previousResponseId
     if (!raw) {
       // Requested a deal-scoped chat but the deal isn't found — degrade to portfolio.
       effScope = 'portfolio';
-    } else if (identity && dealAccessLevel(identity, raw, viewAsRole) === 'none') {
-      // Need-to-know: the caller may not see this deal at all — refuse (defense in depth
-      // behind the HTTP gate, so the agent path can never leak a restricted deal).
+    } else if (dealAccessLevel(identity, raw, viewAsRole) !== 'full') {
+      // Need-to-know, and two faults were in one line. It read `identity && ... === 'none'`:
+      // the `identity &&` skipped the check entirely for every demo seat and every caller
+      // using view-as, and `=== 'none'` let a STATUS-tier deal through to the agent with
+      // the unredacted record behind it — the size, the multiple and the workstream owners
+      // the card two panels away deliberately nulls. Only the outer HTTP gate was stopping
+      // it, which makes this the leak that appears the day a route changes.
       return { reply: 'You do not have access to this deal.', denied: true, citations: [], scope: 'deal', dealId };
     } else {
       focusId = raw.id;
