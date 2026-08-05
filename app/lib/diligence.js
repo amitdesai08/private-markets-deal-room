@@ -350,6 +350,30 @@ const SEVERITY = { stopper: { label: 'Deal-stopper', rank: 4 }, reprice: { label
 // (basis: 'templated') meant to seed the red-flag tracker — they are indicative
 // pending sourced evidence, not observed facts, and are tagged as such so callers
 // and documents can distinguish inferred content from confirmed findings.
+// A finding that names an entry multiple must name the one the deal prints.
+//
+// Lumen's financial lane read "expensing them moves the entry multiple from 9.4x to
+// 10.1x" while every other surface printed 8.3x. An IC member counted four entry
+// multiples on one deal and said they would not repeat any of them. Fixing the seed does
+// not fix the deals already written to the record, and the record is what production
+// serves — so the reconciliation happens on the way out, where it holds for stored data
+// too. The effect is preserved; only the anchor changes.
+export function reconcileFindingText(text, deal) {
+  const s = String(text || '');
+  if (!/entry multiple/i.test(s)) return s;
+  let entry = null;
+  try { entry = canonicalFigures(deal)?.entryMultiple ?? null; } catch { entry = null; }
+  if (entry == null) return s;
+  return s.replace(/moves the entry multiple from\s*([\d.]+)x\s*to\s*([\d.]+)x/gi, (m, from, to) => {
+    const a = Number(from);
+    const b = Number(to);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return m;
+    if (Math.abs(a - entry) < 0.05) return m;
+    const delta = Math.abs(b - a).toFixed(1);
+    return `would raise the entry multiple by roughly ${delta}x against the ${entry}x on the returns page`;
+  });
+}
+
 function workstreamFindings(deal) {
   const f = dealFinancials(deal);
   // Currency-aware money so figures match the deal's reporting currency

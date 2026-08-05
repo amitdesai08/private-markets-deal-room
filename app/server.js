@@ -156,6 +156,7 @@ import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy
 import { buildCockpit } from './lib/cockpit.js';
 import { buildWorkflowDesk, buildThreads, buildDocumentDesk, detectCommitments } from './lib/dealDesk.js';
 import { ownerLabel } from './lib/cockpit.js';
+import { reconcileFindingText } from './lib/diligence.js';
 import { buildHomeDesk } from './lib/homeDesk.js';
 import { queryDeals, validateDealQuery, dealFacets } from './lib/dealQuery.js';
 
@@ -168,6 +169,17 @@ const stripInternals = (o) => {
   for (const [k, v] of Object.entries(o)) if (!k.startsWith('_')) out[k] = v;
   return out;
 };
+
+// A recorded finding that names an entry multiple must name the one the deal prints. The
+// seed is fixed; the records already written to the store are not, and those are what
+// production serves.
+const withReconciledFindings = (deal) => ({
+  ...deal,
+  workstreams: (deal.workstreams || []).map((w) => ({
+    ...w,
+    findings: (w.findings || []).map((f) => ({ ...f, text: reconcileFindingText(f.text, deal) })),
+  })),
+});
 import { personaForIdentity, actingAsFor } from './lib/userPolicy.js';
 import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments, setDemoMode, setActingAs, getDocTemplate, setDocTemplate, DOC_TEMPLATE_DEFAULTS } from './lib/accessConfig.js';
 
@@ -1629,7 +1641,7 @@ api.get('/deals/:id', (req, res) => {
   }
   const deal = getDeal(req.params.id);
   if (!deal) return res.status(404).json({ error: 'deal not found' });
-  res.json({ ...stripInternals(deal), accessLevel: 'full' });
+  res.json({ ...stripInternals(withReconciledFindings(deal)), accessLevel: 'full' });
 });
 
 // Ask to be added to a deal team.

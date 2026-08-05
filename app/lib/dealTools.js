@@ -24,6 +24,8 @@ import { dealAccessLevel } from './userPolicy.js';
 // answered from its fallback. A review found it in the error field of replies that
 // otherwise looked fine.
 import { money, symbolFor } from './money.js';
+import { ownerLabel } from './cockpit.js';
+import { reconcileFindingText } from './diligence.js';
 import { fundOverview, portfolioMonitoring, executiveValue } from './fund.js';
 import { can, nextActions, PERSONA_LANE } from './personaPolicy.js';
 
@@ -141,9 +143,12 @@ export function dealAnalystView(id, sections) {
   if (want.has('workstreams')) {
     view.workstreams = (d.workstreams || []).map((w) => ({
       lane: w.lane,
+      // The record writes owners as 'legal-md'. The readiness board names the person; this
+      // did not, so the assistant answered with a role key.
+      owner: w.owner ? ownerLabel(w.owner, w.lane) : null,
       status: w.status,
       progress: w.progress,
-      findings: (w.findings || []).slice(0, 2).map((f) => ({ text: trim(f.text, 220), severity: f.severity }))
+      findings: (w.findings || []).slice(0, 2).map((f) => ({ text: trim(reconcileFindingText(f.text, d), 220), severity: f.severity }))
     }));
   }
   if (want.has('memo')) {

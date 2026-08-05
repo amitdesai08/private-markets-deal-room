@@ -267,6 +267,13 @@ export function dealPhase(deal) {
 // surface exists to save.
 function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal }) {
   const openConditions = conditions.filter((c) => c.status !== 'satisfied');
+  // The register's closing conditions are REPORTED but do not decide the verdict. The
+  // board said openConditions 0 beside a register headline reading "4 closing conditions",
+  // which is the two screens disagreeing again — but folding them into the decision made
+  // every deal in the book conditional and no deal ready to table, which is a different
+  // lie. A closing condition is a condition of CLOSING; it does not stop a deal being
+  // taken to committee.
+  const registerConditions = unresolvedRisks.filter((r) => r.from === 'risk register' && /closing condition/i.test(String(r.severityLabel || ''))).length;
 
   // Past committee: the papers and the lanes are history and are not re-litigated. But
   // "the readiness question is closed" is NOT "there is nothing outstanding". An earlier
@@ -364,7 +371,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
       ? `IC-ready — required papers complete and no blocking workstreams. ${open} item${open === 1 ? '' : 's'} on the risk register ${open === 1 ? 'is' : 'are'} still open and ${open === 1 ? 'does' : 'do'} not gate the committee.`
       : 'IC-ready — required papers complete, no blocking workstreams or unresolved risks.';
   }
-  return { state, headline, gating, openConditions: openConditions.length, phase };
+  return { state, headline, gating, openConditions: openConditions.length, registerConditions, conditionsTotal: openConditions.length + registerConditions, phase };
 }
 
 // The material rows of the deal's own risk register, in the shape the readiness board
@@ -453,7 +460,7 @@ export function computeICReadiness(deal) {
       openIssues: openIssues.length,
       unresolvedRisks: unresolvedRisks.length,
       blockingWorkstreams: blocking.length,
-      conditions: conditions.length,
+      conditions: v.conditionsTotal ?? conditions.length,
       sources: sources.length
     }
   };
