@@ -546,10 +546,11 @@ test('no deal is recommended on returns computed from a figure nobody diligenced
   let early = 0;
   for (const [id, c] of CASES) {
     const d = seededDeals.find((x) => x.id === id);
-    const opened = (d.workstreams || []).filter((w) => String(w.status || '') !== 'not_started').length;
+    const lanes2 = d.workstreams || [];
+    const opened = lanes2.filter((w) => (w.findings || []).length || (w.contributions || []).length).length;
     const ebitda = c.figures.find((f) => /EBITDA/.test(f.label));
     const unevidenced = /screening default|not a diligenced figure/i.test(ebitda.basis);
-    if (c.decided || !unevidenced || !(d.workstreams || []).length || opened > 0) continue;
+    if (c.decided || !unevidenced || !lanes2.length || opened * 2 >= lanes2.length) continue;
     early += 1;
     assert.equal(c.recommendation.call, 'NOT ENOUGH ON THE RECORD TO DECIDE',
       `${id}: nothing diligenced and no evidenced price, but the call is ${c.recommendation.call}`);
@@ -591,8 +592,11 @@ test('the not-enough-on-the-record call is decided on evidence, not on a typed s
     if (c.decided) continue;
     const ebitda = c.figures.find((f) => /EBITDA/.test(f.label));
     const unevidenced = /screening default|not a diligenced figure/i.test(ebitda.basis);
-    const worked = (d.workstreams || []).some((w) => (w.findings || []).length || (w.contributions || []).length);
-    if (!unevidenced || !(d.workstreams || []).length || worked) continue;
+    const lanes = d.workstreams || [];
+    const worked = lanes.filter((w) => (w.findings || []).length || (w.contributions || []).length).length;
+    // Half the lanes, not one of them. A deal with six unopened workstreams and an
+    // undiligenced price is not decidable because one analyst opened one tab.
+    if (!unevidenced || !lanes.length || worked * 2 >= lanes.length) continue;
     assert.equal(c.recommendation.call, 'NOT ENOUGH ON THE RECORD TO DECIDE',
       `${id}: no lane has produced evidence and the price is unevidenced, but the call is ${c.recommendation.call}`);
     assert.equal(c.forIt.some((p) => /Base case|Downside/i.test(p.point)), false,

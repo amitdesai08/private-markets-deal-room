@@ -484,7 +484,7 @@ export function buildDealCase(deal) {
   const ebitdaKf = recordedFigure(deal, /ebitda/i);
   const priceUnevidenced = canon.ebitdaSource === 'derived'
     || (canon.ebitdaSource === 'recorded' && ebitdaKf && UNDILIGENCED_SOURCE.test(String(ebitdaKf.source || '')));
-  const tooEarly = !decided && priceUnevidenced && laneTotal > 0 && lanesWorked === 0;
+  const tooEarly = !decided && priceUnevidenced && laneTotal > 0 && lanesWorked * 2 < laneTotal;
   const call = tooEarly
     ? 'NOT ENOUGH ON THE RECORD TO DECIDE'
     : decided
@@ -494,7 +494,7 @@ export function buildDealCase(deal) {
         : openCount ? 'PROCEED, SUBJECT TO CONDITIONS'
           : 'PROCEED';
   const because = tooEarly
-    ? `No workstream has been opened and the entry multiple rests on a figure nobody has diligenced. The returns below clear the hurdle arithmetically; they are arithmetic on the asking price, not a view on the company.`
+    ? `${lanesWorked ? `${lanesWorked} of ${laneTotal} workstreams have produced anything` : 'No workstream has produced anything'} and the entry multiple rests on a figure nobody has diligenced. The returns below clear the hurdle arithmetically; they are arithmetic on the asking price, not a view on the company.`
     : decided
     ? `${deal.stageName || deal.stage} — the committee has ruled on this deal. What follows is the case as the record now stands, not a request for authorisation.`
     : register.counts.stopper
