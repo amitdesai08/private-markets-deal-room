@@ -183,6 +183,33 @@ export function dealAnalystView(id, sections) {
   if (want.has('activity')) {
     view.activity = (d.activity || []).slice(0, 6).map((a) => ({ actor: a.actor, action: trim(a.action, 160), when: a.when }));
   }
+  // The case, as the product composes it. Without this the assistant was answering the
+  // two questions most often put to it -- "what could kill this" and "what are the base
+  // and downside returns" -- out of the summary fields, and answering them wrong:
+  // "Downside return: not recorded" on a deal whose case page prints "Downside breaks
+  // the hurdle: 1.19x is below the 2x"; "Recommendation: Hold" against a page reading
+  // DO NOT PROCEED ON THESE TERMS; and the QoE-adjusted multiple filled with the
+  // unadjusted one on both deals it was asked about. The product had one answer and the
+  // assistant was inventing a second.
+  const raw = getDealRaw(id);
+  if (raw) {
+    const c = getDealCase(id);
+    if (c) {
+      view.case = {
+        call: c.recommendation.call,
+        because: c.recommendation.because,
+        ask: c.ask ? c.ask.headline : null,
+        baseCase: c.baseCase ? `${c.baseCase.text} ${c.baseCase.basis}` : null,
+        downside: c.downside ? `${c.downside.text} ${c.downside.basis}` : null,
+        couldKillIt: c.againstIt.map((r) => `[${r.severityLabel}] ${r.risk}${r.basisNote ? ` (${r.basisNote})` : ''}`),
+        outstanding: c.outstanding.map((r) => `${r.text} — from the ${r.from}`),
+        figures: c.figures.map((f) => `${f.label} ${f.value}: ${f.basis}`),
+        notOnRecord: c.notOnRecord,
+        writtenRecommendation: c.writtenRecommendation ? c.writtenRecommendation.text : null,
+        writtenRecommendationConflict: c.writtenRecommendation ? c.writtenRecommendation.conflict : null,
+      };
+    }
+  }
   return view;
 }
 

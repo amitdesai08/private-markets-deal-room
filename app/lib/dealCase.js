@@ -23,6 +23,7 @@
 // against the number it was about to sit beside. The guards are in the tests.
 import { buildReturnsModel, buildRiskRegister, canonicalFigures } from './diligence.js';
 import { computeICReadiness } from './icReadiness.js';
+import { validateCitations } from './citations.js';
 import { money as fmtMoney, symbolFor } from './money.js';
 
 const SEVERITY_RANK = { stopper: 0, reprice: 1, condition: 2, monitor: 3 };
@@ -149,12 +150,32 @@ function forIt(deal, canon, returns) {
     });
   }
   // Say what is being underwritten, not what is on the record, and say it with a unit.
-  // "Growth underwritten at 41%" sat on a deal whose model runs at 15% and prints the
-  // reason; nineteen other deals printed "Growth underwritten at 7." with nothing after
-  // the number at all. The returns model writes this sentence and gets it right.
-  if (returns.growthBasis) out.push({ point: 'Growth', basis: returns.growthBasis });
+  // Growth used to be emitted here unconditionally, so on a deal recommended DO NOT
+  // PROCEED *because* 3% growth produces a 15.3% IRR, the 3% was filed as a point in
+  // favour. It is neither for nor against on its own -- it is the assumption the whole
+  // model turns on, and it now has its own line above both.
   if (deal.thesis) out.push({ point: 'The thesis on file', basis: String(deal.thesis).trim() });
   return out;
+}
+
+// The base case, stated once, in the returns page's own words -- which name the failing
+// leg where there is one: "the 2.32x clears the 2x hurdle; the 18.3% IRR does not reach
+// 20%". Pulling a sub-hurdle base case out of the case FOR the deal was right; leaving
+// it off the page altogether was not, and a decided deal ended up with no return figure
+// on it at all and a failing downside as the only multiple in sight.
+function theBaseCase(deal, returns, canon) {
+  const m = (v) => fmtMoney(v, symbolFor(deal));
+  const base = (returns.scenarios || []).find((s) => /base/i.test(s.name));
+  if (!base) return null;
+  return {
+    moic: base.moic,
+    irr: base.irr,
+    holdYears: canon.holdYears,
+    clearsHurdle: !!returns.meetsHurdle,
+    text: returns.headline,
+    basis: `${m(base.equityIn)} in, ${m(base.equityOut)} out over ${canon.holdYears} years.`,
+    growth: returns.growthBasis || null,
+  };
 }
 
 // The downside, stated once, whether or not it helps. It belongs on the page either way
@@ -289,6 +310,7 @@ export function buildDealCase(deal) {
     recommendation: { call, because },
     writtenRecommendation: writtenRecommendation(deal, openCount),
     ask: theAsk(canon, returns, deal),
+    baseCase: theBaseCase(deal, returns, canon),
     forIt: forIt(deal, canon, returns),
     downside: theDownside(deal, returns),
     againstIt: risks,
@@ -300,6 +322,33 @@ export function buildDealCase(deal) {
       { label: 'Leverage', value: canon.leverage, basis: 'Modelled at the financeable ceiling for the sector.' },
     ],
     conditions: conditions.map((r) => ({ condition: r.risk, owner: r.owner || null, workstream: r.workstream || null })),
+    // One list of everything outstanding. A committee member an hour from a vote found
+    // the readiness board naming a regulatory clearance and a financing condition, and
+    // the register naming a working-capital peg and change-of-control consents: four
+    // items, two lists, no overlap, neither a superset, and a headline that counted two.
+    // The paper could not tell them whether the deal had two obligations or four.
+    outstanding: (() => {
+      const seen = new Set();
+      const rows = [];
+      const add = (text, from, owner) => {
+        const key = String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        rows.push({ text: String(text), from, owner: owner || null });
+      };
+      for (const g of (v.gating || [])) add(g, 'committee readiness');
+      for (const r of conditions) add(r.risk, 'risk register', r.owner || null);
+      for (const r of (register.risks || []).filter((x) => x.severity === 'reprice')) add(r.risk, 'risk register', r.owner || null);
+      return rows;
+    })(),
+    // The board already audits how much of the case traces to a source, and scores Lumen
+    // at 40 with the reason written out -- "IC ask derived from unsourced Revenue &
+    // EBITDA". It was on a different page from the ask it is about.
+    citations: (() => {
+      const a = validateCitations(deal);
+      if (!a) return null;
+      return { score: a.score, summary: a.summary, clean: a.clean, sourced: a.sourcedClaims, total: a.totalClaims };
+    })(),
     notOnRecord,
     // Where a reader goes to check any of it, rather than taking the composition on
     // trust. Comparables is on this list because the only question that matters on

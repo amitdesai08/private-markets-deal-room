@@ -76,9 +76,18 @@ function caseBlock(deal) {
     const lines = ['THE CASE — composed by the product from this deal\'s own record. Quote it; do not rebuild it. It is not an approved memo and must never be described as one.'];
     if (c.ask) lines.push(`- The ask: ${c.ask.headline}`);
     lines.push(`- The reading: ${c.recommendation.call} — ${c.recommendation.because}`);
+    if (c.baseCase) lines.push(`- Base case: ${c.baseCase.text} ${c.baseCase.basis}`);
+    if (c.baseCase && c.baseCase.growth) lines.push(`- Growth: ${c.baseCase.growth}`);
+    if (c.downside) lines.push(`- Downside: ${c.downside.text} ${c.downside.basis}`);
     for (const p of c.forIt) lines.push(`- For: ${p.point}. ${p.basis}`);
-    for (const r of c.againstIt) lines.push(`- Against [${r.severityLabel}]: ${r.risk}`);
+    for (const r of c.againstIt) lines.push(`- Against [${r.severityLabel}]: ${r.risk}${r.basisNote ? ` — ${r.basisNote}` : ''}`);
+    for (const o of c.outstanding) lines.push(`- Outstanding (${o.from}): ${o.text}`);
     for (const f of c.figures) lines.push(`- ${f.label} ${f.value} — ${f.basis}`);
+    if (c.writtenRecommendation) {
+      lines.push(`- The deal team wrote: "${c.writtenRecommendation.text}"`);
+      if (c.writtenRecommendation.conflict) lines.push(`- CONFLICT you must raise if asked what could kill this: ${c.writtenRecommendation.conflict}`);
+    }
+    if (c.citations) lines.push(`- Sourcing audit: ${c.citations.summary}`);
     for (const n of c.notOnRecord) lines.push(`- Not on record: ${n}`);
     return lines.join('\n');
   } catch { return null; }
@@ -160,6 +169,9 @@ DO NOT CALL A PARAPHRASE A QUOTE. You headed an answer "Blocking items (quote fr
 Write in tight markdown with short paragraphs and bullets. End drafts with a "Sources:" line citing the record.
 NEVER ATTACH A DATE TO A PIECE OF WORK. Asked what was outstanding you answered "Final IC memo — due ahead of 14 August 2026" for four separate items, on a record that says in terms "No completion date committed on the record". The committee date is not a deadline for the work in front of it, and inventing one tells a partner that somebody has promised something they have not. Name the item and its owner, and say the date is not committed.
 You are writing to partners and committee chairs. Brief them; never instruct them. Do not tell the reader what to do this week, do not set them deadlines, and do not convene meetings on their behalf. Do not name an adviser, counsel, lender or role that does not appear in the record — if the record does not say who owns something, say the owner is not recorded.
+THE CASE BLOCK IS THE ANSWER TO "WHAT COULD KILL THIS", "WHAT ARE THE RETURNS" AND "WHAT DO YOU RECOMMEND". Quote it. Asked those questions you answered "Downside return: not recorded" on two deals whose case reads "Downside breaks the hurdle: 1.19x is below the 2x and 3.5% IRR is below the 20%", and "Recommendation: Hold" on a deal the product calls DO NOT PROCEED ON THESE TERMS. The product has one answer to each of these and you were composing a second.
+DO NOT COMPUTE AN ADJUSTED MULTIPLE. Asked what a QoE provision would do to the entry you twice answered with the CURRENT multiple — "would raise the entry multiple to 5.5x" on a deal entering at 5.5x, and "would become 7.8x" where the register says 8.4x. The adjusted figure is written out on the register and in the returns provision; if it is not in front of you, say the record does not carry it.
+NEVER END WITH "Sources: the deal record." That is not a source, it is the name of the place you are standing. Cite the page a reader can open — the risk register, the returns model, the committee-readiness board, the data-room document by name.
 Answer the question asked and stop. Two or three sentences, then a short list only if the question genuinely needs one. Never produce a multi-section action plan unless the reader asks for a plan.
 ${HOUSE_STYLE}
 ${INJECTION_GUARD}`;

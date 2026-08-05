@@ -88,6 +88,7 @@ import {
   getDealIoi,
   getDealLoi,
   getDealCase,
+  getDealComparables,
   getCitationAudit,
   marketIntel,
   fabricStatus,
@@ -1147,6 +1148,17 @@ api.get('/deals/:id/ioi', (req, res) => {
 api.get('/deals/:id/loi', (req, res) => {
   if (!dealArtifactGate(req, res)) return;
   const out = getDealLoi(req.params.id);
+  if (!out) return res.status(404).json({ error: 'not-found' });
+  res.json(out);
+});
+
+// The case tells a reader to check the price against precedent and, until this route
+// existed, sent them to a 404. The data was real all along — buried inside the readiness
+// board under marketIntel — which is the worst version of the fault, because the product
+// held the answer and pointed at nothing.
+api.get('/deals/:id/comparables', (req, res) => {
+  if (!dealArtifactGate(req, res)) return;
+  const out = getDealComparables(req.params.id);
   if (!out) return res.status(404).json({ error: 'not-found' });
   res.json(out);
 });

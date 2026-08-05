@@ -95,6 +95,18 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
         </section>
       )}
 
+      {/* The base case, whether or not it clears. Pulling a sub-hurdle base case out of
+          the case FOR the deal was right; leaving it off the page altogether left one
+          decided deal with a failing downside as the only multiple in sight. */}
+      {c.baseCase && (
+        <section className="dc-card">
+          <div className="dc-h">The base case</div>
+          <div className={`dc-pt${c.baseCase.clearsHurdle ? '' : ' dc-fail'}`}>{c.baseCase.text}</div>
+          <div className="dc-basis">{c.baseCase.basis}</div>
+          {c.baseCase.growth ? <div className="dc-basis">{c.baseCase.growth}</div> : null}
+        </section>
+      )}
+
       {/* The downside is on the page whether or not it flatters the case. A committee
           shown a downside only when it holds is not being shown a downside. */}
       {c.downside && (
@@ -137,16 +149,25 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
               </div>
             ))}
           </div>
+          {/* How much of the case traces to a source. The board has scored this all
+              along, and the score was on a different page from the ask it is about. */}
+          {c.citations ? (
+            <div className="dc-basis" style={{ marginTop: 12 }}>Sourcing audit: {c.citations.summary}</div>
+          ) : null}
         </section>
       )}
 
-      {!!(c.conditions || []).length && (
+      {!!(c.outstanding || []).length && (
         <section className="dc-card">
-          <div className="dc-h">Conditions to satisfy before signing</div>
-          {c.conditions.map((x: Any, i: number) => (
+          {/* One list. The readiness board named a regulatory clearance and a financing
+              condition; the register named a working-capital peg and change-of-control
+              consents. Four items, two lists, no overlap, and a headline that counted
+              two — an hour before a vote. */}
+          <div className="dc-h">Everything outstanding</div>
+          {c.outstanding.map((x: Any, i: number) => (
             <div key={i} className="dc-point">
-              <div className="dc-pt">{x.condition}</div>
-              <div className="dc-basis">{x.workstream}{x.owner ? ` · ${x.owner}` : ''}</div>
+              <div className="dc-pt">{x.text}</div>
+              <div className="dc-basis">From the {x.from}{x.owner ? ` · ${x.owner}` : ''}</div>
             </div>
           ))}
         </section>

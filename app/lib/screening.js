@@ -343,6 +343,7 @@ export function buildReturns(c) {
   };
   const meetsHurdle = !entryAboveCeiling && scenarios.base.irr >= 20 && scenarios.base.moic >= 2.0;
   const entryEbitda = Math.max(1, c.ebitda || 1);
+  const entryEbitdaForBasis = entryEbitda;
   const effLeverage = +(scenarios.base.debt / entryEbitda).toFixed(1);
   return {
     entryMultiple: +baseMult.toFixed(1),
@@ -363,7 +364,21 @@ export function buildReturns(c) {
     // The downside needs MORE equity than the base, which reads backwards until you know
     // why. Asked, the assistant invented a story about enterprise value falling. It does
     // not: the entry is the same in all three and only the debt changes.
-    scenarioBasis: 'All three scenarios buy at the same enterprise value. The downside puts in more equity because it is financed at 4.5x rather than 5x, not because the price is different.',
+    //
+    // That sentence was then printed unconditionally, and on most deals it is false. The
+    // leverage multiple is a request, not an outcome: on a deal the lender caps below
+    // 4.5x, the downside and the base finance identically and the equity cheques come out
+    // the same to the dollar. A committee member read "the downside puts in more equity"
+    // on four deals where the two numbers were equal, one click from a page that had just
+    // been corrected to say so. Say what these three scenarios actually did.
+    scenarioBasis: (() => {
+      const same = Math.round(scenarios.downside.equityIn) === Math.round(scenarios.base.equityIn);
+      const dLev = +(scenarios.downside.debt / entryEbitdaForBasis).toFixed(1);
+      const bLev = +(scenarios.base.debt / entryEbitdaForBasis).toFixed(1);
+      return same
+        ? `All three scenarios buy at the same enterprise value and put in the same equity: the debt is capped below the level the model would otherwise request, so the downside is financed identically to the base at ${bLev}x. Only the exit differs.`
+        : `All three scenarios buy at the same enterprise value. The downside puts in more equity because it is financed at ${dLev}x rather than ${bLev}x, not because the price is different.`;
+    })(),
     holdYears: HOLD_YEARS,
     scenarios,
     hurdle: { irr: 20, moic: 2.0 },

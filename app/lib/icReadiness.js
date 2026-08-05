@@ -128,6 +128,16 @@ function blockingWorkstreams(deal, openIssues) {
     if (notOpened) reasons.push(w.status === 'not_started' ? 'not started' : 'no work recorded against it');
     else if (halted) reasons.push(`workstream ${w.status.replace('_', ' ')}`);
     if (blockingIssues.length) reasons.push(`${blockingIssues.length} open high-severity issue(s)`);
+    // A lane enters this list on high-severity issues alone, and the reason list was then
+    // written as though it had also never been opened. Heliopack shipped "Financial /
+    // QoE: complete, progress 100" and "Financial / QoE: no work recorded against it" in
+    // one payload, which is a straight contradiction and the kind that costs a reader
+    // their trust in everything else on the page. Where the lane HAS been worked, say
+    // what is actually holding it.
+    if (!reasons.length) continue;
+    if (!notOpened && !halted && blockingIssues.length) {
+      reasons[reasons.length - 1] = `${blockingIssues.length} open high-severity finding${blockingIssues.length === 1 ? '' : 's'} on a lane otherwise recorded ${w.status === 'complete' ? 'complete' : `at ${w.progress || 0}%`}`;
+    }
     if (reasons.length) {
       out.push({ lane: w.lane, label: laneLabel(w.lane), owner: w.owner ? ownerLabel(w.owner, w.lane) : null, progress: w.progress || 0, status: w.status || 'not_started', openIssues: laneIssues.length, blockingIssues: blockingIssues.length, reasons,
         // Nothing on this board carried a date, so "Legal DD, not started, General Counsel"
@@ -310,6 +320,23 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
       ...dedupedChecks.map((c) => `${c.check}${c.framework ? ` (${c.framework})` : ''} not cleared`),
     ];
     const unevidenced = blocking.map((b) => `${b.label} — ${b.reasons.join(', ')}`);
+    // The register was the one list this branch never read, so a signed deal shipped
+    // "Past the IC decision — nothing outstanding on the record" in the same payload as
+    // counts.unresolvedRisks: 2, over a case page printing both of them.
+    //
+    // It is REPORTED, and it does not decide the state. Folding it in was tried and the
+    // suite caught it: every post-committee deal carries register rows, so a READY
+    // verdict became unreachable in that phase and half the chip logic in the deals list
+    // stopped being exercised by anything. And it does not belong in `gating` either —
+    // an open register row is not an obligation the committee attached. The fault was
+    // never the state; it was a headline claiming an absence while the payload beside it
+    // held the thing.
+    const registerOpen = unresolvedRisks
+      .filter((r) => r.from === 'risk register' && !/monitor/i.test(String(r.severityLabel || '')))
+      .length;
+    const registerPhrase = registerOpen
+      ? ` ${registerOpen} item${registerOpen === 1 ? '' : 's'} remain open on the risk register.`
+      : '';
     const outstanding = [...obligations, ...unevidenced];
     if (outstanding.length) {
       const parts = [];
@@ -317,20 +344,31 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
       if (unevidenced.length) parts.push(`${unevidenced.length} diligence workstream${unevidenced.length === 1 ? '' : 's'} with no work recorded`);
       return {
         state: 'CONDITIONAL',
-        headline: `Past the IC decision — ${parts.join(' and ')}.`,
+        headline: `Past the IC decision — ${parts.join(' and ')}.${registerPhrase}`,
         gating: outstanding,
         openConditions: openConditions.length,
         openComplianceChecks: dedupedChecks.length,
+        // Reported on this branch too. They came back empty on signed deals while
+        // in-flight deals returned integers, so a reader comparing two deals could not
+        // tell an absent count from a zero.
+        registerConditions,
+        registerOpen,
+        conditionsTotal: openConditions.length + registerConditions,
         phase,
         basis: 'Stage on the deal record. No committee decision record exists to confirm the approval terms.',
       };
     }
     return {
       state: 'READY',
-      headline: 'Past the IC decision — nothing outstanding on the record.',
+      headline: registerOpen
+        ? `Past the IC decision — no obligation or unopened workstream outstanding.${registerPhrase}`
+        : 'Past the IC decision — nothing outstanding on the record.',
       gating: [],
       openConditions: 0,
       openComplianceChecks: 0,
+      registerConditions,
+      registerOpen,
+      conditionsTotal: registerConditions,
       phase,
       basis: 'Stage on the deal record. No committee decision record exists to confirm the approval terms.',
     };

@@ -10,6 +10,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildDealCase } from '../lib/dealCase.js';
 import { seededDeals } from '../data/deals.js';
+import { buildReturnsModel } from '../lib/diligence.js';
 
 const CASES = seededDeals.map((d) => [d.id, buildDealCase(d)]);
 
@@ -196,8 +197,7 @@ test('the call always carries its reason', () => {
   }
 });
 
-test('the ask names an amount, so nobody votes on an unstated number', () => {
-  for (const [id, c] of CASES) {
+test('the ask names an amount, so nobody votes on an unstated number', () => {  for (const [id, c] of CASES) {
     if (!c.ask) continue;
     assert.ok(Number.isFinite(c.ask.enterpriseValue), `${id}: ask has no enterprise value`);
     assert.ok(Number.isFinite(c.ask.equityCheque), `${id}: ask has no equity cheque`);
@@ -228,4 +228,85 @@ test('a written recommendation that claims nothing is outstanding is checked aga
       assert.ok(w.conflict, `${id}: written recommendation contradicts the register and the page does not say so`);
     }
   }
+});
+
+// "All three scenarios buy at the same enterprise value. The downside puts in more
+// equity because it is financed at 4.5x rather than 5x" -- printed unconditionally, and
+// false on four of six deals read, where downside and base equity were equal to the
+// dollar. One click from a page that had just been corrected to say so.
+test('the scenario explanation matches the scenarios it explains', () => {
+  let same = 0;
+  let differ = 0;
+  for (const [id] of CASES) {
+    const d = seededDeals.find((x) => x.id === id);
+    const r = buildReturnsModel(d);
+    const base = r.scenarios.find((s) => /base/i.test(s.name));
+    const down = r.scenarios.find((s) => /down/i.test(s.name));
+    if (!base || !down || !r.scenarioBasis) continue;
+    if (Math.round(base.equityIn) === Math.round(down.equityIn)) {
+      same += 1;
+      assert.doesNotMatch(r.scenarioBasis, /puts in more equity/i, `${id}: claims the downside puts in more equity where the two are equal`);
+      assert.match(r.scenarioBasis, /the same equity/i, `${id}: equal equity cheques not stated as equal`);
+    } else {
+      differ += 1;
+      assert.match(r.scenarioBasis, /puts in more equity/i, `${id}: a larger downside cheque is not explained`);
+    }
+  }
+  assert.ok(same > 0 && differ > 0, 'both scenario paths must be exercised or the guard is half inert');
+});
+
+// Growth was emitted under "the case for it" unconditionally, so on a deal recommended
+// DO NOT PROCEED *because* 3% growth produces a 15.3% IRR, the 3% was filed in support.
+test('growth is not filed as a point in favour', () => {
+  for (const [id, c] of CASES) {
+    assert.ok(!c.forIt.some((p) => p.point === 'Growth'), `${id}: growth argued as a point for the deal`);
+    if (c.baseCase) assert.ok(c.baseCase.growth, `${id}: the base case does not state what growth it was struck on`);
+  }
+});
+
+// Pulling a sub-hurdle base case out of the case FOR the deal was right. Leaving it off
+// the page was not: one decided deal ended up with no return figure on it at all, and a
+// failing downside as the only multiple in sight.
+test('every case states its base case, whether or not it clears', () => {
+  let failing = 0;
+  for (const [id, c] of CASES) {
+    assert.ok(c.baseCase, `${id}: no base case on the page`);
+    assert.ok(Number.isFinite(c.baseCase.moic) && Number.isFinite(c.baseCase.irr), `${id}: base case with no figures`);
+    assert.ok(c.baseCase.text && c.baseCase.text.length > 20, `${id}: base case with no sentence`);
+    if (!c.baseCase.clearsHurdle) {
+      failing += 1;
+      assert.match(c.baseCase.text, /does not|not reach|below/i, `${id}: a sub-hurdle base case does not say it misses`);
+    }
+  }
+  assert.ok(failing > 0, 'no deal exercised the sub-hurdle base case — the guard would be inert');
+});
+
+// A committee member found the readiness board naming a regulatory clearance and a
+// financing condition, and the register naming a working-capital peg and change-of-
+// control consents: four items, two lists, no overlap, neither a superset, and a
+// headline that counted two.
+test('everything outstanding is on one list, and each row says which record it came from', () => {
+  for (const [id, c] of CASES) {
+    assert.ok(Array.isArray(c.outstanding), `${id}: no single outstanding list`);
+    for (const row of c.outstanding) {
+      assert.ok(row.text, `${id}: an outstanding row with no text`);
+      assert.ok(['committee readiness', 'risk register'].includes(row.from), `${id}: outstanding row with no source`);
+    }
+    // Nothing on the register or the board may be missing from it.
+    for (const cond of c.conditions) {
+      assert.ok(c.outstanding.some((r) => r.text === cond.condition), `${id}: a condition is not on the outstanding list`);
+    }
+  }
+});
+
+// The board scores how much of the case traces to a source -- 40 on one deal, with the
+// reason written out -- and it was on a different page from the ask it is about.
+test('the citation score travels with the case', () => {
+  let scored = 0;
+  for (const [id, c] of CASES) {
+    if (!c.citations) continue;
+    scored += 1;
+    assert.ok(c.citations.summary, `${id}: a citation score with no explanation`);
+  }
+  assert.ok(scored > 0, 'no deal carried a citation audit — the guard would be inert');
 });

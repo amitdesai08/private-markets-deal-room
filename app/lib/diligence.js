@@ -799,12 +799,19 @@ export function buildReturnsModel(deal) {
       // confidence, and whose register quotes the result: "QoE supports $46M LTM EBITDA;
       // $2.1M of add-backs disallowed". Three mutually exclusive claims about one piece
       // of work, in one response, and the false one was in the paragraph a committee
-      // relies on most, because it is the one that protects them. An assertion of
-      // absence is only ever safe against the record you are already holding.
+      // relies on most, because it is the one that protects them.
+      //
+      // The first fix asked only whether a QoE DOCUMENT was on file, which is the same
+      // mistake one level down: Heliopack's financial lane reports complete at 100% with
+      // findings recorded against it and no document named "quality of earnings", so it
+      // kept printing. An assertion of absence has to be tested against every place the
+      // work could have been recorded.
+      const finLane = (deal.workstreams || []).find((w) => /financial|quality of earnings|qoe/i.test(`${w.lane} ${w.label || ''}`));
       const qoeOnFile = (deal.keyFigures || []).some((k) => /qoe|quality of earnings/i.test(String(k.source || '')))
-        || (deal.documents || []).some((d) => /quality of earnings/i.test(String(d.name || d.title || '')));
+        || (deal.documents || []).some((d) => /quality of earnings/i.test(String(d.name || d.title || '')))
+        || !!(finLane && ((finLane.findings || []).length || (finLane.contributions || []).length || finLane.status === 'complete'));
       const tail = qoeOnFile
-        ? 'This is the modelled provision, not the result of the quality-of-earnings work already on this deal.'
+        ? 'This is the modelled provision, not the result of the financial diligence already recorded on this deal.'
         : 'No QoE work has been commissioned yet.';
       return {
         haircutPct: haircut,
@@ -928,13 +935,30 @@ export function buildRiskRegister(deal) {
       // with nobody's name on it, while the workstream board two tabs away named them.
       owner: ownerLabel(null, fnd.workstream) || wsLabel[fnd.workstream] || 'Deal team',
       basis: fnd.basis || 'templated',
+      // Whether anybody looked, in words rather than in an enum a reader has to know how
+      // to interpret. Among the rows carrying this flag are "historic VAT exposure
+      // identified" and "cyber posture is adequate" -- a template cannot identify an
+      // exposure or pronounce a posture adequate, and a committee reading the register
+      // four days before a vote should not have to work that out from a field name.
+      basisNote: (fnd.basis || 'templated') === 'templated'
+        ? 'Standard row for this workstream. No named author has written a finding against it.'
+        : null,
     }));
   const counts = { stopper: 0, reprice: 0, condition: 0, monitor: 0 };
   for (const rk of risks) if (counts[rk.severity] != null) counts[rk.severity]++;
   const status = counts.stopper ? 'red' : counts.reprice ? 'amber' : 'green';
+  // A ten-row register whose every row is boilerplate reported status "green" and a
+  // headline of "3 closing conditions", with nothing to say that not one line of it had
+  // been written by anybody. That is the fact a reader most needs and it was only on the
+  // field, on each row, one level down.
+  const allTemplated = risks.length > 0 && risks.every((r) => r.basis === 'templated');
   return {
     kind: 'risk-register', company: deal.company, owner: 'principal',
     risks, counts, status, total: risks.length,
+    allTemplated,
+    basisNote: allTemplated
+      ? `All ${risks.length} rows are the standard set for these workstreams. None was written by a named author against this company.`
+      : null,
     legend: Object.fromEntries(Object.entries(SEVERITY).map(([k, v]) => [k, v.label])),
     headline: (() => {
       const parts = [];
@@ -943,8 +967,10 @@ export function buildRiskRegister(deal) {
       // conditions sitting in the same payload.
       if (counts.reprice) parts.push(`${counts.reprice} repricing risk${counts.reprice === 1 ? '' : 's'} to reflect before signing`);
       if (counts.condition) parts.push(`${counts.condition} closing condition${counts.condition === 1 ? '' : 's'}`);
-      if (!parts.length) return risks.length ? `${risks.length} open risk${risks.length === 1 ? '' : 's'} tracked; none deal-stopping.` : 'No open risks recorded — run the diligence lanes.';
-      return `${parts.join('; ')}.`;
+      const base = parts.length
+        ? `${parts.join('; ')}.`
+        : (risks.length ? `${risks.length} open risk${risks.length === 1 ? '' : 's'} tracked; none deal-stopping.` : 'No open risks recorded — run the diligence lanes.');
+      return allTemplated ? `${base} None written by a named author.` : base;
     })(),
   };
 }

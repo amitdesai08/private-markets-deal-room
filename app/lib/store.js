@@ -2633,6 +2633,31 @@ export function getDealLoi(id) {
   const deal = getDealRaw(id);
   return deal ? buildLoi(deal) : null;
 }
+// Sector-matched comparable transactions and committee precedents for one deal. This
+// existed only inside the readiness board's `marketIntel`, so the case page's own
+// instruction to check the price against precedent led to a 404.
+export function getDealComparables(id) {
+  const deal = getDealRaw(id);
+  if (!deal) return null;
+  const comparableDeals = compsForDeal(deal);
+  const icPrecedents = getICPrecedents(deal.sector);
+  return {
+    kind: 'comparables',
+    dealId: deal.id,
+    company: deal.company,
+    sector: deal.sector,
+    source: fabricInfo(),
+    comparableDeals,
+    icPrecedents,
+    benchmarkFindings: getBenchmarkFindings(),
+    // An empty panel is an answer; an empty panel that does not say it is scoped reads
+    // as a broken one.
+    note: comparableDeals.length || icPrecedents.length
+      ? `Scoped to ${deal.sector}.`
+      : `Nothing on file for ${deal.sector}. The set is not filtered down to nothing — there is no ${deal.sector} precedent in it.`,
+  };
+}
+
 // The case, composed from the record for a committee member reading cold. Distinct from
 // `memoSections`, which is what people have written; this is what the record already
 // says, and it exists because on most deals those two are not the same thing.
