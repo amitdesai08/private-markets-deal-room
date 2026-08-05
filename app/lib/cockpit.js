@@ -80,13 +80,25 @@ export function laneStatusText(status) {
 // blocker, an "at risk" overlay, or a "not yet started" count.
 export const CLOSED_AT_IC = 'closed_at_ic';
 
+// The person accountable for a lane. Owners in the record are written as 'legal-md' and
+// 'esg-md', which are not persona ids, so every owner resolved to a job title — a partner
+// nine days from committee was told "Legal DD (General Counsel)" and cannot chase a job
+// title.
+const LANE_OWNER = {
+  financial: 'fund-cfo', tax: 'fund-cfo', legal: 'legal-gc', commercial: 'retail-md',
+  techai: 'ai-md', tech: 'ai-md', operations: 'supply-md', operational: 'supply-md',
+  hr: 'operating-partner', esg: 'ir-lp',
+};
+
 export function ownerLabel(id, lane) {
   const name = personaName(id);
   if (name) return name;
-  // Case- and spacing-insensitive: the seed carries 'Finance MD' and 'finance-md' for
-  // the same person, and an exact-match lookup let one of the two through raw.
+  const byLane = personaName(LANE_OWNER[String(lane || '').toLowerCase()]);
   const key = String(id || '').trim().toLowerCase();
-  if (key && ROLE_TITLE[key]) return ROLE_TITLE[key];
+  const title = key && ROLE_TITLE[key] ? ROLE_TITLE[key] : null;
+  // Name first, role in brackets: the name is who to chase, the role is why it is theirs.
+  if (byLane) return title ? `${byLane} (${title})` : byLane;
+  if (title) return title;
   if (id && !LANE_LABEL[id]) return /[-_]/.test(String(id)) ? humanise(id) : String(id);
   return laneLabel(lane);
 }

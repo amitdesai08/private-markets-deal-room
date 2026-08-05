@@ -129,7 +129,12 @@ function blockingWorkstreams(deal, openIssues) {
     else if (halted) reasons.push(`workstream ${w.status.replace('_', ' ')}`);
     if (blockingIssues.length) reasons.push(`${blockingIssues.length} open high-severity issue(s)`);
     if (reasons.length) {
-      out.push({ lane: w.lane, label: laneLabel(w.lane), owner: w.owner ? ownerLabel(w.owner, w.lane) : null, progress: w.progress || 0, status: w.status || 'not_started', openIssues: laneIssues.length, blockingIssues: blockingIssues.length, reasons });
+      out.push({ lane: w.lane, label: laneLabel(w.lane), owner: w.owner ? ownerLabel(w.owner, w.lane) : null, progress: w.progress || 0, status: w.status || 'not_started', openIssues: laneIssues.length, blockingIssues: blockingIssues.length, reasons,
+        // Nothing on this board carried a date, so "Legal DD, not started, General Counsel"
+        // nine days out told a partner it was late and not whether anyone had committed to
+        // finishing it. The record holds no completion dates; saying so is the answer.
+        dueDate: w.dueDate || null,
+        dueNote: w.dueDate ? null : 'No completion date committed on the record.' });
     }
   }
   return out;
