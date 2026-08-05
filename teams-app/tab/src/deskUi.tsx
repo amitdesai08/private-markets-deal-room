@@ -65,13 +65,39 @@ export function Narrative({
   );
 }
 
-export function SourceList({ sources }: { sources: string[] }) {
-  if (!sources.length) return null;
+// Where a cited source actually lives, when it lives anywhere. Some sources are pages in
+// this product and can be opened; others are records ("Teams message from David Osei") and
+// cannot. Returning null for the second kind is the point — a link that goes nowhere is
+// worse than plain text.
+export function sourceTarget(source: string): string | null {
+  const s = String(source || '').toLowerCase();
+  if (/ic readiness|readiness board/.test(s)) return 'ic';
+  if (/risk register|returns|value creation|plan & risk/.test(s)) return 'artifacts';
+  if (/workstream|diligence lane|lane/.test(s)) return 'workspace';
+  if (/teams message|channel|thread/.test(s)) return 'threads';
+  if (/audit trail/.test(s)) return 'activity';
+  if (/document|data room|memo|paper/.test(s)) return 'docdesk';
+  if (/deal record|current step|target ic date|stage on the deal/.test(s)) return 'cockpit';
+  return null;
+}
+
+export function SourceList({ sources, onOpen, showAccessModel = true }: { sources: string[]; onOpen?: (tab: string) => void; showAccessModel?: boolean }) {
+  // "Access model — administrator" is a note about how visibility works. It belongs in a
+  // demonstration of the product and not in a working citation list, where it is the one
+  // line that cites nothing.
+  const shown = sources.filter((s) => showAccessModel || !/^access model\b/i.test(String(s || '')));
+  if (!shown.length) return null;
   return (
     <div className="sub" style={{ marginTop: 8 }}>
-      {sources.map((s, i) => (
-        <div key={i}><cite>{i + 1}</cite> {s}</div>
-      ))}
+      {shown.map((s, i) => {
+        const tab = onOpen ? sourceTarget(s) : null;
+        return (
+          <div key={i}>
+            <cite>{i + 1}</cite>{' '}
+            {tab ? <button className="srcbtn" onClick={() => onOpen?.(tab)}>{s}</button> : s}
+          </div>
+        );
+      })}
     </div>
   );
 }

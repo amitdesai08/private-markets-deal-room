@@ -118,13 +118,27 @@ test('the sourcing seat surfaces origination, which the portfolio ranking buries
 });
 
 test('a viewer with no persona is TOLD the page is not tailored, rather than shown a generic one silently', () => {
-  const hd = build(null);
+  // Still true, and now scoped. This sentence narrates the ACCESS MODEL, which is a
+  // demonstration of how visibility differs between jobs. At work nobody is previewing a
+  // role — they are doing their job — so outside demo mode the product shows them their
+  // own deals without explaining the permission system to them.
+  const hd = buildHomeDesk(deals, { role: null, roleLabel: null, persona: null, demoMode: true, rawFor: (d) => getDealRaw(d.id) });
   assert.equal(hd.seat.tailored, false);
   assert.match(text(hd), /no specialist role is assigned to you yet/i);
 });
 
+test('outside demo mode the product does not narrate the access model at all', () => {
+  for (const role of [null, 'admin', 'member']) {
+    const hd = buildHomeDesk(deals, { role, roleLabel: role, persona: null, demoMode: false, rawFor: (d) => getDealRaw(d.id) });
+    const said = text(hd);
+    assert.doesNotMatch(said, /you are seeing the administrator/i, `${role}: role narration leaked outside demo mode`);
+    assert.doesNotMatch(said, /no specialist role is assigned/i, `${role}: role narration leaked outside demo mode`);
+    assert.doesNotMatch(said, /you have observer access/i, `${role}: role narration leaked outside demo mode`);
+  }
+});
+
 test('an administrator is told the view is unweighted instead of being given a fake desk', () => {
-  const hd = buildHomeDesk(deals, { role: 'admin', roleLabel: 'Administrator', persona: null, rawFor: (d) => getDealRaw(d.id) });
+  const hd = buildHomeDesk(deals, { role: 'admin', roleLabel: 'Administrator', persona: null, demoMode: true, rawFor: (d) => getDealRaw(d.id) });
   assert.equal(hd.seat.kind, 'oversight');
   assert.match(text(hd), /administrator's view/i);
   assert.doesNotMatch(text(hd), /no specialist role is assigned/i);

@@ -257,7 +257,9 @@ export default function Deals({
                   key={d.id}
                 >
                   <span className={`dv-chip ${chip.tone}`}>{chip.label}</span>
-                  <span className="dv-name">{d.company}{d.locked ? ' 🔒' : ''}</span>
+                  <span className="dv-name">
+                    <button className="dv-open" onClick={() => onOpen(d.id)}>{d.company}</button>{d.locked ? ' 🔒' : ''}
+                  </span>
                   <span className="dv-stage">{stepLabel(d)}</span>
                   {/* Not the headline: on a diligence deal `headline` is this same list with
                       the state prefixed, and the chip has already said the state.

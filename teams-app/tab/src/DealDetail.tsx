@@ -255,7 +255,7 @@ const pathLabel = (t: Tab): string => {
   return g.tabs.length > 1 ? `${g.label} · ${SUB_LABEL[t] || TAB_LABEL[t]}` : g.label;
 };
 
-export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, initialTab, onTabChange }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string; initialTab?: string; onTabChange?: (t: string) => void }) {
+export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, initialTab, onTabChange, demoMode }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string; initialTab?: string; onTabChange?: (t: string) => void; demoMode?: boolean }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
   const [ic, setIc] = useState<ICReadiness | null>(null);
   const [flow, setFlow] = useState<Flow | null>(null);
@@ -958,6 +958,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                 <Cockpit
                   dealId={dealId}
                   onGoTab={(t) => setTab(t as Tab)}
+                  demoMode={demoMode}
                   onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}
                 />
               )}

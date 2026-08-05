@@ -641,7 +641,8 @@ export default function App() {
 
       <div className="layout">
         {openDealId && seatReady ? (
-          <DealDetail key={openDealId} dealId={openDealId} canViewStage2={canViewStage2} canWrite={canWrite} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} backLabel={backLabel} initialTab={dealTab || undefined} onTabChange={setDealTab} />
+          <DealDetail key={openDealId} dealId={openDealId} canViewStage2={canViewStage2} canWrite={canWrite} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} backLabel={backLabel} initialTab={dealTab || undefined} onTabChange={setDealTab} demoMode={isDemoMode}
+            />
         ) : openDealId ? (
           /* A deal link opens the deal before anyone has been identified, and the first
              request would go out anonymous -- which the backend answers as the default
@@ -662,7 +663,7 @@ export default function App() {
           ) : mainTab === 'overview' ? (
             <>
               <AgentGuide roleLabel={roleLabel} canViewStage2={canViewStage2} canWrite={canWrite} onAsk={() => setChatOpen(true)} />
-                <Dashboard pipeline={pipeline} deals={deals} dealsLoading={dealsLoading} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} viewerKey={`${viewAs}|${viewAsRole}`} layoutKey={viewAs} onGoSourcing={() => setMainTab('sourcing')} compare={dealsCompare} onCompareChange={setDealsCompare} />
+                <Dashboard pipeline={pipeline} deals={deals} dealsLoading={dealsLoading} market={market} config={config} onAsk={askAbout} onAskQuestion={askQuestion} onOpen={setOpenDealId} canWrite={canWrite} roleLabel={roleLabel} viewerKey={`${viewAs}|${viewAsRole}`} layoutKey={viewAs} onGoSourcing={() => setMainTab('sourcing')} compare={dealsCompare} onCompareChange={setDealsCompare} demoMode={isDemoMode} />
             </>
           ) : mainTab === 'sourcing' ? (
             <Stage1 deals={deals} onChanged={refreshData} onOpenDeal={setOpenDealId} />
@@ -724,7 +725,9 @@ button { color: inherit; }
 .spacer { flex: 1; }
 .sub { color: var(--muted); font-size: 11.5px; }
 .grid { display: grid; gap: 12px; }
-.g2 { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); }
+/* Columns are independent stacks, not a table: without this the shorter one stretches to
+   the taller one's height and renders as a tall empty panel. */
+.g2 { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; }
 .g3 { grid-template-columns: minmax(0, 260px) minmax(0, 1.4fr) minmax(0, 320px); }
 @media (max-width: 1150px) { .g2, .g3 { grid-template-columns: 1fr; } }
 /* Stacked, the columns fall in source order, which put the four headline numbers below
@@ -945,8 +948,18 @@ details[open] > summary:before { content: "\\25BE "; }
 .comparebtn { border: 1px solid var(--border); background: var(--chip); color: var(--muted); border-radius: 6px; padding: 3px 9px; cursor: pointer; font: inherit; font-size: 12px; white-space: nowrap; }
 .comparebtn:hover { border-color: var(--accent); color: var(--accent); }
 .comparebtn.on { border-color: var(--accent); color: var(--accent); background: var(--surface); }
-.openbtn { border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: 6px; padding: 3px 9px; cursor: pointer; font: inherit; font-size: 12px; white-space: nowrap; }
-.openbtn:hover { background: var(--chip); }
+/* Opening the deal is the whole point of the row and it read as a caption beside the
+   company name — an outline the same weight as Compare and Ask. It is the primary action
+   and now looks like one; the other two stay quiet beside it. */
+.openbtn { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; padding: 5px 14px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.openbtn:hover { filter: brightness(1.08); }
+/* The company name is what people click first, so it has to accept the click. */
+.dv-open { border: none; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--fg); text-align: left; cursor: pointer; }
+.dv-open:hover { color: var(--accent); text-decoration: underline; }
+/* A cited source that names a page in this product opens it. The ones that name a record
+   rather than a page stay as text, because a link that goes nowhere is worse. */
+.srcbtn { border: none; background: none; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-align: left; }
+.srcbtn:hover { text-decoration: underline; }
 .linkbtn { border: none; background: none; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; padding: 0; }
 .cand-list { display: flex; flex-direction: column; }
 .cand { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-bottom: 1px solid var(--border); }

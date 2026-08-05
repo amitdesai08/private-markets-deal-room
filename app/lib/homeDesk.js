@@ -499,7 +499,7 @@ function portfolioCommitments(deals, rawFor, limit = 6, laneLabels = []) {
 // `rawFor` resolves a list summary back to its full deal record, which the Work IQ
 // corpus needs (workstream leads and sponsors are stripped from summaries). It defaults to
 // the identity function so the builder stays testable with plain objects.
-export function buildHomeDesk(deals = [], { role = null, roleLabel = null, persona = null, rawFor = (d) => d } = {}) {
+export function buildHomeDesk(deals = [], { role = null, roleLabel = null, persona = null, demoMode = false, rawFor = (d) => d } = {}) {
   const list = Array.isArray(deals) ? deals.filter(Boolean) : [];
   const seat = seatFor({ role, persona });
 
@@ -845,13 +845,20 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     // she was supposed to give an LP.
     c.add(`Across everything you can see, screening to exit: ${list.length} deal${list.length === 1 ? '' : 's'} carrying ${money(capital)} of enterprise value, ${notReady} not yet IC-ready. The Report page counts pipeline value, which leaves out the companies you already own.`, 'Deal list');
   } else {
-    if (seat.kind === 'oversight') {
-      c.add(`You are seeing the administrator's view — every deal in the fund, ranked by urgency rather than filtered to one role.`, 'Access model — administrator');
-    } else if (seat.kind === 'observer') {
-      c.add('You have observer access, so this page shows where each deal stands, not the diligence detail behind it.', 'Access model — observer');
-    } else if (seat.unbound) {
-      // Say it, rather than let a generic page pass for a tailored one.
-      c.add('No specialist role is assigned to you yet, so this is the general portfolio view rather than one built around your own work. Ask an administrator to add you to the workstreams you own.', 'Access model — no specialist role');
+    // These sentences narrate the ACCESS MODEL — "you are seeing the administrator's
+    // view", "you have observer access". That is a demonstration of the product, useful
+    // when someone is being shown how visibility changes between jobs, and wrong in
+    // ordinary use: a person at work is not previewing a role, they are doing their job,
+    // and the product should just show them their own deals without narrating why.
+    if (demoMode) {
+      if (seat.kind === 'oversight') {
+        c.add(`You are seeing the administrator's view — every deal in the fund, ranked by urgency rather than filtered to one role.`, 'Access model — administrator');
+      } else if (seat.kind === 'observer') {
+        c.add('You have observer access, so this page shows where each deal stands, not the diligence detail behind it.', 'Access model — observer');
+      } else if (seat.unbound) {
+        // Say it, rather than let a generic page pass for a tailored one.
+        c.add('No specialist role is assigned to you yet, so this is the general portfolio view rather than one built around your own work. Ask an administrator to add you to the workstreams you own.', 'Access model — no specialist role');
+      }
     }
     // The seat's OWN opening sentence, ahead of the portfolio statistic.
     //

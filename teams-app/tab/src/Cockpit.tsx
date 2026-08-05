@@ -47,8 +47,8 @@ const KIND_TONE: Record<string, string> = {
 };
 
 export default function Cockpit({
-  dealId, onGoTab, onAsk,
-}: { dealId: string; onGoTab?: (tab: string) => void; onAsk?: (q: string) => void }) {
+  dealId, onGoTab, onAsk, demoMode,
+}: { dealId: string; onGoTab?: (tab: string) => void; onAsk?: (q: string) => void; demoMode?: boolean }) {
   const [data, setData] = useState<CockpitData | null>(null);
   const [signal, setSignal] = useState<Signal | null>(null);
   const [loading, setLoading] = useState(true);
@@ -143,7 +143,7 @@ export default function Cockpit({
                     {data.briefing.sources.length ? ` · Sources: ${data.briefing.sources.join(', ')}` : ''}
                   </div>
                   <Narrative paragraphs={data.briefing.paragraphs} sources={data.briefing.sources} onCite={() => setEvidence(true)} />
-                  {evidence ? <SourceList sources={data.briefing.sources} /> : null}
+                  {evidence ? <SourceList sources={data.briefing.sources} onOpen={onGoTab} showAccessModel={!!demoMode} /> : null}
                   {data.briefing.suggestions.length ? (
                     <div className="suggest">
                       <span className="sub" style={{ fontWeight: 600 }}>Ask next</span>

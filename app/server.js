@@ -370,6 +370,7 @@ api.get('/home-desk', (req, res) => {
     // administrator — the original sentence is the honest answer and still shows.
     persona: personaForIdentity(identity)
       || (demoModeActive() && ALL_PERSONA_IDS.includes(access?.role) ? access.role : null),
+    demoMode: demoModeActive(),
     rawFor: (d) => getDealRaw(d.id),
   }));
 });

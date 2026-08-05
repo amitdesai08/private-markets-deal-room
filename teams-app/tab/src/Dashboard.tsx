@@ -55,10 +55,10 @@ function money(n?: number): string {
   return `$${Math.round(n)}`;
 }
 
-export default function Dashboard({ pipeline, deals, dealsLoading, market, config, onAsk, onAskQuestion, onOpen, canWrite, roleLabel, viewerKey, layoutKey, onGoSourcing, compare, onCompareChange }: {
+export default function Dashboard({ pipeline, deals, dealsLoading, market, config, onAsk, onAskQuestion, onOpen, canWrite, roleLabel, viewerKey, layoutKey, onGoSourcing, compare, onCompareChange, demoMode }: {
   pipeline: Pipeline | null; deals: Deal[]; dealsLoading?: boolean; market: MarketIntel | null;
   config: BackendConfig | null; onAsk: (dealId: string) => void; onAskQuestion?: (q: string) => void;
-  onOpen: (dealId: string) => void; canWrite?: boolean; roleLabel?: string | null;
+  onOpen: (dealId: string) => void; canWrite?: boolean; roleLabel?: string | null; demoMode?: boolean;
   // Identifies WHO the page is currently being rendered for, so the briefing can be
   // re-fetched on an identity switch rather than only on a change in deal count.
   viewerKey?: string;
@@ -460,7 +460,7 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
                     </div>
                     {seatLine ? <div className="seatline">{seatLine}</div> : null}
                     <Narrative paragraphs={home.briefing.paragraphs} sources={home.briefing.sources} onCite={() => setEvidence(true)} />
-                    {evidence ? <SourceList sources={home.briefing.sources} /> : null}
+                    {evidence ? <SourceList sources={home.briefing.sources} showAccessModel={!!demoMode} /> : null}
                     {home.briefing.suggestions.length && onAskQuestion ? (
                       <div className="suggest">
                         <span className="sub" style={{ fontWeight: 600 }}>Ask next</span>
@@ -480,69 +480,6 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
           </div>
           ) : null}
 
-          {/* Follow-ups promised in deal channels that are not tracked anywhere. Proposed
-              only — a task is created on the deal that owns it, by a named person. */}
-          {showFollowups && home?.workiq ? (
-            <div className="card aicard">
-              <div className="hd">
-                <span className="aibadge">▤ Composed</span>
-                <h3>Untracked follow-ups</h3>
-                <Tag kind="new" />
-                <span className="spacer" />
-                <span className="chip">{home.workiq.total} across {home.workiq.deals} deal{home.workiq.deals === 1 ? '' : 's'}</span>
-                {home.workiq.yours ? <span className="chip warn">{home.workiq.yours} yours</span> : null}
-                <button className="btn link compact" onClick={() => setShowWorkiq((v) => !v)}>{showWorkiq ? 'Hide' : 'Show'}</button>
-              </div>
-              {showWorkiq ? (
-                <div className="bd">
-                  {(allFollowups ? (home.workiq.all || home.workiq.items) : home.workiq.items).map((c, i) => {
-                    const key = `${c.dealId}-${i}-${c.headline}`;
-                    const st = tracked[key];
-                    return (
-                    <div className="commit" key={key}>
-                      <div className="att-t">
-                        <span className="name">{c.author}</span>
-                        <span className="chip">{c.company}</span>
-                        {c.laneLabel ? <span className="sub">{c.laneLabel}</span> : null}
-                        {c.yours ? <span className="chip warn">yours</span> : null}
-                        {c.dueText ? <span className="chip warn">📅 {c.dueText}</span> : null}
-                      </div>
-                      <div className="quote">“{c.quote || c.headline}”</div>
-                      <div className="sub">Where this came from: {c.basis || 'detected in the deal channel'} · {st === 'done' ? 'now recorded as a task on the deal' : 'not recorded as a task'}</div>
-                      <div className="acts">
-                        {canWrite ? (
-                          <button className="btn" disabled={st === 'busy' || st === 'done'} onClick={() => trackFollowup(key, c)}>
-                            {st === 'done' ? '✓ Tracked' : st === 'busy' ? 'Recording…' : st === 'failed' ? 'Try again' : '✓ Track this'}
-                          </button>
-                        ) : null}
-                        <button className="btn link" onClick={() => onOpen(c.dealId)}>Open {c.company} ▸</button>
-                        {onAskQuestion ? (
-                          <button className="btn link" onClick={() => onAskQuestion(`On ${c.company}, is this follow-up tracked: "${c.headline}"?`)}>Ask about it</button>
-                        ) : null}
-                      </div>
-                    </div>
-                    );
-                  })}
-                  {/* The count on the header said thirty-nine and the card showed six,
-                      which reads as a product that knows more than it will tell you. */}
-                  {home.workiq.total > home.workiq.items.length ? (
-                    <button className="btn link compact" onClick={() => setAllFollowups((v) => !v)}>
-                      {allFollowups ? `Show the first ${home.workiq.items.length} only` : `Show the other ${home.workiq.total - home.workiq.items.length}`}
-                    </button>
-                  ) : null}
-                  <div className="sub">
-                    Detected, not decided. Tracking one records it as a task on the deal that owns it,
-                    against your name, in that deal's audit trail.
-                  </div>
-                </div>
-              ) : (
-                <div className="note">
-                  {home.workiq.total} follow-up{home.workiq.total === 1 ? '' : 's'} {home.workiq.total === 1 ? 'was' : 'were'} promised in the deal channels and never
-                  turned into a task. Show them to see who owes what, and when.
-                </div>
-              )}
-            </div>
-          ) : null}
         </div>
         ) : null}
 
@@ -671,6 +608,69 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
               Opening a deal takes you to that deal's own page. Nothing here changes a deal — it only tells you where to look first.
             </div>
           </div>
+          ) : null}
+          {/* Follow-ups promised in deal channels that are not tracked anywhere. Proposed
+              only — a task is created on the deal that owns it, by a named person. */}
+          {showFollowups && home?.workiq ? (
+            <div className="card aicard">
+              <div className="hd">
+                <span className="aibadge">▤ Composed</span>
+                <h3>Untracked follow-ups</h3>
+                <Tag kind="new" />
+                <span className="spacer" />
+                <span className="chip">{home.workiq.total} across {home.workiq.deals} deal{home.workiq.deals === 1 ? '' : 's'}</span>
+                {home.workiq.yours ? <span className="chip warn">{home.workiq.yours} yours</span> : null}
+                <button className="btn link compact" onClick={() => setShowWorkiq((v) => !v)}>{showWorkiq ? 'Hide' : 'Show'}</button>
+              </div>
+              {showWorkiq ? (
+                <div className="bd">
+                  {(allFollowups ? (home.workiq.all || home.workiq.items) : home.workiq.items).map((c, i) => {
+                    const key = `${c.dealId}-${i}-${c.headline}`;
+                    const st = tracked[key];
+                    return (
+                    <div className="commit" key={key}>
+                      <div className="att-t">
+                        <span className="name">{c.author}</span>
+                        <span className="chip">{c.company}</span>
+                        {c.laneLabel ? <span className="sub">{c.laneLabel}</span> : null}
+                        {c.yours ? <span className="chip warn">yours</span> : null}
+                        {c.dueText ? <span className="chip warn">📅 {c.dueText}</span> : null}
+                      </div>
+                      <div className="quote">“{c.quote || c.headline}”</div>
+                      <div className="sub">Where this came from: {c.basis || 'detected in the deal channel'} · {st === 'done' ? 'now recorded as a task on the deal' : 'not recorded as a task'}</div>
+                      <div className="acts">
+                        {canWrite ? (
+                          <button className="btn" disabled={st === 'busy' || st === 'done'} onClick={() => trackFollowup(key, c)}>
+                            {st === 'done' ? '✓ Tracked' : st === 'busy' ? 'Recording…' : st === 'failed' ? 'Try again' : '✓ Track this'}
+                          </button>
+                        ) : null}
+                        <button className="btn link" onClick={() => onOpen(c.dealId)}>Open {c.company} ▸</button>
+                        {onAskQuestion ? (
+                          <button className="btn link" onClick={() => onAskQuestion(`On ${c.company}, is this follow-up tracked: "${c.headline}"?`)}>Ask about it</button>
+                        ) : null}
+                      </div>
+                    </div>
+                    );
+                  })}
+                  {/* The count on the header said thirty-nine and the card showed six,
+                      which reads as a product that knows more than it will tell you. */}
+                  {home.workiq.total > home.workiq.items.length ? (
+                    <button className="btn link compact" onClick={() => setAllFollowups((v) => !v)}>
+                      {allFollowups ? `Show the first ${home.workiq.items.length} only` : `Show the other ${home.workiq.total - home.workiq.items.length}`}
+                    </button>
+                  ) : null}
+                  <div className="sub">
+                    Detected, not decided. Tracking one records it as a task on the deal that owns it,
+                    against your name, in that deal's audit trail.
+                  </div>
+                </div>
+              ) : (
+                <div className="note">
+                  {home.workiq.total} follow-up{home.workiq.total === 1 ? '' : 's'} {home.workiq.total === 1 ? 'was' : 'were'} promised in the deal channels and never
+                  turned into a task. Show them to see who owes what, and when.
+                </div>
+              )}
+            </div>
           ) : null}
         </div>
         ) : null}
