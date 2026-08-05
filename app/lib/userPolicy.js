@@ -278,8 +278,8 @@ export function demoIdentityForRole(role) {
   if (!demoModeActive()) return null;
   const id = (demoRoleIds[String(role || '').trim()] || [])[0];
   if (!id) return null;
-  const p = demoProfileById(id);
-  return { upn: id, name: p?.name || id };
+  const p = demoProfileById[id];
+  return { upn: p?.upn || id, name: p?.name || id };
 }
 
 // Roles a user may impersonate DOWN to — their own role and every lower one. Powers a

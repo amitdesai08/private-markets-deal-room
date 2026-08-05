@@ -242,3 +242,22 @@ test('the status tier strips the progress detail, and keeps only what it means t
     assert.notEqual(r.readiness, undefined, `${r.company}: readiness is meant to survive`);
   }
 });
+
+test('every seat a proven caller can preview actually resolves to that seat', async () => {
+  const { BOT_BACKEND_KEY } = process.env;
+  if (!BOT_BACKEND_KEY) { assert.ok(true, 'no bot key configured'); return; }
+  // Shipped a 500 to production here: the demo profile lookup is a map and was called as
+  // a function, so /api/capabilities threw for every seat. Nothing exercised it.
+  const me = await (await fetch(`${base}/api/me/access`, { method: 'POST', headers: { 'x-bot-key': BOT_BACKEND_KEY, 'content-type': 'application/json' }, body: '{}' })).json();
+  for (const role of ['partner', 'admin', 'analyst', 'deal-team', 'member']) {
+    const r = await fetch(`${base}/api/capabilities`, { headers: { 'x-bot-key': BOT_BACKEND_KEY, 'x-dr-view-as': role } });
+    assert.equal(r.status, 200, `${role}: /api/capabilities answered ${r.status}`);
+    const j = await r.json();
+    assert.ok(j.roleLabel, `${role}: no label`);
+    // Previewing a seat ABOVE the deploy default is a demo affordance and only resolves
+    // when demo mode is on; below it, view-as narrows and must always land exactly.
+    if (me.demoMode || role === 'analyst' || role === 'member' || role === 'deal-team') {
+      assert.equal(j.role, role, `asked to preview ${role} and was answered as ${j.role}`);
+    }
+  }
+});
