@@ -374,6 +374,28 @@ export function reconcileFindingText(text, deal) {
   });
 }
 
+// A recorded finding's own grade, translated into the register's vocabulary. This was
+// testing for severities the record does not use -- 'risk' and 'negative' -- so every
+// one of the 34 written findings in the book fell through to `monitor`, which is the one
+// band the case page filters OUT of "what could kill it". The result: zero written
+// findings qualified as a killer on any deal, ever, the tie-break that prefers a written
+// row over a standard one became dead code, and a signed $640M deal presented two
+// templated rows as the things that could kill it while "two specific indemnities carved
+// out for the historical customs matter", with a lawyer's name on it, sat below unread.
+//
+// The record's vocabulary is positive | neutral | caution | high | medium | watch.
+const RECORDED_SEVERITY = {
+  high: 'reprice',
+  caution: 'condition',
+  medium: 'condition',
+  watch: 'monitor',
+  // A positive finding is not a risk and must not be dressed as one. Two of them were
+  // the entire "against it" section of a committed deal.
+  positive: 'clear',
+  neutral: 'clear',
+};
+const recordedSeverity = (sev, fallback) => RECORDED_SEVERITY[String(sev || '').toLowerCase()] || fallback;
+
 function workstreamFindings(deal) {
   const f = dealFinancials(deal);
   // Currency-aware money so figures match the deal's reporting currency
@@ -428,7 +450,7 @@ function workstreamFindings(deal) {
     // $2.1M of add-backs disallowed". Two templated rows were printed under "what could
     // kill it" while the recorded finding was not on the page at all.
     for (const fnd of laneFindings('financial').slice(0, 1)) {
-      add('financial', 'monitor', String(fnd.text).trim(), 'Recorded by the financial workstream and settled before the figures were fixed.', 'recorded');
+      add('financial', recordedSeverity(fnd.severity, 'monitor'), String(fnd.text).trim(), 'Recorded by the financial workstream and settled before the figures were fixed.', 'recorded');
     }
   } else {
     // The register said "QoE normalises EBITDA down 12% ($29M → $26M)" on a deal whose
@@ -447,8 +469,12 @@ function workstreamFindings(deal) {
       // The number an IC member reaches for and could never find: what the price becomes
       // if the provision proves out. Stating the allowance and not its consequence left
       // the entry multiple quoted on an EBITDA the same page says is overstated.
-      `Allowance carried for QoE normalisation: ${haircut}% of EBITDA (${money(f.ebitda)} → ${money(adjEbitda)}), covering unsupported add-backs and owner-comp normalisation. This is the modelled provision, not a QoE result. If it proves out, the ${entryOnReported}x entry becomes ${entryOnAdjusted}x on the adjusted figure.${qoeFinding ? ` The financial workstream has recorded one specific driver: ${String(qoeFinding.text).replace(/\s+$/, '')} Whether that adjustment is already inside the ${money(f.ebitda)} above, or still to come out of it, is not stated on the record — and the two readings put the entry at ${entryOnReported}x or at ${entryOnAdjusted}x. Settle it before the multiple is quoted in a room.` : ''}`,
-      haircut >= 15 ? `Repricing lever — reset entry EV against ${money(adjEbitda)} adjusted EBITDA.` : 'Reflected in the model and the SPA net-working-capital peg.');
+      `Allowance carried for QoE normalisation: ${haircut}% of EBITDA (${money(f.ebitda)} → ${money(adjEbitda)}), covering unsupported add-backs and owner-comp normalisation. This is the modelled provision, not a QoE result. If it proves out, the ${entryOnReported}x entry becomes ${entryOnAdjusted}x on the adjusted figure.${qoeFinding ? ` Separately, the financial workstream has recorded this: ${String(qoeFinding.text).replace(/\s+$/, '')} That is a written finding and this row is a modelled allowance; the ${entryOnAdjusted}x above is the allowance's arithmetic and is not what the finding implies. The record does not say whether the finding is already inside the ${money(f.ebitda)} the allowance is taken from.` : ''}`,
+      haircut >= 15 ? `Repricing lever — reset entry EV against ${money(adjEbitda)} adjusted EBITDA.` : 'Reflected in the model and the SPA net-working-capital peg.',
+      // The row quoted a recorded finding by name and then carried a note reading "No
+      // named author has written a finding against it" -- on the deal coming to
+      // committee in four days. It is a mixed row and it says so.
+      qoeFinding ? 'modelled, quoting a recorded finding' : 'templated');
   }
   add('financial', 'condition', `Net-working-capital peg set at ~${money(round(f.revenue * 0.12))} from a 12–24 month seasonality analysis.`, 'Becomes the SPA true-up mechanism at close.');
 
@@ -463,7 +489,7 @@ function workstreamFindings(deal) {
   const conc = Math.max(8, Math.min(46, concBase + (seedOf(`${deal.id}:conc`) % 13) - 6));
   if (laneWorked('commercial')) {
     for (const fnd of laneFindings('commercial').slice(0, 2)) {
-      add('commercial', fnd.severity === 'risk' || fnd.severity === 'negative' ? 'reprice' : 'monitor', String(fnd.text).trim(), 'Recorded by the commercial workstream.', 'recorded');
+      add('commercial', recordedSeverity(fnd.severity, 'reprice'), String(fnd.text).trim(), 'Recorded by the commercial workstream.', 'recorded');
     }
   }
   add('commercial', conc >= 30 ? 'reprice' : 'monitor',
@@ -480,7 +506,7 @@ function workstreamFindings(deal) {
   // Legal — contracts change-of-control.
   if (laneWorked('legal')) {
     for (const fnd of laneFindings('legal').slice(0, 2)) {
-      add('legal', fnd.severity === 'risk' || fnd.severity === 'negative' ? 'condition' : 'monitor', String(fnd.text).trim(), 'Recorded by the legal workstream; track to resolution before signing.', 'recorded');
+      add('legal', recordedSeverity(fnd.severity, 'condition'), String(fnd.text).trim(), 'Recorded by the legal workstream; track to resolution before signing.', 'recorded');
     }
   } else if (laneStarted('legal')) {
     add('legal', 'condition', `Change-of-control consents required on ${pick('legalConsents', ['2–3', 'four', 'a handful of', 'two'])} material customer/supplier contracts — the standard scope for this lane. Nothing has been recorded against it, so there is no opinion on the record about litigation or title.`, 'Listed as conditions precedent in the SPA once counsel reports.');
@@ -491,7 +517,7 @@ function workstreamFindings(deal) {
   // Tax.
   if (laneWorked('tax')) {
     for (const fnd of laneFindings('tax').slice(0, 1)) {
-      add('tax', 'monitor', String(fnd.text).trim(), 'Recorded by the tax workstream; quantify and structure as a covered risk.', 'recorded');
+      add('tax', recordedSeverity(fnd.severity, 'monitor'), String(fnd.text).trim(), 'Recorded by the tax workstream; quantify and structure as a covered risk.', 'recorded');
     }
   } else if (laneStarted('tax')) {
     add('tax', 'monitor', 'Tax diligence is open. No exposure has been quantified on the record either way — VAT, transfer pricing and withholding are the standard scope and none has reported.', 'Backstop with W&I insurance once the review lands.');
@@ -504,7 +530,7 @@ function workstreamFindings(deal) {
   // specific, asserted by a template, is the kind of thing a committee repeats.
   if (laneWorked('operational')) {
     for (const fnd of laneFindings('operational').slice(0, 1)) {
-      add('operational', 'monitor', String(fnd.text).trim(), 'Recorded by the operations workstream; folded into the value-creation plan.', 'recorded');
+      add('operational', recordedSeverity(fnd.severity, 'monitor'), String(fnd.text).trim(), 'Recorded by the operations workstream; folded into the value-creation plan.', 'recorded');
     }
   } else {
     add('operational', 'monitor', `Procurement and footprint efficiency is the standard cost-out scope for this lane and is modelled at ~${money(round(f.revenue * 0.02))} run-rate. No operations finding has been recorded against this company.`, 'Test the assumption in operations diligence before it is carried into the plan.');
@@ -513,7 +539,7 @@ function workstreamFindings(deal) {
   // Tech.
   if (laneWorked('techai')) {
     for (const fnd of laneFindings('techai').slice(0, 1)) {
-      add('tech', 'monitor', String(fnd.text).trim(), 'Recorded by the technology workstream; addressed in the post-close IT roadmap.', 'recorded');
+      add('tech', recordedSeverity(fnd.severity, 'monitor'), String(fnd.text).trim(), 'Recorded by the technology workstream; addressed in the post-close IT roadmap.', 'recorded');
     }
   } else if (laneStarted('techai')) {
     add('tech', 'monitor', 'Technology diligence is open. Neither the scalability of the platform nor the cyber posture has been reported on — there is no assessment on the record to quote.', 'Chase the technical review; this lane sets the 100-day IT roadmap.');
@@ -543,7 +569,7 @@ function workstreamFindings(deal) {
   // commissioned" on a deal whose ESG lane reads COMPLETE contradicts its own board.
   if (laneWorked('esg')) {
     for (const fnd of laneFindings('esg').slice(0, 1)) {
-      add('esg', 'monitor', String(fnd.text).trim(), 'Recorded by the ESG workstream; carried into the 100-day plan.', 'recorded');
+      add('esg', recordedSeverity(fnd.severity, 'monitor'), String(fnd.text).trim(), 'Recorded by the ESG workstream; carried into the 100-day plan.', 'recorded');
     }
   } else if (laneStarted('esg')) {
     add('esg', 'monitor', 'The ESG lane is open. No site condition or reporting finding has been recorded against this company, so there is nothing on the record to support a clean environmental opinion.', 'Chase the Phase I result and the ESG data review.');

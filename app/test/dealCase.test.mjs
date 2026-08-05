@@ -372,3 +372,84 @@ test('where the stated multiple and the funded enterprise value disagree, the pa
   }
   assert.ok(mismatched > 0, 'no deal exercised the mismatch path — the guard would be inert');
 });
+
+// The severity map tested for grades the record does not use, so all 34 written findings
+// in the book fell through to `monitor` -- the one band "what could kill it" filters out.
+// Zero recorded rows qualified as a killer on any deal, ever; the tie-break that prefers
+// a written row over a standard one was dead code; and a committed $640M deal presented
+// two templated rows as its killers while a lawyer's note about indemnities carved out
+// for a historical customs matter sat below unread.
+test('a written finding can reach the killers, and a positive one never does', () => {
+  let aboveMonitor = 0;
+  for (const d of seededDeals) {
+    for (const r of buildRiskRegister(d).risks) {
+      if (r.basis !== 'recorded') continue;
+      if (r.severity !== 'monitor') aboveMonitor += 1;
+    }
+  }
+  assert.ok(aboveMonitor > 0, 'no written finding is graded above a monitor — the killers can only ever be boilerplate');
+  for (const [id, c] of CASES) {
+    for (const r of c.againstIt) {
+      assert.doesNotMatch(r.risk, /tracking ahead of plan|resilient|durable|real moat|no material historical exposure/i,
+        `${id}: a positive finding is presented as a thing that could kill the deal`);
+    }
+  }
+});
+
+// A row that quotes a recorded finding by name cannot also carry "No named author has
+// written a finding against it" -- and it did, on the deal coming to committee in four
+// days.
+test('a row that quotes a finding does not deny one exists', () => {
+  for (const d of seededDeals) {
+    for (const r of buildRiskRegister(d).risks) {
+      if (!r.basisNote) continue;
+      if (/has recorded this|financial workstream has recorded/i.test(r.risk)) {
+        assert.doesNotMatch(r.basisNote, /No named author/i, `${d.id}: a row quoting a finding says nobody wrote one`);
+      }
+    }
+  }
+});
+
+// "None was written by a named author against this company" printed on a deal with six
+// named findings, because the claim tested the three-row slice rather than the register.
+test('the no-author claim is made about the register, not about three rows of it', () => {
+  for (const [id, c] of CASES) {
+    const d = seededDeals.find((x) => x.id === id);
+    const hasRecorded = buildRiskRegister(d).risks.some((r) => r.basis === 'recorded');
+    const claims = c.notOnRecord.some((n) => /Nothing on this deal.s risk register was written by a named author/i.test(n));
+    assert.equal(claims, !hasRecorded, `${id}: the no-author claim disagrees with the register`);
+  }
+});
+
+// One entry multiple per page. The ask read "Committed: $670M at 4.1x" where 670 over
+// 134 is 5.0x, and the price comparison quoted the 4.1x while the ask beside it said 5x.
+test('the ask, the price comparison and the figures speak one entry multiple', () => {
+  for (const [id, c] of CASES) {
+    if (!c.ask) continue;
+    const implied = +(c.ask.enterpriseValue / Math.max(1, Number(String(c.figures.find((f) => /EBITDA/.test(f.label)).value).replace(/[^0-9.]/g, '')))).toFixed(1);
+    assert.ok(Math.abs(c.ask.entryMultiple - implied) <= 0.15,
+      `${id}: the ask states ${c.ask.entryMultiple}x over an enterprise value implying ${implied}x`);
+    if (c.priceAgainstPrecedent) {
+      assert.equal(c.priceAgainstPrecedent.entryMultiple, c.ask.entryMultiple,
+        `${id}: the price comparison and the ask quote different multiples`);
+    }
+  }
+});
+
+// "All numeric claims trace to a source fact or cited document", at 100, on a case
+// carrying two enterprise values and two entry multiples. A badge measuring something
+// other than what its sentence says is worse than no badge.
+test('the sourcing badge does not claim a clean bill over a contradiction it cannot see', () => {
+  let caveated = 0;
+  for (const [id, c] of CASES) {
+    if (!c.citations) continue;
+    const ebitda = c.figures.find((f) => /EBITDA/.test(f.label));
+    const derived = /screening default/i.test(ebitda.basis);
+    if (derived) {
+      caveated += 1;
+      assert.equal(c.citations.clean, false, `${id}: reported clean over a multiple struck on a screening default`);
+      assert.match(c.citations.summary, /not whether the figures agree/i, `${id}: the badge does not say what it measures`);
+    }
+  }
+  assert.ok(caveated > 0, 'no deal exercised the caveat path — the guard would be inert');
+});

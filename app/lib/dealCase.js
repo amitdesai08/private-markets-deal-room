@@ -110,13 +110,26 @@ function theAsk(canon, returns, deal) {
   if (!base) return null;
   const sponsor = ((returns.sourcesUses || {}).sources || []).find((x) => /sponsor equity/i.test(x.label));
   const decided = isDecided(deal);
+  // The ask took its enterprise value from the scenario and its multiple from the
+  // canonical figures, and on one deal those are struck on different numbers: it read
+  // "Committed: $670M enterprise value at 4.1x" where 670 over 134 is 5.0x. The
+  // reconciliation note was added to the returns page and the entry-multiple basis, and
+  // this line -- the one a committee actually reads -- was left saying the wrong thing.
+  const entry = returns.entry || {};
+  const mult = entry.ties === false && Number.isFinite(entry.ebitda) && entry.ebitda > 0
+    ? +(base.entryEV / entry.ebitda).toFixed(1)
+    : canon.entryMultiple;
+  const multNote = mult !== canon.entryMultiple
+    ? ` The record states ${canon.entryMultiple}x; that multiple is struck on a lower enterprise value than the one funded here.`
+    : '';
   return {
     // Past the decision this is a record of what was authorised, not a request. The
     // verb is the whole difference and it was wrong on eight deals.
     headline: decided
-      ? `Committed: ${m(base.entryEV)} enterprise value at ${canon.entryMultiple}x, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at ${canon.leverage}. This deal is past the committee decision.`
-      : `Authorise up to ${m(base.entryEV)} enterprise value at ${canon.entryMultiple}x, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at ${canon.leverage}.`,
+      ? `Committed: ${m(base.entryEV)} enterprise value at ${mult}x, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at ${canon.leverage}. This deal is past the committee decision.${multNote}`
+      : `Authorise up to ${m(base.entryEV)} enterprise value at ${mult}x, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at ${canon.leverage}.${multNote}`,
     decided,
+    entryMultiple: mult,
     enterpriseValue: base.entryEV,
     equityCheque: base.equityIn,
     debt: base.debt,
@@ -252,26 +265,63 @@ function revenueFigure(canon, deal) {
 // had to do the arithmetic themselves — which is the thing the comparables route was
 // built to stop. Nobody should have to notice that 8.3x sits under a 13.1x–16.9x
 // precedent set; the page should say it.
-function againstPrecedent(deal, canon) {
+// The one entry multiple this page speaks with. Where the record states a multiple that
+// is struck on a lower enterprise value than the model funds, the funded one is the one
+// a committee is being asked about -- and the page was quoting the stated 4.1x in the
+// price comparison while the ask beside it read 5.0x.
+function entryMultipleFor(returns, canon) {
+  const e = returns.entry || {};
+  const base = (returns.scenarios || []).find((s) => /base/i.test(s.name));
+  if (e.ties === false && base && Number.isFinite(e.ebitda) && e.ebitda > 0) {
+    return +(base.entryEV / e.ebitda).toFixed(1);
+  }
+  return canon.entryMultiple;
+}
+
+function againstPrecedent(deal, canon, entryMultiple) {
   const comps = (compsForDeal(deal) || []).filter((c) => Number.isFinite(c.evEbitda) && c.evEbitda > 0);
-  if (!comps.length || !Number.isFinite(canon.entryMultiple)) return null;
+  if (!comps.length || !Number.isFinite(entryMultiple)) return null;
   const mults = comps.map((c) => c.evEbitda).sort((a, b) => a - b);
   const lo = mults[0];
   const hi = mults[mults.length - 1];
-  const where = canon.entryMultiple < lo ? 'below' : canon.entryMultiple > hi ? 'above' : 'inside';
+  const where = entryMultiple < lo ? 'below' : entryMultiple > hi ? 'above' : 'inside';
+  const range = lo === hi ? `${lo}x` : `${lo}x–${hi}x`;
+  const set = comps.length === 1
+    ? `the single ${deal.sector} transaction on file, at ${range}`
+    : comps.length === 2
+      ? `the two ${deal.sector} transactions on file, at ${range}`
+      : `a ${deal.sector} precedent set of ${range}`;
+  // The judgement is only worth making about a real multiple. Where no EBITDA has been
+  // diligenced the model divides enterprise value by 12% of itself, which is 8.33x on
+  // every such deal by definition -- and this section was telling a committee we were
+  // cheap on one, dear on another and in range on a third, on a number carrying no
+  // information about any of the companies, with the caveat parked in a block further
+  // down the page. It carries its own caveat now, or it does not opine.
+  if (canon.ebitdaSource === 'derived') {
+    return {
+      entryMultiple,
+      low: lo,
+      high: hi,
+      count: comps.length,
+      sector: deal.sector,
+      where: 'not comparable',
+      text: `No comparison can be drawn. The ${entryMultiple}x is enterprise value divided by a screening default of 12% of itself, so it is the same figure on every deal with no diligenced EBITDA — it says nothing about this company. The fund has paid ${range} in ${deal.sector}.`,
+      basis: `${comps.length} transaction${comps.length === 1 ? '' : 's'} the fund underwrote in ${deal.sector}. Get an EBITDA onto the record and this comparison becomes worth making.`,
+    };
+  }
   return {
-    entryMultiple: canon.entryMultiple,
+    entryMultiple,
     low: lo,
     high: hi,
     count: comps.length,
     sector: deal.sector,
     where,
     text: where === 'below'
-      ? `We are buying at ${canon.entryMultiple}x against a ${deal.sector} precedent set of ${lo}x–${hi}x. If it is that cheap, the case needs to say why.`
+      ? `We are buying at ${entryMultiple}x against ${set}. If it is that cheap, the case needs to say why.`
       : where === 'above'
-        ? `We are buying at ${canon.entryMultiple}x against a ${deal.sector} precedent set of ${lo}x–${hi}x. That is above everything the fund has paid in the sector.`
-        : `We are buying at ${canon.entryMultiple}x, inside the ${deal.sector} precedent set of ${lo}x–${hi}x.`,
-    basis: `${comps.length} transaction${comps.length === 1 ? '' : 's'} the fund underwrote in ${deal.sector}. Open Comparables & precedents for the individual deals and the committee's reasoning on each.`,
+        ? `We are buying at ${entryMultiple}x against ${set}. That is above everything the fund has paid in the sector.`
+        : `We are buying at ${entryMultiple}x, inside ${set}.`,
+    basis: `${comps.length} transaction${comps.length === 1 ? '' : 's'} the fund underwrote in ${deal.sector}${comps.length < 3 ? ' — too few to be a distribution, so read them individually rather than as a range' : ''}. Open Comparables & precedents for the committee's reasoning on each.`,
   };
 }
 
@@ -325,11 +375,13 @@ export function buildDealCase(deal) {
     notOnRecord.push(`${b.label}: ${b.reasons.join('; ')}${b.dueDate ? ` — due ${b.dueDate}` : ''}.`);
   }
   if (undated.length) notOnRecord.push(`No completion date is committed on the record for any of the ${undated.length} outstanding workstream${undated.length === 1 ? '' : 's'} above.`);
-  if (risks.length && risks.every((r) => r.basis === 'templated')) {
-    notOnRecord.push('Every risk below is the standard row for its workstream. None was written by a named author against this company.');
-  }
+  // A deal with six named findings on its register was told, on the same object that
+  // lists their authors, "none was written by a named author against this company",
+  // because this tested the three-row slice rather than the register.
   if (!(register.risks || []).some((r) => r.basis === 'recorded')) {
     notOnRecord.push('Nothing on this deal\u2019s risk register was written by a named author. Every row is the standard set for its workstream.');
+  } else if (risks.length && risks.every((r) => r.basis === 'templated')) {
+    notOnRecord.push('The three items above are standard rows for their workstreams. What diligence actually found is listed separately.');
   }
 
   return {
@@ -347,7 +399,7 @@ export function buildDealCase(deal) {
     writtenRecommendation: writtenRecommendation(deal, openCount),
     ask: theAsk(canon, returns, deal),
     baseCase: theBaseCase(deal, returns, canon),
-    priceAgainstPrecedent: againstPrecedent(deal, canon),
+    priceAgainstPrecedent: againstPrecedent(deal, canon, entryMultipleFor(returns, canon)),
     forIt: forIt(deal, canon, returns),
     downside: theDownside(deal, returns),
     againstIt: risks,
@@ -392,7 +444,23 @@ export function buildDealCase(deal) {
     citations: (() => {
       const a = validateCitations(deal);
       if (!a) return null;
-      return { score: a.score, summary: a.summary, clean: a.clean, sourced: a.sourcedClaims, total: a.totalClaims };
+      // The audit reads whether a claim traces to a source. It does not read whether two
+      // sourced claims on the same page contradict each other, and it printed "All
+      // numeric claims trace to a source fact or cited document" at score 100 on a case
+      // carrying two enterprise values and two entry multiples. A badge that measures
+      // something other than what its sentence says is worse than no badge.
+      const caveats = [];
+      if ((returns.entry || {}).ties === false) caveats.push('the stated entry multiple and the funded enterprise value are struck on different numbers');
+      if (canon.ebitdaSource === 'derived') caveats.push('the EBITDA under the multiple is a screening default, not a diligenced figure');
+      return {
+        score: a.score,
+        summary: caveats.length
+          ? `${a.summary} It tests whether each figure has a source, not whether the figures agree: on this deal ${caveats.join(', and ')}.`
+          : a.summary,
+        clean: caveats.length ? false : a.clean,
+        sourced: a.sourcedClaims,
+        total: a.totalClaims,
+      };
     })(),
     notOnRecord,
     // Where a reader goes to check any of it, rather than taking the composition on
