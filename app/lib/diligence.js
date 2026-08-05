@@ -826,7 +826,16 @@ export function buildReturnsModel(deal) {
         ? (base.irr - r.hurdle.irr < 0.6 || base.moic - r.hurdle.moic < 0.06
           ? ` — meets the ${r.hurdle.irr}% / ${r.hurdle.moic}x hurdle with nothing to spare.`
           : ` — clears the ${r.hurdle.irr}% / ${r.hurdle.moic}x hurdle.`)
-        : r.entryAboveCeiling ? ` — the ask is above what this structure can finance; the returns are modelled at a ${r.entryMultiple}x entry and only hold if the price can be reset.` : ' — below hurdle.'}`,
+        : r.entryAboveCeiling ? ` — the ask is above what this structure can finance; the returns are modelled at a ${r.entryMultiple}x entry and only hold if the price can be reset.` : (() => {
+          // "below hurdle" was printed on the same line as "20% / 2x" for four deals that
+          // clear the MOIC leg and miss only the IRR. Eight partners catch that in one
+          // line. Say which leg fails, because that is the whole question.
+          const irrShort = base.irr < r.hurdle.irr;
+          const moicShort = base.moic < r.hurdle.moic;
+          if (irrShort && moicShort) return ` — below the ${r.hurdle.irr}% / ${r.hurdle.moic}x hurdle on both legs.`;
+          if (irrShort) return ` — the ${base.moic}x clears the ${r.hurdle.moic}x hurdle; the ${base.irr}% IRR does not reach ${r.hurdle.irr}%.`;
+          return ` — the ${base.irr}% IRR clears the ${r.hurdle.irr}% hurdle; the ${base.moic}x MOIC does not reach ${r.hurdle.moic}x.`;
+        })()}`,
   };
 }
 

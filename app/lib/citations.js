@@ -100,9 +100,13 @@ export function validateCitations(deal) {
 
   return {
     score,
-    totalClaims: total,
-    sourcedClaims: total - unsourcedClaims.length,
-    unsourcedClaims,
+    // The base figures are CLAIMS, and leaving them out of the counters produced an object
+    // that argued with itself: sourcedClaims 2 of 2, unsourcedClaims 0, unsourcedFigures 0,
+    // scored 40 for being unsourced. Whichever number a badge rendered was wrong about the
+    // other three.
+    totalClaims: total + 1,
+    sourcedClaims: (total - unsourcedClaims.length) + (base.sourced ? 1 : 0),
+    unsourcedClaims: base.sourced ? unsourcedClaims : [...unsourcedClaims, { figure: base.missing.join(' & '), section: 'IC ask — base financials' }],
     keyFigures,
     unsourcedFigures,
     documents,

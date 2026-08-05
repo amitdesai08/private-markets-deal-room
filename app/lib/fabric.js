@@ -179,12 +179,29 @@ async function loadMaterialized() {
 // Bundled demo snapshot shipped in the image (data/fabric-cache.json, produced by
 // scripts/extract-fabric-seed.mjs from the real lakehouse). The packaged-demo baseline:
 // serves the market-intel dataset with no Fabric or Cosmos dependency.
+// Rows the extract produced as scaffolding rather than as data: "Strategic Initiative 1",
+// "Condition 1: Finalize legal docs", "Action item 2 for Commercial", owner "Commercial
+// Lead". They reached a deal screen and a reviewer preparing to present found them cited
+// on the IC readiness board — which also contradicted the Research tab, where the same
+// dataset reported none on file. An empty panel is honest; scaffolding is not.
+const PLACEHOLDER = /\b(strategic initiative \d|condition \d\s*:|action item \d\b|initiative \d\b)/i;
+const isPlaceholder = (o) => PLACEHOLDER.test(JSON.stringify(o ?? ''));
+
+function stripPlaceholders(snap) {
+  if (!snap || typeof snap !== 'object') return snap;
+  const clean = { ...snap };
+  for (const key of ['icPrecedents', 'benchmarkFindings', 'comparableDeals']) {
+    if (Array.isArray(clean[key])) clean[key] = clean[key].filter((row) => !isPlaceholder(row));
+  }
+  return clean;
+}
+
 function loadSeed() {
   try {
     const p = resolve(dirname(fileURLToPath(import.meta.url)), '../data/fabric-cache.json');
     const snap = JSON.parse(readFileSync(p, 'utf8'));
     if (snap && (Array.isArray(snap.companies) || Array.isArray(snap.comparableDeals))) {
-      _snapshot = snap;
+      _snapshot = stripPlaceholders(snap);
       _mode = 'seed';
       _loadedAt = new Date().toISOString();
       return true;

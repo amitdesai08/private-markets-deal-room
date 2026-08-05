@@ -62,12 +62,24 @@ test('sources and uses balance, and the equity note reconciles to the line above
 });
 
 test('a deal that only meets the hurdle is not described as clearing it', () => {
+  // The check is on the CLAIM, not the word. "below hurdle" used to be printed beside a
+  // stated "20% / 2x" for four deals that clear the MOIC leg and miss only the IRR, which
+  // a room full of partners catches in one line — so the headline now names the leg that
+  // fails, and saying "the 2.04x clears the 2x hurdle; the 15.3% IRR does not reach 20%"
+  // is the honest sentence, not a violation.
+  const CLAIMS_CLEAR = /clears the [\d.]+% \/ [\d.]+x hurdle/i;
   for (const d of seededDeals) {
     const r = buildReturnsModel(d);
     const base = (r.scenarios || []).find((s) => s.name === 'Base');
     if (!base || !r.headline) continue;
-    if (base.irr < 20.6 && /clears the/.test(r.headline)) {
+    // "meets … with nothing to spare" is the deliberate wording for the band just above
+    // the hurdle; only an unqualified claim to CLEAR it is forbidden there.
+    if (base.irr < 20.6 && CLAIMS_CLEAR.test(r.headline)) {
       assert.fail(`${d.company}: "${r.headline}" claims to clear on a ${base.irr}% base`);
+    }
+    // And where it does fall short, it must say which half.
+    if (!r.meetsHurdle && !r.entryAboveCeiling) {
+      assert.match(r.headline, /does not reach|below the/i, `${d.company}: falls short and does not say how`);
     }
   }
 });
