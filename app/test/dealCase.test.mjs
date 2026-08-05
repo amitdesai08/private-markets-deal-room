@@ -730,15 +730,26 @@ test('what nobody has looked at is on the page', () => {
 // A base case that misses the fund hurdle is the thing most likely to lose the money and
 // it was in a different block: on one deal it appeared nowhere, 15.3% IRR against a 20%
 // hurdle, while the killers were a modelled allowance and a rebate finding.
-test('a base case that misses the hurdle is the first thing that could kill the deal', () => {
+test('a base case that misses the hurdle names the failure first', () => {
+  // On a deal whose price nobody has diligenced, the hurdle result is arithmetic on the
+  // same invented denominator, so it cannot be the headline either -- the price is. On a
+  // deal whose price IS evidenced, the failed hurdle is the first thing that could lose
+  // the money. Either way the first row names why, and it is never empty.
   let missed = 0;
   for (const [id, c] of CASES) {
     if (c.decided || c.baseCase.clearsHurdle) continue;
     missed += 1;
-    assert.equal(c.againstIt[0]?.severity, 'stopper', `${id}: base case misses the hurdle and it is not the first killer`);
-    assert.equal(c.againstIt[0]?.risk, c.baseCase.text, `${id}: the first killer is not the failed hurdle`);
+    assert.ok(c.againstIt.length, `${id}: misses the hurdle and nothing could kill it`);
+    assert.equal(c.againstIt[0].severity, 'stopper', `${id}: the first killer is not a stopper`);
+    const unevidenced = /screening default|not a diligenced figure|not a completed result/i
+      .test(c.figures.find((f) => /EBITDA/.test(f.label)).basis);
+    if (unevidenced) {
+      assert.match(c.againstIt[0].risk, /nobody has diligenced/i, `${id}: unevidenced price is not the first killer`);
+    } else {
+      assert.equal(c.againstIt[0].risk, c.baseCase.text, `${id}: the failed hurdle is not the first killer`);
+    }
   }
-  assert.ok(missed > 0, 'no deal exercised the failed-hurdle path — the guard would be inert');
+  assert.ok(missed > 0, 'no deal misses the hurdle — the guard would be inert');
 });
 
 // The same sentence appeared at two severities inside one object: graded a deal-stopper
@@ -762,8 +773,9 @@ test('the killers list is never empty on a deal underwritten below the hurdle', 
   for (const [id, c] of CASES) {
     if (c.baseCase.clearsHurdle) continue;
     below += 1;
-    assert.ok(c.againstIt.length, `${id}: underwritten below the hurdle and nothing could kill it`);
-    assert.equal(c.againstIt[0].risk, c.baseCase.text, `${id}: the failed hurdle is not the first killer`);
+    assert.ok(c.againstIt.length, `\heliopack: underwritten below the hurdle and nothing could kill it`);
+    if (/screening default|not a diligenced figure|not a completed result/i.test(c.figures.find((f) => /EBITDA/.test(f.label)).basis)) continue;
+    assert.equal(c.againstIt[0].risk, c.baseCase.text, `\heliopack: the failed hurdle is not the first killer`);
   }
   assert.ok(below > 0, 'no deal was underwritten below the hurdle — the guard would be inert');
 });

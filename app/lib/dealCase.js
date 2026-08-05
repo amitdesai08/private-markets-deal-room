@@ -29,6 +29,9 @@ import { ownerLabel } from './cockpit.js';
 import { money as fmtMoney, symbolFor } from './money.js';
 
 const SEVERITY_RANK = { stopper: 0, reprice: 1, condition: 2, monitor: 3 };
+// A row that reports its own resolution. These are real diligence outcomes and they
+// belong on the page -- under what diligence found, not under what could kill the deal.
+const RESOLVED_IN_TEXT = /reflected in the [\d.]+x|no objection in writing|already (?:taken|deducted|reflected)|substantially agreed|is sticky and re-prices well|bound at signing/i;
 
 // Statuses at or past the committee decision. On these the committee is not being asked
 // for money — it has already been given. Printing "Authorise up to $290M" and "DO NOT
@@ -46,6 +49,10 @@ const isDecided = (deal) => DECIDED.has(String(deal.status || '').toLowerCase())
 // 125% of it. The disclosure machinery existed and did not fire, because the figures were
 // on the record: they were just never diligenced.
 const UNDILIGENCED_SOURCE = /^(screen|screening|teaser|cim|broker model|desk|desk research|derived|estimate)$/i;
+// A draft is not a result. One deal sourced the whole price -- $148M of EBITDA -- to
+// "CIM p.14 / QoE draft" at high confidence, which is the distinction this page is
+// careful about everywhere else.
+const DRAFT_SOURCE = /\bdraft\b|\bpreliminary\b|\bindicative\b|\bp\.\s*\d/i;
 
 function recordedFigure(deal, pattern) {
   return (deal.keyFigures || []).find((k) => pattern.test(String(k.label || ''))
@@ -58,6 +65,9 @@ function sourcedBasis(kf, fallback) {
   const conf = String(kf.confidence || '').trim();
   if (UNDILIGENCED_SOURCE.test(src)) {
     return `Recorded at ${/teaser/i.test(src) ? 'the teaser' : /broker/i.test(src) ? 'the broker model' : 'screening'} (${src}${conf ? `, ${conf} confidence` : ''}) — not a diligenced figure. No workstream has confirmed it.`;
+  }
+  if (DRAFT_SOURCE.test(src)) {
+    return `Recorded from ${src}${conf ? ` at ${conf} confidence` : ''}. That is a draft, not a completed result, and no final figure is on the record.`;
   }
   return `Recorded on the deal from ${src || 'diligence'}${conf ? ` at ${conf} confidence` : ''}.`;
 }
@@ -115,6 +125,12 @@ function againstIt(register) {
     // schedule has been recorded to confirm the figure" was wearing a killer's badge:
     // that is a not-yet-known, and it has its own section.
     .filter((r) => r.basis !== 'templated')
+    // And a row that says in its own text that it is dealt with. Two of one deal's three
+    // killers read "$2.1M of add-backs disallowed, REFLECTED IN THE 7.8X ENTRY" and
+    // "consents required... BOTH COUNTERPARTIES HAVE INDICATED NO OBJECTION IN WRITING".
+    // A committee reading three things that could kill the deal, two of which announce
+    // that they cannot, stops reading the section.
+    .filter((r) => !RESOLVED_IN_TEXT.test(r.risk))
     // Severity first, and within a severity a row somebody wrote before a row nobody
     // did. A committee reading three killers should be reading the three things the
     // diligence found, where the diligence found anything.
@@ -451,6 +467,11 @@ export function buildDealCase(deal) {
   const v = board.verdict || {};
   const conditions = (register.risks || []).filter((r) => r.severity === 'condition');
   const decided = isDecided(deal);
+  const lanesWorked = (deal.workstreams || []).filter((w) => (w.findings || []).length || (w.contributions || []).length).length;
+  const laneTotal = (deal.workstreams || []).length;
+  const ebitdaKf = recordedFigure(deal, /ebitda/i);
+  const priceUnevidenced = canon.ebitdaSource === 'derived'
+    || (canon.ebitdaSource === 'recorded' && ebitdaKf && (UNDILIGENCED_SOURCE.test(String(ebitdaKf.source || '')) || DRAFT_SOURCE.test(String(ebitdaKf.source || ''))));
   const risks = againstIt(register);
   // Narrowing the killers to stoppers and repricing items was right and went one step
   // too far: the seeded registers grade almost nothing at those levels, so the deal four
@@ -465,7 +486,9 @@ export function buildDealCase(deal) {
   // It applies to decided deals too. Suppressing it there left a signed deal underwritten
   // at 18.3% against a 20% hurdle showing an empty killers list, which reads as "nothing
   // is wrong with this" on precisely the deals where the money has already gone.
-  if (!returns.meetsHurdle) {
+  // Where nobody has diligenced the EBITDA, the hurdle result is arithmetic on the same
+  // invented denominator -- so it cannot be the headline killer either. The price is.
+  if (!returns.meetsHurdle && !priceUnevidenced) {
     risks.unshift({
       risk: returns.headline,
       severity: 'stopper',
@@ -483,8 +506,12 @@ export function buildDealCase(deal) {
   // And a downside that breaks the hurdle. On the deal four days from committee the page
   // said nothing could kill it, twelve lines above its own downside reading "1.72x is
   // below the 2x and 11.4% IRR is below the 20%".
+  //
+  // Only where the base case cleared. Where it did not, the base and the downside are the
+  // same finding stated twice -- one model, one problem -- and two deals had them as
+  // killers one and two.
   const downside = theDownside(deal, returns, canon);
-  if (downside && !downside.clearsHurdle && risks.length < 3) {
+  if (returns.meetsHurdle && downside && !downside.clearsHurdle && risks.length < 3) {
     risks.push({
       risk: downside.text,
       severity: 'reprice',
@@ -534,16 +561,37 @@ export function buildDealCase(deal) {
       basisNote: null,
     });
   }
+  // The paper's own verdict named the killer -- "nobody has diligenced the EBITDA" -- and
+  // that killer was not in the list of things that could kill the deal. It is the one
+  // thing on the page that would lose the money, and a committee reading only the three
+  // rows would not have seen it.
+  if (priceUnevidenced && !decided) {
+    risks.unshift({
+      risk: `The entry multiple rests on an EBITDA nobody has diligenced. Every return below is arithmetic on ${canon.currency}${canon.ebitda}M that no workstream has produced.`,
+      severity: 'stopper',
+      severityLabel: 'Deal-stopper',
+      likelihood: null,
+      workstream: 'Financial / Quality of Earnings',
+      owner: null,
+      mitigation: 'Get an EBITDA onto the record. Nothing else on this page can be relied on until it is there.',
+      basis: 'the deal record',
+      basisNote: null,
+    });
+  }
   // One killer that quotes another verbatim inside itself is one killer. A committee was
   // handed three of which two were the same rebate finding -- once on its own and once
   // embedded in the modelled allowance that argues with it -- and the paper said so.
+  //
+  // And three is the cap, applied here rather than at each push: the rows added later in
+  // priority order were pushing the earlier ones past it. Three is the point of the
+  // section; a longer list is the register, which is one click away.
   const deduped = [];
   for (const r of risks) {
     const dup = deduped.some((k) => k.risk.includes(r.risk) || r.risk.includes(k.risk));
     if (!dup) deduped.push(r);
   }
   risks.length = 0;
-  risks.push(...deduped);
+  risks.push(...deduped.slice(0, 3));
 
   // The call. Not a view — an arithmetic reading of the record, stated as such.
   //
@@ -594,11 +642,6 @@ export function buildDealCase(deal) {
   // has produced no finding and no contribution has not been worked, whatever number is
   // in the box -- the same rule the readiness board already applies, and unlike a
   // percentage it cannot be cleared without doing the work.
-  const lanesWorked = (deal.workstreams || []).filter((w) => (w.findings || []).length || (w.contributions || []).length).length;
-  const laneTotal = (deal.workstreams || []).length;
-  const ebitdaKf = recordedFigure(deal, /ebitda/i);
-  const priceUnevidenced = canon.ebitdaSource === 'derived'
-    || (canon.ebitdaSource === 'recorded' && ebitdaKf && UNDILIGENCED_SOURCE.test(String(ebitdaKf.source || '')));
   const tooEarly = !decided && priceUnevidenced && (laneTotal === 0 || lanesWorked * 2 < laneTotal);
   // Two deals with the same defect were getting opposite verdicts: both rest the entry
   // multiple on an EBITDA nobody diligenced, and one said NOT ENOUGH ON THE RECORD TO
@@ -696,7 +739,7 @@ export function buildDealCase(deal) {
     ask: theAsk(canon, returns, deal),
     baseCase: theBaseCase(deal, returns, canon),
     priceAgainstPrecedent: againstPrecedent(deal, canon, entryMultipleFor(returns, canon), priceUnevidenced),
-    forIt: forIt(deal, canon, returns, tooEarly),
+    forIt: forIt(deal, canon, returns, tooEarly || priceOnly),
     downside: theDownside(deal, returns, canon),
     againstIt: risks,
     // What nobody has looked at. These are the register's monitor rows, and they never
@@ -742,7 +785,13 @@ export function buildDealCase(deal) {
       { label: 'LTM EBITDA', value: `${canon.currency}${canon.ebitda}M`, basis: figureBasis('ebitda', canon, deal) },
       { label: 'Entry multiple', value: `${canon.entryMultiple}x`, basis: [figureBasis('multiple', canon, deal), (returns.entry || {}).entryNote].filter(Boolean).join(' ') },
       revenueFigure(canon, deal),
-      { label: 'Leverage', value: canon.leverage, basis: 'Modelled at the financeable ceiling for the sector.' },
+      // "Modelled at the financeable ceiling for the sector" on six deals out of six,
+      // where debt is 60% of enterprise value on every one and there is no sector input
+      // anywhere in the calculation. On a listed payments processor that produced 2.2x,
+      // presented as a ceiling no lender would recognise as one. Leverage is the largest
+      // single driver of the IRR being voted on; attributing it to a judgement nobody
+      // made is the worst place in the paper to do that.
+      { label: 'Leverage', value: canon.leverage, basis: `Modelled: debt at 60% of enterprise value, over ${canon.currency}${canon.ebitda}M of EBITDA. There is no sector input and no lender or indicative terms on the record.` },
     ],
     // `conditions` used to be published here as well, and the two lists were the same
     // rows twice on every deal -- with the QoE row appearing three times on one, as a
@@ -752,10 +801,14 @@ export function buildDealCase(deal) {
     // workstreams, and this list holds seven. Each is defensible on its own filter and
     // nothing said they were one universe read three ways.
     outstandingNote: (() => {
-      const fromRegister = outstanding.filter((r) => r.from === 'risk register').length;
-      const monitors = Math.max(0, (register.risks || []).length - fromRegister);
+      // This subtracted the register-derived outstanding rows from the register total and
+      // called the remainder monitors -- so on every deal it told the committee that the
+      // recorded findings promoted into its own killers list were post-close monitors.
+      // Count the monitors.
+      const monitors = (register.risks || []).filter((r) => r.severity === 'monitor').length;
+      const killers = risks.length;
       const n = outstanding.length;
-      return `${n} item${n === 1 ? ' is' : 's are'} outstanding: everything the committee-readiness board is waiting on, plus every register row that is a condition or moves the price. The register's other ${monitors} row${monitors === 1 ? ' is a monitor' : 's are monitors'}, listed above as what is not yet known.`;
+      return `${n} item${n === 1 ? ' is' : 's are'} outstanding: everything the committee-readiness board is waiting on, plus every register row that is a condition or moves the price. Separately the register carries ${monitors} monitor${monitors === 1 ? '' : 's'}, listed above as what is not yet known, and ${killers} row${killers === 1 ? ' is' : 's are'} named as things that could kill the deal.`;
     })(),
     outstanding,
     // The board already audits how much of the case traces to a source, and scores Lumen
@@ -784,10 +837,15 @@ export function buildDealCase(deal) {
         // object. And the denominator is the real problem -- three claims tested on a
         // page carrying seventeen figures. A 100 out of 3 is worse than no score,
         // because it is the number a reader quotes.
-        score: caveats.length ? null : a.score,
+        score: caveats.length || a.totalClaims <= 1 ? null : a.score,
         scoreWithheld: caveats.length
           ? 'No score. The audit checks whether a figure has a source; on this deal that check passes and the figures still cannot be relied on.'
-          : null,
+          : a.totalClaims <= 1
+            // A score of 100 was printed beside "only 1 claim was tested, too few to say
+            // anything about the page", while three other deals correctly withheld it in
+            // exactly the same situation. Publish or withhold, not both.
+            ? 'No score. One claim is too small a sample to score.'
+            : null,
         summary: caveats.length
           ? `On this deal ${caveats.join(', and ')}. Every claim it tested does trace to a source, which is why the check passes and the price still cannot be relied on.`
           // "All numeric claims trace to a source fact or cited document. 1 claim tested."
