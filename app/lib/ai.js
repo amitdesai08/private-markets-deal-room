@@ -178,7 +178,14 @@ export function houseStyle(md) {
   // ready" followed by "ready" is two fields disagreeing, which a reader should see
   // rather than have quietly tidied away.
   s = s.replace(/\b((?:not )?ready for committee)([^\n]{0,44}?)((?:not )?ready for committee)\b/gi,
-    (m, a, sep, b) => (a.toLowerCase() === b.toLowerCase() ? a + sep : m));
+    (m, a, sep, b) => {
+      // Collapsing across a connective that ends in a verb strands it: "not ready for
+      // committee — the deal is  with 4 required items outstanding". A partner will not
+      // paste a sentence with a hole in it into an email.
+      if (a.toLowerCase() !== b.toLowerCase()) return m;
+      if (/\b(is|are|was|were|be|been|remains?|reads?|shows?|sits?|stands?)\s*$/i.test(sep)) return m;
+      return a + sep;
+    });
   // Dropping a duplicate leaves its punctuation behind: "shows: ; 4 items", "— — 4".
   // A dash needs air on both sides; a colon, semicolon or comma only on the right.
   s = s.replace(/\s*([:;\u2014,-])\s*([;:,\u2014])\s*/g, (m, a) => (a === '\u2014' || a === '-' ? ` ${a} ` : `${a} `));

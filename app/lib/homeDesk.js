@@ -128,6 +128,21 @@ function assess(deal, raw) {
     return { rank: 9, tag: 'In origination', tone: 'muted', why: 'Screened, not yet launched into diligence.', impact: null, basis: 'Deal record — current step', verdict: null, gating: [] };
   }
 
+  // Nor has a deal whose diligence has not started slipped anything. Four first-screen
+  // candidates sat in a partner's top five "at risk of slipping their IC dates" reading
+  // "IC is 13 days out and the deal is not ready — 7 workstreams blocking". Nothing was
+  // slipping: no lane had been opened and the date was a target nobody had booked. Two of
+  // the top five not being deals yet is the arithmetic that makes a reader stop trusting
+  // the count.
+  const anyLaneStarted = (raw.workstreams || []).some((w) => String(w.status || 'not_started') !== 'not_started');
+  if (!anyLaneStarted) {
+    return {
+      rank: 8, tag: 'Diligence not started', tone: 'muted',
+      why: 'No diligence lane has been opened yet, so the target committee date is a plan rather than a booking.',
+      impact: null, basis: 'Deal record — workstreams', verdict: state, gating: [],
+    };
+  }
+
   // Ranked worst-first. The wording states the mechanism, not just the label —
   // "IC in 9 days, diligence plan and findings report outstanding" is actionable;
   // "at risk" is not.

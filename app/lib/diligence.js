@@ -15,6 +15,7 @@
 
 import { buildReturns, paperLbo } from './screening.js';
 import { money as fmtMoney, symbolFor } from './money.js';
+import { ownerLabel } from './cockpit.js';
 
 // Deals past the committee decision. Diligence templates that speak in the future
 // tense are wrong about these, and the wrongness is not cosmetic: it restates the
@@ -356,7 +357,6 @@ function workstreamFindings(deal) {
   const money = (m) => fmtMoney(m, symbolFor(deal));
   const out = [];
   const add = (workstream, severity, finding, impact, basis = 'templated') => out.push({ workstream, severity, finding, impact, basis });
-
   // Financial / QoE — EBITDA haircut sized off margin quality.
   //
   // On a deal that has already been through committee this template was inventing a
@@ -761,6 +761,21 @@ export function buildReturnsModel(deal) {
     // returns has to be too, because these are the numbers someone reads into a room.
     growthBasis: r.growthBasis || null,
     scenarioBasis: r.scenarioBasis || null,
+    // The register carries a QoE provision that moves EBITDA and therefore the entry
+    // multiple, and this page — the one a partner reads the multiple off before committee
+    // — said nothing about it. The register knew; the number being read out did not.
+    provision: (() => {
+      if (PAST_COMMITTEE.has(String(deal.status || '').toLowerCase())) return null;
+      const haircut = f.ebitdaMargin < 10 ? 18 : f.ebitdaMargin < 15 ? 12 : 6;
+      const adj = round(f.ebitda * (1 - haircut / 100));
+      const onAdjusted = +(f.ev / Math.max(1, adj)).toFixed(1);
+      return {
+        haircutPct: haircut,
+        adjustedEbitda: adj,
+        entryOnAdjusted: onAdjusted,
+        note: `These returns are struck on reported LTM EBITDA. The risk register carries a ${haircut}% QoE provision; if it proves out, EBITDA is ${money(adj)} and the entry becomes ${onAdjusted}x. No QoE work has been commissioned yet.`,
+      };
+    })(),
     indicative: dealGrowth(deal) === null,
     indicativeNote: dealGrowth(deal) === null
       ? 'Indicative only: no growth rate is recorded for this company, so the model runs on the fund default. Every deal without a growth rate returns these same figures — treat them as a placeholder until one is on the record.'
@@ -862,7 +877,9 @@ export function buildRiskRegister(deal) {
       severityLabel: SEVERITY[fnd.severity]?.label || fnd.severity,
       likelihood: likelihoodFor(fnd.severity),
       mitigation: fnd.impact || 'Owner to define mitigation and track to resolution before signing.',
-      owner: wsLabel[fnd.workstream] || 'Deal team',
+      // The department, not a person: the item most likely to cost money was the one row
+      // with nobody's name on it, while the workstream board two tabs away named them.
+      owner: ownerLabel(null, fnd.workstream) || wsLabel[fnd.workstream] || 'Deal team',
       basis: fnd.basis || 'templated',
     }));
   const counts = { stopper: 0, reprice: 0, condition: 0, monitor: 0 };
@@ -872,13 +889,16 @@ export function buildRiskRegister(deal) {
     kind: 'risk-register', company: deal.company, owner: 'principal',
     risks, counts, status, total: risks.length,
     legend: Object.fromEntries(Object.entries(SEVERITY).map(([k, v]) => [k, v.label])),
-    headline: counts.stopper
-      ? `${counts.stopper} deal-stopper open — resolve or walk.`
-      : counts.reprice
-        ? `${counts.reprice} repricing risks to reflect before signing.`
-        : risks.length
-          ? `${risks.length} open risks tracked; none deal-stopping.`
-          : 'No open risks recorded — run the diligence lanes.',
+    headline: (() => {
+      const parts = [];
+      if (counts.stopper) parts.push(`${counts.stopper} deal-stopper${counts.stopper === 1 ? '' : 's'} open — resolve or walk`);
+      // "1 repricing risks" — singular count, plural noun — and it omitted the four closing
+      // conditions sitting in the same payload.
+      if (counts.reprice) parts.push(`${counts.reprice} repricing risk${counts.reprice === 1 ? '' : 's'} to reflect before signing`);
+      if (counts.condition) parts.push(`${counts.condition} closing condition${counts.condition === 1 ? '' : 's'}`);
+      if (!parts.length) return risks.length ? `${risks.length} open risk${risks.length === 1 ? '' : 's'} tracked; none deal-stopping.` : 'No open risks recorded — run the diligence lanes.';
+      return `${parts.join('; ')}.`;
+    })(),
   };
 }
 
