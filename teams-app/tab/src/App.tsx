@@ -39,6 +39,23 @@ const ORCHESTRATOR: Agent = {
 
 const DEALS_FILTERS: DealsFilter[] = ['all', 'attention', 'diligence', 'execution', 'value'];
 
+// The list view, as an address. Only non-default state is written, so a plain list stays
+// a plain '#/deals'.
+function listParams(filter: DealsFilter, query: string): string {
+  const p = new URLSearchParams();
+  if (filter && filter !== 'all') p.set('filter', filter);
+  if (query.trim()) p.set('q', query.trim());
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+function hashParam(name: string): string {
+  const h = window.location.hash || '';
+  const i = h.indexOf('?');
+  if (i < 0) return '';
+  try { return new URLSearchParams(h.slice(i + 1)).get(name) || ''; } catch { return ''; }
+}
+
 export default function App() {
   const [teamsInfo, setTeams] = useState<TeamsInfo | null>(null);
   const [theme, setTheme] = useState<string>('default');
@@ -57,6 +74,10 @@ export default function App() {
   const [dealsLoading, setDealsLoading] = useState(true);
   const [dealsError, setDealsError] = useState(false);
   const [dealsFilter, setDealsFilter] = useState<DealsFilter>(() => {
+    // The address wins over session storage: a link someone sent you must show what they
+    // were looking at, not what you were.
+    const fromUrl = hashParam('filter');
+    if (DEALS_FILTERS.includes(fromUrl as DealsFilter)) return fromUrl as DealsFilter;
     try {
       const v = sessionStorage.getItem('dr.deals.filter') || '';
       return DEALS_FILTERS.includes(v as DealsFilter) ? (v as DealsFilter) : 'all';
@@ -65,6 +86,8 @@ export default function App() {
     }
   });
   const [dealsQuery, setDealsQuery] = useState(() => {
+    const fromUrl = hashParam('q');
+    if (fromUrl) return fromUrl;
     try { return sessionStorage.getItem('dr.deals.query') || ''; } catch { return ''; }
   });
   const [dealsCompare, setDealsCompare] = useState<string[]>(() => {
@@ -306,11 +329,23 @@ export default function App() {
     // Settings had no address of its own, so it wore whichever page you were reading
     // when you opened it -- and a link sent from Settings landed the recipient
     // somewhere else entirely.
-    const want = settingsOpen ? '#/settings' : openDealId ? `#/deal/${openDealId}${dealTab ? `/${dealTab}` : ''}` : `#/${mainTab}`;
+    //
+    // The list's filter and search now travel in the address too. They were held in
+    // session storage, which restores your own view and cannot be bookmarked, cannot be
+    // sent to a colleague, and is not undone by Back. "Every deal with Legal DD not
+    // started" was a view you could reach and never refer to.
+    const listQs = !settingsOpen && !openDealId && mainTab === 'deals' ? listParams(dealsFilter, dealsQuery) : '';
+    const want = settingsOpen ? '#/settings' : openDealId ? `#/deal/${openDealId}${dealTab ? `/${dealTab}` : ''}` : `#/${mainTab}${listQs}`;
     if (window.location.hash !== want) {
-      try { window.history.pushState(null, '', want); } catch { /* sandboxed frame */ }
+      // Typing in the search box must not push a history entry per keystroke, or Back
+      // becomes a way to retype what you just typed.
+      const sameRoute = window.location.hash.split('?')[0] === want.split('?')[0];
+      try {
+        if (sameRoute) window.history.replaceState(null, '', want);
+        else window.history.pushState(null, '', want);
+      } catch { /* sandboxed frame */ }
     }
-  }, [mainTab, openDealId, dealTab, settingsOpen]);
+  }, [mainTab, openDealId, dealTab, settingsOpen, dealsFilter, dealsQuery]);
 
   // Keep compare picks valid for THIS viewer only. A persona/role change can make a
   // previously visible deal disappear (or become status-only), and keeping those ids
@@ -356,6 +391,13 @@ export default function App() {
       setOpenDealId('');
       const t = /#\/(overview|sourcing|deals|fund|report)\b/.exec(h);
       if (t) setMainTab(t[1] as MainTab);
+      // Back out of a filtered list and the filter has to come back with it, or Back
+      // returns you to the right page showing the wrong thing.
+      if (t && t[1] === 'deals') {
+        const f = hashParam('filter');
+        setDealsFilter(DEALS_FILTERS.includes(f as DealsFilter) ? (f as DealsFilter) : 'all');
+        setDealsQuery(hashParam('q'));
+      }
     };
     window.addEventListener('popstate', onPop);
     // Typing or pasting an address into the bar while the app is already open fires

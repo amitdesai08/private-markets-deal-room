@@ -271,12 +271,21 @@ export function houseStyle(md) {
 // Tuesday cannot be quoted in a committee, and a partner cannot supervise a tool whose
 // job is to save them the reading. Recommendations must be reproducible; a little
 // variety in the prose is not worth a contradiction in the verdict.
-export async function complete({ system, user, maxTokens = 700, temperature = 0.1, deployment: dep = deployment }) {
+export async function complete({ system, user, maxTokens = 700, temperature = 0.1, deployment: dep = deployment, history = [] }) {
   const c = clientFor(dep);
   if (!c) return null;
   const reasoning = /(^|[-_])(gpt-5|o1|o3|o4)/i.test(dep);
+  // Prior turns, so a follow-up can be a follow-up. Without them "how many days is that
+  // from today?" bound itself to whatever number was nearest in the CURRENT prompt — on a
+  // question about the committee date it answered with the five-year hold period, leap
+  // day included. Every question had to be re-keyed in full.
+  const priorTurns = (Array.isArray(history) ? history : [])
+    .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+    .slice(-8)
+    .map((m) => ({ role: m.role, content: String(m.content).slice(0, 2000) }));
   const messages = [
     { role: 'system', content: system },
+    ...priorTurns,
     { role: 'user', content: user }
   ];
   const params = reasoning

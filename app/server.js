@@ -73,6 +73,7 @@ import {
   recordContribution,
   cycleChecklistItem,
   recordIssue,
+  recordAccessRequest,
   resolveIssue,
   setCondition,
   updateCondition,
@@ -148,11 +149,22 @@ import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
-import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent, dealAccessLevel, describeAccess, describeDemoProfiles, demoModeActive, demoProfilesEnabled, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
+import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent, dealAccessLevel, dealTeamOf, describeAccess, describeDemoProfiles, demoModeActive, demoProfilesEnabled, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
 import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
 import { buildCockpit } from './lib/cockpit.js';
 import { buildWorkflowDesk, buildThreads, buildDocumentDesk, detectCommitments } from './lib/dealDesk.js';
 import { buildHomeDesk } from './lib/homeDesk.js';
+import { queryDeals } from './lib/dealQuery.js';
+
+// Cosmos bookkeeping — _rid, _self, _etag, _attachments, _ts — was shipping to the client
+// on every deal read. It is not secret, it is noise, and it tells a reader the product is
+// handing them its plumbing.
+const stripInternals = (o) => {
+  if (!o || typeof o !== 'object') return o;
+  const out = {};
+  for (const [k, v] of Object.entries(o)) if (!k.startsWith('_')) out[k] = v;
+  return out;
+};
 import { personaForIdentity, actingAsFor } from './lib/userPolicy.js';
 import { getAccessConfig, upsertRole, deleteRole, setRoleAssignments, upsertPersona, deletePersona, setPersonaActions, setPersonaStages, importAssignments, setDemoMode, setActingAs, getDocTemplate, setDocTemplate, DOC_TEMPLATE_DEFAULTS } from './lib/accessConfig.js';
 
@@ -290,7 +302,17 @@ api.get('/flow', (_req, res) => res.json(getFlow()));
 // The full institutional PE deal lifecycle (phases → stages/gates with owners &
 // artifacts). Additive to /flow; powers the Lifecycle view.
 api.get('/lifecycle', (_req, res) => res.json({ phases: lifecycleByPhase(), stages: LIFECYCLE, gates: LIFECYCLE_GATES }));
-api.get('/deals', (req, res) => res.json(listDeals(requestingIdentity(req), requestingViewAs(req))));
+// Filtering and sort run AFTER the access scope, never instead of it, so a query can
+// only narrow what this caller may already see. The unfiltered total travels in headers
+// rather than the body because the body is an array and the tab depends on that.
+api.get('/deals', (req, res) => {
+  const rows = listDeals(requestingIdentity(req), requestingViewAs(req));
+  const q = queryDeals(rows, req.query || {});
+  res.set('X-Deal-Total', String(q.total));
+  res.set('X-Deal-Matched', String(q.matched));
+  if (q.sort) res.set('X-Deal-Sort', q.sort);
+  res.json(q.deals);
+});
 
 // Portfolio cockpit for the home page: the same grounded, cited briefing the deal
 // cockpit gives, one level up. Deliberately scoped to listDeals() for THIS caller so
@@ -531,19 +553,36 @@ api.get('/deals/:id/documents', async (req, res) => {
   // Auto-provision the data room on first access — a deal on the platform shouldn't
   // need a manual “launch”. If M365 is connected and there's no Teams/SharePoint space
   // yet, kick provisioning off in the background and report progress (the UI polls).
+  // The papers the deal record itself holds. These exist whether or not a SharePoint
+  // space has been provisioned, and the screen used to show none of them: a reviewer
+  // asked to open Documents on a deal whose readiness board ticks "Findings report" and
+  // "Diligence plan" as complete, and got `{provisioning:true}` and an empty panel.
+  // Whatever the shared data room is doing, the record's own documents can be listed.
+  const onRecord = (deal.documents || []).map((d) => ({
+    id: d.id || d.name,
+    name: d.name,
+    status: d.status || null,
+    owner: d.owner || null,
+    updated: d.updatedAt || d.date || null,
+    onRecord: true,
+  }));
   if (!deal.teamsChannel?.teamId) {
     if (!m365Ready()) {
-      return res.status(409).json({ error: 'The shared data room isn’t available yet — documents generate and download in the meantime.', notConnected: true });
+      return res.status(409).json({ error: 'The shared data room isn’t available yet — documents generate and download in the meantime.', notConnected: true, documents: onRecord, canWrite: !!gate.access.canWrite });
     }
     startDealProvisioning(deal.id);
-    return res.json({ provisioning: true, canWrite: !!gate.access.canWrite });
+    return res.json({ provisioning: true, documents: onRecord, canWrite: !!gate.access.canWrite });
   }
   try {
     const out = await listDealDocuments(deal);
-    res.json({ ...out, canWrite: !!gate.access.canWrite });
+    // The data room's own files first, then anything on the record the data room does
+    // not hold, so a provisioned deal never shows fewer papers than an unprovisioned one.
+    const have = new Set((out.documents || []).map((d) => String(d.name || '').toLowerCase()));
+    const extra = onRecord.filter((d) => !have.has(String(d.name || '').toLowerCase()));
+    res.json({ ...out, documents: [...(out.documents || []), ...extra], canWrite: !!gate.access.canWrite });
   } catch (err) {
     const notConnected = err instanceof M365NotConnectedError;
-    res.status(notConnected ? 409 : 502).json({ error: String(err?.message || err).slice(0, 240), notConnected });
+    res.status(notConnected ? 409 : 502).json({ error: String(err?.message || err).slice(0, 240), notConnected, documents: onRecord });
   }
 });
 
@@ -1553,7 +1592,35 @@ api.get('/deals/:id', (req, res) => {
   }
   const deal = getDeal(req.params.id);
   if (!deal) return res.status(404).json({ error: 'deal not found' });
-  res.json({ ...deal, accessLevel: 'full' });
+  res.json({ ...stripInternals(deal), accessLevel: 'full' });
+});
+
+// Ask to be added to a deal team.
+//
+// A reader who cannot open a deal had nowhere to go: the refusal named no route, and the
+// afternoon went on Teams asking a colleague to screenshot it. This does not disclose
+// anything — you may only ask about a deal you can already see the existence of, and a
+// deal at 'none' still answers not-found, exactly as it does everywhere else.
+api.post('/deals/:id/request-access', (req, res) => {
+  const raw = getDealRaw(req.params.id);
+  const identity = requestingIdentity(req);
+  const viewAs = requestingViewAs(req);
+  if (!raw) return res.status(404).json({ error: 'deal not found' });
+  const level = dealAccessLevel(identity, raw, viewAs);
+  if (level === 'none') return res.status(404).json({ error: 'deal not found' });
+  if (level === 'full') return res.status(409).json({ error: 'already-on-team', detail: 'You already have full access to this deal.' });
+  const access = accessFor(identity, viewAs);
+  const who = identity?.name || identity?.upn || access.roleLabel || 'A colleague';
+  const note = String(req.body?.reason || '').slice(0, 500);
+  recordAccessRequest(raw, { who, role: access.role, reason: note });
+  res.json({
+    requested: true,
+    deal: raw.company,
+    // Who to expect it from, by name where the record has one, because "an administrator"
+    // is not a person anyone can chase.
+    withWhom: dealTeamOf(raw).length ? dealTeamOf(raw) : null,
+    detail: `Your request to join ${raw.company} has been recorded on the deal's audit trail. The deal team decides; nothing has changed about what you can see yet.`,
+  });
 });
 
 // ---- Territories + deal groups (customizable tags) -------------------------
@@ -1650,8 +1717,11 @@ api.post('/deals/:id/chat', async (req, res) => {
   const message = (req.body?.message || '').toString().slice(0, 2000);
   if (!message) return res.status(400).json({ error: 'message required' });
   const lens = lensBlock({ identity: requestingIdentity(req), viewAsRole: requestingViewAs(req), persona: req.body?.personaId });
+  // Prior turns, bounded and role-checked. A conversation that cannot remember its own
+  // last answer makes the reader re-state the question every time.
+  const history = Array.isArray(req.body?.history) ? req.body.history.slice(-8) : [];
   try {
-    const out = await chat({ deal, persona, message, lens });
+    const out = await chat({ deal, persona, message, lens, history });
     res.json(out);
   } catch (err) {
     res.status(500).json({ error: 'chat failed', detail: String(err?.message || err) });

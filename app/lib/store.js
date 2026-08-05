@@ -2429,6 +2429,19 @@ const ISSUE_STATUSES = new Set(['open', 'mitigating', 'resolved']);
 const CONDITION_STATUSES = new Set(['proposed', 'accepted', 'satisfied']);
 let issueSeq = 1;
 
+export function recordAccessRequest(deal, { who, role, reason } = {}) {
+  return mutateDeal(deal.id, (d) => {
+    const at = new Date().toISOString();
+    d.activity = d.activity || [];
+    d.activity.unshift({
+      actor: who || 'A colleague',
+      action: `Asked to join the deal team${role ? ` (currently ${role})` : ''}${reason ? ` — "${String(reason).slice(0, 200)}"` : ''}.`,
+      when: at,
+    });
+    return { ok: true };
+  });
+}
+
 export function recordIssue(id, { lane, title, severity = 'caution', owner, resolutionPath, sources, dueDate, by, persona, via } = {}) {
   return mutateDeal(id, (deal) => {
     const t = String(title || '').trim().slice(0, 200);

@@ -90,6 +90,13 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
     setSending(true);
     const endpoint = agent.kind === 'orchestrator' ? '/api/deal-agent/chat' : `/api/persona-agents/${agent.persona}/chat`;
     const body: Record<string, unknown> = { message: msg, previousResponseId: prevId[threadKey] };
+    // The routes that thread a response id keep their own memory; the per-deal route does
+    // not, so send it the turns. Without this a follow-up bound itself to whatever number
+    // was nearest in the new prompt rather than to what was just discussed.
+    body.history = messages.slice(-6).map((m) => ({
+      role: m.role === 'agent' ? 'assistant' : 'user',
+      content: typeof m.text === 'string' ? m.text : '',
+    })).filter((m) => m.content);
     if (dealId) body.dealId = dealId;
     if (agent.kind === 'orchestrator') body.scope = dealId ? 'deal' : 'portfolio';
     if (viewAsRole) body.viewAsRole = viewAsRole;

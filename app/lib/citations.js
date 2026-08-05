@@ -81,8 +81,18 @@ export function validateCitations(deal) {
   const total = claims.length;
   const base = baseFinancialsSourced(deal);
 
+  // One object used to report score 100, clean false, "IC ask derived from unsourced
+  // Revenue & EBITDA", and zero unsourced anything — because the score counted only memo
+  // claims while `clean` also counted the key figures and the IC ask's base. Whichever of
+  // those a badge happened to render decided whether the reader trusted the pack. The
+  // score now measures exactly what `clean` measures, and 100 is reserved for clean.
+  const checks = total + keyFigures.length + 1;
+  const failed = unsourcedClaims.length + unsourcedFigures.length + (base.sourced ? 0 : 1);
+  const clean = failed === 0;
+  const score = clean ? 100 : Math.min(99, Math.round((100 * (checks - failed)) / Math.max(1, checks)));
+
   return {
-    score: total ? Math.round((100 * (total - unsourcedClaims.length)) / total) : 100,
+    score,
     totalClaims: total,
     sourcedClaims: total - unsourcedClaims.length,
     unsourcedClaims,
@@ -94,7 +104,7 @@ export function validateCitations(deal) {
       baseSourced: base.sourced,
       missingBase: base.missing
     },
-    clean: unsourcedClaims.length === 0 && unsourcedFigures.length === 0 && base.sourced,
+    clean,
     summary: buildSummary(total, unsourcedClaims.length, unsourcedFigures.length, base)
   };
 }
