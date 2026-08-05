@@ -751,7 +751,12 @@ export function buildDealCase(deal) {
     // The register returns twelve rows, the readiness board says five papers plus four
     // workstreams, and this list holds seven. Each is defensible on its own filter and
     // nothing said they were one universe read three ways.
-    outstandingNote: `${outstanding.length} of them are outstanding: everything the committee-readiness board is waiting on, plus every register row that is a condition or moves the price. The register's other ${Math.max(0, (register.risks || []).length - outstanding.filter((r) => r.from === 'risk register').length)} rows are monitors, listed above as what is not yet known.`,
+    outstandingNote: (() => {
+      const fromRegister = outstanding.filter((r) => r.from === 'risk register').length;
+      const monitors = Math.max(0, (register.risks || []).length - fromRegister);
+      const n = outstanding.length;
+      return `${n} item${n === 1 ? ' is' : 's are'} outstanding: everything the committee-readiness board is waiting on, plus every register row that is a condition or moves the price. The register's other ${monitors} row${monitors === 1 ? ' is a monitor' : 's are monitors'}, listed above as what is not yet known.`;
+    })(),
     outstanding,
     // The board already audits how much of the case traces to a source, and scores Lumen
     // at 40 with the reason written out -- "IC ask derived from unsourced Revenue &
