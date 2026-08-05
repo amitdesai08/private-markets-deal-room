@@ -331,6 +331,144 @@
       "entryMultiple": 9.4,
       "meetingDate": "2025-11-19",
       "note": "Declined on price: the committee would not underwrite above 8.5x without a signed second customer."
+    },
+    {
+      "deal": "Selwyn Clinical Group - platform",
+      "sector": "Healthcare",
+      "decision": "Approved",
+      "votesFor": 6,
+      "votesAgainst": 1,
+      "votesAbstain": 0,
+      "conditions": [
+        "Reimbursement sensitivity run at a 200bps tariff cut before signing",
+        "Clinician retention agreements on the top eight principals"
+      ],
+      "closingStatus": "All met",
+      "entryMultiple": 11.2,
+      "meetingDate": "2026-01-21",
+      "note": "Approved above the usual ceiling on the strength of the add-on programme. The tariff review landed a year later and took 140bps off margin; the case survived on the add-ons, not the platform."
+    },
+    {
+      "deal": "Halcyon Dental Partners - add-on",
+      "sector": "Healthcare",
+      "decision": "Approved",
+      "votesFor": 7,
+      "votesAgainst": 0,
+      "votesAbstain": 1,
+      "conditions": [
+        "Earn-out capped at two years"
+      ],
+      "closingStatus": "All met",
+      "entryMultiple": 8,
+      "meetingDate": "2026-05-12",
+      "note": "The multiple arbitrage against the platform held. The clinician retention assumption did not, and two principals left inside the earn-out."
+    },
+    {
+      "deal": "Brightside Software - buyout",
+      "sector": "Software",
+      "decision": "Approved",
+      "votesFor": 5,
+      "votesAgainst": 2,
+      "votesAbstain": 1,
+      "conditions": [
+        "Net revenue retention verified at or above 90% by the commercial adviser",
+        "Debt sized no higher than 4.5x on the perpetual-licence tail"
+      ],
+      "closingStatus": "All met",
+      "entryMultiple": 16.9,
+      "meetingDate": "2025-12-09",
+      "note": "The two votes against were both on price. The committee accepted 16.9x only because retention was verified independently first."
+    },
+    {
+      "deal": "Cobalt Data Systems - recapitalisation",
+      "sector": "Software",
+      "decision": "Approved subject to conditions",
+      "votesFor": 4,
+      "votesAgainst": 2,
+      "votesAbstain": 2,
+      "conditions": [
+        "Entry reset from 14.4x to 13.1x on the annual-terms finding",
+        "Founder locked in for three years"
+      ],
+      "closingStatus": "All met",
+      "entryMultiple": 13.1,
+      "meetingDate": "2026-04-08",
+      "note": "Repriced in committee: a third of ARR was on annual terms with no uplift clause, which diligence found and the model had not carried."
+    },
+    {
+      "deal": "Marley Grocers - buyout",
+      "sector": "Consumer & Retail",
+      "decision": "Approved",
+      "votesFor": 6,
+      "votesAgainst": 1,
+      "votesAbstain": 0,
+      "conditions": [
+        "Freehold valuations refreshed within 90 days of signing"
+      ],
+      "closingStatus": "All met",
+      "entryMultiple": 6.8,
+      "meetingDate": "2025-10-14",
+      "note": "The committee underwrote the property, not the like-for-like. On a 2% assumption the case only clears because freehold covers 60% of entry equity."
+    },
+    {
+      "deal": "Thornbury Apparel - buyout",
+      "sector": "Consumer & Retail",
+      "decision": "Declined",
+      "votesFor": 1,
+      "votesAgainst": 6,
+      "votesAbstain": 1,
+      "conditions": [],
+      "closingStatus": "Not applicable",
+      "entryMultiple": 7.9,
+      "meetingDate": "2026-04-28",
+      "note": "Declined on diligence, not price: two tier-two supply sites had no audit inside three years and the vendor would not extend the window."
+    },
+    {
+      "deal": "Ridgeline Wind Services - platform",
+      "sector": "Energy",
+      "decision": "Approved subject to conditions",
+      "votesFor": 5,
+      "votesAgainst": 1,
+      "votesAbstain": 2,
+      "conditions": [
+        "Technician headcount plan agreed with management before signing",
+        "No exposure underwritten to the merchant energy price"
+      ],
+      "closingStatus": "All met",
+      "entryMultiple": 10.4,
+      "meetingDate": "2026-02-25",
+      "note": "The committee bought contracted maintenance revenue, and said so explicitly: nothing in the case was to rest on the energy price."
+    },
+    {
+      "deal": "Verity Payments - growth minority",
+      "sector": "Financials",
+      "decision": "Approved",
+      "votesFor": 4,
+      "votesAgainst": 2,
+      "votesAbstain": 2,
+      "conditions": [
+        "1.5x liquidation preference and a board seat as a condition of the cheque",
+        "Case priced on take rate, not on volume growth"
+      ],
+      "closingStatus": "All met",
+      "entryMultiple": 14.6,
+      "meetingDate": "2026-03-03",
+      "note": "Volume growth subsequently halved. The structure is what protected the position, which is the reason the condition was written the way it was."
+    },
+    {
+      "deal": "Kestrel Freight Forwarding - add-on",
+      "sector": "Industrials & Logistics",
+      "decision": "Approved",
+      "votesFor": 7,
+      "votesAgainst": 0,
+      "votesAbstain": 0,
+      "conditions": [
+        "Integration plan signed off by the platform chief executive"
+      ],
+      "closingStatus": "All met",
+      "entryMultiple": 7.4,
+      "meetingDate": "2026-06-17",
+      "note": "Bought below the platform multiple because the founder wanted a clean exit inside a quarter. Integration ran nine months against a six-month plan."
     }
   ],
   "companyFinancials": {
@@ -429,7 +567,7 @@
     "companies": 3,
     "comparableDeals": 12,
     "benchmarkFindingWorkstreams": 5,
-    "icPrecedents": 3,
+    "icPrecedents": 12,
     "secTickers": 3
   }
 }

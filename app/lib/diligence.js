@@ -793,11 +793,25 @@ export function buildReturnsModel(deal) {
       const haircut = f.ebitdaMargin < 10 ? 18 : f.ebitdaMargin < 15 ? 12 : 6;
       const adj = round(f.ebitda * (1 - haircut / 100));
       const onAdjusted = +(f.ev / Math.max(1, adj)).toFixed(1);
+      // This sentence used to end "No QoE work has been commissioned yet" on every deal
+      // it appeared on -- including Atlas, four days from committee, whose own key
+      // figures carry revenue, EBITDA and margin each stamped source QoE at high
+      // confidence, and whose register quotes the result: "QoE supports $46M LTM EBITDA;
+      // $2.1M of add-backs disallowed". Three mutually exclusive claims about one piece
+      // of work, in one response, and the false one was in the paragraph a committee
+      // relies on most, because it is the one that protects them. An assertion of
+      // absence is only ever safe against the record you are already holding.
+      const qoeOnFile = (deal.keyFigures || []).some((k) => /qoe|quality of earnings/i.test(String(k.source || '')))
+        || (deal.documents || []).some((d) => /quality of earnings/i.test(String(d.name || d.title || '')));
+      const tail = qoeOnFile
+        ? 'This is the modelled provision, not the result of the quality-of-earnings work already on this deal.'
+        : 'No QoE work has been commissioned yet.';
       return {
         haircutPct: haircut,
         adjustedEbitda: adj,
         entryOnAdjusted: onAdjusted,
-        note: `These returns are struck on reported LTM EBITDA. The risk register carries a ${haircut}% QoE provision; if it proves out, EBITDA is ${money(adj)} and the entry becomes ${onAdjusted}x. No QoE work has been commissioned yet.`,
+        qoeOnFile,
+        note: `These returns are struck on reported LTM EBITDA. The risk register carries a ${haircut}% QoE provision; if it proves out, EBITDA is ${money(adj)} and the entry becomes ${onAdjusted}x. ${tail}`,
       };
     })(),
     indicative: dealGrowth(deal) === null,

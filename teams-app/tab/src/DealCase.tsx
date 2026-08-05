@@ -62,10 +62,24 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
         </section>
       )}
 
+      {/* The analyst's own words, beside the composed reading rather than replaced by
+          it. Where the two disagree the page says which and why, because on one deal an
+          approved memo claimed nothing was unresolved while the register listed three
+          open conditions, and the product held that conflict and buried it. */}
+      {c.writtenRecommendation && (
+        <section className="dc-card">
+          <div className="dc-h">What the deal team wrote</div>
+          <div className="dc-pt">{c.writtenRecommendation.text}</div>
+          <div className="dc-basis">{c.writtenRecommendation.length} characters, {String(c.writtenRecommendation.status || '').replace(/_/g, ' ')}.</div>
+          {c.writtenRecommendation.conflict ? <div className="dc-conflict">{c.writtenRecommendation.conflict}</div> : null}
+        </section>
+      )}
+
       {c.ask && (
         <section className="dc-card">
-          <div className="dc-h">What you are being asked to authorise</div>
+          <div className="dc-h">{c.decided ? 'What was authorised' : 'What you are being asked to authorise'}</div>
           <div className="dc-ask">{c.ask.headline}</div>
+          {c.ask.equityNote ? <div className="dc-basis">{c.ask.equityNote}</div> : null}
         </section>
       )}
 
@@ -78,6 +92,16 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
               <div className="dc-basis">{p.basis}</div>
             </div>
           ))}
+        </section>
+      )}
+
+      {/* The downside is on the page whether or not it flatters the case. A committee
+          shown a downside only when it holds is not being shown a downside. */}
+      {c.downside && (
+        <section className="dc-card">
+          <div className="dc-h">The downside</div>
+          <div className={`dc-pt${c.downside.clearsHurdle ? '' : ' dc-fail'}`}>{c.downside.text}</div>
+          <div className="dc-basis">{c.downside.basis}</div>
         </section>
       )}
 
@@ -95,6 +119,9 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
               {r.workstream}{r.owner ? ` · ${r.owner}` : ''}{r.likelihood ? ` · ${r.likelihood} likelihood` : ''}
               {r.mitigation ? <> — {r.mitigation}</> : null}
             </div>
+            {/* Whether anybody actually looked. Dropping this field let a standard row
+                reading "cyber posture is adequate" pass for a finding. */}
+            {r.basisNote ? <div className="dc-basis dc-templated">{r.basisNote}</div> : null}
           </div>
         )) : <div className="muted">Nothing on the register above a monitor.</div>}
       </section>
@@ -155,6 +182,7 @@ const TAB_FOR: Record<string, string> = {
   returns: 'artifacts',
   'risk-register': 'artifacts',
   'ic-readiness': 'ic',
+  comparables: 'research',
   documents: 'docdesk',
 };
 
@@ -172,6 +200,9 @@ const CSS = `
 .dc-point:first-of-type { border-top: 0; padding-top: 0; }
 .dc-pt { font-size: 13.5px; line-height: 1.45; }
 .dc-basis { font-size: 12px; color: var(--muted, #6b7280); margin-top: 3px; line-height: 1.45; }
+.dc-templated { font-style: italic; }
+.dc-fail { color: #9a3412; font-weight: 600; }
+.dc-conflict { margin-top: 8px; font-size: 12.5px; line-height: 1.5; padding: 8px 10px; border-radius: 6px; background: #fff7ed; color: #9a3412; }
 .dc-sev { display: inline-block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; padding: 1px 6px; border-radius: 4px; margin-right: 7px; background: #eef0f3; color: #374151; vertical-align: 1px; }
 .dc-sev.stopper { background: #fee2e2; color: #991b1b; }
 .dc-sev.reprice { background: #ffedd5; color: #9a3412; }

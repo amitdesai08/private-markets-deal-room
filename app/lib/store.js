@@ -2641,6 +2641,20 @@ export function getDealCase(id) {
   return deal ? buildDealCase(deal) : null;
 }
 
+// A comparable transaction's one-line reference. The multiple first, because that is
+// what a committee compares a comp on; the size after it, formatted from the magnitude
+// of the stored value rather than from an assumption about its unit.
+function compRef(c) {
+  const parts = [];
+  if (Number.isFinite(c.evEbitda) && c.evEbitda > 0) parts.push(`${c.evEbitda}x EV/EBITDA`);
+  const v = Number(c.impliedValuation);
+  if (Number.isFinite(v) && v > 0) {
+    const m = v >= 1e6 ? v / 1e6 : v;
+    parts.push(m >= 1000 ? `$${(m / 1000).toFixed(1)}B` : `$${Math.round(m)}M`);
+  }
+  return parts.length ? parts.join(' · ') : null;
+}
+
 // The decision-grade IC Readiness board, grounded in real Fabric/OneLake market
 // intelligence (comparable deals, IC voting precedents, benchmark findings).
 export function getICReadiness(id) {
@@ -2648,7 +2662,12 @@ export function getICReadiness(id) {
   if (!deal) return null;
   const board = computeICReadiness(deal);
   const comps = compsForDeal(deal);
-  const precedents = getICPrecedents();
+  // Unscoped, this served the same three Industrials & Logistics precedents to every
+  // deal in the fund -- so a diagnostics lab and a vertical-SaaS platform were both
+  // shown the committee's view on timber and freight, while the one precedent directly
+  // on point ("declined on price above 8.5x without a signed second customer") was read
+  // by nobody who could use it.
+  const precedents = getICPrecedents(deal.sector);
   const benchmarks = getBenchmarkFindings();
   board.marketIntel = {
     source: fabricInfo(),
@@ -2662,7 +2681,12 @@ export function getICReadiness(id) {
       ...comps.slice(0, 3).map((c) => ({
         kind: 'fabric-comp',
         label: `${c.company} — ${c.dealType} (${c.status})`,
-        ref: c.impliedValuation ? `$${c.impliedValuation}M implied valuation` : null
+        // "$310000000M implied valuation" -- $310 trillion -- on the one panel whose
+        // whole job is to establish where a figure came from. The snapshot carries this
+        // field in whole currency units and the template appended an M to it. Read the
+        // magnitude rather than trusting the unit, and lead with the multiple, which is
+        // what a committee compares a comp on.
+        ref: compRef(c),
       }))
     );
   }

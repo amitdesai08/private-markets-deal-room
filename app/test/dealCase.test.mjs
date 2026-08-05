@@ -33,6 +33,24 @@ test('no figure is published without saying where it came from', () => {
   }
 });
 
+// $288M of estimated revenue printed beside a recorded ARR of $58M on the same page,
+// implying a 50% EBITDA margin on a 41%-growth software asset. Two lines of one page
+// that cannot both be true is the thing that makes a reader stop and ask who checked it.
+test('an estimated revenue is never printed beside a recorded recurring-revenue figure', () => {
+  let checked = 0;
+  for (const [id, c] of CASES) {
+    const d = seededDeals.find((x) => x.id === id);
+    const arr = (d.keyFigures || []).find((k) => /\barr\b|recurring revenue/i.test(k.label));
+    const revRecorded = (d.keyFigures || []).some((k) => /revenue/i.test(k.label) && !/\barr\b|recurring/i.test(k.label));
+    if (!arr || revRecorded) continue;
+    checked += 1;
+    const row = c.figures.find((f) => /revenue/i.test(f.label));
+    assert.match(row.label, /Recurring revenue/i, `${id}: an estimated revenue is shown where only ARR is on the record`);
+    assert.match(row.basis, /No total revenue figure is on the record/i, `${id}: the missing total revenue is not stated`);
+  }
+  assert.ok(checked > 0, 'no deal exercised the ARR-only path — the guard would be inert');
+});
+
 // The sharpest thing this page does. A committee voting on an entry multiple is
 // entitled to know when the denominator under it was assumed rather than diligenced,
 // and the deal record holds no EBITDA on most deals at this stage. Weakening this
@@ -68,8 +86,103 @@ test('what could kill it is at most three rows and never a monitor', () => {
   }
 });
 
+// Every register row on every deal is stamped `basis: templated`, and among them are
+// rows reading "historic VAT exposure identified" and "cyber posture is adequate". A
+// template cannot identify an exposure or pronounce a posture adequate. The API was
+// honest about it; the first version of this page dropped the one field that told a
+// reader whether anybody had looked.
+test('a risk carries the basis it was written on', () => {
+  for (const [id, c] of CASES) {
+    for (const r of c.againstIt) {
+      assert.ok('basis' in r, `${id}: a risk is published with its basis stripped`);
+      if (r.basis === 'templated') {
+        assert.match(r.basisNote, /No named author/i, `${id}: a templated risk does not say so in words`);
+      }
+    }
+  }
+});
+
+// The single worst line on the first version of this page read, under the heading "the
+// case for it": "Base case returns 2.32x on 18.3% IRR — Does not clear the fund hurdle."
+test('nothing that fails the hurdle is filed under the case FOR the deal', () => {
+  for (const [id, c] of CASES) {
+    for (const p of c.forIt) {
+      assert.doesNotMatch(p.basis, /does not clear|breaks the hurdle|below the/i, `${id}: a hurdle failure is filed as a point in favour — "${p.point}"`);
+    }
+  }
+});
+
+// "Downside holds at 1.19x / 3.5% IRR" printed against a 2x / 20% hurdle on twenty of
+// twenty-four deals. The one question asked of a downside is whether it breaks.
+test('the downside is tested against the hurdle before it is described', () => {
+  let broken = 0;
+  for (const [id, c] of CASES) {
+    if (!c.downside) continue;
+    const h = { irr: 20, moic: 2 };
+    const clears = c.downside.moic >= h.moic && c.downside.irr >= h.irr;
+    assert.equal(c.downside.clearsHurdle, clears, `${id}: downside verdict disagrees with its own figures`);
+    if (!clears) {
+      broken += 1;
+      assert.match(c.downside.text, /breaks the hurdle/i, `${id}: a sub-hurdle downside is not described as one`);
+      assert.ok(!c.forIt.some((p) => /Downside/i.test(p.point)), `${id}: a sub-hurdle downside appears in the case for`);
+    }
+  }
+  assert.ok(broken > 0, 'no deal exercised the sub-hurdle downside path — the guard would be inert');
+});
+
+// "Modelled on ... a larger $256M equity cheque" where base and downside were both
+// $256M. A comparative that is not true of the two numbers beside it.
+test('the downside only calls its equity cheque larger when it is larger', () => {
+  for (const [id, c] of CASES) {
+    if (!c.downside) continue;
+    if (/larger/i.test(c.downside.basis)) {
+      assert.match(c.downside.basis, /larger .* than the base case/i, `${id}: "larger" with nothing to compare against`);
+    }
+  }
+});
+
+// Eight deals past the committee decision — including one whose own record reads "IC
+// approved; deal archived" — were told DO NOT PROCEED and asked to authorise money that
+// had already gone out of the door.
+test('a deal past the committee decision is not asked for authorisation', () => {
+  let decided = 0;
+  for (const [id, c] of CASES) {
+    if (!c.decided) continue;
+    decided += 1;
+    assert.equal(c.recommendation.call, 'ALREADY DECIDED', `${id}: past the decision but the call is ${c.recommendation.call}`);
+    assert.doesNotMatch(c.ask.headline, /Authorise up to/i, `${id}: asks a committee to authorise a deal that has signed`);
+    assert.match(c.ask.headline, /Committed:/, `${id}: does not state the commitment as a commitment`);
+  }
+  assert.ok(decided > 0, 'no deal exercised the past-decision path — the guard would be inert');
+});
+
+// "Returns clear the hurdle and the register carries nothing outstanding", ten lines
+// above a register with two conditions on it. One page, one count, taken from the rows
+// the page is about to print.
+test('the reason never claims a clean register when the page prints conditions', () => {
+  for (const [id, c] of CASES) {
+    if (/no conditions or repricing items/i.test(c.recommendation.because)) {
+      assert.equal(c.conditions.length, 0, `${id}: claims a clean register while printing ${c.conditions.length} conditions`);
+      assert.ok(!c.againstIt.some((r) => r.severity === 'reprice'), `${id}: claims a clean register while printing a repricing item`);
+    }
+  }
+});
+
+// "Growth underwritten at 41%" on a deal the model runs at 15%, and "Growth underwritten
+// at 7." on nineteen others with no unit at all. The returns model writes this sentence
+// correctly; the page had been writing its own.
+test('growth is stated as it is underwritten, and never as a bare number', () => {
+  for (const [id, c] of CASES) {
+    const g = c.forIt.find((p) => p.point === 'Growth');
+    if (!g) continue;
+    assert.match(g.basis, /Underwritten at/i, `${id}: growth is not stated as an underwriting`);
+    assert.doesNotMatch(g.basis, /at \d+(\.\d+)?[.,]/, `${id}: growth printed without a unit — "${g.basis}"`);
+  }
+});
+
 test('a deal-stopper on the register forces the call to DECLINE', () => {
   for (const [id, c] of CASES) {
+    if (c.decided) continue;
     if (c.againstIt.some((r) => r.severity === 'stopper')) {
       assert.equal(c.recommendation.call, 'DECLINE', `${id}: stopper on the register but the call is ${c.recommendation.call}`);
     }
@@ -88,6 +201,31 @@ test('the ask names an amount, so nobody votes on an unstated number', () => {
     if (!c.ask) continue;
     assert.ok(Number.isFinite(c.ask.enterpriseValue), `${id}: ask has no enterprise value`);
     assert.ok(Number.isFinite(c.ask.equityCheque), `${id}: ask has no equity cheque`);
-    assert.match(c.ask.headline, /Authorise up to/, `${id}: the ask does not read as an authorisation`);
+    assert.match(c.ask.headline, c.decided ? /Committed:/ : /Authorise up to/, `${id}: the ask does not read as ${c.decided ? 'a commitment' : 'an authorisation'}`);
+  }
+});
+
+// The ask said "$96M equity cheque" beside a sources-and-uses showing $94M of sponsor
+// equity, with the reconciliation on a page the reader had not been sent to.
+test('where the equity cheque and the sponsor line differ, the ask reconciles them', () => {
+  let reconciled = 0;
+  for (const [id, c] of CASES) {
+    if (!c.ask || !c.ask.equityNote) continue;
+    reconciled += 1;
+    assert.match(c.ask.equityNote, /fees|rolled over/i, `${id}: equity note does not explain the difference`);
+  }
+  assert.ok(reconciled > 0, 'no deal exercised the equity-reconciliation path — the guard would be inert');
+});
+
+// One deal's approved memo claimed "no unresolved risk-level findings" while its own
+// register carried three open conditions. The product held the conflict and buried it.
+test('a written recommendation that claims nothing is outstanding is checked against the register', () => {
+  for (const [id, c] of CASES) {
+    const w = c.writtenRecommendation;
+    if (!w) continue;
+    assert.ok(w.text.length, `${id}: an empty written recommendation was published as one`);
+    if (/no\s+(unresolved|outstanding|open)\b/i.test(w.text) && c.conditions.length) {
+      assert.ok(w.conflict, `${id}: written recommendation contradicts the register and the page does not say so`);
+    }
   }
 });
