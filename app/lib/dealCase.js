@@ -602,7 +602,18 @@ export function buildDealCase(deal) {
     // The readiness headline is computed elsewhere and quoted a different number from
     // the one list, and it is the line a reader hits first. The state and the gating
     // travel; the count does not, because there is one count on this page.
-    readiness: { state: v.state || null, headline: String(v.headline || '').replace(/\s*\d+ items? remain open on the risk register\.?/i, '').trim() || null, gating: v.gating || [] },
+    // The readiness headline is computed elsewhere and quoted its own count of what is
+    // open, beside a list of a different length, and it is the line a reader hits first.
+    // The state and the gating travel; the count does not, because there is one count on
+    // this page. Both of the board's phrasings are stripped -- the first pass caught only
+    // the post-committee wording and the diligence-phase one went straight through.
+    readiness: {
+      state: v.state || null,
+      headline: String(v.headline || '')
+        .replace(/[.;]?\s*\d+ items?\s+(?:remain open on|on)\s+the risk register(?:\s+are still open)?(?:\s+and do not gate the committee)?\.?/i, '')
+        .trim() || null,
+      gating: v.gating || [],
+    },
     recommendation: { call, because },
     writtenRecommendation: writtenRecommendation(deal, openCount),
     ask: theAsk(canon, returns, deal),

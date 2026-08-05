@@ -311,7 +311,7 @@ test('everything outstanding is on one list, and each row says which record it c
     assert.equal(c.outstandingCount, c.outstanding.length, `${id}: the outstanding count is not the length of the outstanding list`);
     // And no other line on the page may quote a different one. The readiness headline is
     // computed elsewhere, quoted its own number, and is the line a reader hits first.
-    const stray = /(\d+) items? remain open on the risk register/.exec(String(c.readiness.headline || ''));
+    const stray = /\d+ items?\s+(?:remain open on|on)\s+the risk register/i.exec(String(c.readiness.headline || ''));
     assert.equal(stray, null, `${id}: the readiness headline quotes its own count of what is open`);
   }
 });
