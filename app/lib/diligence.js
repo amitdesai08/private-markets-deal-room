@@ -381,6 +381,30 @@ function workstreamFindings(deal) {
   const money = (m) => fmtMoney(m, symbolFor(deal));
   const out = [];
   const add = (workstream, severity, finding, impact, basis = 'templated') => out.push({ workstream, severity, finding, impact, basis });
+  // Whether the lane behind a finding has actually been worked. The register was stating
+  // settled opinions -- "no material undisclosed litigation identified", "cyber posture
+  // adequate", "structured references positive" -- on deals whose own workstream board
+  // showed those lanes NOT STARTED, two screens away. An opinion is a claim about work
+  // somebody did; where the work has not begun, say that instead, because it is the more
+  // useful sentence anyway: it names what to instruct.
+  const laneStarted = (key) => {
+    const w = (deal.workstreams || []).find((x) => String(x.lane) === key);
+    return !!w && String(w.status || '') !== 'not_started';
+  };
+  // And whether anybody actually WROTE anything in it. `laneStarted` reads a status
+  // somebody typed, and on the strength of it this register was publishing settled
+  // opinions in diligence voice with deal-specific quanta against them: "Historic VAT
+  // exposure identified", "cyber posture is adequate", "no recognised environmental
+  // condition was identified", "cost-out opportunity identified (~$6M run-rate)". Every
+  // row across all twenty-four registers carried basis: templated -- 232 rows, none
+  // written by anybody -- and a committee member put it exactly right: the disclosure is
+  // honest, the content it disclaims is not. A template may say what a lane covers and
+  // what is still open in it. It may not report a result.
+  const laneFindings = (key) => (deal.workstreams || [])
+    .filter((w) => String(w.lane) === key)
+    .flatMap((w) => w.findings || [])
+    .filter((x) => x && x.text);
+  const laneWorked = (key) => laneFindings(key).length > 0;
   // Financial / QoE — EBITDA haircut sized off margin quality.
   //
   // On a deal that has already been through committee this template was inventing a
@@ -399,6 +423,13 @@ function workstreamFindings(deal) {
     add('financial', 'clear',
       `QoE completed. Unsupported add-backs and owner-comp normalisation were removed before the figures were fixed, so ${money(f.ebitda)} is the adjusted EBITDA the entry multiple and leverage are struck on.`,
       'Settled — carried into the SPA completion mechanism.', 'templated');
+    // The one thing on a signed deal that somebody actually wrote, and it appeared in no
+    // figure, no scenario, no register row and no line of the case: "Final QoE issued;
+    // $2.1M of add-backs disallowed". Two templated rows were printed under "what could
+    // kill it" while the recorded finding was not on the page at all.
+    for (const fnd of laneFindings('financial').slice(0, 1)) {
+      add('financial', 'monitor', String(fnd.text).trim(), 'Recorded by the financial workstream and settled before the figures were fixed.', 'recorded');
+    }
   } else {
     // The register said "QoE normalises EBITDA down 12% ($29M → $26M)" on a deal whose
     // own financial workstream had already recorded the specific finding driving it --
@@ -416,7 +447,7 @@ function workstreamFindings(deal) {
       // The number an IC member reaches for and could never find: what the price becomes
       // if the provision proves out. Stating the allowance and not its consequence left
       // the entry multiple quoted on an EBITDA the same page says is overstated.
-      `Allowance carried for QoE normalisation: ${haircut}% of EBITDA (${money(f.ebitda)} → ${money(adjEbitda)}), covering unsupported add-backs and owner-comp normalisation. This is the modelled provision, not a QoE result. If it proves out, the ${entryOnReported}x entry becomes ${entryOnAdjusted}x on the adjusted figure.${qoeFinding ? ` The financial workstream has already recorded one specific driver: ${String(qoeFinding.text).replace(/\s+$/, '')} That figure is quoted in the currency of the document it came from and is one component of the allowance above, not a second view of it.` : ''}`,
+      `Allowance carried for QoE normalisation: ${haircut}% of EBITDA (${money(f.ebitda)} → ${money(adjEbitda)}), covering unsupported add-backs and owner-comp normalisation. This is the modelled provision, not a QoE result. If it proves out, the ${entryOnReported}x entry becomes ${entryOnAdjusted}x on the adjusted figure.${qoeFinding ? ` The financial workstream has recorded one specific driver: ${String(qoeFinding.text).replace(/\s+$/, '')} Whether that adjustment is already inside the ${money(f.ebitda)} above, or still to come out of it, is not stated on the record — and the two readings put the entry at ${entryOnReported}x or at ${entryOnAdjusted}x. Settle it before the multiple is quoted in a room.` : ''}`,
       haircut >= 15 ? `Repricing lever — reset entry EV against ${money(adjEbitda)} adjusted EBITDA.` : 'Reflected in the model and the SPA net-working-capital peg.');
   }
   add('financial', 'condition', `Net-working-capital peg set at ~${money(round(f.revenue * 0.12))} from a 12–24 month seasonality analysis.`, 'Becomes the SPA true-up mechanism at close.');
@@ -430,51 +461,62 @@ function workstreamFindings(deal) {
   // the way a four-account enterprise software business is.
   const concBase = f.ebitdaMargin > 15 ? 22 : 31;
   const conc = Math.max(8, Math.min(46, concBase + (seedOf(`${deal.id}:conc`) % 13) - 6));
+  if (laneWorked('commercial')) {
+    for (const fnd of laneFindings('commercial').slice(0, 2)) {
+      add('commercial', fnd.severity === 'risk' || fnd.severity === 'negative' ? 'reprice' : 'monitor', String(fnd.text).trim(), 'Recorded by the commercial workstream.', 'recorded');
+    }
+  }
   add('commercial', conc >= 30 ? 'reprice' : 'monitor',
-    `Top-customer concentration ~${conc}% of revenue${conc >= 30 ? ' without a long-term contract — a binary revenue risk.' : ' — within tolerance but monitored.'}`,
-    conc >= 30 ? 'Mitigated via contract protection or an escrow/holdback.' : 'Track post-close; diversify in the 100-day plan.');
+    // The percentage is modelled, and it was stated as though somebody had counted it.
+    `Customer concentration is modelled at ~${conc}% of revenue${conc >= 30 ? ' — above the level at which the fund treats it as a binary revenue risk. No customer schedule has been recorded to confirm the figure.' : ', within tolerance. No customer schedule has been recorded to confirm the figure.'}`,
+    conc >= 30 ? 'Confirm against the customer schedule, then mitigate via contract protection or an escrow/holdback.' : 'Confirm against the customer schedule; track post-close.');
   // No voice-of-customer programme has been run. Asserting twenty calls that did not
   // happen, and citing them into the memo synthesis, is the fastest way to lose a
   // practitioner permanently.
   add('commercial', 'monitor', `Voice-of-customer work has not been commissioned yet — the growth thesis for ${deal.sector} rests on the CIM and desk research until it is.`, 'Commission reference calls before the pack is finalised.');
 
-  // Whether the lane behind a finding has actually been worked. The register was stating
-  // settled opinions -- "no material undisclosed litigation identified", "cyber posture
-  // adequate", "structured references positive" -- on deals whose own workstream board
-  // showed those lanes NOT STARTED, two screens away. An opinion is a claim about work
-  // somebody did; where the work has not begun, say that instead, because it is the more
-  // useful sentence anyway: it names what to instruct.
-  const laneStarted = (key) => {
-    const w = (deal.workstreams || []).find((x) => String(x.lane) === key);
-    return !!w && String(w.status || '') !== 'not_started';
-  };
   const pick = (key, options) => options[seedOf(`${deal.id}:${key}`) % options.length];
 
   // Legal — contracts change-of-control.
-  if (laneStarted('legal')) {
-    add('legal', 'condition', `Change-of-control consents required on ${pick('legalConsents', ['2–3', 'four', 'a handful of', 'two'])} material customer/supplier contracts.`, 'Listed as conditions precedent in the SPA.');
-    add('legal', 'clear', 'No material undisclosed litigation or government investigation identified.', 'Clean — no legal deal-stopper.');
+  if (laneWorked('legal')) {
+    for (const fnd of laneFindings('legal').slice(0, 2)) {
+      add('legal', fnd.severity === 'risk' || fnd.severity === 'negative' ? 'condition' : 'monitor', String(fnd.text).trim(), 'Recorded by the legal workstream; track to resolution before signing.', 'recorded');
+    }
+  } else if (laneStarted('legal')) {
+    add('legal', 'condition', `Change-of-control consents required on ${pick('legalConsents', ['2–3', 'four', 'a handful of', 'two'])} material customer/supplier contracts — the standard scope for this lane. Nothing has been recorded against it, so there is no opinion on the record about litigation or title.`, 'Listed as conditions precedent in the SPA once counsel reports.');
   } else {
     add('legal', decided ? 'monitor' : 'condition', 'Legal diligence has not started, so there is no basis on the record for an opinion on litigation, title or change-of-control consents.', 'Instruct counsel; consents on material contracts are usually the long pole.');
   }
 
   // Tax.
-  if (laneStarted('tax')) {
-    add('tax', 'monitor', `${pick('tax', ['VAT and transfer-pricing', 'Transfer-pricing', 'Indirect-tax and withholding', 'Historic VAT'])} exposure identified; quantify and structure as a covered risk.`, 'Backstopped by W&I insurance and addressed in deal structuring.');
+  if (laneWorked('tax')) {
+    for (const fnd of laneFindings('tax').slice(0, 1)) {
+      add('tax', 'monitor', String(fnd.text).trim(), 'Recorded by the tax workstream; quantify and structure as a covered risk.', 'recorded');
+    }
+  } else if (laneStarted('tax')) {
+    add('tax', 'monitor', 'Tax diligence is open. No exposure has been quantified on the record either way — VAT, transfer pricing and withholding are the standard scope and none has reported.', 'Backstop with W&I insurance once the review lands.');
   } else {
     add('tax', decided ? 'monitor' : 'condition', 'Tax diligence has not started; no exposure has been quantified either way.', 'Scope the tax review before the pack is finalised.');
   }
 
-  // Operational.
-  add('operational', 'monitor', `Cost-out opportunity identified in procurement & footprint (~${money(round(f.revenue * 0.02))} run-rate).`, 'Folded into the value-creation plan.');
+  // Operational. This read "Cost-out opportunity identified in procurement & footprint
+  // (~$6M run-rate)" on a $29M EBITDA business, with nobody's name on it. A number that
+  // specific, asserted by a template, is the kind of thing a committee repeats.
+  if (laneWorked('operational')) {
+    for (const fnd of laneFindings('operational').slice(0, 1)) {
+      add('operational', 'monitor', String(fnd.text).trim(), 'Recorded by the operations workstream; folded into the value-creation plan.', 'recorded');
+    }
+  } else {
+    add('operational', 'monitor', `Procurement and footprint efficiency is the standard cost-out scope for this lane and is modelled at ~${money(round(f.revenue * 0.02))} run-rate. No operations finding has been recorded against this company.`, 'Test the assumption in operations diligence before it is carried into the plan.');
+  }
 
   // Tech.
-  if (laneStarted('techai')) {
-    add('tech', 'monitor', pick('tech', [
-      'Manageable tech debt; core systems scale to the growth plan. Cyber posture adequate with gaps to close.',
-      'Core platform scales to the plan; the integration layer carries most of the debt and the cyber gaps are the closeable kind.',
-      'Tech debt concentrated in reporting and billing rather than the product itself; cyber posture is adequate.',
-    ]), 'Addressed by the post-close IT roadmap in the 100-day plan.');
+  if (laneWorked('techai')) {
+    for (const fnd of laneFindings('techai').slice(0, 1)) {
+      add('tech', 'monitor', String(fnd.text).trim(), 'Recorded by the technology workstream; addressed in the post-close IT roadmap.', 'recorded');
+    }
+  } else if (laneStarted('techai')) {
+    add('tech', 'monitor', 'Technology diligence is open. Neither the scalability of the platform nor the cyber posture has been reported on — there is no assessment on the record to quote.', 'Chase the technical review; this lane sets the 100-day IT roadmap.');
   } else {
     add('tech', decided ? 'monitor' : 'condition', 'Technology diligence has not started; neither the scalability of the platform nor the cyber posture has been examined.', 'Scope a technical review — this lane sets the 100-day IT roadmap.');
   }
@@ -499,12 +541,12 @@ function workstreamFindings(deal) {
   // and citing ASTM E1527-21 and CERCLA safe harbour over it dressed an absence of work
   // as a clean result. The reverse is also wrong: printing "no Phase I has been
   // commissioned" on a deal whose ESG lane reads COMPLETE contradicts its own board.
-  if (laneStarted('esg')) {
-    add('esg', 'monitor', pick('esg', [
-      'Environmental review complete; no recognised environmental condition was identified at any operating site.',
-      'Environmental review complete. Site conditions are within tolerance; the reporting obligations are the part that needs work.',
-      'Environmental review complete; the gaps are in ESG data collection rather than in site condition.',
-    ]), 'Carried into the 100-day plan as a reporting workstream.');
+  if (laneWorked('esg')) {
+    for (const fnd of laneFindings('esg').slice(0, 1)) {
+      add('esg', 'monitor', String(fnd.text).trim(), 'Recorded by the ESG workstream; carried into the 100-day plan.', 'recorded');
+    }
+  } else if (laneStarted('esg')) {
+    add('esg', 'monitor', 'The ESG lane is open. No site condition or reporting finding has been recorded against this company, so there is nothing on the record to support a clean environmental opinion.', 'Chase the Phase I result and the ESG data review.');
   } else {
     add('esg', decided ? 'monitor' : 'condition', 'No Phase I environmental assessment has been commissioned. Until one is, there is no basis on the record for a clean environmental opinion.', 'Commission a Phase I ESA; a Phase II follows only if it identifies a recognised condition.');
   }
@@ -825,7 +867,30 @@ export function buildReturnsModel(deal) {
     indicativeNote: dealGrowth(deal) === null
       ? 'Indicative only: no growth rate is recorded for this company, so the model runs on the fund default. Every deal without a growth rate returns these same figures — treat them as a placeholder until one is on the record.'
       : null,
-    entry: { evEbitda: shownMult, impliedEvEbitda: r.impliedMultiple, modelledEvEbitda: r.entryMultiple, leverage: r.leverage, entryEV: base.entryEV, ebitda: canon?.ebitda ?? f.ebitda, holdYears: r.holdYears },
+    entry: (() => {
+      const ebitda = canon?.ebitda ?? f.ebitda;
+      const impliedByPublished = +(base.entryEV / Math.max(1, ebitda)).toFixed(1);
+      // Meridian published "Committed: $670M enterprise value at 4.1x" over an EBITDA of
+      // $134M -- and 670 over 134 is 5.0x, not 4.1x. The multiple was the one stated on
+      // the record while the enterprise value was the one the model buys at, and the two
+      // were printed side by side with nothing to say they were struck on different
+      // numbers. A committee reading 4.1x against a base exit at 5.0x sees a full turn of
+      // multiple expansion that is not in the case. Every other deal ties; this one did
+      // not, and it is a portfolio company we already own.
+      const ties = Math.abs(impliedByPublished - shownMult) <= 0.15;
+      return {
+        evEbitda: shownMult,
+        impliedEvEbitda: r.impliedMultiple,
+        modelledEvEbitda: r.entryMultiple,
+        leverage: r.leverage,
+        entryEV: base.entryEV,
+        ebitda,
+        holdYears: r.holdYears,
+        ties,
+        entryNote: ties ? null
+          : `The ${shownMult}x is the multiple stated on the record. The model funds ${fmtMoney(base.entryEV, symbolFor(deal))} of enterprise value, which over ${fmtMoney(ebitda, symbolFor(deal))} of EBITDA is ${impliedByPublished}x. The scenarios below are struck on the ${impliedByPublished}x.`,
+      };
+    })(),
     sourcesUses: { sources, uses, totalSources: sources.reduce((s, x) => s + x.amount, 0), totalUses: uses.reduce((s, x) => s + x.amount, 0),
       // The returns are struck on the equity funding the purchase price. Sources & Uses
       // shows the equity CHEQUE, which also funds the fee load and is net of rollover,

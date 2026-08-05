@@ -15,7 +15,7 @@ import {
   launchDeal, advanceDeal, runStep, assignSwimlane, recordFinding, recordContribution,
   getICReadiness, marketIntel, recordIssue, resolveIssue, setCondition, snapshotAssumptions,
   getCitationAudit, canonicalCompanies, canonicalCompany,
-  getDealReturns, getDealValueCreation, getDealRiskRegister, getDealCase,
+  getDealReturns, getDealValueCreation, getDealRiskRegister, getDealCase, getDealComparables,
   portfolioStats
 } from './store.js';
 import { dealAccessLevel } from './userPolicy.js';
@@ -207,6 +207,22 @@ export function dealAnalystView(id, sections) {
         notOnRecord: c.notOnRecord,
         writtenRecommendation: c.writtenRecommendation ? c.writtenRecommendation.text : null,
         writtenRecommendationConflict: c.writtenRecommendation ? c.writtenRecommendation.conflict : null,
+        // Asked what precedents the fund holds for this sector, the assistant answered
+        // "Not recorded -- the deal record contains no comparable transactions or IC
+        // precedents for Software", while the product served two: one approved at 16.9x
+        // only because retention was independently verified, and one repriced in
+        // committee over annual-terms ARR -- which is the same finding the deal being
+        // asked about had recorded against it. The product held the precedent, held the
+        // matching finding, and denied both.
+        priceAgainstPrecedent: c.priceAgainstPrecedent ? `${c.priceAgainstPrecedent.text} ${c.priceAgainstPrecedent.basis}` : null,
+      };
+    }
+    const cm = getDealComparables(id);
+    if (cm) {
+      view.comparables = {
+        note: cm.note,
+        transactions: (cm.comparableDeals || []).map((x) => `${x.company} — ${x.dealType}, ${x.evEbitda ? `${x.evEbitda}x EV/EBITDA` : 'multiple not recorded'}, ${x.status}. ${x.thesis}`),
+        icPrecedents: (cm.icPrecedents || []).map((p) => `${p.deal} — ${p.decision} ${p.votesFor}–${p.votesAgainst}${p.entryMultiple ? ` at ${p.entryMultiple}x` : ''}.${p.note ? ` ${p.note}` : ''}`),
       };
     }
   }

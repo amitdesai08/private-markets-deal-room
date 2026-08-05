@@ -157,6 +157,32 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
         </section>
       )}
 
+      {/* Is this multiple right for this sector? It is the only question that matters on
+          price, and a committee member had to do the arithmetic themselves against a
+          panel two clicks away. */}
+      {c.priceAgainstPrecedent && (
+        <section className="dc-card">
+          <div className="dc-h">The price, against what the fund has paid</div>
+          <div className="dc-pt">{c.priceAgainstPrecedent.text}</div>
+          <div className="dc-basis">{c.priceAgainstPrecedent.basis}</div>
+        </section>
+      )}
+
+      {/* Boilerplate must never push a recorded finding off the page. On a signed deal
+          the one thing somebody had written was graded a monitor, fell out of the three
+          killers, and appeared nowhere. */}
+      {!!(c.recordedFindings || []).length && (
+        <section className="dc-card">
+          <div className="dc-h">What diligence actually found</div>
+          {c.recordedFindings.map((r: Any, i: number) => (
+            <div key={i} className="dc-point">
+              <div className="dc-pt">{r.finding}</div>
+              <div className="dc-basis">{r.workstream}{r.owner ? ` · ${r.owner}` : ''} · written against this company</div>
+            </div>
+          ))}
+        </section>
+      )}
+
       {!!(c.outstanding || []).length && (
         <section className="dc-card">
           {/* One list. The readiness board named a regulatory clearance and a financing

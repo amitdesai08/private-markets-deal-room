@@ -24,6 +24,7 @@
 import { buildReturnsModel, buildRiskRegister, canonicalFigures } from './diligence.js';
 import { computeICReadiness } from './icReadiness.js';
 import { validateCitations } from './citations.js';
+import { compsForDeal } from './fabric.js';
 import { money as fmtMoney, symbolFor } from './money.js';
 
 const SEVERITY_RANK = { stopper: 0, reprice: 1, condition: 2, monitor: 3 };
@@ -76,7 +77,11 @@ function figureBasis(kind, canon, deal) {
 function againstIt(register) {
   return (register.risks || [])
     .filter((r) => r.severity !== 'monitor')
-    .sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9))
+    // Severity first, and within a severity a row somebody wrote before a row nobody
+    // did. A committee reading three killers should be reading the three things the
+    // diligence found, where the diligence found anything.
+    .sort((a, b) => ((SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9))
+      || ((a.basis === 'recorded' ? 0 : 1) - (b.basis === 'recorded' ? 0 : 1)))
     .slice(0, 3)
     .map((r) => ({
       risk: r.risk,
@@ -242,6 +247,34 @@ function revenueFigure(canon, deal) {
   return { label: 'Revenue', value: `${canon.currency}${canon.revenue}M`, basis: figureBasis('revenue', canon, deal) };
 }
 
+// Is this multiple right for this sector? It is the only question that matters on price,
+// the comparable transactions to answer it were two clicks away, and a committee member
+// had to do the arithmetic themselves — which is the thing the comparables route was
+// built to stop. Nobody should have to notice that 8.3x sits under a 13.1x–16.9x
+// precedent set; the page should say it.
+function againstPrecedent(deal, canon) {
+  const comps = (compsForDeal(deal) || []).filter((c) => Number.isFinite(c.evEbitda) && c.evEbitda > 0);
+  if (!comps.length || !Number.isFinite(canon.entryMultiple)) return null;
+  const mults = comps.map((c) => c.evEbitda).sort((a, b) => a - b);
+  const lo = mults[0];
+  const hi = mults[mults.length - 1];
+  const where = canon.entryMultiple < lo ? 'below' : canon.entryMultiple > hi ? 'above' : 'inside';
+  return {
+    entryMultiple: canon.entryMultiple,
+    low: lo,
+    high: hi,
+    count: comps.length,
+    sector: deal.sector,
+    where,
+    text: where === 'below'
+      ? `We are buying at ${canon.entryMultiple}x against a ${deal.sector} precedent set of ${lo}x–${hi}x. If it is that cheap, the case needs to say why.`
+      : where === 'above'
+        ? `We are buying at ${canon.entryMultiple}x against a ${deal.sector} precedent set of ${lo}x–${hi}x. That is above everything the fund has paid in the sector.`
+        : `We are buying at ${canon.entryMultiple}x, inside the ${deal.sector} precedent set of ${lo}x–${hi}x.`,
+    basis: `${comps.length} transaction${comps.length === 1 ? '' : 's'} the fund underwrote in ${deal.sector}. Open Comparables & precedents for the individual deals and the committee's reasoning on each.`,
+  };
+}
+
 export function buildDealCase(deal) {
   const canon = canonicalFigures(deal);
   if (!canon) return null;
@@ -295,6 +328,9 @@ export function buildDealCase(deal) {
   if (risks.length && risks.every((r) => r.basis === 'templated')) {
     notOnRecord.push('Every risk below is the standard row for its workstream. None was written by a named author against this company.');
   }
+  if (!(register.risks || []).some((r) => r.basis === 'recorded')) {
+    notOnRecord.push('Nothing on this deal\u2019s risk register was written by a named author. Every row is the standard set for its workstream.');
+  }
 
   return {
     kind: 'deal-case',
@@ -311,13 +347,22 @@ export function buildDealCase(deal) {
     writtenRecommendation: writtenRecommendation(deal, openCount),
     ask: theAsk(canon, returns, deal),
     baseCase: theBaseCase(deal, returns, canon),
+    priceAgainstPrecedent: againstPrecedent(deal, canon),
     forIt: forIt(deal, canon, returns),
     downside: theDownside(deal, returns),
     againstIt: risks,
+    // Everything on the register that somebody actually wrote, at any severity. On a
+    // signed deal the one real finding -- "Final QoE issued; $2.1M of add-backs
+    // disallowed" -- was graded a monitor and therefore fell out of the three killers,
+    // so the page printed two rows nobody wrote and left out the one somebody did.
+    // Boilerplate must never be able to push a recorded finding off the page.
+    recordedFindings: (register.risks || [])
+      .filter((r) => r.basis === 'recorded')
+      .map((r) => ({ finding: r.risk, workstream: r.workstream || null, owner: r.owner || null, severity: r.severity, severityLabel: r.severityLabel })),
     figures: [
       { label: 'Enterprise value', value: `${canon.currency}${canon.ev}M`, basis: figureBasis('ev', canon, deal) },
       { label: 'LTM EBITDA', value: `${canon.currency}${canon.ebitda}M`, basis: figureBasis('ebitda', canon, deal) },
-      { label: 'Entry multiple', value: `${canon.entryMultiple}x`, basis: figureBasis('multiple', canon, deal) },
+      { label: 'Entry multiple', value: `${canon.entryMultiple}x`, basis: [figureBasis('multiple', canon, deal), (returns.entry || {}).entryNote].filter(Boolean).join(' ') },
       revenueFigure(canon, deal),
       { label: 'Leverage', value: canon.leverage, basis: 'Modelled at the financeable ceiling for the sector.' },
     ],

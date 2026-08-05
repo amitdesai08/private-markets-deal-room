@@ -10,7 +10,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildDealCase } from '../lib/dealCase.js';
 import { seededDeals } from '../data/deals.js';
-import { buildReturnsModel } from '../lib/diligence.js';
+import { buildReturnsModel, buildRiskRegister } from '../lib/diligence.js';
 
 const CASES = seededDeals.map((d) => [d.id, buildDealCase(d)]);
 
@@ -309,4 +309,66 @@ test('the citation score travels with the case', () => {
     assert.ok(c.citations.summary, `${id}: a citation score with no explanation`);
   }
   assert.ok(scored > 0, 'no deal carried a citation audit — the guard would be inert');
+});
+
+// 232 rows across twenty-four registers, `authored = 0`, and among them "Historic VAT
+// exposure identified", "cyber posture is adequate", "no recognised environmental
+// condition was identified" and "cost-out opportunity identified (~$6M run-rate)" on a
+// $29M EBITDA. A committee member put it exactly right: the disclosure is honest, the
+// content it disclaims is not. A template may say what a lane covers and what is open in
+// it; it may not report a result.
+const ASSERTS_A_RESULT = /\bidentified\b|\bis adequate\b|\bposture adequate\b|review complete|no material undisclosed/i;
+test('a templated register row never reports a finding', () => {
+  for (const d of seededDeals) {
+    for (const r of buildRiskRegister(d).risks) {
+      if (r.basis === 'recorded') continue;
+      assert.doesNotMatch(r.risk, ASSERTS_A_RESULT, `${d.id}: a row nobody wrote reports a result — "${r.risk.slice(0, 90)}"`);
+    }
+  }
+});
+
+// A finding somebody wrote must be on the page whatever severity it was graded. On a
+// signed deal the one real finding -- "Final QoE issued; $2.1M of add-backs disallowed"
+// -- was a monitor, fell out of the three killers, and appeared nowhere at all, while
+// two rows nobody wrote were printed under "what could kill it".
+test('a recorded finding is never pushed off the page by boilerplate', () => {
+  let withRecorded = 0;
+  for (const [id, c] of CASES) {
+    const d = seededDeals.find((x) => x.id === id);
+    const recorded = buildRiskRegister(d).risks.filter((r) => r.basis === 'recorded');
+    if (!recorded.length) {
+      assert.ok(
+        c.notOnRecord.some((n) => /written by a named author/i.test(n)),
+        `${id}: an entirely templated register does not say so`,
+      );
+      continue;
+    }
+    withRecorded += 1;
+    for (const r of recorded) {
+      assert.ok(c.recordedFindings.some((x) => x.finding === r.risk), `${id}: a recorded finding is absent from the case`);
+    }
+  }
+  assert.ok(withRecorded > 0, 'no deal carried a recorded finding — the guard would be inert');
+});
+
+// "Committed: $670M enterprise value at 4.1x" over $134M of EBITDA -- and 670 over 134
+// is 5.0x. The multiple was the one stated on the record, the enterprise value was the
+// one the model funds, and nothing said they were struck on different numbers. A
+// committee reading 4.1x against a base exit at 5.0x sees a turn of multiple expansion
+// that is not in the case.
+test('where the stated multiple and the funded enterprise value disagree, the page says so', () => {
+  let mismatched = 0;
+  for (const d of seededDeals) {
+    const e = buildReturnsModel(d).entry;
+    if (!e) continue;
+    const implied = +(e.entryEV / Math.max(1, e.ebitda)).toFixed(1);
+    const ties = Math.abs(implied - e.evEbitda) <= 0.15;
+    assert.equal(e.ties, ties, `${d.id}: the reconciliation flag disagrees with the arithmetic`);
+    if (!ties) {
+      mismatched += 1;
+      assert.ok(e.entryNote, `${d.id}: ${e.evEbitda}x published over an enterprise value implying ${implied}x, with no note`);
+      assert.match(e.entryNote, new RegExp(`${implied}x`), `${d.id}: the note does not state the implied multiple`);
+    }
+  }
+  assert.ok(mismatched > 0, 'no deal exercised the mismatch path — the guard would be inert');
 });
