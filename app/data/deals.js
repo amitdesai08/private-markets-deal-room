@@ -17,6 +17,8 @@
 export const seedDeals = [
   {
     id: 'nordic-grocery',
+    growth: 3,
+    team: ['analyst', 'partner'],
     pipelineVisible: true,
     company: 'Nordic Grocery Group',
     region: 'international',
@@ -116,6 +118,8 @@ export const seedDeals = [
   },
   {
     id: 'heliopack',
+    growth: 5,
+    team: ['analyst'],
     pipelineVisible: true,
     company: 'HelioPack Sustainable Packaging',
     region: 'international',
@@ -170,6 +174,7 @@ export const seedDeals = [
   },
   {
     id: 'lumen-analytics',
+    team: ['analyst', 'partner', 'ai-md'],
     pipelineVisible: true,
     company: 'Lumen Analytics',
     region: 'international',
@@ -234,6 +239,8 @@ export const seedDeals = [
   },
   {
     id: 'atlas-coldchain',
+    growth: 7,
+    team: ['analyst', 'partner', 'legal-gc'],
     pipelineVisible: true,
     company: 'Atlas Cold Chain Logistics',
     region: 'international',
@@ -309,6 +316,8 @@ export const seedDeals = [
   },
   {
     id: 'baltic-precision',
+    growth: 4,
+    team: ['analyst', 'legal-gc'],
     pipelineVisible: true,
     company: 'Baltic Precision Components',
     region: 'international',
@@ -450,7 +459,8 @@ export const demoStageDeals = [
   // model has a clear spread to demonstrate: an analyst scoped to Northeast sees
   // Beacon Hill; the West Coast MD sees Cascadia (NW) + Mojave (SW); MDs/admins see all.
   {
-    id: 'demo-cascadia', company: 'Cascadia Timber Partners', region: 'northwest', tags: [],
+    id: 'demo-cascadia',
+    growth: 2, company: 'Cascadia Timber Partners', region: 'northwest', tags: [],
     sector: 'Industrials', subSector: 'Forestry / Building Products', hq: 'Portland, Oregon, United States',
     dealSize: 380, currency: 'USD', stage: 'D2', stageName: 'Diligence & Approval', status: 'in_diligence',
     sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(24), baselineDays: 45,
@@ -473,7 +483,8 @@ export const demoStageDeals = [
     activity: [{ actor: 'Deal Room Assistant', action: 'Assembled the commercial DD summary', when: hoursAgo(18) }], hoursSaved: 12,
   },
   {
-    id: 'demo-beaconhill', company: 'Beacon Hill Biotech', region: 'northeast', tags: [],
+    id: 'demo-beaconhill',
+    growth: 12, company: 'Beacon Hill Biotech', region: 'northeast', tags: [],
     sector: 'Healthcare', subSector: 'Biotech Tools / CRO', hq: 'Boston, Massachusetts, United States',
     dealSize: 300, currency: 'USD', stage: 'D1', stageName: 'Diligence & Approval', status: 'in_diligence',
     sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(30), baselineDays: 45,
@@ -497,7 +508,8 @@ export const demoStageDeals = [
     activity: [{ actor: 'Eleanor Shellstrop', action: 'PURSUE recorded at screening', when: hoursAgo(60) }], hoursSaved: 6,
   },
   {
-    id: 'demo-lonestar', company: 'Lone Star Energy Services', region: 'southcentral', tags: [],
+    id: 'demo-lonestar',
+    growth: 6, company: 'Lone Star Energy Services', region: 'southcentral', tags: [],
     sector: 'Energy', subSector: 'Energy Services / Electrification', hq: 'Houston, Texas, United States',
     dealSize: 520, currency: 'USD', stage: 'D3', stageName: 'Diligence & Approval', status: 'in_diligence',
     sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(21), baselineDays: 45,
@@ -521,7 +533,8 @@ export const demoStageDeals = [
     activity: [{ actor: 'Deal Room Assistant', action: 'Drafted the red-flag report', when: hoursAgo(8) }], hoursSaved: 19,
   },
   {
-    id: 'demo-peachtree', company: 'Peachtree Health Partners', region: 'southeast', tags: [],
+    id: 'demo-peachtree',
+    growth: 8, company: 'Peachtree Health Partners', region: 'southeast', tags: [],
     sector: 'Healthcare', subSector: 'Multi-site Care / Services', hq: 'Atlanta, Georgia, United States',
     dealSize: 460, currency: 'USD', stage: 'V2', stageName: 'Value Creation', status: 'owned',
     sponsorPersona: 'operating-partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(-120), baselineDays: 45,
@@ -539,7 +552,8 @@ export const demoStageDeals = [
     activity: [{ actor: 'Deal team — value creation', action: 'Updated the EBITDA-bridge tracker', when: hoursAgo(40) }], hoursSaved: 33,
   },
   {
-    id: 'demo-greatlakes', company: 'Great Lakes Precision', region: 'midwest', tags: [],
+    id: 'demo-greatlakes',
+    growth: 3, company: 'Great Lakes Precision', region: 'midwest', tags: [],
     sector: 'Industrials', subSector: 'Precision Manufacturing', hq: 'Chicago, Illinois, United States',
     dealSize: 410, currency: 'USD', stage: 'E1', stageName: 'Execution & Closing', status: 'signing',
     sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(-7), baselineDays: 45,
@@ -557,7 +571,8 @@ export const demoStageDeals = [
     activity: [{ actor: 'Deal team — financing & structuring', action: 'Locked the debt package; funds-flow drafted', when: hoursAgo(26) }], hoursSaved: 28,
   },
   {
-    id: 'demo-mojave', company: 'Mojave Renewables', region: 'southwest', tags: [],
+    id: 'demo-mojave',
+    growth: 14, company: 'Mojave Renewables', region: 'southwest', tags: [],
     sector: 'Energy', subSector: 'Renewables / Storage', hq: 'Phoenix, Arizona, United States',
     dealSize: 350, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
     sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(48), baselineDays: 45,
@@ -578,7 +593,8 @@ export const demoStageDeals = [
   // hollow if the first phase holds a single row, so each territory carries one
   // freshly-screened deal that has not yet been launched into diligence.
   {
-    id: 'demo-riverbend', company: 'Riverbend Specialty Foods', region: 'midwest', tags: [],
+    id: 'demo-riverbend',
+    growth: 4, company: 'Riverbend Specialty Foods', region: 'midwest', tags: [],
     sector: 'Consumer & Retail', subSector: 'Specialty Food Manufacturing', hq: 'Milwaukee, Wisconsin, United States',
     dealSize: 165, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
     sponsorPersona: 'retail-md', leadAnalyst: 'analyst', targetICDate: daysFromNow(63), baselineDays: 45,
@@ -595,7 +611,8 @@ export const demoStageDeals = [
     activity: [{ actor: 'Deal team — sourcing', action: 'Surfaced from founder-succession signals; PURSUE recorded at screening', when: hoursAgo(30) }], hoursSaved: 3,
   },
   {
-    id: 'demo-harborlight', region: 'northeast', tags: [],
+    id: 'demo-harborlight',
+    growth: 5, region: 'northeast', tags: [],
     company: 'Harborlight Marine Services',
     sector: 'Industrials', subSector: 'Marine Infrastructure Services', hq: 'Portland, Maine, United States',
     dealSize: 225, currency: 'USD', stage: 'O3', stageName: 'Origination & Screening', status: 'screened',
@@ -614,7 +631,8 @@ export const demoStageDeals = [
     activity: [{ actor: 'Diego Marquez', action: 'Completed the screening triage; routed to the go / no-go decision', when: hoursAgo(46) }], hoursSaved: 5,
   },
   {
-    id: 'demo-cypress', company: 'Cypress Grove Dental Partners', region: 'southeast', tags: [],
+    id: 'demo-cypress',
+    growth: 9, company: 'Cypress Grove Dental Partners', region: 'southeast', tags: [],
     sector: 'Healthcare', subSector: 'Dental Services Organisation', hq: 'Tampa, Florida, United States',
     dealSize: 280, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
     sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(70), baselineDays: 45,
@@ -633,6 +651,7 @@ export const demoStageDeals = [
 
   {
     id: 'demo-helvetia',
+    growth: 7,
     company: 'Helvetia Diagnostics',
     // Need-to-know: analyst "Maya" is named on this deal team, so she gets the full
     // workspace even though her role tier would normally see status-only.
@@ -701,6 +720,7 @@ export const demoStageDeals = [
   },
   {
     id: 'demo-meridian',
+    growth: 5,
     company: 'Meridian Logistics',
     team: ['operating-partner', 'fund-cfo'],
     confidential: false,
@@ -750,6 +770,7 @@ export const demoStageDeals = [
   },
   {
     id: 'demo-aurora',
+    growth: 11,
     company: 'Aurora Software',
     // Confidential exit: exists only for its named team (+ admins). Everyone else
     // never sees it in the pipeline at all.
@@ -799,6 +820,7 @@ export const demoStageDeals = [
   },
   {
     id: 'demo-sterling',
+    growth: 6,
     company: 'Project Sterling (listed payments processor)',
     // Confidential take-private under a standstill/NDA — deal-team only. Hidden from the
     // status tier (analyst never sees it); only its named team + admins know it exists.
@@ -854,6 +876,7 @@ export const demoStageDeals = [
   },
   {
     id: 'demo-onyx',
+    growth: 2,
     company: 'Project Onyx (specialty-chemicals carve-out)',
     // Confidential carve-out on a clean-team protocol — BUT analyst "Maya" is read-in on
     // a need-to-know basis, so she gets the full workspace even though the deal is hidden

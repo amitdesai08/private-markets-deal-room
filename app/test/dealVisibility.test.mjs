@@ -83,7 +83,7 @@ test('the seed exercises both outcomes, or the rest of this file proves nothing'
   const hidden = [...clearedIds].filter((id) => !analystIds.has(id));
   assert.ok(hidden.length > 0, 'at least one seeded deal must be invisible to an analyst');
   assert.ok(
-    listDeals(null, 'analyst').some((r) => r.accessLevel === 'status'),
+    listDeals(null, 'member').some((r) => r.accessLevel === 'status'),
     'at least one seeded deal must be listed-but-locked',
   );
 });

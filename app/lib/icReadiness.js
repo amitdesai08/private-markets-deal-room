@@ -20,7 +20,7 @@
 // deal's documents/filings — so the board is defensible, not decorative.
 
 import { buildReturns, fmtMoney as money } from './screening.js';
-import { canonicalFigures, dealGrowth } from './diligence.js';
+import { canonicalFigures, dealGrowth, buildRiskRegister } from './diligence.js';
 import { ownerLabel } from './cockpit.js';
 
 const LANE_LABEL = {
@@ -356,6 +356,42 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
   return { state, headline, gating, openConditions: openConditions.length, phase };
 }
 
+// The material rows of the deal's own risk register, in the shape the readiness board
+// uses. These two screens are read minutes apart by the same person and disagreed: the
+// register opened with "1 repricing risk" and the readiness board, one tab away, said
+// there were no unresolved risks at all. Neither was lying — they were reading different
+// stores. A committee cannot be asked to hold two answers at once, so the board now reads
+// the register too.
+//
+// The register's own vocabulary decides the weight: a deal-stopper is a blocking risk, a
+// price-adjuster is a caution. Anything softer is a condition or a 100-day item and does
+// not belong on a list headed "unresolved".
+function registerRisks(deal, already) {
+  const seen = new Set(already.map((i) => String(i.title || '').toLowerCase().slice(0, 60)));
+  const out = [];
+  let reg;
+  try { reg = buildRiskRegister(deal); } catch { return out; }
+  for (const r of (reg && reg.risks) || []) {
+    if (r.severity !== 'stopper' && r.severity !== 'reprice') continue;
+    const key = String(r.risk || '').toLowerCase().slice(0, 60);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      id: r.id,
+      lane: null,
+      laneLabel: r.workstream || null,
+      title: r.risk,
+      severity: r.severity === 'stopper' ? 'risk' : 'caution',
+      owner: r.owner || null,
+      status: 'open',
+      resolutionPath: r.mitigation || null,
+      sources: 0,
+      from: 'risk register',
+    });
+  }
+  return out;
+}
+
 // ---- public: the decision board --------------------------------------------
 export function computeICReadiness(deal) {
   const allIssues = (deal.issues || []).slice();
@@ -367,7 +403,9 @@ export function computeICReadiness(deal) {
   const unresolvedRisks = openIssues
     .filter((i) => BLOCKING_SEVERITIES.has(i.severity) || i.severity === 'caution')
     .sort((a, b) => sevRank(b.severity) - sevRank(a.severity))
-    .map((i) => ({ id: i.id, lane: i.lane, laneLabel: laneLabel(i.lane), title: i.title, severity: i.severity, owner: i.owner || null, status: i.status, resolutionPath: i.resolutionPath || null, sources: (i.sources || []).length }));
+    .map((i) => ({ id: i.id, lane: i.lane, laneLabel: laneLabel(i.lane), title: i.title, severity: i.severity, owner: i.owner || null, status: i.status, resolutionPath: i.resolutionPath || null, sources: (i.sources || []).length }))
+    .concat(registerRisks(deal, openIssues))
+    .sort((a, b) => sevRank(b.severity) - sevRank(a.severity));
   const sources = supportingSources(deal, allIssues);
   const ask = icAsk(deal);
   const conditions = (deal.conditions || []).map((c) => ({ id: c.id, text: c.text, owner: c.owner || null, status: c.status || 'proposed' }));

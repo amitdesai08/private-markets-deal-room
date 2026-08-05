@@ -411,13 +411,28 @@ export function onDealTeam(identity, team) {
   return keys.some((k) => list.includes(k));
 }
 
+// Everyone the record puts ON the deal. Only `team` counts. `leadAnalyst` looks like the
+// answer and is not: it carries the same default on eighteen of nineteen deals, so
+// honouring it would have put the analyst on essentially every deal in the fund and
+// undone the need-to-know boundary entirely. A field that is never varied is not a
+// statement about who is on a deal.
+export function dealTeamOf(deal) {
+  return ((deal && deal.team) || []).filter(Boolean);
+}
+
 // The effective access level for a specific deal: 'full' | 'status' | 'none'.
 export function dealAccessLevel(identity, deal, viewAsRole = null) {
   const access = accessFor(identity, viewAsRole);
   const s = String((deal && (deal.stage || deal.stageName)) || '');
   const restricted = RESTRICTED_STAGE_RE.test(s) || RESTRICTED_NAME_RE.test(s);
-  const team = onDealTeam(identity, deal && deal.team) || groupGrantsDeal(identity, deal);
   const confidential = !!(deal && deal.confidential);
+  const named = dealTeamOf(deal).map((x) => norm(x));
+  // A role is not a person. Deal teams in this record are written as role slugs
+  // ('analyst', 'legal-gc'), so matching the reader's role admits everyone holding it —
+  // right for a deal the firm is running normally, wrong for one it has marked
+  // confidential. Those keep needing a name, which is why Project Onyx stays shut.
+  const roleNamed = !confidential && !!access.role && named.includes(norm(access.role));
+  const team = onDealTeam(identity, named) || roleNamed || groupGrantsDeal(identity, deal);
   // Data sovereignty: a region-restricted user can't see out-of-region deals at all
   // (region inferred from the deal's hq when not explicitly tagged). Admins and named
   // team / deal-group members bypass the territory wall.

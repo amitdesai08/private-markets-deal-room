@@ -94,3 +94,78 @@ test('the register does not assert diligence nobody has done', () => {
 });
 
 
+
+test('the register never reports an opinion on a lane nobody has started', () => {
+  // Two reviewers, independently, opened the workstream board and the findings report on
+  // the same deal and found "no material undisclosed litigation identified" beside a
+  // legal lane reading NOT STARTED. Same defect class as the QoE and Phase I lines that
+  // were already fixed: the register was describing work rather than reading it.
+  const LANE_OF = { 'Legal DD': 'legal', 'Tax DD & structuring': 'tax', 'Technology / IT / Cyber DD': 'techai' };
+  const ASSERTS_WORK = /identified|no material|adequate|positive|verified|confirmed|scales to/i;
+
+  let checked = 0;
+  for (const deal of seededDeals) {
+    const rows = (buildRiskRegister(deal) || {}).risks || [];
+    for (const [reportLane, wsLane] of Object.entries(LANE_OF)) {
+      const ws = (deal.workstreams || []).find((w) => String(w.lane) === wsLane);
+      if (!ws || String(ws.status) !== 'not_started') continue;
+      checked++;
+      for (const r of rows.filter((x) => x.workstream === reportLane)) {
+        assert.doesNotMatch(String(r.risk), ASSERTS_WORK,
+          `${deal.company}: ${reportLane} lane is not started, but the register says "${r.risk}"`);
+        assert.match(String(r.risk), /has not started|not been commissioned/i,
+          `${deal.company}: ${reportLane} lane is not started and the register does not say so`);
+      }
+    }
+  }
+  assert.ok(checked > 0, 'no seeded deal has a not-started legal/tax/tech lane, so this asserts nothing');
+});
+
+test('the same sentence does not appear on every deal in the fund', () => {
+  // A room comparing two deals saw a byte-identical risk register and stopped believing
+  // both. Any single finding shared by more than four-fifths of the book is a template
+  // showing through.
+  const counts = new Map();
+  const deals = seededDeals.filter((d) => (d.workstreams || []).length);
+  for (const d of deals) {
+    for (const r of new Set(((buildRiskRegister(d) || {}).risks || []).map((x) => String(x.risk)))) {
+      counts.set(r, (counts.get(r) || 0) + 1);
+    }
+  }
+  const cap = Math.ceil(deals.length * 0.8);
+  const everywhere = [...counts.entries()].filter(([, n]) => n > cap).map(([t]) => t.slice(0, 70));
+  assert.deepEqual(everywhere, [], `these sentences appear on more than ${cap} of ${deals.length} deals`);
+});
+
+test('the book does not underwrite to one answer', () => {
+  // Every deal but one came back between 20% and 22% IRR on entry multiples spanning
+  // 3.7x to 8.4x. The cause was not the model: eighteen of nineteen deals carried no
+  // growth rate, so the model applied one default and the differences between the deals
+  // cancelled. A compare screen where every row agrees is not a compare screen.
+  const base = [];
+  for (const d of seededDeals) {
+    const r = buildReturnsModel(d);
+    const b = (r?.scenarios || []).find((s) => /base/i.test(s.name));
+    if (b && Number.isFinite(Number(b.irr))) base.push(Number(b.irr));
+  }
+  assert.ok(base.length >= 15, 'fixture must model most of the book, or this asserts nothing');
+
+  const distinct = new Set(base).size;
+  assert.ok(distinct >= Math.ceil(base.length * 0.7),
+    `only ${distinct} distinct IRRs across ${base.length} deals — the model is not reading the deals`);
+
+  const clustered = base.filter((v) => v >= 20 && v <= 22).length;
+  assert.ok(clustered <= Math.ceil(base.length * 0.5),
+    `${clustered} of ${base.length} deals land in a two-point IRR band`);
+
+  assert.ok(Math.max(...base) - Math.min(...base) >= 8,
+    'the whole book fits inside eight points of IRR');
+});
+
+test('a deal that does not clear the hurdle is allowed to say so', () => {
+  // The corollary. If every deal clears, the hurdle is decoration and the readiness
+  // verdict means nothing.
+  const verdicts = seededDeals.map((d) => buildReturnsModel(d)).filter(Boolean);
+  assert.ok(verdicts.some((r) => r.meetsHurdle === false), 'every deal in the fund clears its hurdle');
+  assert.ok(verdicts.some((r) => r.meetsHurdle === true), 'no deal in the fund clears its hurdle');
+});

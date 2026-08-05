@@ -87,6 +87,12 @@ export function houseStyle(md) {
   // reader's, and the "demo-" half of it announces to a prospect that the book in front
   // of them is invented. Take the key and leave the company name standing.
   s = s.replace(/\**\s*demo-[a-z0-9-]+\s*\**\s*(?:\u2014|\u2013|-)\s*/gi, '');
+  // A code that sits ALONE in brackets after the thing it names is a restatement, and
+  // glossing it produces the worst of both: a partner was read "Helvetia Diagnostics (the
+  // deal)" and "Stage: Execution & Closing (this stage)". Take the bracket out entirely
+  // — the sentence in front of it already said the thing.
+  s = s.replace(/\s*\(\s*demo-[a-z0-9-]+\s*\)/gi, '');
+  s = s.replace(/\s*\(\s*(?:current step is\s*)?[ODEV]\d\s*\)/g, '');
   s = s.replace(/\bdemo-[a-z0-9-]+\b/gi, 'the deal');
 
   // Field paths dressed up as citations — "(the deal record: count = 6)",

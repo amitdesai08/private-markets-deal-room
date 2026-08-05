@@ -37,8 +37,11 @@ export function dealSummary(s) {
     sector: s.sector,
     subSector: s.subSector,
     hq: s.hq,
-    dealSize: s.dealSize,
-    currency: s.currency,
+    // One formatted figure, not a number and a currency for the model to assemble. Asked
+    // to name three deals it wrote "Deal size: 640 (EUR)" — currency stranded in brackets
+    // and the unit lost altogether, so the number is a hundred times wrong or a million,
+    // depending on how you read it. Nothing left to assemble, nothing to get wrong.
+    dealSize: typeof s.dealSize === 'number' ? money(s.dealSize, symbolFor(s)) : null,
     stage: s.stage,
     stageName: s.stageName,
     status: s.status,

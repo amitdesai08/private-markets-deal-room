@@ -20,7 +20,11 @@ await hydrate();
 // is never reached redacts nothing.
 // ---------------------------------------------------------------------------
 test('listDeals redacts status-tier rows on the path the API actually calls', () => {
-  const rows = listDeals(null, 'analyst');
+  // Probed as a member, not an analyst. The analyst is now named on the team of the five
+  // deals in their book, so they resolve to 'full' and would make this fixture vacuous —
+  // which the assertion below would have caught anyway. A member is on no deal team and
+  // is the seat the status tier actually exists for.
+  const rows = listDeals(null, 'member');
   const status = rows.filter((r) => r.accessLevel === 'status');
   assert.ok(status.length > 0, 'fixture must produce at least one status-tier row, or this asserts nothing');
 

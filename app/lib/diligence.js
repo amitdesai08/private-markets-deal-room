@@ -414,29 +414,76 @@ function workstreamFindings(deal) {
   // practitioner permanently.
   add('commercial', 'monitor', `Voice-of-customer work has not been commissioned yet — the growth thesis for ${deal.sector} rests on the CIM and desk research until it is.`, 'Commission reference calls before the pack is finalised.');
 
+  // Whether the lane behind a finding has actually been worked. The register was stating
+  // settled opinions -- "no material undisclosed litigation identified", "cyber posture
+  // adequate", "structured references positive" -- on deals whose own workstream board
+  // showed those lanes NOT STARTED, two screens away. An opinion is a claim about work
+  // somebody did; where the work has not begun, say that instead, because it is the more
+  // useful sentence anyway: it names what to instruct.
+  const laneStarted = (key) => {
+    const w = (deal.workstreams || []).find((x) => String(x.lane) === key);
+    return !!w && String(w.status || '') !== 'not_started';
+  };
+  const pick = (key, options) => options[seedOf(`${deal.id}:${key}`) % options.length];
+
   // Legal — contracts change-of-control.
-  add('legal', 'condition', 'Change-of-control consents required on 2–3 material customer/supplier contracts.', 'Listed as conditions precedent in the SPA.');
-  add('legal', 'clear', 'No material undisclosed litigation or government investigation identified.', 'Clean — no legal deal-stopper.');
+  if (laneStarted('legal')) {
+    add('legal', 'condition', `Change-of-control consents required on ${pick('legalConsents', ['2–3', 'four', 'a handful of', 'two'])} material customer/supplier contracts.`, 'Listed as conditions precedent in the SPA.');
+    add('legal', 'clear', 'No material undisclosed litigation or government investigation identified.', 'Clean — no legal deal-stopper.');
+  } else {
+    add('legal', 'monitor', 'Legal diligence has not started, so there is no basis on the record for an opinion on litigation, title or change-of-control consents.', 'Instruct counsel; consents on material contracts are usually the long pole.');
+  }
 
   // Tax.
-  add('tax', 'monitor', 'VAT and transfer-pricing exposure identified; quantify and structure as a covered risk.', 'Backstopped by W&I insurance and addressed in deal structuring.');
+  if (laneStarted('tax')) {
+    add('tax', 'monitor', `${pick('tax', ['VAT and transfer-pricing', 'Transfer-pricing', 'Indirect-tax and withholding', 'Historic VAT'])} exposure identified; quantify and structure as a covered risk.`, 'Backstopped by W&I insurance and addressed in deal structuring.');
+  } else {
+    add('tax', 'monitor', 'Tax diligence has not started; no exposure has been quantified either way.', 'Scope the tax review before the pack is finalised.');
+  }
 
   // Operational.
   add('operational', 'monitor', `Cost-out opportunity identified in procurement & footprint (~${money(round(f.revenue * 0.02))} run-rate).`, 'Folded into the value-creation plan.');
 
   // Tech.
-  add('tech', 'monitor', 'Manageable tech debt; core systems scale to the growth plan. Cyber posture adequate with gaps to close.', 'Addressed by the post-close IT roadmap in the 100-day plan.');
+  if (laneStarted('techai')) {
+    add('tech', 'monitor', pick('tech', [
+      'Manageable tech debt; core systems scale to the growth plan. Cyber posture adequate with gaps to close.',
+      'Core platform scales to the plan; the integration layer carries most of the debt and the cyber gaps are the closeable kind.',
+      'Tech debt concentrated in reporting and billing rather than the product itself; cyber posture is adequate.',
+    ]), 'Addressed by the post-close IT roadmap in the 100-day plan.');
+  } else {
+    add('tech', 'monitor', 'Technology diligence has not started; neither the scalability of the platform nor the cyber posture has been examined.', 'Scope a technical review — this lane sets the 100-day IT roadmap.');
+  }
 
-  // HR / management.
-  add('hr', deal.ownership && /founder/i.test(deal.ownership) ? 'condition' : 'monitor',
-    'Key-person dependency on founder/CEO; structured references positive.', 'Addressed via retention and management-incentive (MIP) structuring pre-close.');
+  // HR / management. There is no people workstream on this record, so the register can
+  // note the dependency but must not report referencing that nobody commissioned.
+  const founderLed = deal.ownership && /founder/i.test(deal.ownership);
+  add('hr', founderLed ? 'condition' : 'monitor',
+    founderLed
+      ? `Key-person dependency on the founder/CEO, who holds ${pick('hrFounder', ['the customer relationships', 'the technical roadmap', 'the supplier relationships', 'most of the institutional knowledge'])}. No structured management referencing has been commissioned.`
+      : pick('hr', [
+        'The management team has not been referenced and the second layer below the CEO has not been assessed.',
+        `No structured referencing has been commissioned, so the depth of the ${deal.sector || 'sector'} team below the CEO is unknown.`,
+        'Succession below the CEO is undocumented on the record, and no management referencing has been commissioned.',
+        'Retention terms for the senior team are not on the record, and no referencing has been commissioned.',
+      ]),
+    'Commission references, and address the dependency via retention and management-incentive (MIP) structuring pre-close.');
 
   // ESG / environmental.
   //
   // A Phase I environmental assessment that nobody commissioned cannot identify anything,
   // and citing ASTM E1527-21 and CERCLA safe harbour over it dressed an absence of work
-  // as a clean result.
-  add('esg', 'monitor', 'No Phase I environmental assessment has been commissioned. Until one is, there is no basis on the record for a clean environmental opinion.', 'Commission a Phase I ESA; a Phase II follows only if it identifies a recognised condition.');
+  // as a clean result. The reverse is also wrong: printing "no Phase I has been
+  // commissioned" on a deal whose ESG lane reads COMPLETE contradicts its own board.
+  if (laneStarted('esg')) {
+    add('esg', 'monitor', pick('esg', [
+      'Environmental review complete; no recognised environmental condition was identified at any operating site.',
+      'Environmental review complete. Site conditions are within tolerance; the reporting obligations are the part that needs work.',
+      'Environmental review complete; the gaps are in ESG data collection rather than in site condition.',
+    ]), 'Carried into the 100-day plan as a reporting workstream.');
+  } else {
+    add('esg', 'monitor', 'No Phase I environmental assessment has been commissioned. Until one is, there is no basis on the record for a clean environmental opinion.', 'Commission a Phase I ESA; a Phase II follows only if it identifies a recognised condition.');
+  }
 
   return out;
 }
