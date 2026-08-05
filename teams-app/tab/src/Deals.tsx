@@ -288,7 +288,7 @@ export default function Deals({
                       are exactly what is being withheld -- so it does not offer the button. */}
                   <span className="dv-actions">
                     {d.locked ? null : <CompareButton id={d.id} compare={compare} toggle={toggleCompare} />}
-                    <button className="openbtn" onClick={() => onOpen(d.id)}>Open ▸</button>
+                    <button className="openbtn" onClick={() => onOpen(d.id)}>Open deal ▸</button>
                     <button className="askbtn dv-askbtn" onClick={(e) => { e.stopPropagation(); onAsk(d.id); }}>Ask ▸</button>
                   </span>
                 </div>

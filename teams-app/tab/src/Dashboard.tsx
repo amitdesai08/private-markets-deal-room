@@ -340,8 +340,11 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
       .then(() => { setAgendaCopied(true); window.setTimeout(() => setAgendaCopied(false), 2500); })
       .catch(() => {});
   };
-  const heroLeft = showBriefing || showFollowups;
-  const heroRight = showAttention || showKpis || showAgenda;
+  // Which column each block sits in. These had drifted from the markup: the left was
+  // gated on the follow-ups card, which renders on the right, so the flags described a
+  // layout that had not existed for some time.
+  const heroLeft = showBriefing || showAgenda;
+  const heroRight = showAttention || showKpis || showFollowups;
   const showFunnel = shows('funnel') && !!pipeline?.funnel?.length;
   // Named for the person, so the customise panel can say whose arrangement this is.
   const arrangementFor = seat?.label ? `the ${seat.label}` : 'you';
@@ -406,8 +409,13 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
   return (
     <div className="dash">
       {/* ================= Portfolio cockpit =================
-          Same shape as the deal cockpit: an AI-labelled briefing on the left, the
-          ranked queue of what needs a person on the right. Either side can be emptied
+          Reading on the left — the briefing, then the committee agenda. What needs a
+          person on the right — the four numbers, the attention queue, the follow-ups.
+
+          The columns are independent stacks, so the row is as tall as the taller of the
+          two and a short column leaves dead space beside the long one. With the agenda on
+          the right the left held one card against four, and on a wide monitor that was
+          roughly a screen of nothing under the briefing. Either side can still be emptied
           by choice, in which case the other takes the full width. */}
       {heroLeft || heroRight ? (
       <div className={heroLeft && heroRight ? 'grid g2' : 'grid'}>
@@ -480,28 +488,6 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
           </div>
           ) : null}
 
-        </div>
-        ) : null}
-
-        {/* ---------------- Attention queue ---------------- */}
-        {heroRight ? (
-        <div className="hero-r" style={{ minWidth: 0 }}>
-          {/* The four numbers a partner opens the product for sat THIRD in this column,
-              behind up to eight agenda rows and six attention rows -- about a thousand
-              pixels of scroll before the first figure. The old comment claimed they sat
-              beside the queue; they sat under it. */}
-          {showKpis ? (
-          <div className="kpis">
-            {kpiRow.map((k) => (
-              <div key={k.key || k.label} className="kpi">
-                <div className="kpi-v">{k.value}</div>
-                <div className="kpi-l">{k.label}</div>
-                <div className="kpi-s">{k.sub}</div>
-              </div>
-            ))}
-          </div>
-          ) : null}
-
           {/* A partner four days out from committee had to open six deals, one at a
               time, to work out which of them were actually going and what each still
               owed -- then type the agenda into an email herself. The product held both
@@ -528,7 +514,10 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
                     </div>
                     <div className="sub">{owes.length ? `Still owes: ${owes.join('; ')}` : 'Nothing outstanding on the readiness board.'}</div>
                     <div className="acts">
-                      <button className="btn link" onClick={() => onOpen(d.id)}>Open {d.company} ▸</button>
+                      {/* The company is the heading of this row. Repeating it in the button
+                          made every action on the screen a different width and a different
+                          set of words for the same act. */}
+                      <button className="btn link" onClick={() => onOpen(d.id)}>Open deal ▸</button>
                     </div>
                   </div>
                 );
@@ -537,6 +526,28 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
             </div>
           </div>
           ) : null}
+
+        </div>
+        ) : null}
+
+        {/* ---------------- Attention queue ---------------- */}
+        {heroRight ? (
+        <div className="hero-r" style={{ minWidth: 0 }}>
+          {/* The four numbers a partner opens the product for sat THIRD in this column,
+              behind up to eight agenda rows and six attention rows -- about a thousand
+              pixels of scroll before the first figure. */}
+          {showKpis ? (
+          <div className="kpis">
+            {kpiRow.map((k) => (
+              <div key={k.key || k.label} className="kpi">
+                <div className="kpi-v">{k.value}</div>
+                <div className="kpi-l">{k.label}</div>
+                <div className="kpi-s">{k.sub}</div>
+              </div>
+            ))}
+          </div>
+          ) : null}
+
           {showAttention ? (
           <div className="card">
             <div className="hd">
@@ -644,7 +655,7 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
                             {st === 'done' ? '✓ Tracked' : st === 'busy' ? 'Recording…' : st === 'failed' ? 'Try again' : '✓ Track this'}
                           </button>
                         ) : null}
-                        <button className="btn link" onClick={() => onOpen(c.dealId)}>Open {c.company} ▸</button>
+                        <button className="btn link" onClick={() => onOpen(c.dealId)}>Open deal ▸</button>
                         {onAskQuestion ? (
                           <button className="btn link" onClick={() => onAskQuestion(`On ${c.company}, is this follow-up tracked: "${c.headline}"?`)}>Ask about it</button>
                         ) : null}
