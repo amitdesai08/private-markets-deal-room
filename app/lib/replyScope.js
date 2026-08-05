@@ -28,6 +28,14 @@ function hiddenNames(identity, viewAsRole) {
 const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Returns { text, redacted } — redacted lists what was removed, for the audit line.
+//
+// THE BANNER IS A PROPERTY OF THE SEAT, NOT OF THE QUESTION. It used to be appended only
+// when something had actually been removed, which made its presence a direct answer to
+// "is the name I just asked about real". Measured from a member seat: three real hidden
+// companies produced the banner, three fabricated ones never did, zero false positives.
+// Repeat that four or five times and you have a reliable existence test against the whole
+// book from a seat with no deal access at all — the redaction succeeding IS the leak, which
+// is why the test asserting hidden names are absent from the body cannot see it.
 export function redactHiddenDeals(text, identity, viewAsRole) {
   if (!text) return { text, redacted: [] };
   let hidden;
@@ -36,7 +44,8 @@ export function redactHiddenDeals(text, identity, viewAsRole) {
 
   let s = String(text);
   const hit = hidden.filter((h) => s.includes(h.company));
-  if (!hit.length) return { text: s, redacted: [] };
+  const note = '\n\n_This answer covers the deals you are on. There are others in the firm, restricted to their named teams — ask a deal-team member or an administrator if you should be on one._';
+  if (!hit.length) return { text: (s.trim() + note), redacted: [] };
 
   // A whole line naming a hidden deal goes, rather than leaving the sentence around it —
   // "— 640 EUR" with the company removed still discloses that a deal of that size exists.
@@ -46,6 +55,5 @@ export function redactHiddenDeals(text, identity, viewAsRole) {
   // Anything left inline (mid-sentence) is replaced rather than deleted.
   for (const h of hit) s = s.replace(new RegExp(escape(h.company), 'g'), 'a deal you are not on');
 
-  const note = '\n\n_Some deals were left out of this answer because they are restricted to their named teams. Ask a deal-team member or an administrator if you should be on one._';
   return { text: (s.trim() + note), redacted: hit.map((h) => h.id) };
 }

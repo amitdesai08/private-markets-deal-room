@@ -7,6 +7,7 @@ import test from 'node:test';
 import { seededDeals } from '../data/deals.js';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
+import { readFile } from 'node:fs/promises';
 process.env.DEAL_ROOM_NO_LISTEN = '1';
 // The seat-claim gate is `BOT_BACKEND_KEY && ...`, so with no key configured it is inert
 // and every boundary assertion below would skip itself into a green run. Set one.
@@ -36,8 +37,13 @@ const hiddenFromAnalyst = () => {
 // Every sub-resource a deal id can carry. If a route is added to the product and not to
 // this list, that is the gap this file exists to catch.
 const SUB_ROUTES = [
-  '', '/ic-readiness', '/case', '/returns', '/risk-register', '/value-creation', '/ioi', '/loi',
+  '', '/ic-readiness', '/case', '/comparables', '/returns', '/risk-register', '/value-creation', '/ioi', '/loi',
   '/citations', '/cockpit', '/threads', '/workflow-desk', '/doc-desk', '/activity', '/documents',
+  // Nine the list had never named. It called itself "every sub-resource a deal id can
+  // carry" and was a hand-kept literal, so it passed while four other routes handed the
+  // funnel to anonymous callers. The completeness test below reads the router.
+  '/model.html', '/model.csv', '/document-brief', '/document-brief.docx', '/document-brief.pdf',
+  '/recent', '/workiq-notes', '/workiq-corpus',
 ];
 
 test('no sub-resource of a hidden deal confirms that the deal exists', async () => {
@@ -260,4 +266,57 @@ test('every seat a proven caller can preview actually resolves to that seat', as
       assert.equal(j.role, role, `asked to preview ${role} and was answered as ${j.role}`);
     }
   }
+});
+
+// AN UNAUTHENTICATED CALLER ENUMERATED PART OF THE FUND'S FUNNEL BY NAME AND SIZE.
+//
+// GET /api/companies?inFunnel=true, no headers, returned four companies that are live
+// deals at D1 and D3 — with dealSize and "the fund is looking" — while a PROVEN member
+// and a PROVEN analyst were both refused the same deals with a 404. Name, size and the
+// fact that the fund is looking are the three things userPolicy itself calls the
+// sensitive part, and ?inFunnel=true is a purpose-built enumeration of the pursued set.
+//
+// The correction had already been written for /analytics and applied to none of its
+// neighbours: the same `_req` was still sitting on the origination cohort, and no test
+// had ever issued a request to any of these four routes.
+test('the origination feeds never name a company whose deal is invisible to the caller', async () => {
+  const { canonicalCompanies, getPipeline, getScoredTargets, getSignalCompanies, getSourcingDesk, listDeals } = await import('../lib/store.js');
+  // The seats that genuinely hide deals. An anonymous caller is floored to `member` at
+  // the HTTP boundary, not in the store, so passing null here would assert nothing.
+  for (const seat of ['member', 'analyst']) {
+    const visible = new Set(listDeals(null, seat).map((d) => String(d.company || '').toLowerCase()));
+    const hiddenNames = seededDeals
+      .map((d) => String(d.company || '').toLowerCase())
+      .filter((n) => !visible.has(n));
+    assert.ok(hiddenNames.length, `no deal is hidden from ${seat || 'an anonymous caller'} — the guard would be inert`);
+
+    const bodies = [
+      JSON.stringify(canonicalCompanies({ inFunnel: true, identity: null, viewAsRole: seat })),
+      JSON.stringify(canonicalCompanies({ identity: null, viewAsRole: seat })),
+      JSON.stringify(getPipeline(null, seat)),
+      JSON.stringify(getScoredTargets(null, seat)),
+      JSON.stringify(getSignalCompanies(null, seat)),
+      JSON.stringify(getSourcingDesk(null, seat)),
+    ].join(' ').toLowerCase();
+
+    for (const name of hiddenNames) {
+      assert.ok(!bodies.includes(name), `${seat || 'anonymous'}: "${name}" is hidden as a deal and named on an origination feed`);
+    }
+  }
+});
+
+// The list this file calls "every sub-resource a deal id can carry" was a literal, and it
+// omitted eight routes the router actually serves. All 39 assertions passed while four
+// routes handed the funnel to anonymous callers, which is the point: a list that claims
+// completeness and cannot prove it is worse than one that does not claim it.
+test('the sub-route list is complete against the router', async () => {
+  const src = await readFile(new URL('../server.js', import.meta.url), 'utf8');
+  const served = new Set();
+  for (const m of src.matchAll(/api\.get\(\s*'\/deals\/:id([^']*)'/g)) {
+    const tail = m[1];
+    if (tail.includes(':')) continue; // a nested parameter is a different shape of route
+    served.add(tail);
+  }
+  const missing = [...served].filter((r) => !SUB_ROUTES.includes(r));
+  assert.deepEqual(missing, [], `sub-resources the router serves and this file does not test: ${missing.join(', ')}`);
 });

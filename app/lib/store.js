@@ -782,8 +782,9 @@ export function getMailbox() {
   return { emails: flat('emails'), chats: flat('chats'), meetings: flat('meetings') };
 }
 
-export function getSignalCompanies() {
-  return signalCompanies.map((c) => {
+export function getSignalCompanies(identity, viewAsRole = null) {
+  const hidden = hiddenCompanyNames(identity, viewAsRole);
+  return signalCompanies.filter(visibleTo(hidden)).map((c) => {
     const emails = c.emails || [];
     const chats = c.chats || [];
     const meetings = c.meetings || [];
@@ -854,12 +855,13 @@ function publicCompany(c) {
   };
 }
 
-export function getSourcingDesk() {
+export function getSourcingDesk(identity, viewAsRole = null) {
+  const hidden = hiddenCompanyNames(identity, viewAsRole);
   return {
     l1: l1Mandate(),
     sources,
     catalysts,
-    companies: desk.filter((c) => c.visible).map(publicCompany)
+    companies: desk.filter((c) => c.visible).filter(visibleTo(hidden)).map(publicCompany)
   };
 }
 
@@ -1235,9 +1237,10 @@ function findSourcingTarget(id) {
   return sig ? signalToTarget(sig) : null;
 }
 
-export function getScoredTargets() {
+export function getScoredTargets(identity, viewAsRole = null) {
+  const hidden = hiddenCompanyNames(identity, viewAsRole);
   const sel = selectedScreens();
-  const list = sourcingTargets();
+  const list = sourcingTargets().filter(visibleTo(hidden));
   const targets = scoreTargets(list, sel, fund);
   const inFunnel = new Set(candidates.map((c) => c.company.toLowerCase()));
   return {
@@ -1913,12 +1916,14 @@ export async function chatCandidateById(id, message) {
   return { reply: out.reply, source: out.source, log: c.chatLog };
 }
 
-// The whole Stage-1 pipeline (for the Pipeline page).
-export function getPipeline() {
+// The whole Stage-1 pipeline (for the Pipeline page), scoped to the caller — a candidate
+// bound to a deal this reader may not see is not theirs to know about.
+export function getPipeline(identity, viewAsRole = null) {
+  const hidden = hiddenCompanyNames(identity, viewAsRole);
   return {
     fundName: fund.name,
     funnel: getStage1Funnel().funnel,
-    candidates: candidates.map(publicCandidate)
+    candidates: candidates.filter(visibleTo(hidden)).map(publicCandidate),
   };
 }
 
@@ -1932,15 +1937,50 @@ function buildCanonical() {
   return buildCanonicalCompanies({ desk, candidates, signalCompanies });
 }
 
-export function canonicalCompanies({ inFunnel } = {}) {
-  let list = buildCanonical();
+// ---- Origination surfaces, scoped to the caller ------------------------------
+// The news desk, the funnel candidates and the CxO signal companies are three feeds
+// about companies the fund is looking at. Four of the routes serving them read `_req`
+// — they ignored the caller entirely — so an unauthenticated request to
+// `/api/companies?inFunnel=true` returned, by name and by size, four companies that
+// are live deals at D1 and D3 and that a PROVEN member and a PROVEN analyst are both
+// refused with a 404. Name, size, and the fact that the fund is looking: userPolicy
+// calls those three the sensitive part, and `?inFunnel=true` is a purpose-built
+// enumeration of exactly the pursued set.
+//
+// The correction had already been written for `/analytics` and applied to none of its
+// neighbours. A candidate is bound to its deal by company name — that is how a screened
+// deal is materialised from a pursued candidate — so the same name is the join here.
+//
+// Only a deal the caller may not see AT ALL removes its company. A status-tier deal is
+// already on the reader's list, so hiding its origination row would deny something they
+// can disprove by scrolling.
+export function hiddenCompanyNames(identity, viewAsRole = null) {
+  const out = new Set();
+  for (const d of deals) {
+    if (dealAccessLevel(identity, d, viewAsRole) === 'none') out.add(String(d.company || '').toLowerCase());
+  }
+  return out;
+}
+
+const namesOf = (o) => [o?.company, o?.name, o?.companyName].filter(Boolean).map((x) => String(x).toLowerCase());
+const visibleTo = (hidden) => (o) => !namesOf(o).some((n) => hidden.has(n));
+
+export function canonicalCompanies({ inFunnel, identity, viewAsRole } = {}) {
+  const hidden = hiddenCompanyNames(identity, viewAsRole);
+  let list = buildCanonical().filter(visibleTo(hidden));
   if (inFunnel === true) list = list.filter((c) => !!c.funnel);
   else if (inFunnel === false) list = list.filter((c) => !c.funnel);
   return {
     count: list.length,
-    fromFeeds: { desk: desk.length, candidates: candidates.length, signals: signalCompanies.length },
-    resolvedDuplicates: (desk.length + candidates.length + signalCompanies.length) - list.length,
-    companies: list.map(canonicalSummary)
+    // These counted the raw feeds, so the totals restated the size of the book the
+    // caller had just been scoped out of.
+    fromFeeds: {
+      desk: desk.filter(visibleTo(hidden)).length,
+      candidates: candidates.filter(visibleTo(hidden)).length,
+      signals: signalCompanies.filter(visibleTo(hidden)).length,
+    },
+    resolvedDuplicates: Math.max(0, (desk.filter(visibleTo(hidden)).length + candidates.filter(visibleTo(hidden)).length + signalCompanies.filter(visibleTo(hidden)).length) - list.length),
+    companies: list.map(canonicalSummary),
   };
 }
 

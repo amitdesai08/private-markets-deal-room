@@ -163,7 +163,7 @@ function baseContext({ scope, focusId, focusCompany, lens, identity, viewAsRole 
     : 'PORTFOLIO — the pipeline is currently EMPTY (no deals launched yet). Say so plainly if asked about deals.';
   return [
     ...lensLine,
-    'You have access to the deals listed below and no others. If asked about a company that is not on the list, say: "That deal is not in your view. Ask the deal lead or an administrator for access."',
+    'You have access to the deals listed below and no others. If asked about a company that is not on the list, reply with EXACTLY this sentence and nothing else: "That deal is not in your view. Ask the deal lead or an administrator for access." Never add why — no "I searched the pipeline by name", no "no matches found", no source line. A reader who gets a different sentence for a name that exists than for one that does not can test the whole book for the existence of a deal, one name at a time.',
     '',
     line,
     JSON.stringify(summaries),

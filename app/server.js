@@ -478,7 +478,10 @@ api.get('/stage1/funnel', (req, res) => {
   const viewAs = (requestingFloor(req) || requestingViewAs(req));
   res.json(getStage1Funnel(identity, viewAs, listDeals(identity, viewAs)));
 });
-api.get('/stage1/pipeline', (_req, res) => res.json(getPipeline()));
+// `_req` on an origination route means the funnel is reported to anybody who asks. Four
+// of these did that, and an unauthenticated `?inFunnel=true` returned four live deals by
+// name and by size.
+api.get('/stage1/pipeline', (req, res) => res.json(getPipeline(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)))));
 api.get('/stage1/cohort/:stage', (req, res) => res.json(getCohort(req.params.stage)));
 api.get('/stage1/pass-reasons', (_req, res) => res.json(getPassReasons()));
 
@@ -596,13 +599,29 @@ api.get('/deals/resolve-team/:teamId', (req, res) => {
 // query parameter, gets a sentence naming every parameter that would have worked; the
 // one that costs an afternoon got a code. And none of them mentioned the route that
 // exists to ask for the access they were refused.
-function refuse(res, { status = 403, reason, dealId, action }) {
+// True when this caller can see the deal at all. A route that refuses differently for a
+// deal that exists than for one that does not is an existence oracle, whatever the body
+// says.
+function dealVisibleTo(req) {
+  const raw = getDealRaw(req.params.id);
+  if (!raw) return false;
+  return dealAccessLevel(requestingIdentity(req), raw, (requestingFloor(req) || requestingViewAs(req))) !== 'none';
+}
+
+function refuse(res, { status = 403, reason, dealId, action, code }) {
+  const requestAccess = dealId
+    ? { method: 'POST', path: `/api/deals/${dealId}/request-access`, detail: 'Ask the deal team to add you. The request goes to the people who can grant it.' }
+    : null;
   return res.status(status).json({
-    error: status === 403 ? 'forbidden' : 'unprocessable',
+    error: code || (status === 403 ? 'forbidden' : 'unprocessable'),
     detail: reason,
-    // Named only where it would actually help: asking to join a deal team does not fix
-    // a read-only role, and offering it there would send someone down a dead end.
-    ...(dealId ? { requestAccess: { method: 'POST', path: `/api/deals/${dealId}/request-access`, detail: 'Ask the deal team to add you. The request goes to the people who can grant it.' } } : {}),
+    // `denied`, `reason` and `reply` are what the existing readers look for. Keeping them
+    // means one shape can be introduced without a flag day, and nothing on a screen goes
+    // blank while the callers catch up.
+    denied: status === 403,
+    reason,
+    reply: reason,
+    ...(requestAccess ? { requestAccess } : {}),
     ...(action ? { action } : {}),
   });
 }
@@ -753,13 +772,21 @@ api.post('/deals/:id/documents/:kind', async (req, res) => {
 // workbook's Data ▸ Refresh All fetches these unauthenticated) returning the same
 // model rows as the generated workbook.
 api.get('/deals/:id/model.html', (req, res) => {
-  if (!verifyModelToken(req.params.id, req.query.t)) return res.status(403).type('text/plain').send('forbidden');
+  // Visibility before capability. These answered the token question first, so a hidden
+  // deal id came back 403 while every other sub-resource came back 404 — and a refusal
+  // that differs by whether the deal exists is the disclosure the 404 is there to
+  // prevent. The completed route list is what caught it.
+  if (!dealVisibleTo(req)) return res.status(404).json({ error: 'not-found' });
+  // Was nine bytes of text/plain. Every other refusal on this server is JSON, and a
+  // caller parsing the body got a string where it expected a reason.
+  if (!verifyModelToken(req.params.id, req.query.t)) return refuse(res, { reason: 'This model link is not valid. Links are issued per deal and expire; open the deal and take a fresh one.' });
   const deal = getDealRaw(req.params.id);
   if (!deal) return res.status(404).type('text/plain').send('not found');
   res.type('text/html; charset=utf-8').send(buildModelHtml(deal));
 });
 api.get('/deals/:id/model.csv', (req, res) => {
-  if (!verifyModelToken(req.params.id, req.query.t)) return res.status(403).type('text/plain').send('forbidden');
+  if (!dealVisibleTo(req)) return res.status(404).json({ error: 'not-found' });
+  if (!verifyModelToken(req.params.id, req.query.t)) return refuse(res, { reason: 'This model link is not valid. Links are issued per deal and expire; open the deal and take a fresh one.' });
   const deal = getDealRaw(req.params.id);
   if (!deal) return res.status(404).type('text/plain').send('not found');
   res.type('text/csv; charset=utf-8').setHeader('Content-Disposition', `attachment; filename="deal-model-${req.params.id}.csv"`);
@@ -816,7 +843,7 @@ api.get('/deals/:id/cockpit', (req, res) => {
   if (!raw) return res.status(404).json({ error: 'not-found' });
   const level = dealAccessLevel(identity, raw, viewAs);
   if (level === 'none') return res.status(404).json({ error: 'not-found' });
-  if (level === 'status') return res.status(403).json({ error: 'forbidden', detail: 'Status-only access — the cockpit is deal-team only.' });
+  if (level === 'status') return refuse(res, { reason: 'This deal has advanced past screening and its brief is restricted to the deal team. You can see where it stands; ask to be added to read it.', dealId: req.params.id });
   const board = getICReadiness(req.params.id);
   const access = accessFor(identity, viewAs);
   const out = buildCockpit(getDeal(req.params.id) || raw, board, {
@@ -1146,9 +1173,13 @@ function dealArtifactGate(req, res) {
   // scrolling up: an analyst was told four tabs of a deal on their own screen did not
   // exist. Where the row is visible, say why, in the words the product already uses.
   if (level === 'status') {
-    res.status(403).json({
-      error: 'status-only',
-      detail: 'This deal has advanced past screening and its detail is restricted to the deal team. You can see where it stands; ask a deal-team member or an administrator to be added.',
+    // The gate signals "handled" with false; refuse() returns the response, which is
+    // truthy, so returning it here would have let every artefact route continue and
+    // serve the body it had just refused.
+    refuse(res, {
+      code: 'status-only',
+      reason: 'This deal has advanced past screening and its detail is restricted to the deal team. You can see where it stands; ask a deal-team member or an administrator to be added.',
+      dealId: req.params.id,
     });
     return false;
   }
@@ -1378,7 +1409,7 @@ api.post('/fabric/refresh', async (_req, res) => {
 
 // O1 · Deal Sourcing — CxO signals explorer
 api.get('/signals/mailbox', (_req, res) => res.json(getMailbox()));
-api.get('/signals/companies', (_req, res) => res.json(getSignalCompanies()));
+api.get('/signals/companies', (req, res) => res.json(getSignalCompanies(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)))));
 api.get('/signals/companies/:id/crm', (req, res) => {
   const crm = getCrm(req.params.id);
   if (!crm) return res.status(404).json({ error: 'company not found' });
@@ -1389,7 +1420,7 @@ api.get('/signals/companies/:id/crm', (req, res) => {
 // three sourcing feeds (news desk + funnel candidates + CxO signals).
 api.get('/companies', (req, res) => {
   const inFunnel = req.query.inFunnel === 'true' ? true : req.query.inFunnel === 'false' ? false : undefined;
-  res.json(canonicalCompanies({ inFunnel }));
+  res.json(canonicalCompanies({ inFunnel, identity: requestingIdentity(req), viewAsRole: (requestingFloor(req) || requestingViewAs(req)) }));
 });
 api.get('/companies/:id', (req, res) => {
   const c = canonicalCompany(req.params.id);
@@ -1486,7 +1517,7 @@ api.use('/connectors', connectorLoginRouter);
 api.use('/m365', m365LoginRouter);
 
 // O1 · Deal Sourcing — News & filings desk
-api.get('/news/desk', (_req, res) => res.json(getSourcingDesk()));
+api.get('/news/desk', (req, res) => res.json(getSourcingDesk(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)))));
 
 // ---- Free / keyless data providers (supplement paid providers for demos/PoCs) ----
 // SEC XBRL fundamentals (Morningstar-quality substitute), GLEIF entity/ownership,
@@ -1581,7 +1612,7 @@ api.get('/research', (_req, res) => res.json(getAnalystResearch()));
 
 // O1 · Deal Sourcing — Sourcing framework (fund GATE · themes GUIDE · screens RANK)
 api.get('/framework', (_req, res) => res.json(getFramework()));
-api.get('/targets/scored', (_req, res) => res.json(getScoredTargets()));
+api.get('/targets/scored', (req, res) => res.json(getScoredTargets(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)))));
 
 // Expandable ranked-target detail: real SEC filings + Morningstar quality (if
 // public) + a generated analyst report. Works for desk and CxO-signal targets.
@@ -1878,7 +1909,7 @@ api.post('/deals/:id/chat', async (req, res) => {
   {
     const level = dealAccessLevel(requestingIdentity(req), deal, (requestingFloor(req) || requestingViewAs(req)));
     if (level === 'status') {
-      return res.status(403).json({ reply: 'This deal has advanced past screening and its detail is restricted to the deal team. Ask a deal-team member or an administrator to be added.', denied: true });
+      return refuse(res, { reason: 'This deal has advanced past screening and its detail is restricted to the deal team. Ask a deal-team member or an administrator to be added.', dealId: req.params.id });
     }
     if (level !== 'full') return res.status(404).json({ error: 'deal not found' });
   }
