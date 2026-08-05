@@ -74,6 +74,8 @@ import {
   cycleChecklistItem,
   recordIssue,
   recordAccessRequest,
+  openAccessRequests,
+  decideAccessRequest,
   resolveIssue,
   setCondition,
   updateCondition,
@@ -1611,7 +1613,7 @@ api.get('/deals/:id', (req, res) => {
 // afternoon went on Teams asking a colleague to screenshot it. This does not disclose
 // anything — you may only ask about a deal you can already see the existence of, and a
 // deal at 'none' still answers not-found, exactly as it does everywhere else.
-api.post('/deals/:id/request-access', (req, res) => {
+api.post('/deals/:id/request-access', async (req, res) => {
   const raw = getDealRaw(req.params.id);
   const identity = requestingIdentity(req);
   const viewAs = requestingViewAs(req);
@@ -1622,7 +1624,7 @@ api.post('/deals/:id/request-access', (req, res) => {
   const access = accessFor(identity, viewAs);
   const who = identity?.name || identity?.upn || access.roleLabel || 'A colleague';
   const note = String(req.body?.reason || '').slice(0, 500);
-  const r = recordAccessRequest(raw, { who, role: access.role, reason: note });
+  const r = await recordAccessRequest(raw, { who, role: access.role, reason: note });
   if (r?.already) {
     return res.status(409).json({
       error: 'already-requested',
@@ -1652,7 +1654,7 @@ api.get('/access-requests', (req, res) => {
   res.json({ requests: openAccessRequests(mine), canDecide: true });
 });
 
-api.post('/deals/:id/access-requests/:requestId', (req, res) => {
+api.post('/deals/:id/access-requests/:requestId', async (req, res) => {
   const raw = getDealRaw(req.params.id);
   const identity = requestingIdentity(req);
   const viewAs = requestingViewAs(req);
@@ -1661,7 +1663,7 @@ api.post('/deals/:id/access-requests/:requestId', (req, res) => {
   if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'deal not found' }) : res.status(403).json({ denied: true, reason: gate.reason });
   if (!gate.access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'Deciding who joins a deal team is a deal-team action.' });
   const approve = req.body?.decision === 'approve';
-  const out = decideAccessRequest(raw.id, req.params.requestId, { approve, decidedBy: identity?.name || gate.access.roleLabel });
+  const out = await decideAccessRequest(raw.id, req.params.requestId, { approve, decidedBy: identity?.name || gate.access.roleLabel });
   if (out?.error === 'not-found') return res.status(404).json(out);
   if (out?.error) return res.status(409).json(out);
   res.json(out);
