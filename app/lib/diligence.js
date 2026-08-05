@@ -754,6 +754,15 @@ export function buildReturnsModel(deal) {
   };
   return {
     kind: 'returns', company: deal.company, owner: 'fund-cfo',
+    // Where no growth rate is on the record the model runs on a default, and every deal
+    // in that position returns the same figures — five did, a cinema-advertising business
+    // and a clinical-stage biotech among them, on identical IRR and MOIC with nothing on
+    // the page saying so. The register is honest enough to stamp its templated rows;
+    // returns has to be too, because these are the numbers someone reads into a room.
+    indicative: dealGrowth(deal) === null,
+    indicativeNote: dealGrowth(deal) === null
+      ? 'Indicative only: no growth rate is recorded for this company, so the model runs on the fund default. Every deal without a growth rate returns these same figures — treat them as a placeholder until one is on the record.'
+      : null,
     entry: { evEbitda: shownMult, impliedEvEbitda: r.impliedMultiple, modelledEvEbitda: r.entryMultiple, leverage: r.leverage, entryEV: base.entryEV, ebitda: canon?.ebitda ?? f.ebitda, holdYears: r.holdYears },
     sourcesUses: { sources, uses, totalSources: sources.reduce((s, x) => s + x.amount, 0), totalUses: uses.reduce((s, x) => s + x.amount, 0),
       // The returns are struck on the equity funding the purchase price. Sources & Uses

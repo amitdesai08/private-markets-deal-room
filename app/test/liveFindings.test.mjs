@@ -3,7 +3,8 @@
 // regression pinned from live behaviour, not from reading the code.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canonicalFigures, figuresBlock, buildReturnsModel, buildRiskRegister } from '../lib/diligence.js';
+import { canonicalFigures, figuresBlock, buildReturnsModel, buildRiskRegister, dealGrowth } from '../lib/diligence.js';
+import { computeICReadiness } from '../lib/icReadiness.js';
 import { seededDeals } from '../data/deals.js';
 
 const byId = (id) => seededDeals.find((d) => d.id === id);
@@ -168,4 +169,57 @@ test('a deal that does not clear the hurdle is allowed to say so', () => {
   const verdicts = seededDeals.map((d) => buildReturnsModel(d)).filter(Boolean);
   assert.ok(verdicts.some((r) => r.meetsHurdle === false), 'every deal in the fund clears its hurdle');
   assert.ok(verdicts.some((r) => r.meetsHurdle === true), 'no deal in the fund clears its hurdle');
+});
+
+test('the readiness board never says there are no open risks over a register holding some', () => {
+  // Atlas Cold Chain read "IC-ready — required papers complete, no blocking workstreams or
+  // unresolved risks" over a register carrying ten live entries, three of them closing
+  // conditions, including change-of-control consents on two material contracts. A partner
+  // who discovers that in the room does not open the product again.
+  let checked = 0;
+  for (const deal of seededDeals) {
+    let ic, reg;
+    try { ic = computeICReadiness(deal); reg = buildRiskRegister(deal); } catch { continue; }
+    const material = ((reg && reg.risks) || []).filter((r) => ['stopper', 'reprice', 'condition'].includes(r.severity));
+    if (!material.length) continue;
+    checked++;
+    assert.ok(ic.unresolvedRisks.length > 0,
+      `${deal.company}: the register holds ${material.length} open items and the board lists none`);
+    assert.doesNotMatch(String(ic.verdict?.headline || ''), /no blocking workstreams or unresolved risks/i,
+      `${deal.company}: headline claims no unresolved risks over ${material.length} open register items`);
+  }
+  assert.ok(checked > 0, 'no seeded deal has material register rows, so this asserts nothing');
+});
+
+test('the two screens grade the same risk with the same word', () => {
+  // The register graded R1 "Price-adjuster" while the board graded the same row "caution".
+  // Those are not the same sentence to a committee.
+  for (const deal of seededDeals) {
+    let ic, reg;
+    try { ic = computeICReadiness(deal); reg = buildRiskRegister(deal); } catch { continue; }
+    const byTitle = new Map(((reg && reg.risks) || []).map((r) => [String(r.risk), r.severityLabel]));
+    for (const row of ic.unresolvedRisks.filter((r) => r.from === 'risk register')) {
+      const label = byTitle.get(String(row.title));
+      if (!label) continue;
+      assert.equal(row.severityLabel, label,
+        `${deal.company}: register says "${label}", board says "${row.severityLabel}"`);
+    }
+  }
+});
+
+test('returns that run on a default say so', () => {
+  // Five deals returned byte-identical IRR and MOIC — a cinema-advertising business and a
+  // clinical-stage biotech among them — because none carried a growth rate. Nothing on the
+  // page said the figures were a placeholder.
+  for (const deal of seededDeals) {
+    let r;
+    try { r = buildReturnsModel(deal); } catch { continue; }
+    if (!r) continue;
+    if (dealGrowth(deal) === null) {
+      assert.equal(r.indicative, true, `${deal.company}: no growth on the record and the returns do not say they are indicative`);
+      assert.match(String(r.indicativeNote || ''), /placeholder|indicative/i);
+    } else {
+      assert.notEqual(r.indicative, true, `${deal.company}: growth IS recorded but the returns claim to be indicative`);
+    }
+  }
 });

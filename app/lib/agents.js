@@ -5,7 +5,7 @@
 import { complete, getModelInfo } from './ai.js';
 import { LANES } from '../data/personas.js';
 import { recordReadingGuide } from './icReadiness.js';
-import { figuresBlock, enforceFigures } from './diligence.js';
+import { figuresBlock, enforceFigures, buildRiskRegister } from './diligence.js';
 
 // Compact money formatter for prompt text ($M in, B/M out).
 const money = (m) => (m == null ? '—' : m >= 1000 ? `$${(m / 1000).toFixed(1)}B` : `$${Math.round(m)}M`);
@@ -54,6 +54,18 @@ function icDateLine(deal) {
   return `Investment Committee is booked for ${on} — ${n} day${n === 1 ? '' : 's'} away.`;
 }
 
+// The deal's own risk register, in the words it is printed in, so the assistant can be
+// asked about a row the reader is looking at.
+function registerBlock(deal) {
+  try {
+    const reg = buildRiskRegister(deal);
+    const rows = ((reg && reg.risks) || []).filter((r) => r.severity !== 'clear').slice(0, 10);
+    if (!rows.length) return null;
+    return ['RISK REGISTER — the rows this deal prints on its Returns, plan & risk page. Quote them, and never deny one because it is not among the key figures:',
+      ...rows.map((r) => `- [${r.severityLabel || r.severity}] ${r.workstream}: ${r.risk}${r.mitigation ? ` Mitigation: ${r.mitigation}` : ''}`)].join('\n');
+  } catch { return null; }
+}
+
 function buildContext(deal) {
   const figs = deal.keyFigures.map((f) => `${f.label}: ${f.value} (${f.source})`).join('; ');
   const lanes = deal.workstreams
@@ -75,6 +87,13 @@ function buildContext(deal) {
     `Thesis: ${deal.thesis}`,
     `Key figures: ${figs}.`,
     `Diligence workstreams: ${lanes}.`,
+    // The register was not in this context, so asked whether the register mentions a QoE
+    // adjustment the model answered "no — it does not", cited the deal record for the
+    // denial, and told a partner not to substitute the adjusted multiple. The register
+    // says it in those words: "if it proves out, the 8.3x entry becomes 9.2x on the
+    // adjusted figure". Denying a fact the product prints two tabs away is worse than
+    // not knowing it.
+    registerBlock(deal),
     // Without this the model had the key figures but not the returns, so it derived an
     // entry multiple, an IRR and a MOIC of its own -- and quoted them beside the ones
     // the deal's Returns page prints. Two different answers to one question, both

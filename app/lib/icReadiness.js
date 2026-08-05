@@ -351,7 +351,13 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
     headline = `IC-ready, subject to ${openConditions.length} condition(s) to close.`;
   } else {
     state = 'READY';
-    headline = 'IC-ready — required papers complete, no blocking workstreams or unresolved risks.';
+    // "no ... unresolved risks" was printed over a register holding ten of them. Ready
+    // means nothing is GATING the committee, which is not the same as nothing being open,
+    // and a partner who finds that out in the room does not use the product again.
+    const open = unresolvedRisks.length;
+    headline = open
+      ? `IC-ready — required papers complete and no blocking workstreams. ${open} item${open === 1 ? '' : 's'} on the risk register ${open === 1 ? 'is' : 'are'} still open and ${open === 1 ? 'does' : 'do'} not gate the committee.`
+      : 'IC-ready — required papers complete, no blocking workstreams or unresolved risks.';
   }
   return { state, headline, gating, openConditions: openConditions.length, phase };
 }
@@ -372,7 +378,13 @@ function registerRisks(deal, already) {
   let reg;
   try { reg = buildRiskRegister(deal); } catch { return out; }
   for (const r of (reg && reg.risks) || []) {
-    if (r.severity !== 'stopper' && r.severity !== 'reprice') continue;
+    // Closing conditions belong on this list too. Atlas Cold Chain read "IC-ready —
+    // required papers complete, no blocking workstreams or unresolved risks" over a
+    // register carrying ten live entries, three of them closing conditions — including
+    // change-of-control consents on two material contracts, which is the long pole on
+    // most deals. A condition does not block the committee, so it does not change the
+    // verdict; it does have to be visible on the page that says there are none.
+    if (r.severity !== 'stopper' && r.severity !== 'reprice' && r.severity !== 'condition') continue;
     const key = String(r.risk || '').toLowerCase().slice(0, 60);
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -382,6 +394,10 @@ function registerRisks(deal, already) {
       laneLabel: r.workstream || null,
       title: r.risk,
       severity: r.severity === 'stopper' ? 'risk' : 'caution',
+      // The register's own word for it. The board graded R1 "caution" while the register
+      // two tabs away graded the same row "Price-adjuster", and those are not the same
+      // sentence to a committee.
+      severityLabel: r.severityLabel || null,
       owner: r.owner || null,
       status: 'open',
       resolutionPath: r.mitigation || null,
