@@ -539,7 +539,7 @@ function workstreamFindings(deal) {
     // Recorded rows for this lane are added centrally by addRecorded(), so nothing that
     // anybody wrote can be lost to a per-lane slice.
   } else if (laneStarted('legal')) {
-    add('legal', 'condition', `Change-of-control consents required on ${pick('legalConsents', ['2–3', 'four', 'a handful of', 'two'])} material customer/supplier contracts — the standard scope for this lane. Nothing has been recorded against it, so there is no opinion on the record about litigation or title, and no counterparty position is known.`, 'Listed as conditions precedent in the SPA once counsel reports.');
+    add('legal', 'condition', `Change-of-control consents required on ${pick('legalConsents', ['2–3', 'four', 'a handful of', 'two'])} material customer/supplier contracts — the standard scope for this workstream. Nothing has been recorded against it, so there is no opinion on the record about litigation or title, and no counterparty position is known.`, 'Listed as conditions precedent in the SPA once counsel reports.');
   } else {
     add('legal', decided ? 'monitor' : 'condition', 'Legal diligence has not started, so there is no basis on the record for an opinion on litigation, title or change-of-control consents.', 'Instruct counsel; consents on material contracts are usually the long pole.');
   }
@@ -561,7 +561,7 @@ function workstreamFindings(deal) {
     // Recorded rows for this lane are added centrally by addRecorded(), so nothing that
     // anybody wrote can be lost to a per-lane slice.
   } else {
-    add('operational', 'monitor', `Procurement and footprint efficiency is the standard cost-out scope for this lane and is modelled at ~${money(round(f.revenue * 0.02))} run-rate. No operations finding has been recorded against this company.`, 'Test the assumption in operations diligence before it is carried into the plan.');
+    add('operational', 'monitor', `Procurement and footprint efficiency is the standard cost-out scope for this workstream and is modelled at ~${money(round(f.revenue * 0.02))} run-rate. No operations finding has been recorded against this company.`, 'Test the assumption in operations diligence before it is carried into the plan.');
   }
 
   // Tech.

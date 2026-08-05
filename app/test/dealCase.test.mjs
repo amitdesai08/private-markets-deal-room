@@ -989,3 +989,32 @@ test('a row reporting that the thing is handled is never a killer', () => {
     }
   }
 });
+
+// A partner would have read "returns clear the hurdle", quoted it, been asked about the
+// downside, and been caught out on their own deal. The headline names both legs.
+test('a headline that says the returns clear does not hide a downside that breaks', () => {
+  let hidden = 0;
+  for (const [id, c] of CASES) {
+    if (!/clears the hurdle/i.test(c.recommendation.because)) continue;
+    if (!c.downside || c.downside.clearsHurdle) continue;
+    hidden += 1;
+    assert.match(c.recommendation.because, /the downside does not/i,
+      `${id}: the headline says the returns clear and says nothing about a downside that breaks`);
+  }
+  assert.ok(hidden > 0, 'no deal exercised the clearing-base/breaking-downside path — the guard would be inert');
+});
+
+// "Lane" is the code's word for a workstream and it reached a partner's screen twice.
+test('the case never calls a workstream a lane', () => {
+  for (const [id, c] of CASES) {
+    const prose = [
+      ...c.notOnRecord,
+      ...c.againstIt.map((r) => `${r.risk} ${r.mitigation || ''} ${r.basisNote || ''}`),
+      ...c.notYetKnown.map((r) => r.item),
+      ...c.outstanding.map((r) => r.text),
+      c.recommendation.because,
+      c.outstandingNote,
+    ].join(' ');
+    assert.doesNotMatch(prose, /\blanes?\b/i, `${id}: "lane" reached the reader`);
+  }
+});

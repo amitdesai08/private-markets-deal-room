@@ -234,7 +234,9 @@ const TAB_GROUPS: TabGroup[] = [
 // says the same word twice.
 const SUB_LABEL: Partial<Record<Tab, string>> = {
   case: 'The case',
-  ic: 'Checklist',
+  // "Checklist" told a partner nothing about which of the two sub-tabs was the paper and
+  // which was the board.
+  ic: 'Readiness board',
   cockpit: 'Summary',
   overview: 'Thesis & figures',
   stages: 'Plan',

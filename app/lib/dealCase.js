@@ -728,8 +728,11 @@ export function buildDealCase(deal) {
       : !returns.meetsHurdle
         ? returns.headline
         : openCount
-          ? `Returns clear the hurdle; ${openCount} item${openCount === 1 ? '' : 's'} outstanding before signing.`
-          : 'Returns clear the hurdle and nothing is outstanding on the record.';
+          // "Returns clear the hurdle" was the whole of the reason on deals whose downside
+          // breaks it, so a partner would quote the headline and be caught out on their
+          // own deal. The headline names both legs.
+          ? `Base case clears the hurdle${downside && !downside.clearsHurdle ? `; the downside does not, at ${downside.moic}x / ${downside.irr}%` : ''}. ${openCount} item${openCount === 1 ? '' : 's'} outstanding before signing.`
+          : `Base case clears the hurdle${downside && !downside.clearsHurdle ? `; the downside does not, at ${downside.moic}x / ${downside.irr}%` : ''}, and nothing is outstanding on the record.`;
 
   // What the committee is NOT being given. A reader who cannot see the gap will assume
   // there isn't one, and the papers most often missing are the ones a vote depends on.
@@ -757,7 +760,7 @@ export function buildDealCase(deal) {
   // named author", because the claim read the register -- where positives never appear.
   const authored = (deal.workstreams || []).some((w) => (w.findings || []).some((f) => f && f.text));
   if (!authored) {
-    notOnRecord.push('Nobody has written a finding on any workstream of this deal. Every row on the register is the standard set for its lane.');
+    notOnRecord.push('Nobody has written a finding on any workstream of this deal. Every row on the register is the standard set for its workstream.');
   } else if (risks.length && risks.every((r) => r.basis === 'templated')) {
     notOnRecord.push('The three items above are standard rows for their workstreams. What diligence actually found is listed separately.');
   }
