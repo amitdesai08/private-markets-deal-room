@@ -140,7 +140,7 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
                 reading "cyber posture is adequate" pass for a finding. */}
             {r.basisNote ? <div className="dc-basis dc-templated">{r.basisNote}</div> : null}
           </div>
-        )) : <div className="muted">Nothing on the register would stop the deal or move the price. What has to be settled before signing is listed below.</div>}
+        )) : <div className="muted">The register carries no deal-stopper and no repricing item. What is not yet known, and what has to be settled before signing, are listed below.</div>}
       </section>
 
       {!!(c.figures || []).length && (
@@ -182,7 +182,22 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
           {c.recordedFindings.map((r: Any, i: number) => (
             <div key={i} className="dc-point">
               <div className="dc-pt">{r.finding}</div>
-              <div className="dc-basis">{r.workstream}{r.owner ? ` · ${r.owner}` : ''}{r.supportive ? ' · supportive' : ''}</div>
+              <div className="dc-basis">{r.workstream}{r.owner ? ` · ${r.owner}` : ''}{r.supportive ? ' · supportive' : ''}{r.gradedAs ? ` · ${r.gradedAs}` : ''}</div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* What nobody has looked at. These never reached the page, so on a deal four days
+          from committee the paper reported no blocking workstreams while its own register
+          said nobody had spoken to a customer or referenced the management team. */}
+      {!!(c.notYetKnown || []).length && (
+        <section className="dc-card">
+          <div className="dc-h">What is not yet known</div>
+          {c.notYetKnown.map((u: Any, i: number) => (
+            <div key={i} className="dc-point">
+              <div className="dc-pt">{u.item}</div>
+              <div className="dc-basis">{u.workstream}{u.owner ? ` · ${u.owner}` : ''}</div>
             </div>
           ))}
         </section>

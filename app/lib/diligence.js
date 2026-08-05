@@ -1078,7 +1078,11 @@ export function buildRiskRegister(deal) {
     }
   }
   for (const rk of risks) if (counts[rk.severity] != null) counts[rk.severity]++;
-  const status = counts.stopper ? 'red' : counts.reprice ? 'amber' : 'green';
+  const anyWorked = (deal.workstreams || []).some((w) => (w.findings || []).length || (w.contributions || []).length);
+  // Green tells a committee the deal is safe. A deal nobody has opened is not safe; it is
+  // unexamined, and those are different states. One register reported green over its own
+  // row reading "no workstream has produced anything".
+  const status = counts.stopper ? 'red' : counts.reprice ? 'amber' : anyWorked ? 'green' : 'amber';
   // A ten-row register whose every row is boilerplate reported status "green" and a
   // headline of "3 closing conditions", with nothing to say that not one line of it had
   // been written by anybody. That is the fact a reader most needs and it was only on the

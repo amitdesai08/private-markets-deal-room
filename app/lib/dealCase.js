@@ -249,7 +249,10 @@ function theBaseCase(deal, returns, canon) {
         const spread = others.length
           ? ` The other scenarios do not hold it flat: ${others.map((s) => `${s.name.toLowerCase()} exits at ${s.x}x`).join(' and ')}.`
           : '';
-        const note = Math.abs(delta) < 0.05
+        // 0.1x was being promoted to "a stated dependency of the case" on a deal where
+        // 300/36 is 8.33x and 401/48 is 8.35x. That is a rounding artefact, not an
+        // assumption anybody made.
+        const note = Math.abs(delta) <= 0.15
           ? ` The base case assumes no multiple expansion — it is made on EBITDA growth and debt paydown alone.${spread}`
           : delta > 0
             ? ` The base case assumes ${delta}x of multiple expansion, which it depends on and the record does not evidence.${spread}`
@@ -412,6 +415,8 @@ export function buildDealCase(deal) {
   const register = buildRiskRegister(deal);
   const board = computeICReadiness(deal);
   const v = board.verdict || {};
+  const conditions = (register.risks || []).filter((r) => r.severity === 'condition');
+  const decided = isDecided(deal);
   const risks = againstIt(register);
   // Narrowing the killers to stoppers and repricing items was right and went one step
   // too far: the seeded registers grade almost nothing at those levels, so the deal four
@@ -419,6 +424,40 @@ export function buildDealCase(deal) {
   // nothing, while its own readiness board carried "Merger control (EU) filing readiness
   // not cleared". A merger-control filing that does not clear kills a deal. It was
   // sitting in an unranked list.
+  // A base case that misses the fund hurdle is the thing most likely to lose the money,
+  // and it was in a different block. On one deal it displaced nothing and appeared
+  // nowhere: 15.3% IRR against a 20% hurdle, and the killers were a modelled allowance
+  // and a rebate finding.
+  if (!decided && !returns.meetsHurdle) {
+    risks.unshift({
+      risk: returns.headline,
+      severity: 'stopper',
+      severityLabel: 'Deal-stopper',
+      likelihood: null,
+      workstream: 'Returns',
+      owner: null,
+      mitigation: 'The price or the plan has to change; the hurdle does not.',
+      basis: 'the returns model',
+      basisNote: null,
+    });
+  }
+  // And a downside that breaks the hurdle. On the deal four days from committee the page
+  // said nothing could kill it, twelve lines above its own downside reading "1.72x is
+  // below the 2x and 11.4% IRR is below the 20%".
+  const downside = theDownside(deal, returns);
+  if (!decided && downside && !downside.clearsHurdle && risks.length < 3) {
+    risks.push({
+      risk: downside.text,
+      severity: 'reprice',
+      severityLabel: 'Price-adjuster',
+      likelihood: null,
+      workstream: 'Returns',
+      owner: null,
+      mitigation: downside.basis,
+      basis: 'the returns model',
+      basisNote: null,
+    });
+  }
   const REGULATORY = /merger control|antitrust|regulatory clearance|competition|cfius|foreign investment|change of control consent|takeover code|rule 2\.7|irrevocable|critical path|financing condition/i;
   const CANDIDATES = [
     ...(board.verdict?.gating || []).map((g) => ({ text: String(g), from: 'Committee readiness' })),
@@ -446,8 +485,6 @@ export function buildDealCase(deal) {
       basisNote: null,
     });
   }
-  const conditions = (register.risks || []).filter((r) => r.severity === 'condition');
-  const decided = isDecided(deal);
 
   // The call. Not a view — an arithmetic reading of the record, stated as such.
   //
@@ -562,7 +599,10 @@ export function buildDealCase(deal) {
     composed: true,
     composedNote: 'Composed from the deal record — the returns model, the risk register and the committee-readiness board. It is not the analyst\'s memo and nobody has approved it.',
     decided,
-    readiness: { state: v.state || null, headline: v.headline || null, gating: v.gating || [] },
+    // The readiness headline is computed elsewhere and quoted a different number from
+    // the one list, and it is the line a reader hits first. The state and the gating
+    // travel; the count does not, because there is one count on this page.
+    readiness: { state: v.state || null, headline: String(v.headline || '').replace(/\s*\d+ items? remain open on the risk register\.?/i, '').trim() || null, gating: v.gating || [] },
     recommendation: { call, because },
     writtenRecommendation: writtenRecommendation(deal, openCount),
     ask: theAsk(canon, returns, deal),
@@ -571,6 +611,15 @@ export function buildDealCase(deal) {
     forIt: forIt(deal, canon, returns, tooEarly),
     downside: theDownside(deal, returns),
     againstIt: risks,
+    // What nobody has looked at. These are the register's monitor rows, and they never
+    // reached the page: on the deal four days from committee the paper reported "no
+    // blocking workstreams" while its own register said nobody had spoken to a customer,
+    // referenced the management team below the chief executive, or produced the customer
+    // schedule the concentration figure is modelled on. A committee that has to open the
+    // register itself to find that out has been failed by the page that exists to stop it.
+    notYetKnown: (register.risks || [])
+      .filter((r) => r.severity === 'monitor')
+      .map((r) => ({ item: r.risk, workstream: r.workstream || null, owner: r.owner || null, basis: r.basis || null })),
     // Everything on the register that somebody actually wrote, at any severity. On a
     // signed deal the one real finding -- "Final QoE issued; $2.1M of add-backs
     // disallowed" -- was graded a monitor and therefore fell out of the three killers,
@@ -584,15 +633,22 @@ export function buildDealCase(deal) {
     // worked on the deal was the wrong question all along.
     recordedFindings: (deal.workstreams || []).flatMap((w) => (w.findings || [])
       .filter((f) => f && f.text)
-      .map((f) => ({
-        finding: String(f.text).trim(),
-        workstream: w.label || w.lane,
-        owner: w.owner ? ownerLabel(w.owner, w.lane) : null,
-        severity: f.severity || null,
-        // Good news is on this page too, and marked as good news. It was being dropped
-        // entirely, which flatters nobody and hides who did the work.
-        supportive: /^(positive|neutral)$/i.test(String(f.severity || '')),
-      }))),
+      .map((f) => {
+        const text = String(f.text).trim();
+        // The register may have regraded this row -- a takeover timetable written as a
+        // caution is a deal-stopper -- and publishing the author's grade beside the
+        // register's put the same sentence at two severities inside one object.
+        const onRegister = (register.risks || []).find((r) => r.risk === text);
+        return {
+          finding: text,
+          workstream: w.label || w.lane,
+          owner: w.owner ? ownerLabel(w.owner, w.lane) : null,
+          severity: onRegister ? onRegister.severity : (f.severity || null),
+          severityLabel: onRegister ? onRegister.severityLabel : null,
+          gradedAs: onRegister && onRegister.severity !== f.severity ? `Written as ${f.severity}; the register grades it ${onRegister.severityLabel}.` : null,
+          supportive: !onRegister && /^(positive|neutral)$/i.test(String(f.severity || '')),
+        };
+      })),
     figures: [
       { label: 'Enterprise value', value: `${canon.currency}${canon.ev}M`, basis: figureBasis('ev', canon, deal) },
       { label: 'LTM EBITDA', value: `${canon.currency}${canon.ebitda}M`, basis: figureBasis('ebitda', canon, deal) },

@@ -309,9 +309,10 @@ test('everything outstanding is on one list, and each row says which record it c
     // to "what is outstanding" on one deal, each computed elsewhere off something
     // slightly different.
     assert.equal(c.outstandingCount, c.outstanding.length, `${id}: the outstanding count is not the length of the outstanding list`);
-    if (c.outstandingCount) {
-      assert.match(c.recommendation.because + c.readiness.headline, /\d/, `${id}: no count anywhere on a deal with outstanding items`);
-    }
+    // And no other line on the page may quote a different one. The readiness headline is
+    // computed elsewhere, quoted its own number, and is the line a reader hits first.
+    const stray = /(\d+) items? remain open on the risk register/.exec(String(c.readiness.headline || ''));
+    assert.equal(stray, null, `${id}: the readiness headline quotes its own count of what is open`);
   }
 });
 
@@ -699,4 +700,51 @@ test('an indicative return says on the case that it is indicative', () => {
   assert.equal(buildReturnsModel(bare).indicative, true, 'the fixture does not exercise the indicative path');
   const c = buildDealCase(bare);
   assert.ok(c.notOnRecord.some((n) => /Indicative only/i.test(n)), 'indicative returns are not declared as such');
+});
+// On the deal four days from committee the paper reported no blocking workstreams and an
+// empty killers list, while its own register said nobody had spoken to a customer,
+// referenced the management team below the chief executive, or produced the customer
+// schedule the concentration figure is modelled on. Those are precisely "what is not yet
+// known", they were graded monitor, and only conditions and repricers reached the page.
+// A committee that has to open the register itself has been failed by the page that
+// exists to stop it.
+test('what nobody has looked at is on the page', () => {
+  let carried = 0;
+  for (const [id, c] of CASES) {
+    const d = seededDeals.find((x) => x.id === id);
+    const monitors = buildRiskRegister(d).risks.filter((r) => r.severity === 'monitor');
+    if (!monitors.length) continue;
+    carried += 1;
+    for (const m of monitors) {
+      assert.ok(c.notYetKnown.some((u) => u.item === m.risk), `${id}: an unexamined item is on the register and not on the case`);
+    }
+  }
+  assert.ok(carried > 0, 'no deal carried an unexamined item — the guard would be inert');
+});
+
+// A base case that misses the fund hurdle is the thing most likely to lose the money and
+// it was in a different block: on one deal it appeared nowhere, 15.3% IRR against a 20%
+// hurdle, while the killers were a modelled allowance and a rebate finding.
+test('a base case that misses the hurdle is the first thing that could kill the deal', () => {
+  let missed = 0;
+  for (const [id, c] of CASES) {
+    if (c.decided || c.baseCase.clearsHurdle) continue;
+    missed += 1;
+    assert.equal(c.againstIt[0]?.severity, 'stopper', `${id}: base case misses the hurdle and it is not the first killer`);
+    assert.equal(c.againstIt[0]?.risk, c.baseCase.text, `${id}: the first killer is not the failed hurdle`);
+  }
+  assert.ok(missed > 0, 'no deal exercised the failed-hurdle path — the guard would be inert');
+});
+
+// The same sentence appeared at two severities inside one object: graded a deal-stopper
+// under the killers and a caution under what diligence found, because the register may
+// regrade a row and the author's grade was published beside the register's.
+test('one row, one severity, across the whole case', () => {
+  for (const [id, c] of CASES) {
+    for (const r of c.recordedFindings) {
+      const asKiller = c.againstIt.find((k) => k.risk === r.finding);
+      if (!asKiller) continue;
+      assert.equal(r.severity, asKiller.severity, `${id}: "${r.finding.slice(0, 40)}" is ${r.severity} in one section and ${asKiller.severity} in another`);
+    }
+  }
 });
