@@ -106,11 +106,15 @@ function againstIt(register) {
     // This admitted closing conditions, so a mechanical working-capital true-up that
     // appears on every deal in the fund was presented to a committee as one of the three
     // things most likely to kill the deal, alongside a consent point quoted with its own
-    // evidence that it was closed. A committee that reads three rows and finds none of
-    // them capable of killing anything stops reading the section. Conditions have not
-    // disappeared -- they are obligations, and they are on the outstanding list where a
-    // reader can act on them.
+    // evidence that it was closed. Conditions have not disappeared -- they are
+    // obligations, and they are on the outstanding list where a reader can act on them.
+    // The named ones that genuinely bite are promoted back in below.
     .filter((r) => r.severity === 'stopper' || r.severity === 'reprice')
+    // And a standard row nobody wrote is not one of the three things most likely to lose
+    // the money. "Customer concentration is modelled at ~30% of revenue... no customer
+    // schedule has been recorded to confirm the figure" was wearing a killer's badge:
+    // that is a not-yet-known, and it has its own section.
+    .filter((r) => r.basis !== 'templated')
     // Severity first, and within a severity a row somebody wrote before a row nobody
     // did. A committee reading three killers should be reading the three things the
     // diligence found, where the diligence found anything.
@@ -161,7 +165,10 @@ function theAsk(canon, returns, deal) {
     // verb is the whole difference and it was wrong on eight deals.
     headline: decided
       ? `Committed: ${m(base.entryEV)} enterprise value at ${mult}x, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at ${canon.leverage}. This deal is past the committee decision.${multNote}`
-      : `Authorise up to ${m(base.entryEV)} enterprise value at ${mult}x, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at ${canon.leverage}.${multNote}`,
+      // "Authorise up to ... $492M of debt at 3.3x" states as a fact a leverage nobody
+      // has offered. It is disclosed as modelled two sections down; the sentence a
+      // committee votes on should not need the footnote.
+      : `Authorise up to ${m(base.entryEV)} enterprise value at ${mult}x, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at a modelled ${canon.leverage} — no lender or indicative terms are on the record.${multNote}`,
     decided,
     entryMultiple: mult,
     enterpriseValue: base.entryEV,
@@ -276,7 +283,7 @@ function theBaseCase(deal, returns, canon) {
 // The downside, stated once, whether or not it helps. It belongs on the page either way
 // — a committee that only sees a downside when it flatters the case is not being shown
 // a downside.
-function theDownside(deal, returns) {
+function theDownside(deal, returns, canon) {
   const m = (v) => fmtMoney(v, symbolFor(deal));
   const down = (returns.scenarios || []).find((s) => /down/i.test(s.name));
   const base = (returns.scenarios || []).find((s) => /base/i.test(s.name));
@@ -286,14 +293,32 @@ function theDownside(deal, returns) {
   const legs = [];
   if (down.moic < hurdle.moic) legs.push(`${down.moic}x is below the ${hurdle.moic}x`);
   if (down.irr < hurdle.irr) legs.push(`${down.irr}% IRR is below the ${hurdle.irr}%`);
+  // What the downside actually assumes about the business, which is the one thing it
+  // never said. On three deals the downside exits on exactly today's EBITDA and on a
+  // fourth it grows it -- there is no scenario anywhere in this model in which EBITDA
+  // falls. For a grocery roll-up whose like-for-like growth has just been restated
+  // downward, a downside that assumes no decline is not a downside, and the page was
+  // narrating "Downside breaks the hurdle" without ever stating its central assumption.
+  const entryEbitda = canon.ebitda;
+  const shape = !Number.isFinite(entryEbitda) ? ''
+    : down.exitEbitda > entryEbitda
+      ? ` It still grows EBITDA, from ${m(entryEbitda)} today to ${m(down.exitEbitda)} at exit — nothing in this model contemplates EBITDA falling.`
+      : down.exitEbitda === entryEbitda
+        ? ` It holds EBITDA flat at today's ${m(entryEbitda)} for the whole hold — it does not contemplate EBITDA falling.`
+        : ` It takes EBITDA from ${m(entryEbitda)} today to ${m(down.exitEbitda)} at exit.`;
   return {
     moic: down.moic,
     irr: down.irr,
     clearsHurdle: clears,
+    exitEbitda: down.exitEbitda,
+    entryEbitda,
     text: clears
       ? `Downside clears the hurdle at ${down.moic}x / ${down.irr}% IRR.`
       : `Downside breaks the hurdle: ${legs.join(' and ')}.`,
-    basis: `Exit EBITDA of ${m(down.exitEbitda)}${base && down.equityIn > base.equityIn ? `, on a larger ${m(down.equityIn)} equity cheque than the base case` : `, on the same ${m(down.equityIn)} equity cheque as the base case`}.`,
+    // "on a larger $153M equity cheque than the base case" -- and the page never said
+    // why more equity is needed when the price has not changed. The returns model writes
+    // that sentence and it was never carried across.
+    basis: `Exit EBITDA of ${m(down.exitEbitda)}${base && down.equityIn > base.equityIn ? `, on a larger ${m(down.equityIn)} equity cheque than the base case` : `, on the same ${m(down.equityIn)} equity cheque as the base case`}.${shape}${returns.scenarioBasis ? ` ${returns.scenarioBasis}` : ''}`,
   };
 }
 
@@ -311,6 +336,15 @@ function writtenRecommendation(deal, conditionCount) {
     text,
     status: sec.status || null,
     length: text.length,
+    // "Approved" — by whom, when, and on which paper. On a deal whose entire framing is
+    // "the committee has ruled on this", a reader cannot tell what they are not
+    // re-litigating. Where the record does not carry the name and the date, say so
+    // rather than letting an unattributed approval read as an institutional act.
+    approvedBy: sec.approvedBy || sec.author || null,
+    approvedAt: sec.approvedAt || sec.updatedAt || null,
+    attribution: (sec.approvedBy || sec.author)
+      ? `${sec.approvedBy || sec.author}${sec.approvedAt || sec.updatedAt ? `, ${sec.approvedAt || sec.updatedAt}` : ''}.`
+      : 'No name and no date are recorded against this, so the record does not say who approved it or when.',
     conflict: claimsClean && conditionCount > 0
       ? `The written recommendation reports nothing unresolved. The register carries ${conditionCount} open item${conditionCount === 1 ? '' : 's'}, listed below.`
       : null,
@@ -400,9 +434,9 @@ function againstPrecedent(deal, canon, entryMultiple, priceUnevidenced) {
     sector: deal.sector,
     where,
     text: where === 'below'
-      ? `We are buying at ${entryMultiple}x against ${set}. If it is that cheap, the case needs to say why.`
+      ? `We are buying at ${entryMultiple}x against ${set}. Nothing on the record explains why it is cheaper — the thesis on file argues the business, not the price.`
       : where === 'above'
-        ? `We are buying at ${entryMultiple}x against ${set}. That is above everything the fund has paid in the sector.`
+        ? `We are buying at ${entryMultiple}x against ${set}. That is above everything the fund has paid in the sector, and nothing on the record explains what we are paying it for.`
         : `We are buying at ${entryMultiple}x, inside ${set}.`,
     basis: `${comps.length} transaction${comps.length === 1 ? '' : 's'} the fund underwrote in ${deal.sector}${comps.length < 3 ? ' — too few to be a distribution, so read them individually rather than as a range' : ''}. Open Comparables & precedents for the committee's reasoning on each.`,
   };
@@ -425,10 +459,13 @@ export function buildDealCase(deal) {
   // not cleared". A merger-control filing that does not clear kills a deal. It was
   // sitting in an unranked list.
   // A base case that misses the fund hurdle is the thing most likely to lose the money,
-  // and it was in a different block. On one deal it displaced nothing and appeared
-  // nowhere: 15.3% IRR against a 20% hurdle, and the killers were a modelled allowance
-  // and a rebate finding.
-  if (!decided && !returns.meetsHurdle) {
+  // and it was in a different block. On one deal it appeared nowhere: 15.3% IRR against
+  // a 20% hurdle, and the killers were a modelled allowance and a rebate finding.
+  //
+  // It applies to decided deals too. Suppressing it there left a signed deal underwritten
+  // at 18.3% against a 20% hurdle showing an empty killers list, which reads as "nothing
+  // is wrong with this" on precisely the deals where the money has already gone.
+  if (!returns.meetsHurdle) {
     risks.unshift({
       risk: returns.headline,
       severity: 'stopper',
@@ -436,7 +473,9 @@ export function buildDealCase(deal) {
       likelihood: null,
       workstream: 'Returns',
       owner: null,
-      mitigation: 'The price or the plan has to change; the hurdle does not.',
+      mitigation: decided
+        ? 'This deal was underwritten below the hurdle. The record does not say what the committee accepted in exchange.'
+        : 'The price or the plan has to change; the hurdle does not.',
       basis: 'the returns model',
       basisNote: null,
     });
@@ -444,8 +483,8 @@ export function buildDealCase(deal) {
   // And a downside that breaks the hurdle. On the deal four days from committee the page
   // said nothing could kill it, twelve lines above its own downside reading "1.72x is
   // below the 2x and 11.4% IRR is below the 20%".
-  const downside = theDownside(deal, returns);
-  if (!decided && downside && !downside.clearsHurdle && risks.length < 3) {
+  const downside = theDownside(deal, returns, canon);
+  if (downside && !downside.clearsHurdle && risks.length < 3) {
     risks.push({
       risk: downside.text,
       severity: 'reprice',
@@ -467,24 +506,44 @@ export function buildDealCase(deal) {
     // timetable IS the thing that kills it: it is not a condition to be waived, it is a
     // clock somebody else controls. The product's own assistant named it as a killer,
     // which is two surfaces of one product disagreeing about whether the deal had any.
-    ...(register.risks || []).filter((r) => r.severity === 'condition').map((r) => ({ text: String(r.risk), from: r.workstream || 'Risk register', owner: r.owner || null })),
+    ...(register.risks || []).filter((r) => r.severity === 'condition').map((r) => ({ text: String(r.risk), from: r.workstream || 'Risk register', owner: r.owner || null, written: r.basis === 'recorded' })),
   ];
   for (const cand of CANDIDATES) {
     if (risks.length >= 3) break;
-    if (!REGULATORY.test(cand.text)) continue;
+    // A named condition somebody WROTE against this company belongs in the killers even
+    // where it is not regulatory: "change-of-control consents required on two of the
+    // top-five pharma contracts" is the long pole on a cold-chain roll-up whose thesis is
+    // pricing power on pharma contracts, and it was sitting among the positives.
+    if (!REGULATORY.test(cand.text) && !cand.written) continue;
     if (risks.some((r) => String(r.risk).toLowerCase().includes(cand.text.toLowerCase().slice(0, 25)))) continue;
     risks.push({
       risk: cand.text,
-      severity: 'stopper',
-      severityLabel: 'Deal-stopper',
+      // The register's own grade travels with the row. Regrading it here put the same
+      // sentence at two severities inside one object, which is the fault this page was
+      // fixed for two rounds ago.
+      severity: REGULATORY.test(cand.text) ? 'stopper' : 'condition',
+      severityLabel: REGULATORY.test(cand.text) ? 'Deal-stopper' : 'Closing condition',
+      promoted: true,
       likelihood: null,
       workstream: cand.from,
       owner: cand.owner || null,
-      mitigation: 'A clearance that does not come, or a timetable somebody else controls, is not a condition to be waived.',
-      basis: 'promoted from the outstanding list',
+      mitigation: REGULATORY.test(cand.text)
+        ? 'A clearance that does not come, or a timetable somebody else controls, is not a condition to be waived.'
+        : 'Written against this company by the workstream named.',
+      basis: cand.written ? 'recorded' : 'promoted from the outstanding list',
       basisNote: null,
     });
   }
+  // One killer that quotes another verbatim inside itself is one killer. A committee was
+  // handed three of which two were the same rebate finding -- once on its own and once
+  // embedded in the modelled allowance that argues with it -- and the paper said so.
+  const deduped = [];
+  for (const r of risks) {
+    const dup = deduped.some((k) => k.risk.includes(r.risk) || r.risk.includes(k.risk));
+    if (!dup) deduped.push(r);
+  }
+  risks.length = 0;
+  risks.push(...deduped);
 
   // The call. Not a view — an arithmetic reading of the record, stated as such.
   //
@@ -503,15 +562,18 @@ export function buildDealCase(deal) {
   const outstanding = (() => {
     const seen = new Set();
     const rows = [];
-    const add = (text, from, owner) => {
+      const add = (text, from, owner, due) => {
       const key = String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60);
       if (!key || seen.has(key)) return;
       seen.add(key);
-      rows.push({ text: String(text), from, owner: owner || null });
+      // Not one register row on any deal carries a due date, and the disclosure about
+      // missing dates covered the blocking workstreams only — so the register's silence
+      // was itself silent. "Who is closing it by when" was answered halfway.
+      rows.push({ text: String(text), from, owner: owner || null, dueDate: due || null, dueNote: due ? null : 'No date is committed on the record.' });
     };
     for (const g of (v.gating || [])) add(g, 'committee readiness');
-    for (const r of conditions) add(r.risk, 'risk register', r.owner || null);
-    for (const r of (register.risks || []).filter((x) => x.severity === 'reprice')) add(r.risk, 'risk register', r.owner || null);
+    for (const r of conditions) add(r.risk, 'risk register', r.owner || null, r.dueDate);
+    for (const r of (register.risks || []).filter((x) => x.severity === 'reprice')) add(r.risk, 'risk register', r.owner || null, r.dueDate);
     // A finding somebody has written and closed is not an outstanding item. One deal
     // carried "QoE supports $46M LTM EBITDA; $2.1M of add-backs disallowed" as a thing
     // diligence found AND as a thing still to do, which inflated the count of what is
@@ -537,10 +599,23 @@ export function buildDealCase(deal) {
   const ebitdaKf = recordedFigure(deal, /ebitda/i);
   const priceUnevidenced = canon.ebitdaSource === 'derived'
     || (canon.ebitdaSource === 'recorded' && ebitdaKf && UNDILIGENCED_SOURCE.test(String(ebitdaKf.source || '')));
-  const tooEarly = !decided && priceUnevidenced && laneTotal > 0 && lanesWorked * 2 < laneTotal;
-  const call = tooEarly
-    ? 'NOT ENOUGH ON THE RECORD TO DECIDE'
-    : decided
+  const tooEarly = !decided && priceUnevidenced && (laneTotal === 0 || lanesWorked * 2 < laneTotal);
+  // Two deals with the same defect were getting opposite verdicts: both rest the entry
+  // multiple on an EBITDA nobody diligenced, and one said NOT ENOUGH ON THE RECORD TO
+  // DECIDE while the other said PROCEED, SUBJECT TO CONDITIONS — over its own line
+  // reading "the entry multiple rests on a screening default". A paper that recommends
+  // proceeding on returns computed from a figure it admits nobody produced is not being
+  // serious about the money, whatever else is on the page.
+  const priceOnly = !decided && !tooEarly && priceUnevidenced;
+  const call = register.counts.stopper && !decided
+    // A deal-stopper outranks everything. It was being outranked by the price caveat,
+    // which is a weaker statement about a lesser problem.
+    ? 'DECLINE'
+    : tooEarly
+      ? 'NOT ENOUGH ON THE RECORD TO DECIDE'
+      : priceOnly
+        ? 'NOT ON THIS PRICE — NOBODY HAS DILIGENCED THE EBITDA'
+        : decided
     ? 'ALREADY DECIDED'
     : register.counts.stopper ? 'DECLINE'
       : !returns.meetsHurdle ? 'DO NOT PROCEED ON THESE TERMS'
@@ -548,7 +623,9 @@ export function buildDealCase(deal) {
           : 'PROCEED';
   const because = tooEarly
     ? `${lanesWorked ? `${lanesWorked} of ${laneTotal} workstreams have produced anything` : 'No workstream has produced anything'} and the entry multiple rests on a figure nobody has diligenced. The returns below clear the hurdle arithmetically; they are arithmetic on the asking price, not a view on the company.`
-    : decided
+    : priceOnly
+      ? `${lanesWorked} of ${laneTotal} workstreams have produced something, but the entry multiple still rests on an EBITDA nobody has diligenced. The returns cannot carry a recommendation until it is on the record.`
+      : decided
     ? `${deal.stageName || deal.stage} — the committee has ruled on this deal. What follows is the case as the record now stands, not a request for authorisation.`
     : register.counts.stopper
       ? `${register.counts.stopper} deal-stopper on the register.`
@@ -620,7 +697,7 @@ export function buildDealCase(deal) {
     baseCase: theBaseCase(deal, returns, canon),
     priceAgainstPrecedent: againstPrecedent(deal, canon, entryMultipleFor(returns, canon), priceUnevidenced),
     forIt: forIt(deal, canon, returns, tooEarly),
-    downside: theDownside(deal, returns),
+    downside: theDownside(deal, returns, canon),
     againstIt: risks,
     // What nobody has looked at. These are the register's monitor rows, and they never
     // reached the page: on the deal four days from committee the paper reported "no
@@ -671,6 +748,10 @@ export function buildDealCase(deal) {
     // rows twice on every deal -- with the QoE row appearing three times on one, as a
     // finding, a condition and an outstanding item. One list, and this is its length.
     outstandingCount: outstanding.length,
+    // The register returns twelve rows, the readiness board says five papers plus four
+    // workstreams, and this list holds seven. Each is defensible on its own filter and
+    // nothing said they were one universe read three ways.
+    outstandingNote: `${outstanding.length} of them are outstanding: everything the committee-readiness board is waiting on, plus every register row that is a condition or moves the price. The register's other ${Math.max(0, (register.risks || []).length - outstanding.filter((r) => r.from === 'risk register').length)} rows are monitors, listed above as what is not yet known.`,
     outstanding,
     // The board already audits how much of the case traces to a source, and scores Lumen
     // at 40 with the reason written out -- "IC ask derived from unsourced Revenue &
@@ -704,7 +785,11 @@ export function buildDealCase(deal) {
           : null,
         summary: caveats.length
           ? `On this deal ${caveats.join(', and ')}. Every claim it tested does trace to a source, which is why the check passes and the price still cannot be relied on.`
-          : `${a.summary} ${a.totalClaims} claim${a.totalClaims === 1 ? '' : 's'} tested — the key figures on the record, not every number on this page.`,
+          // "All numeric claims trace to a source fact or cited document. 1 claim tested."
+          // If one claim was tested, the first sentence is not a finding.
+          : a.totalClaims <= 1
+            ? `Only ${a.totalClaims} claim was tested — too few to say anything about the page. It traces to a source.`
+            : `${a.summary} ${a.totalClaims} claims tested — the key figures on the record, not every number on this page.`,
         clean: caveats.length ? false : a.clean,
         sourced: a.sourcedClaims,
         total: a.totalClaims,

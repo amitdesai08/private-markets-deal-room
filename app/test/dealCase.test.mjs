@@ -485,8 +485,13 @@ test('the sourcing badge does not claim a clean bill over a contradiction it can
 test('only a stopper or a repricing item is presented as a thing that could kill the deal', () => {
   for (const [id, c] of CASES) {
     for (const r of c.againstIt) {
-      assert.ok(r.severity === 'stopper' || r.severity === 'reprice',
+      // A condition may reach this list only by deliberate promotion -- a merger-control
+      // filing, a takeover timetable, or a condition a named workstream wrote against
+      // this company. Everything else here is a stopper or a repricing item; a mechanical
+      // SPA true-up appearing on every deal in the fund is not a thing that kills one.
+      assert.ok(r.severity === 'stopper' || r.severity === 'reprice' || r.promoted === true,
         `${id}: a ${r.severityLabel} is presented as a killer — "${r.risk.slice(0, 70)}"`);
+      assert.notEqual(r.basis, 'templated', `${id}: a row nobody wrote is presented as a killer`);
     }
     // And nothing is lost by the narrowing: a condition is an obligation and belongs on
     // the outstanding list, where a reader can act on it.
@@ -745,6 +750,78 @@ test('one row, one severity, across the whole case', () => {
       const asKiller = c.againstIt.find((k) => k.risk === r.finding);
       if (!asKiller) continue;
       assert.equal(r.severity, asKiller.severity, `${id}: "${r.finding.slice(0, 40)}" is ${r.severity} in one section and ${asKiller.severity} in another`);
+    }
+  }
+});
+
+// A signed deal underwritten at 18.3% against a 20% hurdle showed an empty killers list,
+// because the failed-hurdle killer was suppressed past the committee. On precisely the
+// deals where the money has already gone, an empty list reads as "nothing is wrong".
+test('the killers list is never empty on a deal underwritten below the hurdle', () => {
+  let below = 0;
+  for (const [id, c] of CASES) {
+    if (c.baseCase.clearsHurdle) continue;
+    below += 1;
+    assert.ok(c.againstIt.length, `${id}: underwritten below the hurdle and nothing could kill it`);
+    assert.equal(c.againstIt[0].risk, c.baseCase.text, `${id}: the failed hurdle is not the first killer`);
+  }
+  assert.ok(below > 0, 'no deal was underwritten below the hurdle — the guard would be inert');
+});
+
+// A committee was handed three killers of which two were the same rebate finding: once
+// on its own and once quoted verbatim inside the modelled allowance that argues with it.
+test('a killer that quotes another killer is one killer', () => {
+  for (const [id, c] of CASES) {
+    for (let i = 0; i < c.againstIt.length; i += 1) {
+      for (let j = i + 1; j < c.againstIt.length; j += 1) {
+        const a = c.againstIt[i].risk;
+        const b = c.againstIt[j].risk;
+        assert.ok(!a.includes(b) && !b.includes(a), `${id}: one killer contains another verbatim`);
+      }
+    }
+  }
+});
+
+// Three deals exit their DOWNSIDE on exactly today's EBITDA and a fourth grows it: there
+// is no scenario anywhere in this model in which EBITDA falls. For a grocery roll-up
+// whose like-for-like growth has just been restated downward, a downside that assumes no
+// decline is not a downside -- and the page narrated "Downside breaks the hurdle"
+// without ever stating its central assumption.
+test('the downside states what it assumes EBITDA does', () => {
+  for (const [id, c] of CASES) {
+    if (!c.downside) continue;
+    assert.match(c.downside.basis, /grows EBITDA|holds EBITDA flat|takes EBITDA from/i,
+      `${id}: the downside does not say what it assumes about EBITDA`);
+    // And why it needs more equity when the price has not changed -- the returns model
+    // writes that sentence and it was never carried onto the page a committee reads.
+    assert.match(c.downside.basis, /same enterprise value|financed at/i,
+      `${id}: the downside does not explain its own capital structure`);
+  }
+});
+
+// "Approved" -- by whom, when, on which paper. On a deal whose entire framing is "the
+// committee has ruled on this", a reader cannot tell what they are not re-litigating.
+test('an approval is attributed, or the page says it is not', () => {
+  let written = 0;
+  for (const [id, c] of CASES) {
+    if (!c.writtenRecommendation) continue;
+    written += 1;
+    assert.ok(c.writtenRecommendation.attribution, `${id}: a written recommendation with no attribution line`);
+    if (!c.writtenRecommendation.approvedBy) {
+      assert.match(c.writtenRecommendation.attribution, /does not say who approved it/i,
+        `${id}: an unattributed approval does not say it is unattributed`);
+    }
+  }
+  assert.ok(written > 0, 'no deal carried a written recommendation — the guard would be inert');
+});
+
+// Not one register row on any deal carries a due date, and the disclosure about missing
+// dates covered the blocking workstreams only -- so the register's silence was itself
+// silent. "Who is closing it by when" was answered halfway on every deal in the book.
+test('every outstanding row carries a date or says there is none', () => {
+  for (const [id, c] of CASES) {
+    for (const row of c.outstanding) {
+      assert.ok(row.dueDate || row.dueNote, `${id}: an outstanding row with neither a date nor a note about its absence`);
     }
   }
 });

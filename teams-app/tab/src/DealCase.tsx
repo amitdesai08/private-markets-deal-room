@@ -70,7 +70,7 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
         <section className="dc-card">
           <div className="dc-h">What the deal team wrote</div>
           <div className="dc-pt">{c.writtenRecommendation.text}</div>
-          <div className="dc-basis">{c.writtenRecommendation.length} characters, {String(c.writtenRecommendation.status || '').replace(/_/g, ' ')}.</div>
+          <div className="dc-basis">{c.writtenRecommendation.length} characters, {String(c.writtenRecommendation.status || '').replace(/_/g, ' ')}. {c.writtenRecommendation.attribution}</div>
           {c.writtenRecommendation.conflict ? <div className="dc-conflict">{c.writtenRecommendation.conflict}</div> : null}
         </section>
       )}
@@ -213,9 +213,13 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
           {c.outstanding.map((x: Any, i: number) => (
             <div key={i} className="dc-point">
               <div className="dc-pt">{x.text}</div>
-              <div className="dc-basis">From the {x.from}{x.owner ? ` · ${x.owner}` : ''}</div>
+              <div className="dc-basis">From the {x.from}{x.owner ? ` · ${x.owner}` : ''} · {x.dueDate || x.dueNote}</div>
             </div>
           ))}
+          {/* The register returns twelve rows, the readiness board says five papers plus
+              four workstreams, and this list holds seven. Each is defensible on its own
+              filter and nothing said they were one universe read three ways. */}
+          {c.outstandingNote ? <div className="dc-basis" style={{ marginTop: 10 }}>{c.outstandingNote}</div> : null}
         </section>
       )}
 
