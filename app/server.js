@@ -155,7 +155,7 @@ import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent,
 import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
 import { buildCockpit } from './lib/cockpit.js';
 import { buildWorkflowDesk, buildThreads, buildDocumentDesk, detectCommitments } from './lib/dealDesk.js';
-import { ownerLabel } from './lib/cockpit.js';
+import { ownerLabel, laneLabel } from './lib/cockpit.js';
 import { reconcileFindingText } from './lib/diligence.js';
 import { buildHomeDesk } from './lib/homeDesk.js';
 import { queryDeals, validateDealQuery, dealFacets, myItemsFor } from './lib/dealQuery.js';
@@ -361,7 +361,7 @@ api.get('/deals', (req, res) => {
   if (q.sort) res.set('X-Deal-Sort', q.sort);
   // Each row carries what is on THIS reader, so "what is on me today" is one request.
   res.json(q.deals.map((d) => {
-    const mine = myItemsFor(d, me);
+    const mine = myItemsFor(d, me).map((x) => ({ ...x, label: laneLabel(x.lane) }));
     return mine.length ? { ...d, myItems: mine, myItemCount: mine.length } : d;
   }));
 });
