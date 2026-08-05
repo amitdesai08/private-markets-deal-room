@@ -330,7 +330,12 @@ export function buildReturns(c) {
   // Nobody underwrites a fast-growing asset's current rate for five straight years at
   // screening. Cap what we are willing to put in the model, and say so in the
   // assumptions rather than quietly compounding 41% into a headline return.
-  const g = clamp((c.growth ?? DEFAULT_GROWTH) / 100, -0.05, UNDERWRITTEN_GROWTH_CAP);
+  const recordedGrowth = c.growth ?? null;
+  const g = clamp((recordedGrowth ?? DEFAULT_GROWTH) / 100, -0.05, UNDERWRITTEN_GROWTH_CAP);
+  // Whether the number in the model is the number on the record. A committee member asked
+  // where 15% came from when the front page says 41% and got "not recorded... no sign-off"
+  // — the cap had silently replaced the recorded rate and nothing said so.
+  const growthCapped = recordedGrowth != null && recordedGrowth / 100 > UNDERWRITTEN_GROWTH_CAP;
   const scenarios = {
     downside: paperLbo(c, { entryMult: baseMult, leverageMult: 4.5, ebitdaCagr: Math.max(0, g - 0.04), exitMult: baseMult - 1 }),
     base: paperLbo(c, { entryMult: baseMult, leverageMult: 5, ebitdaCagr: g, exitMult: baseMult }),
@@ -349,6 +354,16 @@ export function buildReturns(c) {
     // and a different leverage -- so none of its nine cells contained the deal.
     ebitdaCagr: g,
     baseLeverageMult: 5,
+    growthCapped,
+    growthBasis: growthCapped
+      ? `Underwritten at ${Math.round(g * 100)}% EBITDA growth, not the ${recordedGrowth}% on the record: this is the ceiling the fund will put in a model at screening, and the rest of the case is argued in the IC paper rather than compounded into the headline return.`
+      : recordedGrowth != null
+        ? `Underwritten at the ${recordedGrowth}% growth recorded for this company.`
+        : `No growth rate is recorded for this company, so the model runs at the ${DEFAULT_GROWTH}% fund default.`,
+    // The downside needs MORE equity than the base, which reads backwards until you know
+    // why. Asked, the assistant invented a story about enterprise value falling. It does
+    // not: the entry is the same in all three and only the debt changes.
+    scenarioBasis: 'All three scenarios buy at the same enterprise value. The downside puts in more equity because it is financed at 4.5x rather than 5x, not because the price is different.',
     holdYears: HOLD_YEARS,
     scenarios,
     hurdle: { irr: 20, moic: 2.0 },

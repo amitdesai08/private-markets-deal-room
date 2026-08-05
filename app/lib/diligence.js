@@ -431,14 +431,14 @@ function workstreamFindings(deal) {
     add('legal', 'condition', `Change-of-control consents required on ${pick('legalConsents', ['2–3', 'four', 'a handful of', 'two'])} material customer/supplier contracts.`, 'Listed as conditions precedent in the SPA.');
     add('legal', 'clear', 'No material undisclosed litigation or government investigation identified.', 'Clean — no legal deal-stopper.');
   } else {
-    add('legal', 'monitor', 'Legal diligence has not started, so there is no basis on the record for an opinion on litigation, title or change-of-control consents.', 'Instruct counsel; consents on material contracts are usually the long pole.');
+    add('legal', decided ? 'monitor' : 'condition', 'Legal diligence has not started, so there is no basis on the record for an opinion on litigation, title or change-of-control consents.', 'Instruct counsel; consents on material contracts are usually the long pole.');
   }
 
   // Tax.
   if (laneStarted('tax')) {
     add('tax', 'monitor', `${pick('tax', ['VAT and transfer-pricing', 'Transfer-pricing', 'Indirect-tax and withholding', 'Historic VAT'])} exposure identified; quantify and structure as a covered risk.`, 'Backstopped by W&I insurance and addressed in deal structuring.');
   } else {
-    add('tax', 'monitor', 'Tax diligence has not started; no exposure has been quantified either way.', 'Scope the tax review before the pack is finalised.');
+    add('tax', decided ? 'monitor' : 'condition', 'Tax diligence has not started; no exposure has been quantified either way.', 'Scope the tax review before the pack is finalised.');
   }
 
   // Operational.
@@ -452,7 +452,7 @@ function workstreamFindings(deal) {
       'Tech debt concentrated in reporting and billing rather than the product itself; cyber posture is adequate.',
     ]), 'Addressed by the post-close IT roadmap in the 100-day plan.');
   } else {
-    add('tech', 'monitor', 'Technology diligence has not started; neither the scalability of the platform nor the cyber posture has been examined.', 'Scope a technical review — this lane sets the 100-day IT roadmap.');
+    add('tech', decided ? 'monitor' : 'condition', 'Technology diligence has not started; neither the scalability of the platform nor the cyber posture has been examined.', 'Scope a technical review — this lane sets the 100-day IT roadmap.');
   }
 
   // HR / management. There is no people workstream on this record, so the register can
@@ -482,7 +482,7 @@ function workstreamFindings(deal) {
       'Environmental review complete; the gaps are in ESG data collection rather than in site condition.',
     ]), 'Carried into the 100-day plan as a reporting workstream.');
   } else {
-    add('esg', 'monitor', 'No Phase I environmental assessment has been commissioned. Until one is, there is no basis on the record for a clean environmental opinion.', 'Commission a Phase I ESA; a Phase II follows only if it identifies a recognised condition.');
+    add('esg', decided ? 'monitor' : 'condition', 'No Phase I environmental assessment has been commissioned. Until one is, there is no basis on the record for a clean environmental opinion.', 'Commission a Phase I ESA; a Phase II follows only if it identifies a recognised condition.');
   }
 
   return out;
@@ -759,6 +759,8 @@ export function buildReturnsModel(deal) {
     // and a clinical-stage biotech among them, on identical IRR and MOIC with nothing on
     // the page saying so. The register is honest enough to stamp its templated rows;
     // returns has to be too, because these are the numbers someone reads into a room.
+    growthBasis: r.growthBasis || null,
+    scenarioBasis: r.scenarioBasis || null,
     indicative: dealGrowth(deal) === null,
     indicativeNote: dealGrowth(deal) === null
       ? 'Indicative only: no growth rate is recorded for this company, so the model runs on the fund default. Every deal without a growth rate returns these same figures — treat them as a placeholder until one is on the record.'

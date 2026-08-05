@@ -89,7 +89,14 @@ export function validateCitations(deal) {
   const checks = total + keyFigures.length + 1;
   const failed = unsourcedClaims.length + unsourcedFigures.length + (base.sourced ? 0 : 1);
   const clean = failed === 0;
-  const score = clean ? 100 : Math.min(99, Math.round((100 * (checks - failed)) / Math.max(1, checks)));
+  // An unsourced base is not one failure among many. Revenue and EBITDA are the
+  // denominator of the enterprise value, the entry multiple, the equity cheque and the
+  // IRR, so a pack whose base is unsourced scored 83 out of 100 while its own summary
+  // said "IC ask derived from unsourced Revenue & EBITDA". A committee member reading 83
+  // concludes the sourcing is broadly fine. Nothing above an unsourced base is sourced.
+  const score = clean ? 100
+    : !base.sourced ? Math.min(40, Math.round((100 * (checks - failed)) / Math.max(1, checks)))
+    : Math.min(99, Math.round((100 * (checks - failed)) / Math.max(1, checks)));
 
   return {
     score,

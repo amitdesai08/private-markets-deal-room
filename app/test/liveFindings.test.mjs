@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { canonicalFigures, figuresBlock, buildReturnsModel, buildRiskRegister, dealGrowth } from '../lib/diligence.js';
 import { computeICReadiness } from '../lib/icReadiness.js';
+import { validateCitations } from '../lib/citations.js';
 import { seededDeals } from '../data/deals.js';
 
 const byId = (id) => seededDeals.find((d) => d.id === id);
@@ -222,4 +223,66 @@ test('returns that run on a default say so', () => {
       assert.notEqual(r.indicative, true, `${deal.company}: growth IS recorded but the returns claim to be indicative`);
     }
   }
+});
+
+test('one entry multiple per deal, across every surface that prints one', () => {
+  // An IC member read three for Lumen: 8.3x on the returns page, 9.2x in the register's
+  // QoE row, and "9.4x to 10.1x" in a workstream finding. Nothing on any screen reconciled
+  // the third. They said they would not repeat any of the four numbers, which is the
+  // correct response and the end of the product's usefulness.
+  const MULT = /\b(\d{1,2}\.\d)x\b/g;
+  for (const deal of seededDeals) {
+    let r;
+    try { r = buildReturnsModel(deal); } catch { continue; }
+    if (!r?.entry?.evEbitda) continue;
+    const shown = Number(r.entry.evEbitda);
+    const text = (deal.workstreams || [])
+      .flatMap((w) => (w.findings || []).map((f) => String(f.text || '')))
+      .join(' \u0001 ');
+    for (const m of text.matchAll(MULT)) {
+      const n = Number(m[1]);
+      // Only entry multiples. A finding may legitimately quote an exit or a peer multiple,
+      // so this looks at the words around it.
+      const around = text.slice(Math.max(0, m.index - 60), m.index + 60);
+      if (!/entry multiple/i.test(around)) continue;
+      if (/\bby (roughly |about |around )?$/i.test(text.slice(Math.max(0, m.index - 20), m.index))) continue;
+      assert.ok(Math.abs(n - shown) < 0.05,
+        `${deal.company}: a finding prints ${n}x as the entry multiple, the returns page prints ${shown}x`);
+    }
+  }
+});
+
+test('a capped growth rate says it was capped', () => {
+  // The model runs at 15% while the front page says 41%, and asked where 15% came from the
+  // assistant answered "not recorded... no sign-off". The cap had silently replaced the
+  // recorded rate.
+  let checked = 0;
+  for (const deal of seededDeals) {
+    let r;
+    try { r = buildReturnsModel(deal); } catch { continue; }
+    if (!r) continue;
+    assert.ok(r.growthBasis, `${deal.company}: the returns do not say what growth they were struck on`);
+    const recorded = dealGrowth(deal);
+    if (recorded != null && recorded > 15) {
+      checked++;
+      assert.match(String(r.growthBasis), /not the/i, `${deal.company}: growth was capped and the page does not say so`);
+      assert.match(String(r.growthBasis), new RegExp(String(recorded)), `${deal.company}: the recorded rate is not named`);
+    }
+  }
+  assert.ok(checked > 0, 'no seeded deal exceeds the cap, so this asserts nothing');
+});
+
+test('an unsourced base cannot produce a comfortable score', () => {
+  // 83 out of 100 on a pack whose own summary reads "IC ask derived from unsourced Revenue
+  // & EBITDA". Revenue and EBITDA are the denominator of the enterprise value, the entry
+  // multiple, the equity cheque and the IRR — nothing above an unsourced base is sourced.
+  let checked = 0;
+  for (const deal of seededDeals) {
+    let a;
+    try { a = validateCitations(deal); } catch { continue; }
+    if (!a || a.icAsk?.baseSourced !== false) continue;
+    checked++;
+    assert.ok(a.score <= 40, `${deal.company}: base is unsourced and the audit still scores ${a.score}`);
+  }
+  assert.ok(checked > 0, 'no seeded deal has an unsourced base, so this asserts nothing');
 });

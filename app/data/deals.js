@@ -207,7 +207,7 @@ export const seedDeals = [
       ] },
       { lane: 'financial', owner: 'fund-cfo', status: 'in_progress', progress: 70, findings: [
         { text: 'EUR 4.1M of ARR is invoiced annually in advance but recognised on signature; on a ratable basis LTM EBITDA is EUR 3.2M lower than the model carries.', severity: 'high', source: 'Financial / QoE' },
-        { text: 'Capitalised development costs of EUR 2.6M sit above peer practice; expensing them moves the entry multiple from 9.4x to 10.1x.', severity: 'medium', source: 'Financial / QoE' }
+        { text: 'Capitalised development costs of EUR 2.6M sit above peer practice; expensing them would raise the entry multiple by roughly 0.7x against the figure on the returns page.', severity: 'medium', source: 'Financial / QoE' }
       ] },
       { lane: 'tax', owner: 'fund-cfo', status: 'in_progress', progress: 30, findings: [
         { text: 'Irish IP box claimed on the data assets since 2021; the ruling has not been produced and the benefit is in the base case.', severity: 'caution', source: 'Tax DD' }
