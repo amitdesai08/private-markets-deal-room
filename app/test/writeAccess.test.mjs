@@ -7,9 +7,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { accessFor } from '../lib/userPolicy.js';
 
-test('the default (deal-team) caller is write-capable', () => {
+// A caller who proves nothing and asks for nothing is a MEMBER, not the deal team.
+//
+// This test used to assert the opposite — `accessFor(null).canWrite === true` — because
+// an absent identity fell through to DEFAULT_ROLE, which deploys as 'deal-team'. An
+// access review drove the public ingress with no token and no header and was answered as
+// a cleared member of every deal team: 24 deals including the confidential ones, and the
+// assistant reading out a confidential carve-out's enterprise value. `confidential` is
+// the strongest flag in this model and it was defeated by omitting a header.
+//
+// The contract is deliberately changed, and only ever narrows: previewing a seat in demo
+// mode still works, it just has to be asked for out loud instead of arriving by default.
+test('a caller who proves nothing and asks for nothing gets the floor', () => {
   const a = accessFor(null);
-  assert.equal(a.canWrite, true, 'default deal-team role must be able to apply');
+  assert.equal(a.role, 'member', 'an unidentified caller must not inherit the deal-team default');
+  assert.equal(a.canWrite, false, 'an unidentified caller must never be able to apply a write');
+  assert.equal(a.canViewStage2, false, 'an unidentified caller must not see past screening');
+});
+
+test('naming a seat still works, and still cannot exceed the ceiling', () => {
+  assert.equal(accessFor(null, 'deal-team').canWrite, true, 'the demo preview must still reach a cleared seat');
+  assert.equal(accessFor(null, 'analyst').role, 'analyst');
 });
 
 test('view-as ANALYST is read-only — the apply gate closes', () => {

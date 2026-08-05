@@ -1663,11 +1663,24 @@ api.post('/deals/:id/access-requests/:requestId', async (req, res) => {
   const gate = authorizeDealContent(identity, raw, viewAs);
   if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'deal not found' }) : res.status(403).json({ denied: true, reason: gate.reason });
   if (!gate.access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'Deciding who joins a deal team is a deal-team action.' });
-  const approve = req.body?.decision === 'approve';
-  const out = await decideAccessRequest(raw.id, req.params.requestId, { approve, decidedBy: identity?.name || gate.access.roleLabel });
+  // Anything that is not one of the two words was treated as a decline, so a typo or a
+  // stale client irreversibly disposed of somebody's request and wrote "Declined" to the
+  // audit trail under the approver's name. It failed closed on access and open on
+  // integrity, which is the wrong way round for a decision.
+  const decision = String(req.body?.decision || '');
+  if (decision !== 'approve' && decision !== 'decline') {
+    return res.status(400).json({ error: 'bad-decision', detail: 'decision must be "approve" or "decline".' });
+  }
+  const out = await decideAccessRequest(raw.id, req.params.requestId, { approve: decision === 'approve', decidedBy: identity?.name || gate.access.roleLabel });
   if (out?.error === 'not-found') return res.status(404).json(out);
   if (out?.error) return res.status(409).json(out);
-  res.json(out);
+  // Approving a request from a seat with no named identity admits nobody, and saying
+  // "approved" while the team is unchanged is the one outcome an approver must not be
+  // given. Say what happened.
+  if (decision === 'approve' && !out?.request?.person) {
+    return res.json({ ...out, granted: false, detail: 'Recorded, but nobody was added: this request came from a seat with no named identity, so there is no person to admit. Add them to the deal team directly.' });
+  }
+  res.json({ ...out, granted: decision === 'approve' });
 });
 
 // ---- Territories + deal groups (customizable tags) -------------------------

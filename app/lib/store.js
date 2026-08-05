@@ -526,6 +526,20 @@ export function applyStatusTier(s) {
   // the key figures behind it are deal detail.
   s.figures = null;
   s.keyFigures = [];
+  // Diligence posture on a deal whose detail is restricted. Step 6 of 16, 33% through the
+  // flow, a named lead analyst and a named sponsor tell a reader how far along a deal they
+  // may not open is, and who to go and ask. The single readiness percentage and the
+  // ready/not-ready state stay on purpose — a metadata seat is entitled to know a deal is
+  // not ready — but the rest of the progress detail is deal detail.
+  s.flowProgress = null;
+  s.stepNumber = null;
+  s.totalSteps = null;
+  s.stageStepNumber = null;
+  s.stageStepTotal = null;
+  s.hoursSaved = null;
+  s.projectedDaysSaved = null;
+  s.leadAnalyst = null;
+  s.sponsorPersona = null;
   s.locked = true;
   return s;
 }

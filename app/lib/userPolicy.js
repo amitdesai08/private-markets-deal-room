@@ -248,12 +248,20 @@ export function roleForUser(identity = {}) {
   return 'member';
 }
 
-// The actual role for an identity (or the default role when identity is absent).
+// The ceiling an unidentified caller may PREVIEW up to. Not the seat they get.
+//
+// With no identity this returned DEFAULT_ROLE, which deploys as 'deal-team', and that was
+// the seat as well as the ceiling — so an anonymous request to the public ingress, with no
+// token and no header, was answered as a cleared member of every deal team: 24 deals
+// including the confidential ones, and the assistant reading out Project Onyx's enterprise
+// value. `confidential` is the strongest flag in this model and it was defeated by
+// omitting a header.
 function actualRoleFor(identity) {
-  return identity && (identity.oid || identity.upn || identity.name)
-    ? roleForUser(identity)
-    : (roleSpec(DEFAULT_ROLE) ? DEFAULT_ROLE : 'member');
+  if (identity && (identity.oid || identity.upn || identity.name)) return roleForUser(identity);
+  return roleSpec(DEFAULT_ROLE) ? DEFAULT_ROLE : 'member';
 }
+
+const anonymous = (identity) => !(identity && (identity.oid || identity.upn || identity.name));
 
 // Roles a user may impersonate DOWN to — their own role and every lower one. Powers a
 // "view as" so a senior reviewer sees exactly what a junior role would (never up).
@@ -267,7 +275,10 @@ export function viewAsRolesFor(identity) {
 // is ignored — you can never elevate your own access.
 export function accessFor(identity, viewAsRole = null) {
   const actualRole = actualRoleFor(identity);
-  let role = actualRole;
+  // A caller who proves nothing and asks for nothing gets the floor. Previewing a seat in
+  // demo mode stays available, but it has to be asked for out loud rather than arriving by
+  // default — the difference between a showcase and an open door.
+  let role = anonymous(identity) && !viewAsRole ? 'member' : actualRole;
   if (viewAsRole && roleSpec(viewAsRole) && rankOf(viewAsRole) <= rankOf(actualRole)) role = viewAsRole;
   // A seat we do not recognise is a refusal, not a no-op. Asking to be viewed as "guest"
   // used to be ignored, which left the caller on the default -- so a typo, or a probe,
