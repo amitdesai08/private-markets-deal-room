@@ -528,7 +528,7 @@ function workstreamFindings(deal) {
   // Operational. This read "Cost-out opportunity identified in procurement & footprint
   // (~$6M run-rate)" on a $29M EBITDA business, with nobody's name on it. A number that
   // specific, asserted by a template, is the kind of thing a committee repeats.
-  if (laneWorked('operational')) {
+  if (laneWorked('operations')) {
     for (const fnd of laneFindings('operational').slice(0, 1)) {
       add('operational', recordedSeverity(fnd.severity, 'monitor'), String(fnd.text).trim(), 'Recorded by the operations workstream; folded into the value-creation plan.', 'recorded');
     }
