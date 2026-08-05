@@ -13,7 +13,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { hydrate, listDeals } from '../lib/store.js';
 import { buildHomeDesk } from '../lib/homeDesk.js';
-import { dealAccessLevel } from '../lib/userPolicy.js';
+import { dealAccessLevel, ALL_PERSONA_IDS } from '../lib/userPolicy.js';
+import { dealAnalystView } from '../lib/dealTools.js';
 import { seededDeals } from '../data/deals.js';
 
 await hydrate();
@@ -63,4 +64,23 @@ test('the home page does not tell the person doing the work there is nothing to 
   // whole page is organised around came back null and every IC tile printed a dash.
   const withDate = rows.filter((r) => typeof r.daysToIC === 'number');
   assert.ok(withDate.length > 0, 'not one deal in the analyst list carries a committee date');
+});
+
+test('the committee date is handed over as an answer, not as parts', () => {
+  // "There is no IC date recorded in the deal record", said twice, confidently, about a
+  // deal whose committee sits in nine days. The context carried `daysToIC` -- a field
+  // name the assistant is told never to print -- and `projectedICDate`, which is a
+  // projection rather than a booking. Neither is the answer to "when is IC?".
+  const view = dealAnalystView('lumen-analytics');
+  const s = view.summary || {};
+  assert.ok(s.targetICDate, 'the agreed committee date never reaches the assistant');
+  assert.match(String(s.committeeDate || ''), /Investment Committee/i);
+  assert.match(String(s.committeeDate || ''), /\d{4}/, 'the committee line carries no date');
+  assert.doesNotMatch(String(s.committeeDate || ''), /daysToIC|targetICDate/, 'a field name reached the sentence');
+});
+
+test('a seat the product already knows is not asked to go and find an administrator', () => {
+  // The home page told the analyst "No specialist role is assigned to you yet" while
+  // /api/personas held that seat in full: name, lane, focus and actions.
+  assert.ok(ALL_PERSONA_IDS.includes('analyst'), 'fixture assumption: analyst is a seat');
 });

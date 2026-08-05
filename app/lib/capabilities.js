@@ -85,7 +85,13 @@ export function capabilitiesFor(access) {
 
 function buildLimits(access) {
   const limits = [];
-  if (!access.canViewStage2) limits.push('Stage-2 diligence detail (findings, terms, financing, valuations) is limited to the deal team — you see status only.');
+  // Access stopped being a property of the role and became a property of the deal when
+  // need-to-know landed: an analyst named on a deal team gets the whole workspace for
+  // THAT deal and status only elsewhere. This line still announced the old rule, so the
+  // same seat was told it "sees status only" and then handed a full risk register,
+  // entry multiple and returns model on its own deals. A reader who catches the product
+  // contradicting itself about permissions stops believing it about anything.
+  if (!access.canViewStage2) limits.push('Past screening, the detail (findings, terms, financing, valuations) is limited to each deal\u2019s own team. On the deals you are named on you see everything; on the rest you see status only.');
   if (!access.canWrite) limits.push('You have read-only access — I analyse and recommend; the deal team records the formal actions.');
   limits.push('Confidential deals you are not on the team for are hidden — I will never surface a deal or figure your role cannot access.');
   return limits;

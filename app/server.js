@@ -307,7 +307,14 @@ api.get('/home-desk', (req, res) => {
   res.json(buildHomeDesk(visible, {
     role: access?.role || null,
     roleLabel: access?.roleLabel || null,
-    persona: personaForIdentity(identity),
+    // A demo seat has no signed-in identity, so persona resolution returned null and the
+    // home page opened with "No specialist role is assigned to you yet — ask an
+    // administrator to add you to the workstreams you own." That was shown to the analyst
+    // seat while /api/personas held that very seat in full, name, lane and actions. Where
+    // the role IS a seat, bind it. Where it genuinely is not one — a member, an
+    // administrator — the original sentence is the honest answer and still shows.
+    persona: personaForIdentity(identity)
+      || (demoModeActive() && ALL_PERSONA_IDS.includes(access?.role) ? access.role : null),
     rawFor: (d) => getDealRaw(d.id),
   }));
 });

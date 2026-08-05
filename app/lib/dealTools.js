@@ -26,6 +26,22 @@ import { can, nextActions, PERSONA_LANE } from './personaPolicy.js';
 const trim = (s, n) => (typeof s === 'string' && s.length > n ? s.slice(0, n - 1) + '…' : s || '');
 const RISK_SEVERITIES = new Set(['caution', 'negative', 'risk', 'high', 'warning']);
 
+// The committee date as a sentence. Both halves matter: the date is what goes in a diary,
+// the countdown is what makes it urgent, and "IC was 14 days ago" is a different fact from
+// "no date is set" — which is what the model said about all of them.
+function icDateLabel(d) {
+  const raw = d && d.targetICDate;
+  const n = d && typeof d.daysToIC === 'number' ? d.daysToIC : null;
+  if (!raw) return n === null ? 'No committee date has been set for this deal.' : null;
+  const when = new Date(raw);
+  if (Number.isNaN(when.getTime())) return null;
+  const on = when.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  if (n === null) return `Investment Committee is booked for ${on}.`;
+  if (n < 0) return `Investment Committee was held on ${on}, ${-n} day${n === -1 ? '' : 's'} ago.`;
+  if (n === 0) return `Investment Committee is today, ${on}.`;
+  return `Investment Committee is booked for ${on} — ${n} day${n === 1 ? '' : 's'} away.`;
+}
+
 // Sections a caller may request from get_deal (also the MCP tool's enum).
 export const DEAL_SECTIONS = ['summary', 'financials', 'workstreams', 'memo', 'compliance', 'risks', 'activity'];
 const DEFAULT_SECTIONS = ['summary', 'financials', 'workstreams', 'memo', 'compliance', 'risks'];
@@ -101,6 +117,14 @@ export function dealAnalystView(id, sections) {
       sponsorPersona: d.sponsorPersona,
       thesis: trim(d.thesis, 600),
       readiness: d.readiness,
+      // The agreed committee date, in words, as the answer to the question rather than
+      // as parts to assemble. The model was handed `daysToIC` (a field name it is told
+      // never to print) and `projectedICDate` (a projection, not a booking) and drew the
+      // only conclusion available to it: "there is no IC date recorded in the deal
+      // record" — twice, confidently, about a deal whose committee sits in nine days.
+      // It is the most-asked question of an analyst's day.
+      committeeDate: icDateLabel(d),
+      targetICDate: d.targetICDate || null,
       daysToIC: d.daysToIC,
       projectedICDate: d.projectedICDate,
       diligenceProgress: d.diligenceProgress
