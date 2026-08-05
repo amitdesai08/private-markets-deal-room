@@ -589,9 +589,43 @@ api.get('/deals/resolve-team/:teamId', (req, res) => {
   if (!r) return res.status(404).json({ error: 'no-deal-for-team' });
   res.json(r);
 });
+// One shape for every refusal. An analyst met three products in one afternoon: a
+// sentence explaining the read-only role, "you cannot tag this deal" which explains
+// nothing, and `invalid-md` — a three-word code that is not even an answer to the
+// question of whether they were allowed. The cheapest mistake on this server, a wrong
+// query parameter, gets a sentence naming every parameter that would have worked; the
+// one that costs an afternoon got a code. And none of them mentioned the route that
+// exists to ask for the access they were refused.
+function refuse(res, { status = 403, reason, dealId, action }) {
+  return res.status(status).json({
+    error: status === 403 ? 'forbidden' : 'unprocessable',
+    detail: reason,
+    // Named only where it would actually help: asking to join a deal team does not fix
+    // a read-only role, and offering it there would send someone down a dead end.
+    ...(dealId ? { requestAccess: { method: 'POST', path: `/api/deals/${dealId}/request-access`, detail: 'Ask the deal team to add you. The request goes to the people who can grant it.' } } : {}),
+    ...(action ? { action } : {}),
+  });
+}
+
 api.patch('/deals/:id/swimlanes/:lane', async (req, res) => {
+  // This answered validity before permission, and in fact answered neither: it checked
+  // no access at all, so a read-only caller reaching for the one route that would put a
+  // date on a workstream got `invalid-md` and could not tell whether they were forbidden
+  // or malformed.
+  const identity = requestingIdentity(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
+  const raw = getDealRaw(req.params.id);
+  if (!raw) return res.status(404).json({ error: 'not-found' });
+  const level = dealAccessLevel(identity, raw, viewAs);
+  const access = accessFor(identity, viewAs);
+  if (level !== 'full') return refuse(res, { reason: 'This deal has advanced past screening and its detail is restricted to the deal team.', dealId: req.params.id });
+  if (!access.canWrite) return refuse(res, { reason: 'Your role is read-only. The deal team records changes to a workstream; you can read it and ask the assistant about it.' });
   const r = await assignSwimlane(req.params.id, req.params.lane, req.body?.md);
-  if (r.error) return res.status(r.error === 'invalid-md' ? 422 : 404).json(r);
+  if (r.error) {
+    return r.error === 'invalid-md'
+      ? refuse(res, { status: 422, reason: 'The workstream body was not accepted. Send the note as markdown text in the `md` field.' })
+      : res.status(404).json(r);
+  }
   res.json(r.deal);
 });
 
@@ -1268,7 +1302,7 @@ api.post('/deals/:id/workiq-notes', (req, res) => {
   const identity = requestingIdentity(req);
   const viewAs = (requestingFloor(req) || requestingViewAs(req));
   const access = accessFor(identity, viewAs);
-  if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only; you cannot publish Work IQ notes.' });
+  if (!access.canWrite) return refuse(res, { reason: 'Your role is read-only; the deal team records notes on the deal. You can read them and ask the assistant about them.' });
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
   if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ error: 'forbidden', detail: gate.reason });
@@ -1786,7 +1820,8 @@ api.post('/deals/:id/tags', (req, res) => {
   if (!raw) return res.status(404).json({ error: 'deal not found' });
   const level = dealAccessLevel(identity, raw, (requestingFloor(req) || requestingViewAs(req)));
   const access = accessFor(identity, (requestingFloor(req) || requestingViewAs(req)));
-  if (level !== 'full' || !access.canWrite) return res.status(403).json({ error: 'you cannot tag this deal' });
+  if (level !== 'full') return refuse(res, { reason: 'This deal has advanced past screening and its detail is restricted to the deal team, so its tags are too.', dealId: req.params.id });
+  if (!access.canWrite) return refuse(res, { reason: 'Your role is read-only. Tags are part of the deal record and the deal team keeps them.' });
   const updated = setDealTags(req.params.id, req.body?.tags);
   if (!updated) return res.status(404).json({ error: 'deal not found' });
   res.json({ id: updated.id, tags: updated.tags });

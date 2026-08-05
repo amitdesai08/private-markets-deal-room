@@ -1018,3 +1018,55 @@ test('the case never calls a workstream a lane', () => {
     assert.doesNotMatch(prose, /\blanes?\b/i, `${id}: "lane" reached the reader`);
   }
 });
+
+// An analyst read their own outstanding list and found the committee items -- the papers,
+// the memo sections, the compliance clearance, all of which are theirs -- with nobody
+// against them, then copied them into a spreadsheet because the product said no one
+// owned them.
+test('every outstanding row says who it belongs to', () => {
+  for (const [id, c] of CASES) {
+    for (const row of c.outstanding) {
+      assert.ok(row.owner, `${id}: an outstanding row with no owner — "${row.text.slice(0, 60)}"`);
+    }
+  }
+});
+
+// A row whose whole text already appears inside another row is the same obligation
+// twice. One deal listed ten outstanding items where the tenth was a sentence quoted
+// verbatim inside the third.
+test('no outstanding row is quoted verbatim inside another', () => {
+  for (const [id, c] of CASES) {
+    for (let i = 0; i < c.outstanding.length; i += 1) {
+      for (let j = 0; j < c.outstanding.length; j += 1) {
+        if (i === j) continue;
+        const a = c.outstanding[i].text;
+        const b = c.outstanding[j].text;
+        assert.ok(!(b.length > a.length && b.includes(a)), `${id}: an outstanding row is contained in another`);
+      }
+    }
+  }
+});
+
+// Findings are quoted in the currency of the document they came from and the model is
+// struck in the deal's. On one deal that put "EUR 4.1M of ARR" in the register against
+// $29M of EBITDA in the figures, with no rate anywhere.
+test('a finding in another currency is declared as one', () => {
+  let mixed = 0;
+  for (const [id, c] of CASES) {
+    const d = seededDeals.find((x) => x.id === id);
+    const own = d.currency || 'USD';
+    const texts = [
+      ...c.againstIt.map((r) => r.risk),
+      ...c.outstanding.map((r) => r.text),
+      ...c.recordedFindings.map((r) => r.finding),
+    ].join(' ');
+    const others = [...texts.matchAll(/\b(EUR|GBP|USD|CHF|SEK|NOK|DKK)\s?[\d.]/g)].map((m) => m[1]).filter((x) => x !== own);
+    if (!others.length) continue;
+    mixed += 1;
+    assert.ok(
+      c.notOnRecord.some((n) => /No exchange rate is on the record/i.test(n)),
+      `${id}: quotes ${[...new Set(others)].join('/')} against a ${own} model and does not say so`,
+    );
+  }
+  assert.ok(mixed > 0, 'no deal mixed currencies — the guard would be inert');
+});

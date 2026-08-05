@@ -653,18 +653,26 @@ export function buildDealCase(deal) {
   const outstanding = (() => {
     const seen = new Set();
     const rows = [];
-      const add = (text, from, owner, due) => {
+      const add = (text, from, owner, basis, due) => {
       const key = String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60);
       if (!key || seen.has(key)) return;
       seen.add(key);
       // Not one register row on any deal carries a due date, and the disclosure about
       // missing dates covered the blocking workstreams only — so the register's silence
       // was itself silent. "Who is closing it by when" was answered halfway.
-      rows.push({ text: String(text), from, owner: owner || null, dueDate: due || null, dueNote: due ? null : 'No date is committed on the record.' });
+      rows.push({ text: String(text), from, owner: owner || null, basis: basis || null, dueDate: due || null, dueNote: due ? null : 'No date is committed on the record.' });
     };
-    for (const g of (v.gating || [])) add(g, 'committee readiness');
-    for (const r of conditions) add(fix(r.risk), 'risk register', r.owner || null, r.dueDate);
-    for (const r of (register.risks || []).filter((x) => x.severity === 'reprice')) add(fix(r.risk), 'risk register', r.owner || null, r.dueDate);
+    // The committee-readiness items are the analyst's own work — the papers, the memo
+    // sections, the compliance clearance. They were the only rows with nobody against
+    // them, so an analyst read their own list and found four items the product said
+    // nobody owned, then copied them into a spreadsheet because there was nowhere else.
+    for (const g of (v.gating || [])) add(g, 'committee readiness', 'The deal team — these are the papers, not the diligence', 'the readiness board');
+    for (const r of conditions) add(fix(r.risk), 'risk register', r.owner || null, r.basis, r.dueDate);
+    for (const r of (register.risks || []).filter((x) => x.severity === 'reprice')) add(fix(r.risk), 'risk register', r.owner || null, r.basis, r.dueDate);
+    // A row whose whole text already appears inside another row is the same obligation
+    // twice. One deal listed ten outstanding items where the tenth was a sentence quoted
+    // verbatim inside the third.
+    return rows.filter((r, i) => !rows.some((o, j) => j !== i && o.text.length > r.text.length && o.text.includes(r.text)));
     // A vendor's reassurance is not a resolution, and this filter -- written for the
     // killers list -- was also stripping the closing-conditions list, which is the one
     // list whose whole purpose is rows that are NOT yet resolved. It removed a
@@ -748,6 +756,18 @@ export function buildDealCase(deal) {
   // say so before anybody quotes one of them as a return.
   if (returns.indicativeNote) notOnRecord.push(returns.indicativeNote);
   if (returns.provision) notOnRecord.push(returns.provision.note);
+  // Findings are quoted in the currency of the document they came from, and the model is
+  // struck in the deal's. On one deal that put "EUR 4.1M of ARR" and "EUR 3.2M lower" in
+  // the register against $29M of EBITDA in the figures, with no rate anywhere -- a reader
+  // spent a minute working out whether they were comparable and still did not know.
+  const foreign = [...new Set([
+    ...(register.risks || []).map((r) => r.risk),
+    ...(deal.workstreams || []).flatMap((w) => (w.findings || []).map((f) => String(f?.text || ''))),
+  ].flatMap((t) => [...String(t).matchAll(/\b(EUR|GBP|USD|CHF|SEK|NOK|DKK)\s?[\d.]/g)].map((m) => m[1])))]
+    .filter((c) => c !== (deal.currency || 'USD'));
+  if (foreign.length) {
+    notOnRecord.push(`Some findings on this deal are quoted in ${foreign.join(' and ')} while the model is struck in ${deal.currency || 'USD'}. No exchange rate is on the record, so those figures cannot be netted against the ones above without one.`);
+  }
   // Every open item carries an owner and a workstream and not one carries a date. That
   // is a fact about the record and it belongs here rather than being left for a reader
   // to notice on their own.
@@ -894,8 +914,7 @@ export function buildDealCase(deal) {
     // The board already audits how much of the case traces to a source, and scores Lumen
     // at 40 with the reason written out -- "IC ask derived from unsourced Revenue &
     // EBITDA". It was on a different page from the ask it is about.
-    citations: (() => {
-      const a = validateCitations(deal);
+    citations: (() => {      const a = validateCitations(deal);
       if (!a) return null;
       // The audit reads whether a claim traces to a source. It does not read whether two
       // sourced claims on the same page contradict each other, and it printed "All

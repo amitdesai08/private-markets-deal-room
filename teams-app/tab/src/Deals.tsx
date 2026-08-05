@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Deal } from './types';
 import CompareDeals, { CompareButton } from './CompareDeals';
 import StageGuide from './StageGuide';
@@ -187,6 +187,23 @@ export default function Deals({
     if (compare.length < 4 && compareCapNote) setCompareCapNote('');
   }, [compare.length, compareCapNote]);
 
+  // An analyst opens forty deals a day and went back to the mouse every time to reach the
+  // filter again. Ignored while typing, so it never eats a slash somebody meant.
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      if (t?.isContentEditable) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <div className="dealsview">
       <section className="panel">
@@ -222,11 +239,12 @@ export default function Deals({
             ))}
           </div>
           <input
+            ref={searchRef}
             className="dv-search"
-            placeholder="Find a deal…"
+            placeholder="Find a deal…  ( / )"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            aria-label="Find a deal"
+            aria-label="Find a deal. Press the forward slash key from anywhere on this list to come back here."
           />
         </div>
 
