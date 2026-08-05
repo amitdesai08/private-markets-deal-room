@@ -342,8 +342,8 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
   };
   // Which column each block sits in. These had drifted from the markup once already, so
   // they are named for the blocks that are actually there.
-  const heroLeft = showBriefing || showAttention;
-  const heroRight = showKpis || showAgenda || showFollowups;
+  const heroLeft = showKpis || showBriefing || showAttention;
+  const heroRight = showAgenda || showFollowups;
   const showFunnel = shows('funnel') && !!pipeline?.funnel?.length;
   // Named for the person, so the customise panel can say whose arrangement this is.
   const arrangementFor = seat?.label ? `the ${seat.label}` : 'you';
@@ -408,8 +408,8 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
   return (
     <div className="dash">
       {/* ================= Portfolio cockpit =================
-          Prose in the wide column — the briefing, then what needs a person. Numbers and
-          lists in the narrow one — the four figures, the committee agenda, the follow-ups.
+          Prose in the wide column — the four figures, the briefing, then what needs a
+          person. Lists in the narrow one — the committee agenda and the follow-ups.
 
           The columns are independent stacks, so the row is as tall as the taller of the
           two and a short column leaves dead space beside the long one. Measured on a
@@ -424,6 +424,22 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
       <div className={heroLeft && heroRight ? 'grid g2' : 'grid'}>
         {heroLeft ? (
         <div className="hero-l" style={{ minWidth: 0 }}>
+          {/* The four numbers a partner opens the product for once sat THIRD in the other
+              column, behind eight agenda rows and six attention rows -- about a thousand
+              pixels of scroll before the first figure. First thing, first column, and
+              four tiles read better across 839px than across 541px. */}
+          {showKpis ? (
+          <div className="kpis">
+            {kpiRow.map((k) => (
+              <div key={k.key || k.label} className="kpi">
+                <div className="kpi-v">{k.value}</div>
+                <div className="kpi-l">{k.label}</div>
+                <div className="kpi-s">{k.sub}</div>
+              </div>
+            ))}
+          </div>
+          ) : null}
+
           {showBriefing ? (
           <div className="card aicard">
             <div className="hd">
@@ -570,21 +586,6 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
         {/* ---------------- Attention queue ---------------- */}
         {heroRight ? (
         <div className="hero-r" style={{ minWidth: 0 }}>
-          {/* The four numbers a partner opens the product for sat THIRD in this column,
-              behind up to eight agenda rows and six attention rows -- about a thousand
-              pixels of scroll before the first figure. */}
-          {showKpis ? (
-          <div className="kpis">
-            {kpiRow.map((k) => (
-              <div key={k.key || k.label} className="kpi">
-                <div className="kpi-v">{k.value}</div>
-                <div className="kpi-l">{k.label}</div>
-                <div className="kpi-s">{k.sub}</div>
-              </div>
-            ))}
-          </div>
-          ) : null}
-
           {/* A partner four days out from committee had to open six deals, one at a
               time, to work out which of them were actually going and what each still
               owed -- then type the agenda into an email herself. The product held both
