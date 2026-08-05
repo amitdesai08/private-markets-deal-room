@@ -6,7 +6,8 @@
 // unclean verdict in the same object.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { queryDeals } from '../lib/dealQuery.js';
+import { queryDeals, validateDealQuery, myItemsFor } from '../lib/dealQuery.js';
+import { ownerLabel } from '../lib/cockpit.js';
 import { hydrate, listDeals } from '../lib/store.js';
 import { seededDeals } from '../data/deals.js';
 import { validateCitations } from '../lib/citations.js';
@@ -73,4 +74,38 @@ test('the citation audit does not report a perfect score and an unclean verdict 
     if (!a.clean) assert.ok(a.summary, `${deal.company}: not clean and says nothing about why`);
   }
   assert.ok(checked > 0, 'no deal produced an audit, so this asserts nothing');
+});
+
+test('an unknown filter is refused by name, not ignored', () => {
+  // After the API learned to 400 on a bad VALUE, silently ignoring an unknown KEY became
+  // the worse failure: ?assignedTo=me returned the whole book with a 200, so a bookmarked
+  // URL that looks filtered and is not reads as an answer.
+  for (const key of ['mine', 'owner', 'assignee', 'includeRestricted']) {
+    const errs = validateDealQuery({ [key]: 'me' }, rows());
+    assert.ok(errs.length, `${key} was accepted silently`);
+    assert.match(errs[0], /is not a filter this list understands/);
+  }
+  assert.deepEqual(validateDealQuery({ assignedTo: 'me' }, rows()), [], 'assignedTo must be a real filter');
+});
+
+test('assignedTo narrows to the deals that are actually on someone', () => {
+  const all = rows();
+  // A persona that actually owns lanes on this record. The analyst owns none, which is
+  // itself the honest answer and is asserted below.
+  const mine = queryDeals(all, { assignedTo: 'fund-cfo' }, 'fund-cfo');
+  assert.ok(mine.matched > 0, 'the finance seat owns no lane, so this asserts nothing');
+  assert.ok(mine.matched <= all.length);
+  for (const d of mine.deals) {
+    assert.ok(myItemsFor(d, 'fund-cfo').length > 0, `${d.company} came back from assignedTo with nothing on that person`);
+  }
+  assert.equal(queryDeals(all, { assignedTo: 'nobody-at-all' }, 'nobody-at-all').matched, 0);
+});
+
+test('the ESG lane is owned by the operating partner, not investor relations', () => {
+  // The lane-owner map was lifted from the one that decides who SIGNS an LP update, where
+  // investor relations reports ESG. So the product told an analyst to chase the Phase I
+  // environmental assessment with the IR partner.
+  assert.match(ownerLabel(null, 'esg'), /Rachel Nguyen|Operating Partner/i);
+  assert.doesNotMatch(ownerLabel(null, 'esg'), /Sofia Marchetti|Investor Relations/i);
+  assert.match(ownerLabel(null, 'legal'), /Priya Raman/i);
 });

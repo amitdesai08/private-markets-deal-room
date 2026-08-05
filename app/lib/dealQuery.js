@@ -82,8 +82,20 @@ const resolveSort = (key) => SORTS[key] ? key : SORT_ALIAS[norm(key)] || null;
 // coercion is the most expensive failure an API has: given a parameter called `ic` beside
 // `stage` and `status`, a reasonable engineer sends `ic=ready`, gets every row back with a
 // 200, and ships it believing it filtered.
+// Every parameter this route understands. Anything else is refused by name: after the
+// API learned to 400 on a bad VALUE, silently ignoring an unknown KEY is worse than
+// before — `?assignedTo=me` returned the whole book with a 200, and a bookmarked URL that
+// looks filtered and is not is a trap.
+export const DEAL_QUERY_KEYS = new Set([
+  'q', 'query', 'stage', 'status', 'sector', 'lane', 'laneStatus', 'lane_status',
+  'ic', 'icWithinDays', 'assignedTo', 'sort', 'limit', 'offset', 'cb',
+]);
+
 export function validateDealQuery(params = {}, rows = null) {
   const errors = [];
+  for (const key of Object.keys(params)) {
+    if (!DEAL_QUERY_KEYS.has(key)) errors.push(`${key} is not a filter this list understands — the ones it does are: ${[...DEAL_QUERY_KEYS].filter((k) => k !== 'cb').join(', ')}`);
+  }
   const ic = params.icWithinDays ?? params.ic;
   if (ic !== undefined && ic !== '' && !/^(overdue|past|none|\d+d?)$/i.test(String(ic).trim())) {
     errors.push(`icWithinDays must be a whole number of days, or one of: overdue, none — got "${ic}"`);
@@ -130,7 +142,48 @@ export function validateDealQuery(params = {}, rows = null) {
 
 // Returns the rows plus what was asked for and what it cost, so a list can say "12 of 19"
 // rather than showing twelve and calling itself complete.
-export function queryDeals(rows, params = {}) {
+// What is on ONE person, from the deal's own record. "What is on me today" was the
+// analyst's first question of the day and the product had no way to express it: every
+// `why` on the attention list named somebody else, and the only way to guess was to read
+// nine deals by hand.
+export function myItemsFor(deal, me) {
+  if (!me) return [];
+  const out = [];
+  for (const w of deal.workstreams || []) {
+    const owner = w.owner || LANE_OWNER_FOR[String(w.lane || '').toLowerCase()] || null;
+    if (owner !== me && String(w.owner || '') !== me) continue;
+    const status = String(w.status || 'not_started');
+    if (status === 'complete' || status === 'closed_at_ic') continue;
+    out.push({
+      id: `${deal.id}:${w.lane}`,
+      dealId: deal.id,
+      kind: 'workstream',
+      lane: w.lane,
+      label: w.laneLabel || w.lane,
+      status,
+      blocking: status === 'not_started' || (w.progress ?? 0) < 100,
+      dueDate: w.dueDate || null,
+      source: 'deal record',
+    });
+  }
+  return out;
+}
+
+// Kept local so this module does not import the label layer. It only decides ownership
+// where the record leaves a lane unowned.
+const LANE_OWNER_FOR = {
+  financial: 'fund-cfo', tax: 'fund-cfo', legal: 'legal-gc', commercial: 'retail-md',
+  techai: 'ai-md', tech: 'ai-md', operations: 'supply-md', operational: 'supply-md',
+  hr: 'operating-partner', esg: 'operating-partner',
+};
+
+// "On me" means something OUTSTANDING on me. Ownership comes from the workstreams, never
+// from leadAnalyst — that field carries the same default on eighteen of nineteen deals, so
+// filtering on it returned the whole book and called it mine. And a deal whose lane I have
+// finished is a deal I worked, not one asking for me today.
+const isMine = (d, me) => myItemsFor(d, me).length > 0;
+
+export function queryDeals(rows, params = {}, me = null) {
   const all = Array.isArray(rows) ? rows : [];
   const q = norm(params.q || params.query);
   const stage = params.stage;
@@ -139,11 +192,13 @@ export function queryDeals(rows, params = {}) {
   const laneStatus = params.laneStatus || params.lane_status;
   const ic = params.icWithinDays ?? params.ic;
   const sector = norm(params.sector);
+  const assigned = params.assignedTo ? (norm(params.assignedTo) === 'me' ? me : norm(params.assignedTo)) : null;
 
   let out = all.filter((d) => (!q || searchable(d).includes(q))
     && matchesStage(d, stage)
     && (!status || norm(d.status) === status)
     && (!sector || norm(d.sector).includes(sector))
+    && (!assigned || isMine(d, assigned))
     && matchesLane(d, lane, laneStatus)
     && matchesIc(d, ic));
 

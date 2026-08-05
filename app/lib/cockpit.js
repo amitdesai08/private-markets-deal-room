@@ -87,7 +87,11 @@ export const CLOSED_AT_IC = 'closed_at_ic';
 const LANE_OWNER = {
   financial: 'fund-cfo', tax: 'fund-cfo', legal: 'legal-gc', commercial: 'retail-md',
   techai: 'ai-md', tech: 'ai-md', operations: 'supply-md', operational: 'supply-md',
-  hr: 'operating-partner', esg: 'ir-lp',
+  // Not 'ir-lp'. This map was lifted from the one that decides who SIGNS an update, where
+  // investor relations reports ESG to LPs — so the product told an analyst to chase the
+  // Phase I environmental assessment with the investor-relations partner. ESG diligence is
+  // the operating partner's.
+  hr: 'operating-partner', esg: 'operating-partner',
 };
 
 export function ownerLabel(id, lane) {

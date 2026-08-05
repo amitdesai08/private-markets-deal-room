@@ -158,7 +158,7 @@ import { buildWorkflowDesk, buildThreads, buildDocumentDesk, detectCommitments }
 import { ownerLabel } from './lib/cockpit.js';
 import { reconcileFindingText } from './lib/diligence.js';
 import { buildHomeDesk } from './lib/homeDesk.js';
-import { queryDeals, validateDealQuery, dealFacets } from './lib/dealQuery.js';
+import { queryDeals, validateDealQuery, dealFacets, myItemsFor } from './lib/dealQuery.js';
 
 // Cosmos bookkeeping — _rid, _self, _etag, _attachments, _ts — was shipping to the client
 // on every deal read. It is not secret, it is noise, and it tells a reader the product is
@@ -177,6 +177,10 @@ const withReconciledFindings = (deal) => ({
   ...deal,
   workstreams: (deal.workstreams || []).map((w) => ({
     ...w,
+    // The record writes owners as 'legal-md'; the readiness board names Priya Raman. The
+    // deal page served the key, so the same lane had two owners depending on the tab.
+    owner: w.owner ? ownerLabel(w.owner, w.lane) : null,
+    ownerId: w.owner || null,
     findings: (w.findings || []).map((f) => ({ ...f, text: reconcileFindingText(f.text, deal) })),
   })),
 });
@@ -344,17 +348,22 @@ api.get('/lifecycle', (_req, res) => res.json({ phases: lifecycleByPhase(), stag
 // only narrow what this caller may already see. The unfiltered total travels in headers
 // rather than the body because the body is an array and the tab depends on that.
 api.get('/deals', (req, res) => {
-  const rows = listDeals(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
-  // A bad parameter is answered, not ignored. `ic=ready` used to return every row with a
-  // 200, so an integrator would ship it believing it had filtered. Validated against what
-  // this caller can see, so the error names the values that actually exist for them.
+  const identity = requestingIdentity(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
+  const rows = listDeals(identity, viewAs);
   const errors = validateDealQuery(req.query || {}, rows);
   if (errors.length) return res.status(400).json({ error: 'bad-query', detail: errors });
-  const q = queryDeals(rows, req.query || {});
+  // Who "me" is, for ?assignedTo=me.
+  const me = personaForIdentity(identity) || (ALL_PERSONA_IDS.includes(accessFor(identity, viewAs)?.role) ? accessFor(identity, viewAs).role : null);
+  const q = queryDeals(rows, req.query || {}, me);
   res.set('X-Deal-Total', String(q.total));
   res.set('X-Deal-Matched', String(q.matched));
   if (q.sort) res.set('X-Deal-Sort', q.sort);
-  res.json(q.deals);
+  // Each row carries what is on THIS reader, so "what is on me today" is one request.
+  res.json(q.deals.map((d) => {
+    const mine = myItemsFor(d, me);
+    return mine.length ? { ...d, myItems: mine, myItemCount: mine.length } : d;
+  }));
 });
 
 // The filter vocabulary, with counts, scoped to this caller.
