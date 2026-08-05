@@ -111,237 +111,154 @@
       "workstream": "Commercial",
       "total": 18,
       "byRisk": {
-        "Critical": 6,
-        "Medium": 2,
-        "Low": 6,
-        "High": 4
+        "Critical": 2,
+        "High": 4,
+        "Medium": 6,
+        "Low": 6
       },
       "samples": [
         {
-          "type": "Legal Flag",
-          "description": "Legal Flag identified in Commercial workstream during DD",
+          "type": "Customer concentration",
+          "description": "Top customer above 30% of revenue with no long-term contract",
           "risk": "High",
-          "remediation": "Action item 3 for Commercial",
+          "remediation": "Priced in via escrow or holdback at signing",
           "status": "Resolved",
-          "owner": "Commercial Lead",
-          "targetResolution": "2025-09-12"
+          "owner": "Commercial DD"
         },
         {
-          "type": "Commercial Concern",
-          "description": "Commercial Concern identified in Commercial workstream during DD",
-          "risk": "Critical",
-          "remediation": "Action item 1 for Commercial",
-          "status": "In Progress",
-          "owner": "Commercial Lead",
-          "targetResolution": "2025-09-12"
-        },
-        {
-          "type": "Commercial Concern",
-          "description": "Commercial Concern identified in Commercial workstream during DD",
-          "risk": "Critical",
-          "remediation": "Action item 1 for Commercial",
-          "status": "Escalated",
-          "owner": "Commercial Lead",
-          "targetResolution": "2026-02-18"
+          "type": "Churn",
+          "description": "Net revenue retention below the underwriting case in two cohorts",
+          "risk": "Medium",
+          "remediation": "Reset the growth assumption before IC",
+          "status": "Resolved",
+          "owner": "Commercial DD"
         }
       ]
     },
     {
       "workstream": "Financial",
-      "total": 18,
+      "total": 14,
       "byRisk": {
-        "High": 4,
-        "Medium": 4,
-        "Critical": 4,
-        "Low": 6
+        "Critical": 3,
+        "High": 3,
+        "Medium": 5,
+        "Low": 3
       },
       "samples": [
         {
-          "type": "Compliance Issue",
-          "description": "Compliance Issue identified in Financial workstream during DD",
+          "type": "Add-backs",
+          "description": "Owner compensation and one-off costs added back without support",
           "risk": "Critical",
-          "remediation": "Action item 2 for Financial",
-          "status": "Open",
-          "owner": "Financial Lead",
-          "targetResolution": "2025-09-12"
-        },
-        {
-          "type": "Financial Risk",
-          "description": "Financial Risk identified in Financial workstream during DD",
-          "risk": "Critical",
-          "remediation": "Action item 4 for Financial",
-          "status": "Escalated",
-          "owner": "Financial Lead",
-          "targetResolution": "2025-09-12"
-        },
-        {
-          "type": "Compliance Issue",
-          "description": "Compliance Issue identified in Financial workstream during DD",
-          "risk": "Critical",
-          "remediation": "Action item 3 for Financial",
-          "status": "Escalated",
-          "owner": "Financial Lead",
-          "targetResolution": "2026-02-18"
+          "remediation": "Removed in the QoE; entry multiple restruck on the adjusted figure",
+          "status": "Resolved",
+          "owner": "Financial / QoE"
         }
       ]
     },
     {
       "workstream": "Legal",
-      "total": 22,
+      "total": 11,
       "byRisk": {
-        "Low": 7,
-        "High": 5,
-        "Critical": 8,
-        "Medium": 2
-      },
-      "samples": [
-        {
-          "type": "Compliance Issue",
-          "description": "Compliance Issue identified in Legal workstream during DD",
-          "risk": "High",
-          "remediation": "Action item 3 for Legal",
-          "status": "Open",
-          "owner": "Legal Lead",
-          "targetResolution": "2025-09-12"
-        },
-        {
-          "type": "Operational Gap",
-          "description": "Operational Gap identified in Legal workstream during DD",
-          "risk": "Critical",
-          "remediation": "Action item 4 for Legal",
-          "status": "Open",
-          "owner": "Legal Lead",
-          "targetResolution": "2026-05-15"
-        },
-        {
-          "type": "Financial Risk",
-          "description": "Financial Risk identified in Legal workstream during DD",
-          "risk": "Critical",
-          "remediation": "Action item 3 for Legal",
-          "status": "Open",
-          "owner": "Legal Lead",
-          "targetResolution": "2026-05-15"
-        }
-      ]
-    },
-    {
-      "workstream": "Operational",
-      "total": 17,
-      "byRisk": {
-        "Low": 5,
-        "High": 4,
-        "Medium": 4,
-        "Critical": 4
-      },
-      "samples": [
-        {
-          "type": "Legal Flag",
-          "description": "Legal Flag identified in Operational workstream during DD",
-          "risk": "Critical",
-          "remediation": "Action item 4 for Operational",
-          "status": "Escalated",
-          "owner": "Operational Lead",
-          "targetResolution": "2026-04-06"
-        },
-        {
-          "type": "Operational Gap",
-          "description": "Operational Gap identified in Operational workstream during DD",
-          "risk": "High",
-          "remediation": "Action item 2 for Operational",
-          "status": "Open",
-          "owner": "Operational Lead",
-          "targetResolution": "2025-10-05"
-        },
-        {
-          "type": "Operational Gap",
-          "description": "Operational Gap identified in Operational workstream during DD",
-          "risk": "High",
-          "remediation": "Action item 1 for Operational",
-          "status": "Open",
-          "owner": "Operational Lead",
-          "targetResolution": "2025-10-05"
-        }
-      ]
-    },
-    {
-      "workstream": "Tax",
-      "total": 21,
-      "byRisk": {
-        "Medium": 1,
-        "Low": 14,
+        "Critical": 1,
         "High": 3,
-        "Critical": 3
+        "Medium": 4,
+        "Low": 3
       },
       "samples": [
         {
-          "type": "Financial Risk",
-          "description": "Financial Risk identified in Tax workstream during DD",
+          "type": "Change of control",
+          "description": "Consents required on material customer and supplier contracts",
           "risk": "High",
-          "remediation": "Action item 5 for Tax",
-          "status": "Resolved",
-          "owner": "Tax Lead",
-          "targetResolution": "2025-10-05"
-        },
+          "remediation": "Conditions precedent in the SPA",
+          "status": "In progress",
+          "owner": "Legal DD"
+        }
+      ]
+    },
+    {
+      "workstream": "Technology",
+      "total": 9,
+      "byRisk": {
+        "Critical": 1,
+        "High": 2,
+        "Medium": 4,
+        "Low": 2
+      },
+      "samples": [
         {
-          "type": "Commercial Concern",
-          "description": "Commercial Concern identified in Tax workstream during DD",
+          "type": "Technical debt",
+          "description": "Reporting and billing carry most of the debt; the product itself scales",
+          "risk": "Medium",
+          "remediation": "Folded into the 100-day IT roadmap",
+          "status": "Resolved",
+          "owner": "Technology / IT / Cyber DD"
+        }
+      ]
+    },
+    {
+      "workstream": "ESG",
+      "total": 7,
+      "byRisk": {
+        "Critical": 0,
+        "High": 2,
+        "Medium": 3,
+        "Low": 2
+      },
+      "samples": [
+        {
+          "type": "Site condition",
+          "description": "No Phase I assessment commissioned at the point of IC",
           "risk": "High",
-          "remediation": "Action item 3 for Tax",
-          "status": "In Progress",
-          "owner": "Tax Lead",
-          "targetResolution": "2025-10-05"
-        },
-        {
-          "type": "Commercial Concern",
-          "description": "Commercial Concern identified in Tax workstream during DD",
-          "risk": "Critical",
-          "remediation": "Action item 1 for Tax",
-          "status": "Resolved",
-          "owner": "Tax Lead",
-          "targetResolution": "2026-05-15"
+          "remediation": "Commissioned as a condition of closing",
+          "status": "In progress",
+          "owner": "ESG / Environmental"
         }
       ]
     }
   ],
   "icPrecedents": [
     {
-      "deal": "BIRD - Strategic Initiative 1",
+      "deal": "Meridian Logistics - control buyout",
+      "sector": "Industrials & Logistics",
       "decision": "Approved",
       "votesFor": 5,
       "votesAgainst": 2,
       "votesAbstain": 1,
       "conditions": [
-        "Condition 1: Finalize legal docs",
-        "Condition 2: Verify financials"
+        "Change-of-control consents on the top two customer contracts",
+        "W&I policy bound before signing"
       ],
       "closingStatus": "All met",
+      "entryMultiple": 8.1,
       "meetingDate": "2026-03-16"
     },
     {
-      "deal": "W - Strategic Initiative 1",
-      "decision": "Approved",
+      "deal": "Cascadia Timber Partners - carve-out",
+      "sector": "Industrials & Logistics",
+      "decision": "Approved subject to conditions",
       "votesFor": 4,
-      "votesAgainst": 2,
-      "votesAbstain": 1,
+      "votesAgainst": 3,
+      "votesAbstain": 0,
       "conditions": [
-        "Condition 1: Finalize legal docs",
-        "Condition 2: Verify financials"
+        "Phase I environmental assessment completed and clean",
+        "Entry reset to 7.5x on the QoE-adjusted figure"
       ],
-      "closingStatus": "All met",
-      "meetingDate": "2026-01-21"
+      "closingStatus": "One outstanding",
+      "entryMultiple": 7.5,
+      "meetingDate": "2026-02-04"
     },
     {
-      "deal": "PTON - Strategic Initiative 1",
-      "decision": "Rejected",
+      "deal": "Great Lakes Precision - bolt-on",
+      "sector": "Industrials & Logistics",
+      "decision": "Declined",
       "votesFor": 2,
-      "votesAgainst": 0,
-      "votesAbstain": 1,
-      "conditions": [
-        "Condition 1: Finalize legal docs",
-        "Condition 2: Verify financials"
-      ],
-      "closingStatus": "Not met",
-      "meetingDate": "2026-09-02"
+      "votesAgainst": 5,
+      "votesAbstain": 0,
+      "conditions": [],
+      "closingStatus": "Not applicable",
+      "entryMultiple": 9.4,
+      "meetingDate": "2025-11-19",
+      "note": "Declined on price: the committee would not underwrite above 8.5x without a signed second customer."
     }
   ],
   "companyFinancials": {

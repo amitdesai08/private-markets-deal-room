@@ -94,12 +94,20 @@ export function validateCitations(deal) {
   // IRR, so a pack whose base is unsourced scored 83 out of 100 while its own summary
   // said "IC ask derived from unsourced Revenue & EBITDA". A committee member reading 83
   // concludes the sourcing is broadly fine. Nothing above an unsourced base is sourced.
-  const score = clean ? 100
+  //
+  // And a deal with no memo written has nothing to audit: scoring that 100 told a
+  // presenter "you checked one number and gave yourself a hundred" on a page full of
+  // figures. It is not assessed, and says so.
+  const assessed = total > 0 || keyFigures.length > 0;
+  const score = !assessed ? null
+    : clean ? 100
     : !base.sourced ? Math.min(40, Math.round((100 * (checks - failed)) / Math.max(1, checks)))
     : Math.min(99, Math.round((100 * (checks - failed)) / Math.max(1, checks)));
 
   return {
     score,
+    assessed,
+    scoreNote: assessed ? null : 'Nothing to check yet — no memo sections and no key figures are on the record for this deal.',
     // The base figures are CLAIMS, and leaving them out of the counters produced an object
     // that argued with itself: sourcedClaims 2 of 2, unsourcedClaims 0, unsourcedFigures 0,
     // scored 40 for being unsourced. Whichever number a badge rendered was wrong about the

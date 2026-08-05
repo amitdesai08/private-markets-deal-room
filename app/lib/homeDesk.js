@@ -158,7 +158,11 @@ function assess(deal, raw) {
   if (pre && typeof icDays === 'number' && icDays <= 21 && state === 'NOT-READY') {
     return {
       rank: 1, tag: 'Not IC-ready', tone: 'bad',
-      why: `IC is ${icDays} day${icDays === 1 ? '' : 's'} out and the deal is not ready — ${gating.join('; ')}.`,
+      // Lead with what is missing, not with the state. Thirteen of sixteen rows opened
+      // "IC is N days out and the deal is not ready —" and nobody read past the second
+      // one; the tag already says the state, and the gating list is the part that differs
+      // deal to deal.
+      why: `${gating.join('; ')} — with committee ${icDays} day${icDays === 1 ? '' : 's'} out.`,
       impact: 'Open conditions become IC conditions, which is the slowest way to close them.',
       basis: 'IC readiness board',
       verdict: state, gating,
@@ -203,7 +207,7 @@ function assess(deal, raw) {
       // Not "approved at committee" — nothing on the record is a committee decision. The
       // stage is where the deal sits, which is all this can honestly claim.
       why: post
-        ? `Past IC — ${parts.join(' and ')}: ${gating.join('; ')}.`
+        ? `${gating.join('; ')} — ${parts.join(' and ')}, carried past approval.`
         : `Ready for IC, subject to ${n} condition${n === 1 ? '' : 's'} still to close.`,
       impact: post
         ? (n ? 'An unclosed obligation holds completion, and every one of them has an owner waiting on someone else.'
@@ -216,7 +220,7 @@ function assess(deal, raw) {
   if (state === 'NOT-READY') {
     return {
       rank: 4, tag: 'Not IC-ready', tone: 'warn',
-      why: `Not ready for IC — ${gating.join('; ')}.`,
+      why: `${gating.join('; ')} — all of it before this can go to committee.`,
       impact: 'Each of these has to close before the deal can go to IC.',
       basis: 'IC readiness board',
       verdict: state, gating,
