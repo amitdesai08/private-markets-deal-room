@@ -217,7 +217,7 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
                     <div className="dc-meta">{[(d as any).sector, (d as any).stageName || 'Origination & Screening'].filter(Boolean).join(' · ')} · Step {(d as any).stepNumber ?? 1}/{(d as any).totalSteps ?? 16}</div>
                     <div className="dc-foot">
                       <span className="muted">{readinessText(d as any)}</span>
-                      <button className="askbtn" onClick={(e) => { e.stopPropagation(); onOpenDeal((d as any).id); }}>Open deal →</button>
+                      <button className="askbtn" onClick={(e) => { e.stopPropagation(); onOpenDeal((d as any).id); }}>Open deal ▸</button>
                     </div>
                   </div>
                 ))}
@@ -298,7 +298,7 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
                       </div>
                       <div className="cand-actions">
                         {pursued ? (
-                          <button className="btn primary" onClick={() => onOpenDeal(c.id)}>Open deal →</button>
+                          <button className="btn primary" onClick={() => onOpenDeal(c.id)}>Open deal ▸</button>
                         ) : passed ? (
                           <span className="muted">Closed</span>
                         ) : cfg ? (

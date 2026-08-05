@@ -164,7 +164,10 @@ const TAB_LABEL: Record<Tab, string> = {
   // section that should have joined them up stored as an empty string. This is that
   // page, composed from the record, and it says on its face that it is composed.
   case: 'The case',
-  stages: 'Work the deal',
+  // The page is "Plan" under "The work" and lives at /work. It was also called "Work the
+  // deal" here, which reached a reader only through a quoted error message pointing at a
+  // name that is nowhere in the navigation.
+  stages: 'Plan',
   docdesk: 'Documents',
   workspace: 'Diligence workstreams',
   artifacts: 'Returns, plan & risk',
@@ -224,7 +227,11 @@ const POST_IC = new Set(['approved', 'signing', 'signed', 'closed', 'owned', 'ex
 type TabGroup = { key: string; label: string; tabs: Tab[] };
 const TAB_GROUPS: TabGroup[] = [
   { key: 'brief', label: 'Brief', tabs: ['cockpit', 'overview'] },
-  { key: 'ic', label: 'IC readiness', tabs: ['case', 'ic'] },
+  // "IC readiness" is a word about process state, and the group's other member IS the
+  // readiness board — so the one page an IC member opens the product for, the composed
+  // recommendation, was filed behind a label that gives no scent of it. You cannot guess
+  // that a recommendation lives behind a readiness word.
+  { key: 'ic', label: 'The case', tabs: ['case', 'ic'] },
   { key: 'work', label: 'The work', tabs: ['stages', 'workspace', 'workflow'] },
   { key: 'analysis', label: 'Analysis', tabs: ['artifacts', 'research'] },
   { key: 'papers', label: 'Papers', tabs: ['docdesk', 'documents'] },
@@ -233,7 +240,9 @@ const TAB_GROUPS: TabGroup[] = [
 // Inside a group the full names are redundant — "Diligence workstreams" under "The work"
 // says the same word twice.
 const SUB_LABEL: Partial<Record<Tab, string>> = {
-  case: 'The case',
+  // The group is "The case"; repeating it on the pill says the same word twice, and the
+  // pill's job is to say which of the two this one is.
+  case: 'Recommendation',
   // "Checklist" told a partner nothing about which of the two sub-tabs was the paper and
   // which was the board.
   ic: 'Readiness board',
@@ -242,7 +251,10 @@ const SUB_LABEL: Partial<Record<Tab, string>> = {
   stages: 'Plan',
   workspace: 'Workstreams',
   workflow: 'Follow-ups',
-  artifacts: 'Returns, plan & risk',
+  // "Returns, plan & risk" bundles four subjects under the weakest label in the row, so
+  // "what could kill this" — the question asked before every committee — was two clicks
+  // down a path named after returns. The register is named on the pill.
+  artifacts: 'Returns & risk register',
   research: 'Comparables',
   docdesk: 'On record',
   documents: 'Generate',
@@ -582,7 +594,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     try {
       const r = await af(`/api/deals/${dealId}/teams/ensure`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
       const data = await r.json().catch(() => ({}));
-      if (r.status === 409) setNote('Launch the deal first — see "Work the deal" — then create its channel.');
+      if (r.status === 409) setNote('Launch the deal first — see The work · Plan — then create its channel.');
       else if (!r.ok || data.error) setNote(`Could not create the deal channel${data.error ? `: ${data.error}` : ''}.${cfg?.m365?.connected === false ? ' Connect M365 first.' : ''}`);
       else { await load(true); if (data.teamsUrl) window.open(data.teamsUrl, '_blank', 'noopener'); else setNote('Deal channel created.'); }
     } catch (e: any) { setNote(`Could not create the deal channel (${String(e?.message || e)}).`); }
@@ -762,6 +774,15 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     // have room to breathe, and it keeps the .drawer* class names so the existing
     // layout rules (head / body / the chat sub-panel) apply unchanged.
     <div className="dealpage">
+      {/* Twenty tab stops stand between opening a deal and its first word: the breadcrumb,
+          four header buttons, the tag field, three "where to start" buttons, then ten
+          navigation buttons across three rows. Invisible until focused. */}
+      <button
+        className="skiplink"
+        onClick={() => { bodyRef.current?.focus(); bodyRef.current?.scrollTo({ top: 0 }); }}
+      >
+        Skip to this page
+      </button>
       <aside className={`drawer${askOpen && deal ? ' with-chat' : ''}`}>
         <div className="drawer-head">
           {/* The breadcrumb above this header already carries "← <where you came
@@ -811,7 +832,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
           // you are not cleared for answers 404 on purpose -- the deal exists, your seat
           // cannot open it. Told the first way, a person reasonably concludes the record
           // is missing and goes looking for someone to blame for losing it.
-          <div className="drawer-body"><div className="muted">{loading ? 'Loading deal workspace…' : 'This deal cannot be opened from your seat. Either it does not exist, or you are not on its deal team. If a colleague sent you the link, ask them to add you to the deal.'}</div></div>
+          <div className="drawer-body"><div className="muted">{loading ? 'Loading deal workspace…' : 'This deal is not open to you. Either it does not exist, or you are not on its deal team. If a colleague sent you the link, ask them to add you to the deal.'}</div></div>
         ) : (
           <>
             <div className="dd-topmeta">
@@ -895,21 +916,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
               ))}
               <span className="dd-tabdiv" aria-hidden="true" />
             </nav>
-            {/* Its own navigation, not a divider inside the section row. With the channel
-                or the audit trail open, no group carried aria-current and the row read as
-                having nothing selected. */}
-            <nav className="dd-rails" aria-label="On this deal">
-              {RAIL_TABS.map((t) => (
-                <button
-                  key={t}
-                  className={`dd-rail${tab === t ? ' on' : ''}`}
-                  aria-current={tab === t ? 'page' : undefined}
-                  onClick={() => setTab(t)}
-                >
-                  {TAB_LABEL[t]}
-                </button>
-              ))}
-            </nav>
+            {/* The pills belonging to the selected group sit directly under it. They had
+                the channel and the audit trail wedged between, so the sub-tabs of "The
+                case" rendered two rows below "The case" with somebody else's navigation
+                in the gap — and adjacency is the only thing that makes a two-level bar
+                read as two levels rather than three. */}
             {activeGroup && activeGroup.tabs.length > 1 && !RAIL_TABS.includes(tab) ? (
               <nav className="dd-subtabs" aria-label={`${activeGroup.label} sections`}>
                 {activeGroup.tabs.map((t) => (
@@ -924,10 +935,25 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                 ))}
               </nav>
             ) : null}
+            {/* Its own navigation, not a divider inside the section row. With the channel
+                or the audit trail open, no group carried aria-current and the row read as
+                having nothing selected. Commentary, so it follows the destinations. */}
+            <nav className="dd-rails" aria-label="On this deal">
+              {RAIL_TABS.map((t) => (
+                <button
+                  key={t}
+                  className={`dd-rail${tab === t ? ' on' : ''}`}
+                  aria-current={tab === t ? 'page' : undefined}
+                  onClick={() => setTab(t)}
+                >
+                  {TAB_LABEL[t]}
+                </button>
+              ))}
+            </nav>
             </>
             )}
 
-            <div className="drawer-body" ref={bodyRef} onScroll={(e) => setCondensed(e.currentTarget.scrollTop > 24)}>
+            <div className="drawer-body" ref={bodyRef} tabIndex={-1} onScroll={(e) => setCondensed(e.currentTarget.scrollTop > 24)}>
               {statusOnly ? (
                 <div className="dd-panel" style={{ padding: '22px 18px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1124,7 +1150,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   <section className="dd-panel" style={{ border: '1px solid var(--accent, #2E74B5)' }}>
                     <div style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                        <div style={{ fontWeight: 700, fontSize: 14 }}>Work the deal · {STEP_LABEL[deal.currentStep || ''] || deal.currentStep || 'Not launched'}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>Plan · {STEP_LABEL[deal.currentStep || ''] || deal.currentStep || 'Not launched'}</div>
                         <div className="muted" style={{ fontSize: 12 }}>Step {deal.stepNumber ?? 0} of {deal.totalSteps ?? 0}{deal.stageName ? ` · ${deal.stageName}` : ''}</div>
                       </div>
                       <div style={{ height: 6, borderRadius: 999, background: 'var(--chip)', overflow: 'hidden', margin: '8px 0 10px' }}>

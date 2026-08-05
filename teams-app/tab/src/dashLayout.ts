@@ -39,7 +39,7 @@ export type DashModule = {
 };
 
 export const DASH_MODULES: DashModule[] = [
-  { key: 'briefing', label: 'Portfolio briefing', note: 'What changed across your deals, written from the record and cited.', column: 'left' },
+  { key: 'briefing', label: 'Daily briefing', note: 'What changed across your deals, written from the record and cited.', column: 'left' },
   { key: 'followups', label: 'Untracked follow-ups', note: 'Promises made in deal channels that never became a task.', column: 'left' },
   { key: 'attention', label: 'What needs my attention', note: 'Your deals ranked worst-first, each with the reason it is there.', column: 'right' },
   // The product knew the committee sat in four days and which deals were ready for it,

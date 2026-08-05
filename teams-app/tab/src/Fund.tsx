@@ -207,9 +207,7 @@ export default function Fund({ deals, onOpenDeal }: { deals?: { id: string; comp
               Companies onboarded to portfolio reporting. Transactions that have completed but are not yet onboarded stay under Deals in flight.
               {pending.length ? (
                 <> Today that is <b>{pending.length}</b> — {pending.map((d) => d.company).join(', ')}. Their value is not in the figures above.
-                  {/* Named only where several are pending and the button can open just
-                      one of them — "Open deal" would not say which. */}
-                  {onOpenDeal ? <> <button className="chbtn" onClick={() => onOpenDeal(pending[0].id)}>{pending.length === 1 ? 'Open deal' : `Open ${pending[0].company}`} ▸</button></> : null}
+                  {onOpenDeal ? <> <button className="chbtn" onClick={() => onOpenDeal(pending[0].id)}>Open deal ▸</button></> : null}
                 </>
               ) : null}
             </div>

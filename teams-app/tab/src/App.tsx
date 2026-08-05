@@ -1155,6 +1155,9 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 }
 /* Screen-reader-only text utility for icon-only controls. */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+/* Costs nothing until it is focused, and saves twenty tab stops when it is. */
+.skiplink { position: absolute; left: -9999px; top: 0; z-index: 40; background: var(--accent); color: #fff; border: 0; border-radius: 0 0 6px 0; padding: 8px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+.skiplink:focus-visible { left: 0; }
 /* Honour the OS "reduce motion" preference — disable non-essential animation/transition. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

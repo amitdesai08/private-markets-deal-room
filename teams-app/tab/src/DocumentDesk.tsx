@@ -66,7 +66,7 @@ export default function DocumentDesk({
   }, [data, filter, q]);
 
   if (loading) return <div className="card"><div className="bd muted">Reading the deal room…</div></div>;
-  if (!data) return <div className="card"><div className="bd muted">{denied ? 'You do not have access to the documents on this deal. They exist — your seat cannot open them. Ask the deal lead to add you to the deal team.' : 'The documents on this deal could not be loaded just now. Try again in a moment.'}</div></div>;
+  if (!data) return <div className="card"><div className="bd muted">{denied ? 'You do not have access to the documents on this deal. They exist — you are not cleared for them. Ask the deal lead to add you to the deal team.' : 'The documents on this deal could not be loaded just now. Try again in a moment.'}</div></div>;
 
   const canWrite = !!data.canWrite;
   const FILTERS: [Filter, string, number][] = [
