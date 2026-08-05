@@ -172,7 +172,7 @@ function againstIt(register, fix) {
 // The equity line reconciles here rather than a page away: the ask used to read "$96M
 // equity cheque" beside a sources-and-uses showing $94M of sponsor equity, with the
 // explanation on the returns page the reader had not been sent to.
-function theAsk(canon, returns, deal) {
+function theAsk(canon, returns, deal, priceUnproduced) {
   const m = (v) => fmtMoney(v, symbolFor(deal));
   const base = (returns.scenarios || []).find((s) => /base/i.test(s.name)) || null;
   if (!base) return null;
@@ -194,13 +194,13 @@ function theAsk(canon, returns, deal) {
     // Past the decision this is a record of what was authorised, not a request. The
     // verb is the whole difference and it was wrong on eight deals.
     headline: decided
-      ? `Committed: ${m(base.entryEV)} enterprise value at ${mult}x, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at ${canon.leverage}. This deal is past the committee decision.${multNote}`
+      ? `Committed: ${m(base.entryEV)} enterprise value${priceUnproduced ? '' : ` at ${mult}x`}, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at ${canon.leverage}. This deal is past the committee decision.${multNote}`
       // "Authorise up to ... $492M of debt at 3.3x" states as a fact a leverage nobody
       // has offered. It is disclosed as modelled two sections down; the sentence a
       // committee votes on should not need the footnote.
-      : `Authorise up to ${m(base.entryEV)} enterprise value at ${mult}x, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at a modelled ${canon.leverage} — no lender or indicative terms are on the record.${multNote}`,
+      : `Authorise up to ${m(base.entryEV)} enterprise value${priceUnproduced ? ' — no multiple is quoted, because nobody has produced an EBITDA to strike one on' : ` at ${mult}x`}, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at a modelled ${canon.leverage} — no lender or indicative terms are on the record.${multNote}`,
     decided,
-    entryMultiple: mult,
+    entryMultiple: priceUnproduced ? null : mult,
     enterpriseValue: base.entryEV,
     equityCheque: base.equityIn,
     debt: base.debt,
@@ -452,7 +452,7 @@ function againstPrecedent(deal, canon, entryMultiple, priceUnevidenced) {
       count: comps.length,
       sector: deal.sector,
       where: 'not comparable',
-      text: `No comparison can be drawn. Nobody has diligenced the EBITDA under the ${entryMultiple}x, so the multiple says nothing about this company. The fund has paid ${range} in ${deal.sector}.`,
+      text: `No comparison can be drawn. The EBITDA under the ${entryMultiple}x is the model's screening default rather than a figure produced for this company, so the multiple says nothing about it. The fund has paid ${range} in ${deal.sector}.`,
       basis: `${comps.length} transaction${comps.length === 1 ? '' : 's'} the fund underwrote in ${deal.sector}. Get an EBITDA onto the record and this comparison becomes worth making.`,
     };
   }
@@ -490,9 +490,13 @@ export function buildDealCase(deal) {
   // own line reading "Recorded from CIM p.14 / QoE draft at high confidence". A draft is
   // not a result and it is not nothing.
   const priceFromDraft = canon.ebitdaSource === 'recorded' && ebitdaKf && DRAFT_SOURCE.test(String(ebitdaKf.source || ''));
-  const priceUnproduced = canon.ebitdaSource === 'derived'
-    || (canon.ebitdaSource === 'recorded' && ebitdaKf && UNDILIGENCED_SOURCE.test(String(ebitdaKf.source || '')));
-  const priceUnevidenced = priceUnproduced || priceFromDraft;
+  // On a deal past the committee the price is settled: the fund paid it. Saying "nobody
+  // has diligenced the EBITDA under the 8.4x" on a company we own and are selling is a
+  // sentence with no answer to it in a room, and the screening default that produced the
+  // figure is an artefact of this model rather than a fact about the transaction.
+  const priceUnproduced = !decided && (canon.ebitdaSource === 'derived'
+    || (canon.ebitdaSource === 'recorded' && ebitdaKf && UNDILIGENCED_SOURCE.test(String(ebitdaKf.source || ''))));
+  const priceUnevidenced = priceUnproduced || (!decided && priceFromDraft);
   const fix = reconciled(deal);
   const risks = againstIt(register, fix);
   // Narrowing the killers to stoppers and repricing items was right and went one step
@@ -818,9 +822,13 @@ export function buildDealCase(deal) {
     },
     recommendation: { call, because },
     writtenRecommendation: writtenRecommendation(deal, openCount),
-    ask: theAsk(canon, returns, deal),
+    ask: theAsk(canon, returns, deal, priceUnproduced),
     baseCase: theBaseCase(deal, returns, canon),
-    priceAgainstPrecedent: againstPrecedent(deal, canon, entryMultipleFor(returns, canon), priceUnevidenced),
+    // The comparison is about the NUMBER, not about the stage. A multiple struck on a
+    // screening default says nothing about the company whether or not the fund has
+    // already bought it — so this reads the figure directly rather than the verdict flag,
+    // which is deliberately false on a decided deal.
+    priceAgainstPrecedent: againstPrecedent(deal, canon, entryMultipleFor(returns, canon), priceUnevidenced || canon.ebitdaSource === 'derived'),
     forIt: forIt(deal, canon, returns, tooEarly || priceOnly),
     downside: theDownside(deal, returns, canon),
     againstIt: risks,
@@ -869,8 +877,19 @@ export function buildDealCase(deal) {
       })),
     figures: [
       { label: 'Enterprise value', value: `${canon.currency}${canon.ev}M`, basis: figureBasis('ev', canon, deal) },
-      { label: 'LTM EBITDA', value: `${canon.currency}${canon.ebitda}M`, basis: figureBasis('ebitda', canon, deal) },
-      { label: 'Entry multiple', value: `${canon.entryMultiple}x`, basis: [figureBasis('multiple', canon, deal), (returns.entry || {}).entryNote].filter(Boolean).join(' ') },
+      // A screening default is enterprise value times 0.12, so the multiple it produces is
+      // 1/0.12 = 8.33x on EVERY deal that has no diligenced EBITDA. Four consecutive deals
+      // — a dental roll-up, a specialty-foods business, a listed BPO and a vertical-SaaS
+      // platform — priced within 0.2x of each other, and a reader who clicks through three
+      // of them sees the arithmetic rather than the companies. Saying "not recorded" under
+      // the number was not enough: the number is the thing that gets read, quoted and
+      // remembered. Where nobody has produced the EBITDA there is no multiple to print.
+      priceUnproduced
+        ? { label: 'LTM EBITDA', value: 'Not recorded', basis: 'No workstream has produced an EBITDA for this company. The model runs on a screening default of 12% of enterprise value so that a return can be computed at all; that default is not shown here, because it is the same figure on every deal that lacks one.' }
+        : { label: 'LTM EBITDA', value: `${canon.currency}${canon.ebitda}M`, basis: figureBasis('ebitda', canon, deal) },
+      priceUnproduced
+        ? { label: 'Entry multiple', value: '—', basis: `Not calculable. ${canon.currency}${canon.ev}M over an EBITDA nobody has produced is arithmetic on the asking price, not a price for this company.` }
+        : { label: 'Entry multiple', value: `${canon.entryMultiple}x`, basis: [figureBasis('multiple', canon, deal), (returns.entry || {}).entryNote].filter(Boolean).join(' ') },
       revenueFigure(canon, deal),
       // "Modelled at the financeable ceiling for the sector" on six deals out of six,
       // where debt is 60% of enterprise value on every one and there is no sector input

@@ -449,6 +449,12 @@ test('the no-author claim is made about the whole deal, not about the register',
 test('the ask, the price comparison and the figures speak one entry multiple', () => {
   for (const [id, c] of CASES) {
     if (!c.ask) continue;
+    // Where nobody produced the EBITDA there is no multiple to speak with, and the page
+    // prints none: the constant it would have printed is 1/0.12 on every such deal.
+    if (c.ask.entryMultiple == null) {
+      assert.equal(c.figures.find((f) => /Entry multiple/.test(f.label)).value, '—', `\screened-3-cand-new-5: no multiple in the ask but one in the figures`);
+      continue;
+    }
     const implied = +(c.ask.enterpriseValue / Math.max(1, Number(String(c.figures.find((f) => /EBITDA/.test(f.label)).value).replace(/[^0-9.]/g, '')))).toFixed(1);
     assert.ok(Math.abs(c.ask.entryMultiple - implied) <= 0.15,
       `${id}: the ask states ${c.ask.entryMultiple}x over an enterprise value implying ${implied}x`);
@@ -541,8 +547,10 @@ test('a figure sourced at screening is never described as diligenced', () => {
     if (!kf || !NOT_DILIGENCE.test(String(kf.source || ''))) continue;
     checked += 1;
     const row = c.figures.find((f) => /EBITDA/.test(f.label));
-    assert.doesNotMatch(row.basis, /from diligence/i, `${id}: "${kf.source}" reported as diligence`);
-    assert.match(row.basis, /not a diligenced figure/i, `${id}: does not say the figure was never diligenced`);
+    assert.doesNotMatch(row.basis, /from diligence/i, `\screened-3-cand-new-5: "\" reported as diligence`);
+    // Either it names the source and calls it undiligenced, or \u2014 where the figure is the
+    // screening default \u2014 it does not print the figure at all.
+    assert.match(row.basis, /not a diligenced figure|No workstream has produced an EBITDA/i, `\screened-3-cand-new-5: does not say the figure was never diligenced`);
     assert.equal(c.citations.clean, false, `${id}: scored clean on a price that rests on a screening figure`);
   }
   assert.ok(checked > 0, 'no deal exercised the screening-source path — the guard would be inert');
@@ -624,7 +632,7 @@ test('the price is never compared against precedent on a figure nobody diligence
   for (const [id, c] of CASES) {
     if (!c.priceAgainstPrecedent) continue;
     const ebitda = c.figures.find((f) => /EBITDA/.test(f.label));
-    if (!/screening default|not a diligenced figure/i.test(ebitda.basis)) continue;
+    if (!/screening default|not a diligenced figure|No workstream has produced an EBITDA/i.test(ebitda.basis)) continue;
     declined += 1;
     assert.equal(c.priceAgainstPrecedent.where, 'not comparable', `${id}: opines on price over an undiligenced EBITDA`);
     assert.match(c.priceAgainstPrecedent.text, /No comparison can be drawn/i, `${id}: does not decline the comparison in words`);
@@ -1069,4 +1077,39 @@ test('a finding in another currency is declared as one', () => {
     );
   }
   assert.ok(mixed > 0, 'no deal mixed currencies — the guard would be inert');
+});
+
+// A screening default is enterprise value times 0.12, so the multiple it produces is
+// 1/0.12 = 8.33x on EVERY deal that lacks a diligenced EBITDA. A demo narrator clicked
+// through four consecutive deals -- a dental roll-up, a specialty-foods business, a
+// listed BPO and a vertical-SaaS platform -- and read 8.3x, 8.2x, 8.3x, 8.4x. The room
+// sees the arithmetic rather than the companies. Saying "not recorded" under the figure
+// was not enough: the figure is what gets read, quoted and remembered.
+test('a multiple nobody could have struck is not printed', () => {
+  let suppressed = 0;
+  for (const [id, c] of CASES) {
+    const ebitda = c.figures.find((f) => /EBITDA/.test(f.label));
+    const mult = c.figures.find((f) => /Entry multiple/.test(f.label));
+    if (!/No workstream has produced an EBITDA/i.test(ebitda.basis)) continue;
+    suppressed += 1;
+    assert.equal(ebitda.value, 'Not recorded', `${id}: prints an EBITDA nobody produced`);
+    assert.equal(mult.value, '—', `${id}: prints a multiple struck on an EBITDA nobody produced`);
+    assert.equal(c.ask.entryMultiple, null, `${id}: the ask quotes a multiple nobody could have struck`);
+    assert.doesNotMatch(c.ask.headline, /at [\d.]+x,/, `${id}: the ask headline quotes it anyway`);
+  }
+  assert.ok(suppressed > 0, 'no deal exercised the unproduced-EBITDA path — the guard would be inert');
+});
+
+// "Nobody has diligenced the EBITDA under the 8.4x" printed on a company the fund owns
+// and is selling. There is no answer to that in a room, and the screening default that
+// produced the figure is an artefact of this model rather than a fact about the deal.
+test('a company the fund owns is not accused of never being diligenced', () => {
+  let decided = 0;
+  for (const [id, c] of CASES) {
+    if (!c.decided) continue;
+    decided += 1;
+    const prose = [c.recommendation.because, c.ask.headline, ...c.againstIt.map((r) => r.risk)].join(' ');
+    assert.doesNotMatch(prose, /nobody has diligenced|nobody has produced/i, `${id}: a decided deal is told its price was never diligenced`);
+  }
+  assert.ok(decided > 0, 'no decided deal — the guard would be inert');
 });
