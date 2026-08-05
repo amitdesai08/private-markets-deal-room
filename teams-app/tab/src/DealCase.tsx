@@ -103,7 +103,12 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
           <div className="dc-h">The base case</div>
           <div className={`dc-pt${c.baseCase.clearsHurdle ? '' : ' dc-fail'}`}>{c.baseCase.text}</div>
           <div className="dc-basis">{c.baseCase.basis}</div>
+          {/* The assumption the whole MOIC rests on, and it was on another page. */}
+          {c.baseCase.exit ? <div className="dc-basis">{c.baseCase.exit}</div> : null}
           {c.baseCase.growth ? <div className="dc-basis">{c.baseCase.growth}</div> : null}
+          {c.baseCase.growthContradicted ? (
+            <div className="dc-conflict">The growth this is underwritten on is contradicted by a written finding: {c.baseCase.growthContradicted}</div>
+          ) : null}
         </section>
       )}
 

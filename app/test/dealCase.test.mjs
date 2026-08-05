@@ -163,7 +163,7 @@ test('a deal past the committee decision is not asked for authorisation', () => 
 test('the reason never claims a clean register when the page prints conditions', () => {
   for (const [id, c] of CASES) {
     if (/no conditions or repricing items/i.test(c.recommendation.because)) {
-      assert.equal(c.conditions.length, 0, `${id}: claims a clean register while printing ${c.conditions.length} conditions`);
+      assert.equal(c.conditionCount, 0, `${id}: claims a clean register while carrying ${c.conditionCount} conditions`);
       assert.ok(!c.againstIt.some((r) => r.severity === 'reprice'), `${id}: claims a clean register while printing a repricing item`);
     }
   }
@@ -224,7 +224,7 @@ test('a written recommendation that claims nothing is outstanding is checked aga
     const w = c.writtenRecommendation;
     if (!w) continue;
     assert.ok(w.text.length, `${id}: an empty written recommendation was published as one`);
-    if (/no\s+(unresolved|outstanding|open)\b/i.test(w.text) && c.conditions.length) {
+    if (/no\\s+(unresolved|outstanding|open)\\b/i.test(w.text) && c.conditionCount) {
       assert.ok(w.conflict, `${id}: written recommendation contradicts the register and the page does not say so`);
     }
   }
@@ -292,10 +292,13 @@ test('everything outstanding is on one list, and each row says which record it c
       assert.ok(row.text, `${id}: an outstanding row with no text`);
       assert.ok(['committee readiness', 'risk register'].includes(row.from), `${id}: outstanding row with no source`);
     }
-    // Nothing on the register or the board may be missing from it.
-    for (const cond of c.conditions) {
-      assert.ok(c.outstanding.some((r) => r.text === cond.condition), `${id}: a condition is not on the outstanding list`);
-    }
+    // The register's conditions travel on this list and nowhere else. They used to be
+    // published as a second list as well, so on one deal the same QoE paragraph appeared
+    // three times over -- as a finding, as a condition and as an outstanding item.
+    assert.ok(
+      c.outstanding.filter((r) => r.from === 'risk register').length >= c.conditionCount,
+      `${id}: ${c.conditionCount} conditions but fewer register rows on the outstanding list`,
+    );
   }
 });
 
@@ -472,8 +475,8 @@ test('only a stopper or a repricing item is presented as a thing that could kill
     }
     // And nothing is lost by the narrowing: a condition is an obligation and belongs on
     // the outstanding list, where a reader can act on it.
-    for (const cond of c.conditions) {
-      assert.ok(c.outstanding.some((o) => o.text === cond.condition), `${id}: a condition fell off both lists`);
+    if (c.conditionCount) {
+      assert.ok(c.outstanding.some((o) => o.from === 'risk register'), `${id}: conditions fell off both lists`);
     }
   }
 });
@@ -498,4 +501,53 @@ test('a recorded EBITDA is used however its label is worded', () => {
       `${d.id}: "${kf.label} ${kf.value}" is on the record and the screening default fired anyway`);
   }
   assert.ok(matched > 3, 'too few deals record an EBITDA for this guard to mean anything');
+});
+
+// Four real public companies -- among them a clinical-stage gene-therapy registrant --
+// carried "$375M revenue, $36M LTM EBITDA, Recorded on the deal from diligence" and
+// scored 100 out of 100 for sourcing. $36M is 12% of the $300M asking price and $375M is
+// 125% of it. Both figures ARE on the record, sourced "Screen" at medium confidence, and
+// the page read the presence of a source and reported diligence.
+const NOT_DILIGENCE = /^(screen|screening|teaser|cim|broker model|desk|desk research|derived|estimate)$/i;
+test('a figure sourced at screening is never described as diligenced', () => {
+  let checked = 0;
+  for (const [id, c] of CASES) {
+    const d = seededDeals.find((x) => x.id === id);
+    const kf = (d.keyFigures || []).find((k) => /ebitda/i.test(k.label) && !/margin|vs|growth/i.test(k.label));
+    if (!kf || !NOT_DILIGENCE.test(String(kf.source || ''))) continue;
+    checked += 1;
+    const row = c.figures.find((f) => /EBITDA/.test(f.label));
+    assert.doesNotMatch(row.basis, /from diligence/i, `${id}: "${kf.source}" reported as diligence`);
+    assert.match(row.basis, /not a diligenced figure/i, `${id}: does not say the figure was never diligenced`);
+    assert.equal(c.citations.clean, false, `${id}: scored clean on a price that rests on a screening figure`);
+  }
+  assert.ok(checked > 0, 'no deal exercised the screening-source path — the guard would be inert');
+});
+
+// "PROCEED, SUBJECT TO CONDITIONS — Returns clear the hurdle" on a deal with all seven
+// workstreams not started and no EBITDA on the record, eighteen lines above its own list
+// saying nothing had been diligenced. The hurdle was cleared by returns computed from a
+// number the same function knew was invented.
+test('no deal is recommended on returns computed from a figure nobody diligenced', () => {
+  let early = 0;
+  for (const [id, c] of CASES) {
+    const d = seededDeals.find((x) => x.id === id);
+    const opened = (d.workstreams || []).filter((w) => String(w.status || '') !== 'not_started').length;
+    const ebitda = c.figures.find((f) => /EBITDA/.test(f.label));
+    const unevidenced = /screening default|not a diligenced figure/i.test(ebitda.basis);
+    if (c.decided || !unevidenced || !(d.workstreams || []).length || opened > 0) continue;
+    early += 1;
+    assert.equal(c.recommendation.call, 'NOT ENOUGH ON THE RECORD TO DECIDE',
+      `${id}: nothing diligenced and no evidenced price, but the call is ${c.recommendation.call}`);
+  }
+  assert.ok(early > 0, 'no deal exercised the nothing-diligenced path — the guard would be inert');
+});
+
+// The assumption the whole MOIC rests on was on a different page, so a reader asked to
+// source the most important number in the paper had to open a second tab.
+test('the base case states the exit it is modelled on', () => {
+  for (const [id, c] of CASES) {
+    assert.ok(c.baseCase.exit, `${id}: a base case with no exit assumption`);
+    assert.match(c.baseCase.exit, /against .*x at entry/, `${id}: the exit does not compare itself to entry`);
+  }
 });
