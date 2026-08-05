@@ -1263,17 +1263,21 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .dd-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 12px 0; border-bottom: 1px solid var(--border); background: var(--surface); }
 .dd-tab { border: none; background: none; color: var(--muted); padding: 8px 12px; cursor: pointer; font: inherit; font-weight: 600; border-bottom: 2px solid transparent; white-space: nowrap; }
 .dd-tab.on { color: var(--accent); border-bottom-color: var(--accent); }
-/* Separates the tabs a deal team opens weekly from the ones they open rarely. It is
-   a hairline rather than a heading because the reader should feel the ranking, not
-   have to read it. */
+/* Separates the five places you can go from the two things that comment on wherever you
+   are. A hairline rather than a heading, because the reader should feel the ranking
+   rather than have to read it. */
 .dd-tabdiv { flex: 0 0 auto; align-self: center; width: 1px; height: 18px; background: var(--border); margin: 0 8px; }
-/* The overflow menu for the tabs a deal team opens rarely. A dropdown always fits;
-   a twelve-item strip does not, at any width this product is actually read at. */
-.dd-more { position: relative; flex: 0 0 auto; }
-.dd-more-menu { position: absolute; top: 100%; right: 0; z-index: 40; min-width: 220px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 4px; display: flex; flex-direction: column; }
-.dd-more-item { text-align: left; border: none; background: none; color: var(--fg); font: inherit; padding: 8px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
-.dd-more-item:hover { background: var(--chip); }
-.dd-more-item.on { color: var(--accent); font-weight: 600; }
+/* The channel and the audit trail. Quieter than a tab on purpose: they are commentary,
+   and they should not compete with the five for the same glance. */
+.dd-rail { border: none; background: none; color: var(--muted); padding: 8px 10px; cursor: pointer; font: inherit; font-size: 12px; border-bottom: 2px solid transparent; white-space: nowrap; }
+.dd-rail:hover { color: var(--fg); }
+.dd-rail.on { color: var(--accent); border-bottom-color: var(--accent); }
+/* Sub-navigation inside a group. A segmented control rather than a second tab row, so
+   there is never any doubt about which of the two rows is the page you are on. */
+.dd-sub { display: flex; flex-wrap: wrap; gap: 2px; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.dd-subtab { border: 1px solid transparent; background: none; color: var(--muted); padding: 5px 11px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.dd-subtab:hover { background: var(--hover); color: var(--fg); }
+.dd-subtab.on { background: var(--chip); border-color: var(--border); color: var(--fg); }
 .dd-actionnote { background: var(--chip); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; margin-bottom: 12px; }
 .stage-group { margin-bottom: 14px; }
 .stage-name { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-bottom: 6px; }

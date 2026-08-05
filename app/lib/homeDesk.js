@@ -537,7 +537,20 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     || String(x.deal.company || '').localeCompare(String(y.deal.company || '')));
 
 
-  const qualifying = ranked.filter((r) => r.a.rank <= 5);
+  const ranked_ = ranked.filter((r) => r.a.rank <= 5);
+  // A row with no impact, no verdict and nothing gating it is not competing for anyone's
+  // attention. Three real items followed by seven reading "In origination · Screened, not
+  // yet launched into diligence" spends the list's authority: the eye stops scanning, and
+  // the partner giving this 45 seconds stops trusting the ranking. They are counted and
+  // named in one line instead.
+  //
+  // Except for the seat that owns that phase. To a sourcing seat those same rows ARE the
+  // work, and cutting them empties the one queue they came here for.
+  const isOwnPhase = (r) => !!promoted && phaseOf(r.deal)?.key === promoted;
+  const substantive = ranked_.filter((r) => r.a.impact || r.a.verdict || (r.a.gating && r.a.gating.length) || isOwnPhase(r));
+  const quiet = ranked_.length - substantive.length;
+  // Never cut to nothing: a desk of entirely quiet deals still needs its top of the list.
+  const qualifying = substantive.length >= 3 ? substantive : ranked_.slice(0, Math.min(3, ranked_.length));
   // Send the whole qualifying set. A hard slice here meant the panel could say "6 deals"
   // and "7 more ranked below these" in the same sentence with no control anywhere on the
   // page to reach the other seven — a partner reads the list as the list, and walks into
@@ -579,6 +592,14 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
       // "68% IC-ready" about a deal the same screen calls "Approved at IC".
       status: r.deal.status || null,
       icInDays: typeof r.deal.daysToIC === 'number' ? r.deal.daysToIC : null,
+      // Where to go about it. A ranked list of things needing attention that offers no
+      // route to any of them makes the reader find the deal again by hand.
+      cta: (() => {
+        const s = String(r.deal.stage || '').toUpperCase();
+        if (s.startsWith('O')) return { label: 'Open the plan', tab: 'stages' };
+        if (s.startsWith('D')) return { label: 'Open IC readiness', tab: 'ic' };
+        return { label: 'Open the deal', tab: 'cockpit' };
+      })(),
     }));
 
   // The panel was headed "across every deal you can see · 6 deals" while silently
@@ -586,6 +607,13 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   // with committee inside a month. A truncated list is fine; a truncated list that
   // calls itself complete is not.
   const attentionOmitted = Math.max(0, qualifying.length - attention.length);
+
+  // Deals that qualified but had nothing outstanding to say. Reported as a count with a
+  // route, rather than as rows that repeat one sentence.
+  const attentionQuiet = quiet;
+  const attentionQuietNote = quiet
+    ? `${quiet} more ${quiet === 1 ? 'deal is' : 'deals are'} in origination with nothing outstanding.`
+    : null;
 
   // Rows the reader can see the existence of but not the detail of. Every number below
   // is computed from the deals with detail, so wherever one of them is used to reassure,
@@ -1136,6 +1164,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     // of which were not IC-ready — the reader's own tiles contradicted the sentence.
     // An empty result is not the same as a clean result.
     attentionOmitted,
+    attentionQuiet,
+    attentionQuietNote,
     // Rows the reader can see exist but not open. Published so no surface has to infer
     // "nothing to worry about" from a list it cannot fully read.
     restricted,

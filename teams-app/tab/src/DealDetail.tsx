@@ -202,18 +202,46 @@ const POST_IC = new Set(['approved', 'signing', 'signed', 'closed', 'owned', 'ex
 // "Generate a document" sat in the overflow, and two partners in a row found it last
 // and said it was the thing they would buy the product for -- it writes the IC deck in
 // PowerPoint and the model in Excel. The strip wraps now, so it can be on the strip.
-const TABS_OFTEN: Tab[] = ['cockpit', 'overview', 'ic', 'artifacts', 'workflow', 'stages', 'workspace', 'docdesk', 'documents'];
-const TABS_RARELY: Tab[] = ['threads', 'research', 'activity'];
-// Without the brief, the four surfaces that depend on it are not rendered at all.
+// Five destinations, not twelve.
 //
-// Documents and the deal channel are on this set too, even though an early-stage deal has
-// little in either. They were absent, not empty — and an origination target DOES carry
-// papers: every screened deal has its investment screen on record, which was reachable
-// through the API and through no tab in the product. An absent tab reads as "this product
-// does not do that", and the reader leaves for SharePoint and stays there. A tab set that
-// changes shape per deal is also not a promise about where anything lives.
-const TABS_OFTEN_PLAIN: Tab[] = ['overview', 'ic', 'stages', 'docdesk'];
-const TABS_RARELY_PLAIN: Tab[] = ['workspace', 'artifacts', 'research', 'documents', 'threads', 'activity'];
+// The row had grown to nine primary tabs and three in an overflow, and read, left to
+// right: Deal brief · Thesis & key figures · IC readiness · Returns, plan & risk · Progress &
+// follow-ups · Work the deal · Diligence workstreams · Documents · Generate a document.
+// Three collisions in that sentence, all adjacent: two names for the summary, three for
+// the state of the work, and "Documents" beside "Generate a document" — with last night's
+// IC memo claimed by both. A partner who opens a deal monthly has no muscle memory for
+// nine 18-character labels; they click, don't find it, and click again.
+//
+// Nothing is removed. Each group keeps its members as a segmented control inside it, so
+// every surface is at most two clicks away and the row can be read in one pass.
+type TabGroup = { key: string; label: string; tabs: Tab[] };
+const TAB_GROUPS: TabGroup[] = [
+  { key: 'brief', label: 'Brief', tabs: ['cockpit', 'overview'] },
+  { key: 'ic', label: 'IC readiness', tabs: ['ic'] },
+  { key: 'work', label: 'The work', tabs: ['stages', 'workspace', 'workflow'] },
+  { key: 'analysis', label: 'Analysis', tabs: ['artifacts', 'research'] },
+  { key: 'papers', label: 'Papers', tabs: ['docdesk', 'documents'] },
+];
+
+// Inside a group the full names are redundant — "Diligence workstreams" under "The work"
+// says the same word twice.
+const SUB_LABEL: Partial<Record<Tab, string>> = {
+  cockpit: 'Summary',
+  overview: 'Thesis & figures',
+  stages: 'Plan',
+  workspace: 'Workstreams',
+  workflow: 'Follow-ups',
+  artifacts: 'Returns, plan & risk',
+  research: 'Comparables',
+  docdesk: 'On record',
+  documents: 'Generate',
+};
+
+// Commentary on whatever you are reading, rather than places to go.
+const RAIL_TABS: Tab[] = ['threads', 'activity'];
+
+// Surfaces that cannot render without the brief behind them.
+const NEEDS_BRIEF: Tab[] = ['cockpit', 'workflow'];
 
 export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, initialTab, onTabChange }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string; initialTab?: string; onTabChange?: (t: string) => void }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
@@ -284,8 +312,6 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     else if (initialTab && !t) setBadLink(String(initialTab));
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [initialTab]);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreRef = useRef<HTMLButtonElement | null>(null);
   // A deal opened on an 806px screen left a 216px slot to read it in: 73% of the
   // window was header that never changed, and the deal brief -- 3,500px of it --
   // came through a letterbox. None of those bands was wrong on its own, which is
@@ -691,10 +717,13 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   const behind = workbench.filter((r) => r.state === 'amber').length;
   const closedAtIc = workbench.filter((r) => r.w.status === 'closed_at_ic').length;
 
-  // The tab strip is deliberately the same on every deal — see TABS_OFTEN. Pre-committee
-  // deals used to get "Generate a document" spliced in, which moved everything after it.
-  const tabsOften: Tab[] = cockpitOn ? TABS_OFTEN : TABS_OFTEN_PLAIN;
-  const tabsRarely: Tab[] = (cockpitOn ? TABS_RARELY : TABS_RARELY_PLAIN).filter((t) => !tabsOften.includes(t));
+  // Every group is present on every deal, whatever its stage. The tab set used to be a
+  // function of the stage, so Documents and the deal channel were ABSENT on early-stage
+  // deals — which all carry an investment screen on record. An absent tab reads as "this
+  // product does not do that"; a present, empty one teaches.
+  const tabAvailable = (t: Tab) => cockpitOn || !NEEDS_BRIEF.includes(t);
+  const groups = TAB_GROUPS.map((g) => ({ ...g, tabs: g.tabs.filter(tabAvailable) })).filter((g) => g.tabs.length);
+  const activeGroup = groups.find((g) => g.tabs.includes(tab)) || groups[0];
   const RYG_DOT: Record<string, string> = { red: 'var(--bad)', amber: 'var(--warn)', green: 'var(--good)' };
 
   return (
@@ -817,46 +846,51 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
             ) : null}
 
             {!statusOnly && (
-            <div className="dd-tabs">
-              {tabsOften.map((t) => (
-                <button key={t} className={`dd-tab${tab === t ? ' on' : ''}`} aria-current={tab === t ? 'page' : undefined} onClick={() => setTab(t)}>{TAB_LABEL[t]}</button>
+            <>
+            <div className="dd-tabs" role="tablist" aria-label="Deal sections">
+              {groups.map((g) => (
+                <button
+                  key={g.key}
+                  role="tab"
+                  className={`dd-tab${activeGroup?.key === g.key ? ' on' : ''}`}
+                  aria-selected={activeGroup?.key === g.key}
+                  aria-current={activeGroup?.key === g.key ? 'page' : undefined}
+                  onClick={() => { if (!g.tabs.includes(tab)) setTab(g.tabs[0]); }}
+                >
+                  {g.label}
+                </button>
               ))}
               <span className="dd-tabdiv" aria-hidden="true" />
-              {/* Escape closes it. Without that a keyboard user who opened the menu had to
-                  tab through every item in it to get back out. */}
-              <div
-                className="dd-more"
-                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setMoreOpen(false); }}
-                onKeyDown={(e) => { if (e.key === 'Escape' && moreOpen) { e.stopPropagation(); setMoreOpen(false); moreRef.current?.focus(); } }}
-              >
+              {/* The channel and the audit trail are commentary on whatever you are
+                  reading, not destinations of their own, so they sit apart from the row
+                  rather than competing with it for the same glance. */}
+              {RAIL_TABS.map((t) => (
                 <button
-                  ref={moreRef}
-                  className={`dd-tab${tabsRarely.includes(tab) ? ' on' : ''}`}
-                  aria-expanded={moreOpen}
-                  aria-haspopup="true"
-                  aria-current={tabsRarely.includes(tab) ? 'page' : undefined}
-                  onClick={() => setMoreOpen((v) => !v)}
+                  key={t}
+                  className={`dd-rail${tab === t ? ' on' : ''}`}
+                  aria-current={tab === t ? 'page' : undefined}
+                  onClick={() => setTab(t)}
                 >
-                  {/* The trigger used to rename itself to whichever item you had picked,
-                      so the one control that never moves changed its name four times a
-                      session and "More" appeared to vanish. It keeps its name -- and now
-                      names what is open inside it, because a dot alone left a partner
-                      unable to tell which page she was on. */}
-                  More ▾{tabsRarely.includes(tab) ? <span style={{ opacity: 0.7, fontWeight: 500 }}> · {TAB_LABEL[tab]}</span> : null}
+                  {TAB_LABEL[t]}
                 </button>
-                {moreOpen ? (
-                  // Deliberately NOT role="menu": that announces arrow-key movement
-                  // between items, which this does not implement.
-                  <div className="dd-more-menu">
-                    {tabsRarely.map((t) => (
-                      <button key={t} aria-current={tab === t ? 'page' : undefined} className={`dd-more-item${tab === t ? ' on' : ''}`} onClick={() => { setTab(t); setMoreOpen(false); }}>
-                        {t === 'documents' && !cockpitOn ? 'Documents' : TAB_LABEL[t]}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+              ))}
             </div>
+            {activeGroup && activeGroup.tabs.length > 1 && !RAIL_TABS.includes(tab) ? (
+              <div className="dd-sub" role="tablist" aria-label={`${activeGroup.label} sections`}>
+                {activeGroup.tabs.map((t) => (
+                  <button
+                    key={t}
+                    role="tab"
+                    className={`dd-subtab${tab === t ? ' on' : ''}`}
+                    aria-selected={tab === t}
+                    onClick={() => setTab(t)}
+                  >
+                    {SUB_LABEL[t] || TAB_LABEL[t]}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            </>
             )}
 
             <div className="drawer-body" ref={bodyRef} onScroll={(e) => setCondensed(e.currentTarget.scrollTop > 24)}>

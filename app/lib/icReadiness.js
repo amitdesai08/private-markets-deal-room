@@ -129,7 +129,7 @@ function blockingWorkstreams(deal, openIssues) {
     else if (halted) reasons.push(`workstream ${w.status.replace('_', ' ')}`);
     if (blockingIssues.length) reasons.push(`${blockingIssues.length} open high-severity issue(s)`);
     if (reasons.length) {
-      out.push({ lane: w.lane, label: laneLabel(w.lane), owner: w.owner || null, progress: w.progress || 0, status: w.status || 'not_started', openIssues: laneIssues.length, blockingIssues: blockingIssues.length, reasons });
+      out.push({ lane: w.lane, label: laneLabel(w.lane), owner: w.owner ? ownerLabel(w.owner, w.lane) : null, progress: w.progress || 0, status: w.status || 'not_started', openIssues: laneIssues.length, blockingIssues: blockingIssues.length, reasons });
     }
   }
   return out;
@@ -403,7 +403,7 @@ export function computeICReadiness(deal) {
   const unresolvedRisks = openIssues
     .filter((i) => BLOCKING_SEVERITIES.has(i.severity) || i.severity === 'caution')
     .sort((a, b) => sevRank(b.severity) - sevRank(a.severity))
-    .map((i) => ({ id: i.id, lane: i.lane, laneLabel: laneLabel(i.lane), title: i.title, severity: i.severity, owner: i.owner || null, status: i.status, resolutionPath: i.resolutionPath || null, sources: (i.sources || []).length }))
+    .map((i) => ({ id: i.id, lane: i.lane, laneLabel: laneLabel(i.lane), title: i.title, severity: i.severity, owner: i.owner ? ownerLabel(i.owner, i.lane) : null, status: i.status, resolutionPath: i.resolutionPath || null, sources: (i.sources || []).length }))
     .concat(registerRisks(deal, openIssues))
     .sort((a, b) => sevRank(b.severity) - sevRank(a.severity));
   const sources = supportingSources(deal, allIssues);
