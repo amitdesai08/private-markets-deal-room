@@ -19,6 +19,11 @@ import {
   portfolioStats
 } from './store.js';
 import { dealAccessLevel } from './userPolicy.js';
+// Formatting the deal size here without importing these threw "money is not defined" on
+// every summary the agent built, so the orchestrator's tool path crashed and silently
+// answered from its fallback. A review found it in the error field of replies that
+// otherwise looked fine.
+import { money, symbolFor } from './money.js';
 import { fundOverview, portfolioMonitoring, executiveValue } from './fund.js';
 import { can, nextActions, PERSONA_LANE } from './personaPolicy.js';
 

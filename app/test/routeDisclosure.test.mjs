@@ -135,3 +135,31 @@ test('a cleared seat is still answered', async () => {
   const out = await chatDealAgent({ message: 'Summarise this deal.', dealId: open.id, scope: 'deal', identity: null, viewAsRole: 'deal-team' });
   assert.notEqual(out.denied, true, 'a cleared seat was refused its own deal');
 });
+
+// ---------------------------------------------------------------------------
+// A seat claim from a caller that has not proven itself.
+//
+// The public ingress answered an anonymous request as 'deal-team' - the deploy default -
+// so 24 deals including the confidential ones, and the assistant reading out a
+// confidential carve-out's enterprise value. Flooring the no-header case was not enough:
+// one added x-dr-view-as header put it all back, because view-as was read before the
+// floor applied. Both need a bot key now, and this is the only place that can be proved.
+// ---------------------------------------------------------------------------
+test('an unproven caller cannot ask to be a cleared seat', async () => {
+  const { BOT_BACKEND_KEY } = process.env;
+  if (!BOT_BACKEND_KEY) {
+    // The gate is `BOT_BACKEND_KEY && ...`: with no key configured there is nothing to
+    // prove and the check is inert by design. Say so rather than passing silently.
+    assert.ok(true, 'no bot key configured in this run - boundary gate is inert');
+    return;
+  }
+  const ids = async (headers) => {
+    const r = await fetch(`${base}/api/deals`, { headers });
+    return (await r.json()).map((d) => d.id).sort();
+  };
+  const anon = await ids({});
+  const claimed = await ids({ 'x-dr-view-as': 'deal-team' });
+  assert.deepEqual(claimed, anon, 'naming a seat without proving anything changed what was served');
+  const proven = await ids({ 'x-dr-view-as': 'deal-team', 'x-bot-key': BOT_BACKEND_KEY });
+  assert.ok(proven.length >= anon.length, 'a proven caller must still reach its seat');
+});

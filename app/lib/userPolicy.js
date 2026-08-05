@@ -256,6 +256,12 @@ export function roleForUser(identity = {}) {
 // including the confidential ones, and the assistant reading out Project Onyx's enterprise
 // value. `confidential` is the strongest flag in this model and it was defeated by
 // omitting a header.
+// The role for an identity, or the deploy's default when the platform is calling itself.
+//
+// The default is 'deal-team', which is right for the agent and the MCP naming their own
+// seat and wrong for anybody who simply reached the public ingress. That is enforced at
+// the HTTP boundary rather than here — see requestingViewAs in server.js — because this
+// function is also how the platform's own internal callers resolve a seat.
 function actualRoleFor(identity) {
   if (identity && (identity.oid || identity.upn || identity.name)) return roleForUser(identity);
   return roleSpec(DEFAULT_ROLE) ? DEFAULT_ROLE : 'member';
@@ -275,10 +281,7 @@ export function viewAsRolesFor(identity) {
 // is ignored — you can never elevate your own access.
 export function accessFor(identity, viewAsRole = null) {
   const actualRole = actualRoleFor(identity);
-  // A caller who proves nothing and asks for nothing gets the floor. Previewing a seat in
-  // demo mode stays available, but it has to be asked for out loud rather than arriving by
-  // default — the difference between a showcase and an open door.
-  let role = anonymous(identity) && !viewAsRole ? 'member' : actualRole;
+  let role = actualRole;
   if (viewAsRole && roleSpec(viewAsRole) && rankOf(viewAsRole) <= rankOf(actualRole)) role = viewAsRole;
   // A seat we do not recognise is a refusal, not a no-op. Asking to be viewed as "guest"
   // used to be ignored, which left the caller on the default -- so a typo, or a probe,

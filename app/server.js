@@ -211,8 +211,28 @@ function requestingIdentity(req) {
 }
 
 // The role the caller is previewing as (demo "view as"), from body or trusted header.
+//
+// Gated on the SAME bot-key proof as the identity, and for the same reason. It was not,
+// and the floor added for callers who ask for nothing did nothing for the caller who
+// asks. One header apart, on the same URL:
+//
+//   GET  /api/deals                                → 10 rows
+//   GET  /api/deals  -H 'x-dr-view-as: deal-team'   → 24 rows, confidential included
+//   POST /api/deals/demo-onyx/chat -H '…partner'    → "EV is $610M. Stage: Signing (SPA)."
+//
+// Previewing a seat is a demo affordance for a caller the platform can identify — the
+// Teams app proves itself with a bot key and forwards a real signed-in user — not
+// something the open internet may ask for and be given.
 function requestingViewAs(req) {
+  if (BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY) return null;
   return req.body?.viewAsRole || req.headers['x-dr-view-as'] || null;
+}
+
+// What an unproven caller gets: the floor, never the deploy default. Applied at the
+// boundary so the platform's own internal callers keep the default they are configured
+// with.
+function requestingFloor(req) {
+  return BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY ? 'member' : null;
 }
 
 // A DELEGATED Microsoft Graph token for the signed-in user, obtained by the Teams
@@ -309,7 +329,7 @@ api.get('/lifecycle', (_req, res) => res.json({ phases: lifecycleByPhase(), stag
 // only narrow what this caller may already see. The unfiltered total travels in headers
 // rather than the body because the body is an array and the tab depends on that.
 api.get('/deals', (req, res) => {
-  const rows = listDeals(requestingIdentity(req), requestingViewAs(req));
+  const rows = listDeals(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
   // A bad parameter is answered, not ignored. `ic=ready` used to return every row with a
   // 200, so an integrator would ship it believing it had filtered. Validated against what
   // this caller can see, so the error names the values that actually exist for them.
@@ -324,7 +344,7 @@ api.get('/deals', (req, res) => {
 
 // The filter vocabulary, with counts, scoped to this caller.
 api.get('/deals/facets', (req, res) => {
-  res.json(dealFacets(listDeals(requestingIdentity(req), requestingViewAs(req))));
+  res.json(dealFacets(listDeals(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)))));
 });
 
 // Portfolio cockpit for the home page: the same grounded, cited briefing the deal
@@ -332,7 +352,7 @@ api.get('/deals/facets', (req, res) => {
 // the summary can never describe a deal the reader is not cleared to open.
 api.get('/home-desk', (req, res) => {
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   const visible = listDeals(identity, viewAs);
   const access = accessFor(identity, viewAs);
   // The SEAT, not just the clearance. `role` says what this person may open; the
@@ -357,7 +377,7 @@ api.get('/home-desk', (req, res) => {
 // analytics surfaces, and an unscoped version of them is precisely what leaked: the
 // route used to ignore the request entirely (`_req`) and report the whole book to
 // anybody who asked, including an observer seat.
-api.get('/analytics', (req, res) => res.json(portfolioStats(listDeals(requestingIdentity(req), requestingViewAs(req)))));
+api.get('/analytics', (req, res) => res.json(portfolioStats(listDeals(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req))))));
 
 
 // Fund / portfolio lens (post-IC). Owned-portfolio monitoring, fund/LP
@@ -382,7 +402,7 @@ api.get('/fund/reporting-readiness', (_req, res) => res.json(guardReporting(REPO
 // approver; refused when sources are stale or required inputs are incomplete. Only a
 // Partner or Administrator may certify/archive (their REAL role, not a view-as).
 function canCertify(req) {
-  const a = accessFor(requestingIdentity(req), requestingViewAs(req));
+  const a = accessFor(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
   return !!(a.isAdmin || a.actualRole === 'partner');
 }
 function approverLabel(req) {
@@ -421,14 +441,14 @@ api.get('/pipeline', (req, res) => {
   // Hand the funnel the SAME array this server serves from /api/deals, rather than
   // letting it resolve the visible set again. The two disagreed in production.
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   res.json(getPipelineFunnel(identity, viewAs, listDeals(identity, viewAs)));
 }); // alias (funnel)
 
 // Stage-1 origination cohort funnel
 api.get('/stage1/funnel', (req, res) => {
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   res.json(getStage1Funnel(identity, viewAs, listDeals(identity, viewAs)));
 });
 api.get('/stage1/pipeline', (_req, res) => res.json(getPipeline()));
@@ -561,7 +581,7 @@ api.get('/deals/:id/documents', async (req, res) => {
   const deal = getDealRaw(req.params.id);
   if (!deal) return res.status(404).json({ error: 'not-found' });
   const identity = requestingIdentity(req);
-  const gate = authorizeDealContent(identity, deal, requestingViewAs(req));
+  const gate = authorizeDealContent(identity, deal, (requestingFloor(req) || requestingViewAs(req)));
   if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ denied: true, reason: gate.reason });
   // Auto-provision the data room on first access — a deal on the platform shouldn't
   // need a manual “launch”. If M365 is connected and there's no Teams/SharePoint space
@@ -605,7 +625,7 @@ api.post('/deals/:id/documents/:kind', async (req, res) => {
   const deal = getDealRaw(id);
   if (!deal) return res.status(404).json({ error: 'not-found' });
   const identity = requestingIdentity(req);
-  const gate = authorizeDealContent(identity, deal, requestingViewAs(req));
+  const gate = authorizeDealContent(identity, deal, (requestingFloor(req) || requestingViewAs(req)));
   if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ denied: true, reason: gate.reason });
   // Destination: 'download' streams a personal working copy to the requester
   // (built on their license, needs no Graph); 'sharepoint' publishes into the
@@ -695,7 +715,7 @@ api.post('/deals/:id/contributions', async (req, res) => {
   const { lane, kind, text, severity, source, md } = req.body || {};
   if (!lane || !text) return res.status(422).json({ error: 'lane-and-text-required' });
   const identity = requestingIdentity(req);
-  const access = accessFor(identity, requestingViewAs(req));
+  const access = accessFor(identity, (requestingFloor(req) || requestingViewAs(req)));
   if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'This seat cannot write to the diligence record.' });
   // An unidentified caller writes as an unidentified caller. It does not get to pick a name.
   const authored = identity?.name || identity?.upn || null;
@@ -730,7 +750,7 @@ api.get('/deals/:id/ic-readiness', (req, res) => {
 // named on does not exist for you, and the status tier gets no cockpit at all.
 api.get('/deals/:id/cockpit', (req, res) => {
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   const raw = getDealRaw(req.params.id);
   if (!raw) return res.status(404).json({ error: 'not-found' });
   const level = dealAccessLevel(identity, raw, viewAs);
@@ -754,7 +774,7 @@ api.get('/deals/:id/cockpit', (req, res) => {
 // the same rule instead of three near-copies drifting apart.
 function deskGate(req, res) {
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   const raw = getDealRaw(req.params.id);
   if (!raw) { res.status(404).json({ error: 'not-found' }); return null; }
   const level = dealAccessLevel(identity, raw, viewAs);
@@ -1057,7 +1077,7 @@ api.get('/deals/:id/recent', async (req, res) => {
 function dealArtifactGate(req, res) {
   const raw = getDealRaw(req.params.id);
   if (!raw) { res.status(404).json({ error: 'not-found' }); return false; }
-  const level = dealAccessLevel(requestingIdentity(req), raw, requestingViewAs(req));
+  const level = dealAccessLevel(requestingIdentity(req), raw, (requestingFloor(req) || requestingViewAs(req)));
   if (level === 'full') return true;
   // 404 only when the deal is genuinely invisible to this seat -- a refusal that confirms
   // an unannounced target exists is most of the disclosure. But a STATUS row is already
@@ -1162,7 +1182,7 @@ api.post('/deals/:id/assumption-snapshot', async (req, res) => {
 // via = 'assistant'), so it can later be audited: what was suggested, applied, and by whom.
 api.post('/deals/:id/assistant-actions', async (req, res) => {
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   const access = accessFor(identity, viewAs);
   if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only; you cannot apply changes.' });
   const deal = getDealRaw(req.params.id);
@@ -1189,7 +1209,7 @@ api.post('/deals/:id/assistant-actions', async (req, res) => {
 // additionally requires a write role (read-only users cannot publish).
 api.get('/deals/:id/workiq-notes', (req, res) => {
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
   if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ error: 'forbidden', detail: gate.reason });
@@ -1197,7 +1217,7 @@ api.get('/deals/:id/workiq-notes', (req, res) => {
 });
 api.post('/deals/:id/workiq-notes', (req, res) => {
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   const access = accessFor(identity, viewAs);
   if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only; you cannot publish Work IQ notes.' });
   const deal = getDealRaw(req.params.id);
@@ -1222,7 +1242,7 @@ api.post('/deals/:id/workiq-notes', (req, res) => {
 // Remove a Work IQ note (author-team retracts a shared note). Write-role + deal access gated.
 api.delete('/deals/:id/workiq-notes/:noteId', (req, res) => {
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   const access = accessFor(identity, viewAs);
   if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only; you cannot remove Work IQ notes.' });
   const deal = getDealRaw(req.params.id);
@@ -1237,7 +1257,7 @@ api.delete('/deals/:id/workiq-notes/:noteId', (req, res) => {
 // Work IQ tool). Deal-access gated.
 api.get('/deals/:id/workiq-corpus', (req, res) => {
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
   if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ error: 'forbidden', detail: gate.reason });
@@ -1247,7 +1267,7 @@ api.get('/deals/:id/workiq-corpus', (req, res) => {
 // Deal activity / audit trail — actor, action, timestamp and provenance (via='assistant').
 api.get('/deals/:id/activity', (req, res) => {
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
   if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ error: 'forbidden', detail: gate.reason });
@@ -1595,12 +1615,12 @@ api.post('/screens', (req, res) => {
 api.get('/deals/:id', (req, res) => {
   const raw = getDealRaw(req.params.id);
   if (!raw) return res.status(404).json({ error: 'deal not found' });
-  const level = dealAccessLevel(requestingIdentity(req), raw, requestingViewAs(req));
+  const level = dealAccessLevel(requestingIdentity(req), raw, (requestingFloor(req) || requestingViewAs(req)));
   // Need-to-know: a confidential deal you're not on doesn't exist for you.
   if (level === 'none') return res.status(404).json({ error: 'deal not found' });
   // Status tier: metadata only, no confidential workspace.
   if (level === 'status') {
-    const [summary] = listDeals(requestingIdentity(req), requestingViewAs(req)).filter((d) => d.id === raw.id);
+    const [summary] = listDeals(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req))).filter((d) => d.id === raw.id);
     return res.json({ ...(summary || {}), accessLevel: 'status', locked: true });
   }
   const deal = getDeal(req.params.id);
@@ -1617,7 +1637,7 @@ api.get('/deals/:id', (req, res) => {
 api.post('/deals/:id/request-access', async (req, res) => {
   const raw = getDealRaw(req.params.id);
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   if (!raw) return res.status(404).json({ error: 'deal not found' });
   const level = dealAccessLevel(identity, raw, viewAs);
   if (level === 'none') return res.status(404).json({ error: 'deal not found' });
@@ -1637,8 +1657,9 @@ api.post('/deals/:id/request-access', async (req, res) => {
     requested: true,
     deal: raw.company,
     requestedAt: r?.request?.requestedAt || null,
-    // Who to expect it from, in names rather than the role keys the record stores.
-    withWhom: dealTeamOf(raw).length ? dealTeamOf(raw).map(ownerLabel) : null,
+    // Not the team's names. Telling a seat that may only see this deal's status who is on
+    // it is most of what the restriction exists to withhold.
+    withWhom: null,
     detail: `Your request to join ${raw.company} has been recorded on the deal's audit trail. The deal team decides; nothing has changed about what you can see yet.`,
   });
 });
@@ -1648,7 +1669,7 @@ api.post('/deals/:id/request-access', async (req, res) => {
 // audit trail. Scoped to the deals this caller could actually decide on.
 api.get('/access-requests', (req, res) => {
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   const mine = listDeals(identity, viewAs).filter((d) => d.accessLevel !== 'status').map((d) => d.id);
   const access = accessFor(identity, viewAs);
   if (!access.canWrite) return res.json({ requests: [], canDecide: false });
@@ -1658,7 +1679,7 @@ api.get('/access-requests', (req, res) => {
 api.post('/deals/:id/access-requests/:requestId', async (req, res) => {
   const raw = getDealRaw(req.params.id);
   const identity = requestingIdentity(req);
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   if (!raw) return res.status(404).json({ error: 'deal not found' });
   const gate = authorizeDealContent(identity, raw, viewAs);
   if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'deal not found' }) : res.status(403).json({ denied: true, reason: gate.reason });
@@ -1674,13 +1695,17 @@ api.post('/deals/:id/access-requests/:requestId', async (req, res) => {
   const out = await decideAccessRequest(raw.id, req.params.requestId, { approve: decision === 'approve', decidedBy: identity?.name || gate.access.roleLabel });
   if (out?.error === 'not-found') return res.status(404).json(out);
   if (out?.error) return res.status(409).json(out);
+  // Only the decision, never the deal. mutateDeal hands back the whole record, so this
+  // route was serialising dealSize, thesis, keyFigures and the team to whoever called it.
+  const granted = decision === 'approve' && !!out?.request?.person;
+  const body = { ok: true, request: out.request, granted };
   // Approving a request from a seat with no named identity admits nobody, and saying
   // "approved" while the team is unchanged is the one outcome an approver must not be
   // given. Say what happened.
-  if (decision === 'approve' && !out?.request?.person) {
-    return res.json({ ...out, granted: false, detail: 'Recorded, but nobody was added: this request came from a seat with no named identity, so there is no person to admit. Add them to the deal team directly.' });
+  if (decision === 'approve' && !granted) {
+    return res.json({ ...body, detail: 'Recorded, but nobody was added: this request came from a seat with no named identity, so there is no person to admit. Add them to the deal team directly.' });
   }
-  res.json({ ...out, granted: decision === 'approve' });
+  res.json(body);
 });
 
 // ---- Territories + deal groups (customizable tags) -------------------------
@@ -1710,8 +1735,8 @@ api.post('/deals/:id/tags', (req, res) => {
   const identity = requestingIdentity(req);
   const raw = getDealRaw(req.params.id);
   if (!raw) return res.status(404).json({ error: 'deal not found' });
-  const level = dealAccessLevel(identity, raw, requestingViewAs(req));
-  const access = accessFor(identity, requestingViewAs(req));
+  const level = dealAccessLevel(identity, raw, (requestingFloor(req) || requestingViewAs(req)));
+  const access = accessFor(identity, (requestingFloor(req) || requestingViewAs(req)));
   if (level !== 'full' || !access.canWrite) return res.status(403).json({ error: 'you cannot tag this deal' });
   const updated = setDealTags(req.params.id, req.body?.tags);
   if (!updated) return res.status(404).json({ error: 'deal not found' });
@@ -1721,7 +1746,7 @@ api.post('/deals/:id/tags', (req, res) => {
 // are captured up front so access maps to Entra groups from creation.
 api.post('/deals/create', (req, res) => {
   const identity = requestingIdentity(req);
-  if (!accessFor(identity, requestingViewAs(req)).canWrite) return res.status(403).json({ error: 'you cannot create deals' });
+  if (!accessFor(identity, (requestingFloor(req) || requestingViewAs(req))).canWrite) return res.status(403).json({ error: 'you cannot create deals' });
   const out = createDealFromIntake({ ...(req.body || {}), createdBy: identity?.upn || identity?.name || null });
   if (out.error) return res.status(400).json(out);
   res.status(201).json(out.deal);
@@ -1731,7 +1756,7 @@ api.post('/deals/:id/region', (req, res) => {
   const identity = requestingIdentity(req);
   const raw = getDealRaw(req.params.id);
   if (!raw) return res.status(404).json({ error: 'deal not found' });
-  if (dealAccessLevel(identity, raw, requestingViewAs(req)) !== 'full' || !accessFor(identity, requestingViewAs(req)).canWrite) return res.status(403).json({ error: 'not allowed' });
+  if (dealAccessLevel(identity, raw, (requestingFloor(req) || requestingViewAs(req))) !== 'full' || !accessFor(identity, (requestingFloor(req) || requestingViewAs(req))).canWrite) return res.status(403).json({ error: 'not allowed' });
   const updated = setDealRegion(req.params.id, req.body?.region);
   if (!updated) return res.status(404).json({ error: 'deal not found' });
   res.json({ id: updated.id, region: updated.region });
@@ -1767,7 +1792,7 @@ api.post('/deals/:id/chat', async (req, res) => {
   // its carve-out EBITDA and its TSA. The gate was on the record and not on the
   // conversation about the record.
   {
-    const level = dealAccessLevel(requestingIdentity(req), deal, requestingViewAs(req));
+    const level = dealAccessLevel(requestingIdentity(req), deal, (requestingFloor(req) || requestingViewAs(req)));
     if (level === 'status') {
       return res.status(403).json({ reply: 'This deal has advanced past screening and its detail is restricted to the deal team. Ask a deal-team member or an administrator to be added.', denied: true });
     }
@@ -1776,7 +1801,7 @@ api.post('/deals/:id/chat', async (req, res) => {
   const persona = personaById[req.body?.personaId] || getPersonas()[0];
   const message = (req.body?.message || '').toString().slice(0, 2000);
   if (!message) return res.status(400).json({ error: 'message required' });
-  const lens = lensBlock({ identity: requestingIdentity(req), viewAsRole: requestingViewAs(req), persona: req.body?.personaId });
+  const lens = lensBlock({ identity: requestingIdentity(req), viewAsRole: (requestingFloor(req) || requestingViewAs(req)), persona: req.body?.personaId });
   // Prior turns, bounded and role-checked. A conversation that cannot remember its own
   // last answer makes the reader re-state the question every time.
   const history = Array.isArray(req.body?.history) ? req.body.history.slice(-8) : [];
@@ -1799,13 +1824,13 @@ api.get('/persona-agents', (_req, res) => res.json(personaAgentsInfo()));
 // "view as" (their own + every lower one). The tab uses this to show only the agents
 // the user is entitled to and to offer a downward view-as.
 api.post('/me/access', (req, res) => {
-  res.json(describeAccess(requestingIdentity(req), requestingViewAs(req)));
+  res.json(describeAccess(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req))));
 });
 
 // Role-aware capabilities — "what can you do?". Scoped to the caller's role so a new user
 // can start blind. GET or POST; view-as via header/body.
 api.all('/capabilities', (req, res) => {
-  const access = accessFor(requestingIdentity(req), req.body?.viewAsRole || requestingViewAs(req));
+  const access = accessFor(requestingIdentity(req), req.body?.viewAsRole || (requestingFloor(req) || requestingViewAs(req)));
   res.json({ ...capabilitiesFor(access), narrative: capabilitiesNarrative(access) });
 });
 
@@ -2026,7 +2051,7 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
   // requestingViewAs, not the body alone: the seat arrives in a header on every GET, and
   // reading only the body meant the portfolio assistant ran unscoped and read out seven
   // deals the caller cannot open, with their sizes.
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   // The specific persona the caller signed in AS (e.g. ai-md) — drives the domain
   // voice of the read-only / downgraded fallbacks below.
   const askerPersona = actingPersona(req);
@@ -2086,7 +2111,7 @@ api.post('/deal-agent/chat', async (req, res) => {
   // requestingViewAs, not the body alone: the seat arrives in a header on every GET, and
   // reading only the body meant the portfolio assistant ran unscoped and read out seven
   // deals the caller cannot open, with their sizes.
-  const viewAs = requestingViewAs(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
   // The specific persona the caller signed in AS (e.g. ai-md) — the assistant answers
   // in that partner's domain voice via the persona lens.
   const askerPersona = actingPersona(req);
@@ -2135,7 +2160,7 @@ api.post('/deals/:id/advance', async (req, res) => {
   // IC-gate override open to every caller. `access.role` is the EFFECTIVE role, so a
   // partner who is viewing as an analyst cannot override either — view-as only narrows.
   // An admin is a systems role, not a deal sponsor, and is deliberately not promoted here.
-  const access = accessFor(requestingIdentity(req), requestingViewAs(req));
+  const access = accessFor(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
   // Advancing a deal is a write. `accessFor` computes `advanceWorkflow` and nothing read
   // it, so a read-only seat could move a deal through every ungated transition — a
   // capability computed, shipped to the UI, and enforced nowhere.
@@ -2168,7 +2193,7 @@ api.post('/deals/:id/artifact/:step', async (req, res) => {
 // `/back-stage` additionally took `persona` straight from the request body — the same
 // client-supplied-attribution shape that was closed on the contributions route.
 api.post('/deals/:id/back', async (req, res) => {
-  const access = accessFor(requestingIdentity(req), requestingViewAs(req));
+  const access = accessFor(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
   if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'This seat cannot move deals.' });
   const deal = await regressDeal(req.params.id, { persona: access.role || null, reason: (req.body || {}).reason });
   if (!deal) return res.status(404).json({ error: 'deal not found' });
@@ -2179,7 +2204,7 @@ api.post('/deals/:id/back', async (req, res) => {
 // already in the first stage; the response reflects the (possibly unchanged) deal.
 api.post('/deals/:id/back-stage', async (req, res) => {
   const { reason } = req.body || {};
-  const access = accessFor(requestingIdentity(req), requestingViewAs(req));
+  const access = accessFor(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
   if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'This seat cannot move deals.' });
   const deal = await regressDealStage(req.params.id, { persona: access.role || null, reason });
   if (!deal) return res.status(404).json({ error: 'deal not found' });

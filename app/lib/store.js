@@ -536,6 +536,7 @@ export function applyStatusTier(s) {
   s.totalSteps = null;
   s.stageStepNumber = null;
   s.stageStepTotal = null;
+  s.stepIndex = null;
   s.hoursSaved = null;
   s.projectedDaysSaved = null;
   s.leadAnalyst = null;
