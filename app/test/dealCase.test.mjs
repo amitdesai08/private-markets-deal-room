@@ -11,6 +11,12 @@ import assert from 'node:assert/strict';
 import { buildDealCase } from '../lib/dealCase.js';
 import { seededDeals } from '../data/deals.js';
 import { buildReturnsModel, buildRiskRegister } from '../lib/diligence.js';
+import { caseBlock } from '../lib/agents.js';
+import { loadFabric } from '../lib/fabric.js';
+
+// The bundled market snapshot has to be loaded, or the price-against-precedent section
+// is null on every deal and the guard below silently asserts nothing.
+await loadFabric();
 
 const CASES = seededDeals.map((d) => [d.id, buildDealCase(d)]);
 
@@ -163,7 +169,7 @@ test('a deal past the committee decision is not asked for authorisation', () => 
 test('the reason never claims a clean register when the page prints conditions', () => {
   for (const [id, c] of CASES) {
     if (/no conditions or repricing items/i.test(c.recommendation.because)) {
-      assert.equal(c.conditionCount, 0, `${id}: claims a clean register while carrying ${c.conditionCount} conditions`);
+      assert.equal(c.outstandingCount, 0, `${id}: claims a clean register while carrying ${c.outstandingCount} conditions`);
       assert.ok(!c.againstIt.some((r) => r.severity === 'reprice'), `${id}: claims a clean register while printing a repricing item`);
     }
   }
@@ -184,7 +190,11 @@ test('growth is stated as it is underwritten, and never as a bare number', () =>
 test('a deal-stopper on the register forces the call to DECLINE', () => {
   for (const [id, c] of CASES) {
     if (c.decided) continue;
-    if (c.againstIt.some((r) => r.severity === 'stopper')) {
+    const d = seededDeals.find((x) => x.id === id);
+    // The REGISTER's own stoppers. A row promoted onto the killers from the outstanding
+    // list -- a merger-control filing, a takeover timetable -- is a thing that could
+    // kill the deal, not a finding that it is dead.
+    if (buildRiskRegister(d).risks.some((r) => r.severity === 'stopper')) {
       assert.equal(c.recommendation.call, 'DECLINE', `${id}: stopper on the register but the call is ${c.recommendation.call}`);
     }
   }
@@ -224,7 +234,7 @@ test('a written recommendation that claims nothing is outstanding is checked aga
     const w = c.writtenRecommendation;
     if (!w) continue;
     assert.ok(w.text.length, `${id}: an empty written recommendation was published as one`);
-    if (/no\\s+(unresolved|outstanding|open)\\b/i.test(w.text) && c.conditionCount) {
+    if (/no\\s+(unresolved|outstanding|open)\\b/i.test(w.text) && c.outstandingCount) {
       assert.ok(w.conflict, `${id}: written recommendation contradicts the register and the page does not say so`);
     }
   }
@@ -294,11 +304,14 @@ test('everything outstanding is on one list, and each row says which record it c
     }
     // The register's conditions travel on this list and nowhere else. They used to be
     // published as a second list as well, so on one deal the same QoE paragraph appeared
-    // three times over -- as a finding, as a condition and as an outstanding item.
-    assert.ok(
-      c.outstanding.filter((r) => r.from === 'risk register').length >= c.conditionCount,
-      `${id}: ${c.conditionCount} conditions but fewer register rows on the outstanding list`,
-    );
+    // three times over -- as a finding, as a condition and as an outstanding item. And
+    // every count on the page is now this list's length: it gave four different answers
+    // to "what is outstanding" on one deal, each computed elsewhere off something
+    // slightly different.
+    assert.equal(c.outstandingCount, c.outstanding.length, `${id}: the outstanding count is not the length of the outstanding list`);
+    if (c.outstandingCount) {
+      assert.match(c.recommendation.because + c.readiness.headline, /\d/, `${id}: no count anywhere on a deal with outstanding items`);
+    }
   }
 });
 
@@ -457,7 +470,8 @@ test('the sourcing badge does not claim a clean bill over a contradiction it can
     if (derived) {
       caveated += 1;
       assert.equal(c.citations.clean, false, `${id}: reported clean over a multiple struck on a screening default`);
-      assert.match(c.citations.summary, /not whether the figures agree/i, `${id}: the badge does not say what it measures`);
+      assert.equal(c.citations.score, null, `\demo-sterling: a score published over a price that cannot be relied on`);
+      assert.match(c.citations.summary, /cannot be relied on/i, `\demo-sterling: the badge does not say what it measures`);
     }
   }
   assert.ok(caveated > 0, 'no deal exercised the caveat path — the guard would be inert');
@@ -475,7 +489,7 @@ test('only a stopper or a repricing item is presented as a thing that could kill
     }
     // And nothing is lost by the narrowing: a condition is an obligation and belongs on
     // the outstanding list, where a reader can act on it.
-    if (c.conditionCount) {
+    if (c.outstandingCount) {
       assert.ok(c.outstanding.some((o) => o.from === 'risk register'), `${id}: conditions fell off both lists`);
     }
   }
@@ -549,5 +563,65 @@ test('the base case states the exit it is modelled on', () => {
   for (const [id, c] of CASES) {
     assert.ok(c.baseCase.exit, `${id}: a base case with no exit assumption`);
     assert.match(c.baseCase.exit, /against .*x at entry/, `${id}: the exit does not compare itself to entry`);
+  }
+});
+
+// Three authoring notes had been written into the block the model is told to quote
+// verbatim -- among them "Say that, and point at what is outstanding". It duly quoted one
+// back to a committee member under "Quote from THE CASE (do not paraphrase)", in
+// quotation marks, as something the deal file says. Read aloud in a room, that is a
+// partner reading this product's prompt to the investment committee.
+test('the case handed to the assistant contains no instructions to the assistant', () => {
+  const IMPERATIVE = /\b(say that|do not paraphrase|you must|quote it|point at what|must never|if asked|raise if)\b/i;
+  for (const d of seededDeals) {
+    const block = caseBlock(d);
+    if (!block) continue;
+    for (const line of block.split('\n')) {
+      assert.doesNotMatch(line, IMPERATIVE, `${d.id}: an instruction is inside the quotable block — "${line.slice(0, 80)}"`);
+    }
+  }
+});
+
+// Two deals holding identical records -- an undiligenced price, no author on either --
+// returned different verdicts because one analyst had opened one tab and left a lane at
+// 8%. A percentage is a switch; evidence is not.
+test('the not-enough-on-the-record call is decided on evidence, not on a typed status', () => {
+  for (const [id, c] of CASES) {
+    const d = seededDeals.find((x) => x.id === id);
+    if (c.decided) continue;
+    const ebitda = c.figures.find((f) => /EBITDA/.test(f.label));
+    const unevidenced = /screening default|not a diligenced figure/i.test(ebitda.basis);
+    const worked = (d.workstreams || []).some((w) => (w.findings || []).length || (w.contributions || []).length);
+    if (!unevidenced || !(d.workstreams || []).length || worked) continue;
+    assert.equal(c.recommendation.call, 'NOT ENOUGH ON THE RECORD TO DECIDE',
+      `${id}: no lane has produced evidence and the price is unevidenced, but the call is ${c.recommendation.call}`);
+    assert.equal(c.forIt.some((p) => /Base case|Downside/i.test(p.point)), false,
+      `${id}: a return computed off an undiligenced denominator is offered as a point in favour`);
+  }
+});
+
+// "We are buying at 8.3x, inside the two Healthcare transactions on file" -- on a
+// clinical-stage gene-therapy registrant, on a denominator the product invented. The
+// first version of this guard tested only the screening-default path, so on the deals
+// where the same default had been WRITTEN to the record as a figure sourced "Screen",
+// the warning was suppressed and the comparison went ahead.
+test('the price is never compared against precedent on a figure nobody diligenced', () => {
+  let declined = 0;
+  for (const [id, c] of CASES) {
+    if (!c.priceAgainstPrecedent) continue;
+    const ebitda = c.figures.find((f) => /EBITDA/.test(f.label));
+    if (!/screening default|not a diligenced figure/i.test(ebitda.basis)) continue;
+    declined += 1;
+    assert.equal(c.priceAgainstPrecedent.where, 'not comparable', `${id}: opines on price over an undiligenced EBITDA`);
+    assert.match(c.priceAgainstPrecedent.text, /No comparison can be drawn/i, `${id}: does not decline the comparison in words`);
+  }
+  assert.ok(declined > 0, 'no deal exercised the undiligenced-price path — the guard would be inert');
+});
+
+// Some deals exit a turn above entry and nothing said when or why, so a reader was left
+// inferring the policy by diffing two numbers in one sentence.
+test('multiple expansion in the exit is declared, or its absence is', () => {
+  for (const [id, c] of CASES) {
+    assert.match(c.baseCase.exit, /multiple expansion|below entry/i, `${id}: the exit does not say whether it assumes expansion`);
   }
 });

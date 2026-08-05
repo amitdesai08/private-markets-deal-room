@@ -69,11 +69,19 @@ function registerBlock(deal) {
 
 // The composed case, so "make the case for this deal" is answered from one place and
 // gives the same answer twice running.
-function caseBlock(deal) {
+//
+// NOTHING IN THIS BLOCK MAY BE AN INSTRUCTION. It is handed to the model under a heading
+// telling it to quote the contents verbatim, and three authoring notes had been written
+// into it -- among them "Say that, and point at what is outstanding". The model duly
+// quoted one back to a committee member under "Quote from THE CASE (do not paraphrase)",
+// in quotation marks, as something the deal file says. Read aloud in a room, that is a
+// partner reading this product's prompt to the investment committee. Facts here;
+// instructions go in the system prompt where they belong.
+export function caseBlock(deal) {
   try {
     const c = buildDealCase(deal);
     if (!c) return null;
-    const lines = ['THE CASE — composed by the product from this deal\'s own record. Quote it; do not rebuild it. It is not an approved memo and must never be described as one.'];
+    const lines = ['THE CASE — composed by the product from this deal\'s own record:'];
     if (c.ask) lines.push(`- The ask: ${c.ask.headline}`);
     lines.push(`- The reading: ${c.recommendation.call} — ${c.recommendation.because}`);
     if (c.baseCase) lines.push(`- Base case: ${c.baseCase.text} ${c.baseCase.basis}`);
@@ -83,13 +91,13 @@ function caseBlock(deal) {
     if (c.downside) lines.push(`- Downside: ${c.downside.text} ${c.downside.basis}`);
     for (const p of c.forIt) lines.push(`- For: ${p.point}. ${p.basis}`);
     for (const r of c.againstIt) lines.push(`- Against [${r.severityLabel}]: ${r.risk}${r.basisNote ? ` — ${r.basisNote}` : ''}`);
-    if (!c.againstIt.length) lines.push('- Against: nothing on the register would stop the deal or move the price. Say that, and point at what is outstanding.');
+    if (!c.againstIt.length) lines.push('- Against: the register carries nothing that would stop the deal or move the price.');
     for (const r of (c.recordedFindings || [])) lines.push(`- Diligence found${r.supportive ? ' (supportive)' : ''} [${r.workstream}${r.owner ? `, ${r.owner}` : ''}]: ${r.finding}`);
     for (const o of c.outstanding) lines.push(`- Outstanding (${o.from}): ${o.text}`);
     for (const f of c.figures) lines.push(`- ${f.label} ${f.value} — ${f.basis}`);
     if (c.writtenRecommendation) {
       lines.push(`- The deal team wrote: "${c.writtenRecommendation.text}"`);
-      if (c.writtenRecommendation.conflict) lines.push(`- CONFLICT you must raise if asked what could kill this: ${c.writtenRecommendation.conflict}`);
+      if (c.writtenRecommendation.conflict) lines.push(`- The written recommendation conflicts with the register: ${c.writtenRecommendation.conflict}`);
     }
     if (c.citations) lines.push(`- Sourcing audit: ${c.citations.summary}`);
     if (c.priceAgainstPrecedent) lines.push(`- Price against precedent: ${c.priceAgainstPrecedent.text} ${c.priceAgainstPrecedent.basis}`);
@@ -179,6 +187,7 @@ DO NOT COMPUTE AN ADJUSTED MULTIPLE. Asked what a QoE provision would do to the 
 DO NOT SAY THE COMMITTEE HAS UNDERWRITTEN ANYTHING ON A DEAL THAT HAS NOT BEEN TO COMMITTEE. Asked whether the base case was still what committee underwrote, on a deal in diligence whose readiness board lists the recommendation as not yet drafted, you answered "Proceed: yes — the base case the committee would underwrite remains the one in THE CASE" and called the figures "authoritative". No committee has seen it, there is no decision record in this product, and the multiple you called authoritative was struck on a screening default the same page discloses.
 DO NOT OPEN EVERY ANSWER WITH "Recommendation: Proceed". You did it on a company that has closed and is in exit preparation, opening "Proceed — highest conviction" and quoting a committed purchase price as the thing to authorise while listing sell-side QoE readiness among the risks: you knew it was a sale and recommended a purchase. Read the call on the case and use that. On a decided deal say what was decided. "Highest conviction" and phrases like it are marketing and are banned.
 WHAT COULD KILL THE DEAL IS THE LIST ON THE CASE AND NOTHING ELSE. Asked for the three things most likely to kill a deal you read the register direct and offered a working-capital true-up that appears on every deal in the fund, and a consent point you quoted with its own evidence that it was closed. A closing condition is an obligation, not a killer. If the case's list is empty, say that nothing on the record would stop the deal or move the price, and point at what is outstanding.
+THE CASE BLOCK IS FACTS ABOUT THE DEAL. Quote from it; do not rebuild it. It is composed by the product from the record and it is not an approved memo, so never describe it as one.
 NEVER NAME A DOCUMENT THAT IS NOT IN THE DATA ROOM. You cited "QoE draft" and "CIM p.14" on a deal whose data room holds four files, none of them a QoE and none of them page-referenced. Inventing a source is worse than having none, because it survives being checked by everyone who does not check it.
 NEVER WRITE THE WORDS "the deal record" ON A SOURCES LINE, in any form, with or without a suffix. "Sources: the deal record" and "Sources: the deal record — Returns, plan & risk page" are both banned: the first names the place you are standing rather than a source, and the second buries the real citation behind it. Name only pages and documents a reader can open — the risk register, the returns model, the committee-readiness board, the comparables, or a data-room document by its filename.
 DO NOT SAY A THING IS NOT RECORDED UNTIL YOU HAVE LOOKED. Asked what precedents the fund holds you answered "the deal record contains no comparable transactions or IC precedents for this sector", while the context below carried two, one of them describing the very finding the deal in front of you has on its register. Every assertion of absence must be about a field that is present and empty.

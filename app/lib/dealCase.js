@@ -179,13 +179,16 @@ function theAsk(canon, returns, deal) {
 // that does not survive contact with its own number is not made — it goes to the reading
 // below instead. Filing "does not clear the fund hurdle" under the case for it was the
 // single worst line on the first version of this page.
-function forIt(deal, canon, returns) {
+function forIt(deal, canon, returns, tooEarly) {
   const m = (v) => fmtMoney(v, symbolFor(deal));
   const base = (returns.scenarios || []).find((s) => /base/i.test(s.name));
   const down = (returns.scenarios || []).find((s) => /down/i.test(s.name));
   const hurdle = returns.hurdle || { irr: 20, moic: 2 };
   const out = [];
-  if (base && returns.meetsHurdle) {
+  // A return computed off a denominator nobody has diligenced is not an argument for the
+  // deal. It was being offered as one on the very deals the page had just called not
+  // decidable, which is the page arguing with itself two sections apart.
+  if (base && returns.meetsHurdle && !tooEarly) {
     out.push({
       point: `Base case returns ${base.moic}x on ${base.irr}% IRR over ${canon.holdYears} years`,
       basis: `${m(base.equityIn)} in, ${m(base.equityOut)} out. Clears the fund hurdle of ${hurdle.irr}% / ${hurdle.moic}x.`,
@@ -195,7 +198,7 @@ function forIt(deal, canon, returns) {
   // a 2x / 20% hurdle. The one question asked of a downside is whether it breaks the
   // hurdle, and the page answered "holds" without testing it. It only appears here when
   // it earns the place; either way it is stated in full below.
-  if (down && down.moic >= hurdle.moic && down.irr >= hurdle.irr) {
+  if (down && down.moic >= hurdle.moic && down.irr >= hurdle.irr && !tooEarly) {
     out.push({
       point: `Downside still clears the hurdle at ${down.moic}x / ${down.irr}% IRR`,
       basis: `Modelled on an exit EBITDA of ${m(down.exitEbitda)}${base && down.equityIn > base.equityIn ? ` and a larger ${m(down.equityIn)} equity cheque` : ''}.`,
@@ -230,7 +233,18 @@ function theBaseCase(deal, returns, canon) {
     // asked to source the most important number in the paper had to open a second tab,
     // which is the one test this section exists to pass.
     exit: Number.isFinite(base.exitEbitda) && Number.isFinite(base.exitEV)
-      ? `Exit modelled at ${m(base.exitEbitda)} of EBITDA and ${m(base.exitEV)} of enterprise value — ${+(base.exitEV / Math.max(1, base.exitEbitda)).toFixed(1)}x, against ${canon.entryMultiple}x at entry.`
+      ? (() => {
+        const xm = +(base.exitEV / Math.max(1, base.exitEbitda)).toFixed(1);
+        const delta = +(xm - canon.entryMultiple).toFixed(1);
+        // Some deals exit a turn above entry and nothing said when or why, so a reader
+        // was left inferring the policy by diffing two numbers in one sentence.
+        const note = Math.abs(delta) < 0.05
+          ? ' No multiple expansion is assumed: the case is made on EBITDA growth and debt paydown alone.'
+          : delta > 0
+            ? ` That is ${delta}x of multiple expansion, which the case depends on and the record does not evidence.`
+            : ` That is ${Math.abs(delta)}x below entry — the case is made without any help from the exit multiple.`;
+        return `Exit modelled at ${m(base.exitEbitda)} of EBITDA and ${m(base.exitEV)} of enterprise value — ${xm}x, against ${canon.entryMultiple}x at entry.${note}`;
+      })()
       : null,
     growth: returns.growthBasis || null,
     // The model underwrites the growth on the record. Where a workstream has written
@@ -327,7 +341,7 @@ function entryMultipleFor(returns, canon) {
   return canon.entryMultiple;
 }
 
-function againstPrecedent(deal, canon, entryMultiple) {
+function againstPrecedent(deal, canon, entryMultiple, priceUnevidenced) {
   const comps = (compsForDeal(deal) || []).filter((c) => Number.isFinite(c.evEbitda) && c.evEbitda > 0);
   if (!comps.length || !Number.isFinite(entryMultiple)) return null;
   const mults = comps.map((c) => c.evEbitda).sort((a, b) => a - b);
@@ -344,9 +358,15 @@ function againstPrecedent(deal, canon, entryMultiple) {
   // diligenced the model divides enterprise value by 12% of itself, which is 8.33x on
   // every such deal by definition -- and this section was telling a committee we were
   // cheap on one, dear on another and in range on a third, on a number carrying no
-  // information about any of the companies, with the caveat parked in a block further
-  // down the page. It carries its own caveat now, or it does not opine.
-  if (canon.ebitdaSource === 'derived') {
+  // information about any of the companies.
+  //
+  // The first version tested only the screening-default path, so on the deals where that
+  // same default had been WRITTEN to the record as a figure sourced "Screen", the
+  // warning was suppressed and the page went ahead: "We are buying at 8.3x, inside the
+  // two Healthcare transactions on file" -- on a clinical-stage gene-therapy registrant,
+  // on a denominator the product invented. The test is now whether the price has been
+  // diligenced, by any route.
+  if (priceUnevidenced) {
     return {
       entryMultiple,
       low: lo,
@@ -354,7 +374,7 @@ function againstPrecedent(deal, canon, entryMultiple) {
       count: comps.length,
       sector: deal.sector,
       where: 'not comparable',
-      text: `No comparison can be drawn. The ${entryMultiple}x is enterprise value divided by a screening default of 12% of itself, so it is the same figure on every deal with no diligenced EBITDA — it says nothing about this company. The fund has paid ${range} in ${deal.sector}.`,
+      text: `No comparison can be drawn. Nobody has diligenced the EBITDA under the ${entryMultiple}x, so the multiple says nothing about this company. The fund has paid ${range} in ${deal.sector}.`,
       basis: `${comps.length} transaction${comps.length === 1 ? '' : 's'} the fund underwrote in ${deal.sector}. Get an EBITDA onto the record and this comparison becomes worth making.`,
     };
   }
@@ -388,20 +408,30 @@ export function buildDealCase(deal) {
   // nothing, while its own readiness board carried "Merger control (EU) filing readiness
   // not cleared". A merger-control filing that does not clear kills a deal. It was
   // sitting in an unranked list.
-  const REGULATORY = /merger control|antitrust|regulatory clearance|competition|cfius|foreign investment|change of control consent/i;
-  for (const g of (board.verdict?.gating || [])) {
+  const REGULATORY = /merger control|antitrust|regulatory clearance|competition|cfius|foreign investment|change of control consent|takeover code|rule 2\.7|irrevocable|critical path|financing condition/i;
+  const CANDIDATES = [
+    ...(board.verdict?.gating || []).map((g) => ({ text: String(g), from: 'Committee readiness' })),
+    // A listed take-private carried "Takeover Code (rule 2.7) timetable and irrevocables
+    // are the critical path" at row eight of its outstanding list, graded a condition, and
+    // the page reported that nothing could kill the deal. On a public bid the 2.7
+    // timetable IS the thing that kills it: it is not a condition to be waived, it is a
+    // clock somebody else controls. The product's own assistant named it as a killer,
+    // which is two surfaces of one product disagreeing about whether the deal had any.
+    ...(register.risks || []).filter((r) => r.severity === 'condition').map((r) => ({ text: String(r.risk), from: r.workstream || 'Risk register', owner: r.owner || null })),
+  ];
+  for (const cand of CANDIDATES) {
     if (risks.length >= 3) break;
-    if (!REGULATORY.test(String(g))) continue;
-    if (risks.some((r) => String(r.risk).toLowerCase().includes(String(g).toLowerCase().slice(0, 25)))) continue;
+    if (!REGULATORY.test(cand.text)) continue;
+    if (risks.some((r) => String(r.risk).toLowerCase().includes(cand.text.toLowerCase().slice(0, 25)))) continue;
     risks.push({
-      risk: String(g),
+      risk: cand.text,
       severity: 'stopper',
       severityLabel: 'Deal-stopper',
       likelihood: null,
-      workstream: 'Committee readiness',
-      owner: null,
-      mitigation: 'A clearance that does not come is not a condition to be waived.',
-      basis: 'readiness board',
+      workstream: cand.from,
+      owner: cand.owner || null,
+      mitigation: 'A clearance that does not come, or a timetable somebody else controls, is not a condition to be waived.',
+      basis: 'promoted from the outstanding list',
       basisNote: null,
     });
   }
@@ -414,20 +444,47 @@ export function buildDealCase(deal) {
   // `verdict.conditionsTotal`, which is a different count computed a different way, and
   // so announced "the register carries nothing outstanding" ten lines above a register
   // with two conditions on it. One page, one count, taken from the thing being shown.
-  const openCount = conditions.length + register.counts.reprice;
+  // ONE LIST, AND EVERY COUNT ON THE PAGE IS ITS LENGTH.
+  //
+  // The duplicate list was removed last round and replaced with a number that
+  // contradicted the list it sat above. On one deal the page then gave four different
+  // answers to "what is outstanding": the reason said seven, the count said five, the
+  // list held nine rows and the readiness headline said three plus six. Each was
+  // computed somewhere else off something slightly different. A committee an hour from a
+  // vote cannot use any of them.
+  const outstanding = (() => {
+    const seen = new Set();
+    const rows = [];
+    const add = (text, from, owner) => {
+      const key = String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      rows.push({ text: String(text), from, owner: owner || null });
+    };
+    for (const g of (v.gating || [])) add(g, 'committee readiness');
+    for (const r of conditions) add(r.risk, 'risk register', r.owner || null);
+    for (const r of (register.risks || []).filter((x) => x.severity === 'reprice')) add(r.risk, 'risk register', r.owner || null);
+    return rows;
+  })();
+  const openCount = outstanding.length;
   // Whether there is enough on the record to strike a view at all. The call read the
   // stopper count and then `meetsHurdle`, and nothing else -- so a deal with all seven
   // workstreams not started and no EBITDA on the record returned "PROCEED, SUBJECT TO
   // CONDITIONS — Returns clear the hurdle", eighteen lines above its own list saying
-  // nothing had been diligenced. The hurdle was cleared by returns computed from a
-  // number the same function knew was invented. A verdict that does not read the page it
-  // sits on is worse than no verdict.
-  const lanesOpened = (deal.workstreams || []).filter((w) => String(w.status || '') !== 'not_started').length;
+  // nothing had been diligenced.
+  //
+  // The first version tested `lanesOpened === 0`, which is a switch: two deals holding
+  // identical records, an undiligenced price and no author on either returned different
+  // verdicts because one analyst had opened one tab and left a lane at 8%. A lane that
+  // has produced no finding and no contribution has not been worked, whatever number is
+  // in the box -- the same rule the readiness board already applies, and unlike a
+  // percentage it cannot be cleared without doing the work.
+  const lanesWorked = (deal.workstreams || []).filter((w) => (w.findings || []).length || (w.contributions || []).length).length;
   const laneTotal = (deal.workstreams || []).length;
   const ebitdaKf = recordedFigure(deal, /ebitda/i);
   const priceUnevidenced = canon.ebitdaSource === 'derived'
     || (canon.ebitdaSource === 'recorded' && ebitdaKf && UNDILIGENCED_SOURCE.test(String(ebitdaKf.source || '')));
-  const tooEarly = !decided && priceUnevidenced && laneTotal > 0 && lanesOpened === 0;
+  const tooEarly = !decided && priceUnevidenced && laneTotal > 0 && lanesWorked === 0;
   const call = tooEarly
     ? 'NOT ENOUGH ON THE RECORD TO DECIDE'
     : decided
@@ -445,8 +502,8 @@ export function buildDealCase(deal) {
       : !returns.meetsHurdle
         ? returns.headline
         : openCount
-          ? `Returns clear the hurdle; ${openCount} item${openCount === 1 ? '' : 's'} on the register to settle before signing.`
-          : 'Returns clear the hurdle and the register carries no conditions or repricing items.';
+          ? `Returns clear the hurdle; ${openCount} item${openCount === 1 ? '' : 's'} outstanding before signing.`
+          : 'Returns clear the hurdle and nothing is outstanding on the record.';
 
   // What the committee is NOT being given. A reader who cannot see the gap will assume
   // there isn't one, and the papers most often missing are the ones a vote depends on.
@@ -488,8 +545,8 @@ export function buildDealCase(deal) {
     writtenRecommendation: writtenRecommendation(deal, openCount),
     ask: theAsk(canon, returns, deal),
     baseCase: theBaseCase(deal, returns, canon),
-    priceAgainstPrecedent: againstPrecedent(deal, canon, entryMultipleFor(returns, canon)),
-    forIt: forIt(deal, canon, returns),
+    priceAgainstPrecedent: againstPrecedent(deal, canon, entryMultipleFor(returns, canon), priceUnevidenced),
+    forIt: forIt(deal, canon, returns, tooEarly),
     downside: theDownside(deal, returns),
     againstIt: risks,
     // Everything on the register that somebody actually wrote, at any severity. On a
@@ -523,27 +580,9 @@ export function buildDealCase(deal) {
     ],
     // `conditions` used to be published here as well, and the two lists were the same
     // rows twice on every deal -- with the QoE row appearing three times on one, as a
-    // finding, a condition and an outstanding item. One list.
-    conditionCount: conditions.length,
-    // One list of everything outstanding. A committee member an hour from a vote found
-    // the readiness board naming a regulatory clearance and a financing condition, and
-    // the register naming a working-capital peg and change-of-control consents: four
-    // items, two lists, no overlap, neither a superset, and a headline that counted two.
-    // The paper could not tell them whether the deal had two obligations or four.
-    outstanding: (() => {
-      const seen = new Set();
-      const rows = [];
-      const add = (text, from, owner) => {
-        const key = String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60);
-        if (!key || seen.has(key)) return;
-        seen.add(key);
-        rows.push({ text: String(text), from, owner: owner || null });
-      };
-      for (const g of (v.gating || [])) add(g, 'committee readiness');
-      for (const r of conditions) add(r.risk, 'risk register', r.owner || null);
-      for (const r of (register.risks || []).filter((x) => x.severity === 'reprice')) add(r.risk, 'risk register', r.owner || null);
-      return rows;
-    })(),
+    // finding, a condition and an outstanding item. One list, and this is its length.
+    outstandingCount: outstanding.length,
+    outstanding,
     // The board already audits how much of the case traces to a source, and scores Lumen
     // at 40 with the reason written out -- "IC ask derived from unsourced Revenue &
     // EBITDA". It was on a different page from the ask it is about.
@@ -565,10 +604,18 @@ export function buildDealCase(deal) {
         caveats.push(`the EBITDA under the multiple is sourced "${ebitdaKf.source}", which is not diligence`);
       }
       return {
-        score: a.score,
+        // Score, summary and boolean gave three different answers: 100, "All numeric
+        // claims trace to a source fact or cited document", and clean: false, in one
+        // object. And the denominator is the real problem -- three claims tested on a
+        // page carrying seventeen figures. A 100 out of 3 is worse than no score,
+        // because it is the number a reader quotes.
+        score: caveats.length ? null : a.score,
+        scoreWithheld: caveats.length
+          ? 'No score. The audit checks whether a figure has a source; on this deal that check passes and the figures still cannot be relied on.'
+          : null,
         summary: caveats.length
-          ? `${a.summary} It tests whether each figure has a source, not whether the figures agree: on this deal ${caveats.join(', and ')}.`
-          : a.summary,
+          ? `On this deal ${caveats.join(', and ')}. Every claim it tested does trace to a source, which is why the check passes and the price still cannot be relied on.`
+          : `${a.summary} ${a.totalClaims} claim${a.totalClaims === 1 ? '' : 's'} tested — the key figures on the record, not every number on this page.`,
         clean: caveats.length ? false : a.clean,
         sourced: a.sourcedClaims,
         total: a.totalClaims,
