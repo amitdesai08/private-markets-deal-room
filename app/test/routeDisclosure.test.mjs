@@ -8,6 +8,9 @@ import { seededDeals } from '../data/deals.js';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 process.env.DEAL_ROOM_NO_LISTEN = '1';
+// The seat-claim gate is `BOT_BACKEND_KEY && ...`, so with no key configured it is inert
+// and every boundary assertion below would skip itself into a green run. Set one.
+process.env.BOT_BACKEND_KEY = process.env.BOT_BACKEND_KEY || 'test-bot-key';
 const { app } = await import('../server.js');
 import { hydrate, listDeals } from '../lib/store.js';
 
@@ -18,7 +21,9 @@ await once(server, 'listening');
 const base = `http://127.0.0.1:${server.address().port}`;
 test.after(() => server.close());
 
-const seat = (role) => ({ 'x-dr-view-as': role, 'content-type': 'application/json' });
+// A seat claim is only honoured for a caller that proves it is the app, so these tests
+// have to prove it too — otherwise every one of them silently tests the member floor.
+const seat = (role) => ({ 'x-dr-view-as': role, 'x-bot-key': process.env.BOT_BACKEND_KEY, 'content-type': 'application/json' });
 const get = (path, role) => fetch(`${base}${path}`, { headers: seat(role) });
 const post = (path, role, body) => fetch(`${base}${path}`, { method: 'POST', headers: seat(role), body: JSON.stringify(body || {}) });
 
@@ -162,4 +167,78 @@ test('an unproven caller cannot ask to be a cleared seat', async () => {
   assert.deepEqual(claimed, anon, 'naming a seat without proving anything changed what was served');
   const proven = await ids({ 'x-dr-view-as': 'deal-team', 'x-bot-key': BOT_BACKEND_KEY });
   assert.ok(proven.length >= anon.length, 'a proven caller must still reach its seat');
+});
+
+// ---------------------------------------------------------------------------
+// The surfaces that had no test, and drifted because of it.
+//
+// A review found /api/capabilities still reading the body seat claim ahead of the floor,
+// long after every other route was gated: an anonymous POST of {"viewAsRole":"admin"} came
+// back canWrite and canViewStage2. Nothing pinned it. Nothing pinned the decide route's
+// refusals either, or the status-tier strip.
+// ---------------------------------------------------------------------------
+test('no route grants a seat to a caller that has not proven itself', async () => {
+  const { BOT_BACKEND_KEY } = process.env;
+  if (!BOT_BACKEND_KEY) { assert.ok(true, 'no bot key configured — boundary gate is inert'); return; }
+  const floor = await (await fetch(`${base}/api/capabilities`)).json();
+  assert.equal(floor.canWrite, false, 'fixture assumption: the floor cannot write');
+
+  // Every shape a claim can arrive in, on every route that reads one.
+  const claims = [
+    ['header', `${base}/api/capabilities`, { 'x-dr-view-as': 'admin' }, null],
+    ['body', `${base}/api/capabilities`, { 'content-type': 'application/json' }, { viewAsRole: 'admin' }],
+    ['body', `${base}/api/me/access`, { 'content-type': 'application/json' }, { viewAsRole: 'deal-team' }],
+  ];
+  for (const [how, url, headers, body] of claims) {
+    const r = await fetch(url, { method: 'POST', headers, body: body ? JSON.stringify(body) : '{}' });
+    const j = await r.json();
+    assert.notEqual(j.canWrite, true, `${url} granted write to an unproven caller via the ${how}`);
+    assert.notEqual(j.canViewStage2, true, `${url} granted stage-2 to an unproven caller via the ${how}`);
+    assert.notEqual(j.isAdmin, true, `${url} granted admin to an unproven caller via the ${how}`);
+  }
+});
+
+test('the decide route refuses what it should and admits what it cannot do', async () => {
+  const { BOT_BACKEND_KEY } = process.env;
+  if (!BOT_BACKEND_KEY) { assert.ok(true, 'no bot key configured'); return; }
+  const cleared = { 'x-bot-key': BOT_BACKEND_KEY, 'x-dr-view-as': 'deal-team', 'content-type': 'application/json' };
+  const statusSeat = { 'x-bot-key': BOT_BACKEND_KEY, 'x-dr-view-as': 'member', 'content-type': 'application/json' };
+
+  const target = [...idsFor('member')].find((id) => !idsFor('member').has(id) === false);
+  const ask = await fetch(`${base}/api/deals/${target}/request-access`, { method: 'POST', headers: statusSeat, body: '{}' });
+  assert.ok([200, 409].includes(ask.status), `request-access answered ${ask.status}`);
+  if (ask.status === 200) {
+    const body = await ask.json();
+    assert.equal(body.withWhom, null, 'the deal team was named to a seat that may only see status');
+  }
+
+  const queue = await (await fetch(`${base}/api/access-requests`, { headers: cleared })).json();
+  const open = (queue.requests || [])[0];
+  if (!open) { assert.ok(true, 'no open request to decide in this run'); return; }
+
+  const bad = await fetch(`${base}/api/deals/${open.dealId}/access-requests/${open.id}`, { method: 'POST', headers: cleared, body: JSON.stringify({ decision: 'maybe' }) });
+  assert.equal(bad.status, 400, 'an unrecognised decision must not be treated as a decline');
+
+  const ok = await fetch(`${base}/api/deals/${open.dealId}/access-requests/${open.id}`, { method: 'POST', headers: cleared, body: JSON.stringify({ decision: 'approve' }) });
+  const decided = await ok.json();
+  assert.equal(decided.dealSize, undefined, 'the decide route serialised the deal record');
+  assert.equal(decided.keyFigures, undefined, 'the decide route serialised the deal record');
+  // A seat with no named identity cannot be admitted, and saying "approved" while the
+  // team is unchanged is the one outcome an approver must never be given.
+  if (!decided.request?.person) {
+    assert.equal(decided.granted, false, 'reported a grant that admitted nobody');
+    assert.match(String(decided.detail || ''), /nobody was added/i);
+  }
+});
+
+test('the status tier strips the progress detail, and keeps only what it means to keep', async () => {
+  const rows = listDeals(null, 'member').filter((d) => d.accessLevel === 'status');
+  assert.ok(rows.length, 'fixture must produce a status-tier row');
+  for (const r of rows) {
+    for (const k of ['stepIndex', 'stepNumber', 'totalSteps', 'flowProgress', 'hoursSaved', 'projectedDaysSaved', 'leadAnalyst', 'sponsorPersona']) {
+      assert.equal(r[k] ?? null, null, `${r.company}: ${k} survived the status-tier strip`);
+    }
+    // Deliberately kept: a metadata seat is entitled to know a deal is not ready.
+    assert.notEqual(r.readiness, undefined, `${r.company}: readiness is meant to survive`);
+  }
 });

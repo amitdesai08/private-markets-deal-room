@@ -1824,13 +1824,22 @@ api.get('/persona-agents', (_req, res) => res.json(personaAgentsInfo()));
 // "view as" (their own + every lower one). The tab uses this to show only the agents
 // the user is entitled to and to offer a downward view-as.
 api.post('/me/access', (req, res) => {
-  res.json(describeAccess(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req))));
+  const out = describeAccess(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
+  // Telling an unauthenticated caller that the deploy's own default is a cleared seat is
+  // the reconnaissance step before trying to claim it.
+  if (requestingFloor(req)) return res.json({ ...out, actualRole: out.role, actualRoleLabel: out.roleLabel, viewAsRoles: [] });
+  res.json(out);
 });
 
 // Role-aware capabilities — "what can you do?". Scoped to the caller's role so a new user
 // can start blind. GET or POST; view-as via header/body.
 api.all('/capabilities', (req, res) => {
-  const access = accessFor(requestingIdentity(req), req.body?.viewAsRole || (requestingFloor(req) || requestingViewAs(req)));
+  // This route read the body claim itself, ahead of the floor, and so kept granting the
+  // escalation every other route had stopped: an anonymous POST of {"viewAsRole":"admin"}
+  // came back canWrite, canViewStage2, Deal Team. No deal record with it — but view-as
+  // GRANTING is the thing that must never happen, and one route reading the raw input is
+  // how it comes back.
+  const access = accessFor(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
   res.json({ ...capabilitiesFor(access), narrative: capabilitiesNarrative(access) });
 });
 
