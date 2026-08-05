@@ -325,6 +325,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [initialTab]);
   const [accessAsk, setAccessAsk] = useState<'idle' | 'sending' | 'done' | 'already'>('idle');
+  const lastGroupRef = useRef<string>('brief');
   // A deal opened on an 806px screen left a 216px slot to read it in: 73% of the
   // window was header that never changed, and the deal brief -- 3,500px of it --
   // came through a letterbox. None of those bands was wrong on its own, which is
@@ -736,7 +737,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   // product does not do that"; a present, empty one teaches.
   const tabAvailable = (t: Tab) => cockpitOn || !NEEDS_BRIEF.includes(t);
   const groups = TAB_GROUPS.map((g) => ({ ...g, tabs: g.tabs.filter(tabAvailable) })).filter((g) => g.tabs.length);
-  const activeGroup = groups.find((g) => g.tabs.includes(tab)) || groups[0];
+  const inGroup = groups.find((g) => g.tabs.includes(tab));
+  // The channel and the audit trail belong to no group, so opening one left the section
+  // row with nothing marked. It keeps showing where you were.
+  if (inGroup) lastGroupRef.current = inGroup.key;
+  const activeGroup = inGroup || groups.find((g) => g.key === lastGroupRef.current) || groups[0];
   const RYG_DOT: Record<string, string> = { red: 'var(--bad)', amber: 'var(--warn)', green: 'var(--good)' };
 
   return (
@@ -876,9 +881,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                 </button>
               ))}
               <span className="dd-tabdiv" aria-hidden="true" />
-              {/* The channel and the audit trail are commentary on whatever you are
-                  reading, not destinations of their own, so they sit apart from the row
-                  rather than competing with it for the same glance. */}
+            </nav>
+            {/* Its own navigation, not a divider inside the section row. With the channel
+                or the audit trail open, no group carried aria-current and the row read as
+                having nothing selected. */}
+            <nav className="dd-rails" aria-label="On this deal">
               {RAIL_TABS.map((t) => (
                 <button
                   key={t}

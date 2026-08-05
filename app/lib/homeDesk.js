@@ -553,6 +553,10 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
 
 
   const ranked_ = ranked.filter((r) => r.a.rank <= 5);
+  // Everything the rank cut removed. This was not counted anywhere, so the panel dropped
+  // seven not-IC-ready deals and reported attentionOmitted 0 — a list that silently
+  // shortens the book while saying it has not is worse than one that is simply long.
+  const droppedByRank = ranked.length - ranked_.length;
   // A row with no impact, no verdict and nothing gating it is not competing for anyone's
   // attention. Three real items followed by seven reading "In origination · Screened, not
   // yet launched into diligence" spends the list's authority: the eye stops scanning, and
@@ -630,9 +634,9 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
 
   // Deals that qualified but had nothing outstanding to say. Reported as a count with a
   // route, rather than as rows that repeat one sentence.
-  const attentionQuiet = quiet;
-  const attentionQuietNote = quiet
-    ? `${quiet} more ${quiet === 1 ? 'deal is' : 'deals are'} in origination with nothing outstanding.`
+  const attentionQuiet = quiet + droppedByRank;
+  const attentionQuietNote = attentionQuiet
+    ? `${attentionQuiet} more deal${attentionQuiet === 1 ? '' : 's'} ${attentionQuiet === 1 ? 'is' : 'are'} in view with nothing outstanding on ${attentionQuiet === 1 ? 'it' : 'them'} today.`
     : null;
 
   // Rows the reader can see the existence of but not the detail of. Every number below

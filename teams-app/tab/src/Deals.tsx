@@ -23,7 +23,9 @@ export type DealsFilter = 'all' | 'origination' | 'diligence' | 'execution' | 'v
 // list, and the pointer to the other view was a sentence.
 const FILTERS: [DealsFilter, string][] = [
   ['all', 'All'],
-  ['attention', 'Needs attention'],
+  // Not "Needs attention": the home page has a panel of that name computed from a
+  // different rule, and the two showed 19 and 15 on the same seat in the same minute.
+  ['attention', 'Not IC-ready'],
   ['origination', 'Origination'],
   ['diligence', 'Diligence'],
   ['execution', 'Execution'],

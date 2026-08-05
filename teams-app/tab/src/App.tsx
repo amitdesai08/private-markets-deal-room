@@ -193,7 +193,7 @@ export default function App() {
   // tabs for the part of the pipeline they actually hold means the reader can tell
   // which one to open without opening either.
   const mainTabs: [typeof mainTab, string][] = [
-    ['overview', 'Home'], ['sourcing', 'Sourcing & screening'], ['deals', 'Deals in flight'], ['fund', 'Fund & Portfolio'],
+    ['overview', 'Home'], ['sourcing', 'Sourcing & screening'], ['deals', 'All deals'], ['fund', 'Fund & Portfolio'],
     // Four of the five tabs name a subject; the fifth named a file format, and the LP
     // report actually lives under Fund & Portfolio. Two doors plausibly led to a report
     // and only one of them was called Report.
@@ -381,6 +381,18 @@ export default function App() {
     });
     return () => window.cancelAnimationFrame(id);
   }, [openDealId, settingsOpen, mainTab, dealsScrollTop]);
+
+  // Escape closes the open deal. A full-screen drawer with mouse-only dismissal traps
+  // anyone working from the keyboard.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (settingsOpen) { setSettingsOpen(false); return; }
+      if (openDealId) setOpenDealId('');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [openDealId, settingsOpen]);
 
   // ...and let the browser's own Back and Forward buttons work, because a person who
   // has been given a URL that changes will press them.
@@ -1282,7 +1294,9 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .dd-tabdiv { flex: 0 0 auto; align-self: center; width: 1px; height: 18px; background: var(--border); margin: 0 8px; }
 /* The channel and the audit trail. Quieter than a tab on purpose: they are commentary,
    and they should not compete with the five for the same glance. */
-.dd-rail { border: none; background: none; color: var(--muted); padding: 8px 10px; cursor: pointer; font: inherit; font-size: 12px; border-bottom: 2px solid transparent; white-space: nowrap; }
+/* The rail is its own navigation, below the section row. */
+.dd-rails { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 12px 0; background: var(--surface); }
+.dd-rail { border: none; background: none; color: var(--muted); padding: 6px 10px; cursor: pointer; font: inherit; font-size: 12px; border-bottom: 2px solid transparent; white-space: nowrap; }
 .dd-rail:hover { color: var(--fg); }
 .dd-rail.on { color: var(--accent); border-bottom-color: var(--accent); }
 /* Sub-navigation inside a group. A segmented control rather than a second tab row, so

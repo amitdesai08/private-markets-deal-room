@@ -151,7 +151,7 @@ import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
-import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent, dealAccessLevel, dealTeamOf, describeAccess, describeDemoProfiles, demoModeActive, demoProfilesEnabled, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
+import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent, dealAccessLevel, dealTeamOf, demoIdentityForRole, describeAccess, describeDemoProfiles, demoModeActive, demoProfilesEnabled, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
 import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
 import { buildCockpit } from './lib/cockpit.js';
 import { buildWorkflowDesk, buildThreads, buildDocumentDesk, detectCommitments } from './lib/dealDesk.js';
@@ -207,7 +207,10 @@ function requestingIdentity(req) {
   if (hdr) {
     try { const u = JSON.parse(hdr); return { oid: u.oid, upn: u.upn, name: u.name, roles: u.roles, groups: u.groups }; } catch { /* ignore */ }
   }
-  return null;
+  // A proven caller previewing a seat in demo mode becomes that seat's demo person.
+  // Without it "view as partner" clamped to the deploy default, and a partner's first
+  // 45 seconds opened with "No specialist role is assigned to you yet".
+  return demoIdentityForRole(req.body?.viewAsRole || req.headers['x-dr-view-as']);
 }
 
 // The role the caller is previewing as (demo "view as"), from body or trusted header.

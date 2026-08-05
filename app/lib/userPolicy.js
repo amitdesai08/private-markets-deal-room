@@ -269,6 +269,19 @@ function actualRoleFor(identity) {
 
 const anonymous = (identity) => !(identity && (identity.oid || identity.upn || identity.name));
 
+// The demo roster identity for a role, so "view as partner" previews a partner rather than
+// clamping to the deploy default. Only reachable for a caller that has proved it is the
+// app: the bot key is the trust boundary, and previewing a seat is what the roster exists
+// for. Without this, asking to be a partner answered as deal-team and opened the page with
+// "No specialist role is assigned to you yet" — a permissions apology, to a partner.
+export function demoIdentityForRole(role) {
+  if (!demoModeActive()) return null;
+  const id = (demoRoleIds[String(role || '').trim()] || [])[0];
+  if (!id) return null;
+  const p = demoProfileById(id);
+  return { upn: id, name: p?.name || id };
+}
+
 // Roles a user may impersonate DOWN to — their own role and every lower one. Powers a
 // "view as" so a senior reviewer sees exactly what a junior role would (never up).
 export function viewAsRolesFor(identity) {
