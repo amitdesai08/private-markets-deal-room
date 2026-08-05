@@ -87,6 +87,7 @@ import {
   getDealRiskRegister,
   getDealIoi,
   getDealLoi,
+  getDealCase,
   getCitationAudit,
   marketIntel,
   fabricStatus,
@@ -1146,6 +1147,17 @@ api.get('/deals/:id/ioi', (req, res) => {
 api.get('/deals/:id/loi', (req, res) => {
   if (!dealArtifactGate(req, res)) return;
   const out = getDealLoi(req.params.id);
+  if (!out) return res.status(404).json({ error: 'not-found' });
+  res.json(out);
+});
+
+// The case, for a committee member reading the deal once, cold, before voting. The
+// memo sections are what people have written and on most deals they are empty; this is
+// what the record itself says — the ask, the returns, the three things that could kill
+// it, and the basis under every figure. Composed, and it says so.
+api.get('/deals/:id/case', (req, res) => {
+  if (!dealArtifactGate(req, res)) return;
+  const out = getDealCase(req.params.id);
   if (!out) return res.status(404).json({ error: 'not-found' });
   res.json(out);
 });

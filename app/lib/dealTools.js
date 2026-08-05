@@ -15,7 +15,7 @@ import {
   launchDeal, advanceDeal, runStep, assignSwimlane, recordFinding, recordContribution,
   getICReadiness, marketIntel, recordIssue, resolveIssue, setCondition, snapshotAssumptions,
   getCitationAudit, canonicalCompanies, canonicalCompany,
-  getDealReturns, getDealValueCreation, getDealRiskRegister,
+  getDealReturns, getDealValueCreation, getDealRiskRegister, getDealCase,
   portfolioStats
 } from './store.js';
 import { dealAccessLevel } from './userPolicy.js';
@@ -340,6 +340,14 @@ export function valueCreationView(dealId) {
 export function riskRegisterView(dealId) {
   const rr = getDealRiskRegister(dealId);
   return rr || { error: 'deal-not-found', deal_id: dealId };
+}
+// "Make the case for X" and "what would kill this deal" are the two questions asked
+// most often before a committee, and both used to be answered by reassembling four
+// other tools in prose. This is the one composition, so the assistant quotes it rather
+// than building its own each time and arriving somewhere slightly different.
+export function dealCaseView(dealId) {
+  const c = getDealCase(dealId);
+  return c || { error: 'deal-not-found', deal_id: dealId };
 }
 
 // Fund / portfolio lens (post-IC) — Operating Partner, Fund CFO, Investor

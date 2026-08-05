@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getSsoToken } from './teams';
 import { af } from './authFetch';
 import DealArtifacts from './DealArtifacts';
+import DealCase from './DealCase';
 import WorkIqPanel from './WorkIqPanel';
 import ChatPanel from './ChatPanel';
 import Cockpit from './Cockpit';
@@ -136,7 +137,7 @@ const bigMoney = (n?: number) => (n == null ? '—' : n >= 1e9 ? `$${(n / 1e9).t
 
 const REGION_LABEL: Record<string, string> = { northeast: 'Northeast', southeast: 'Southeast', midwest: 'Midwest', southcentral: 'South Central', northwest: 'Northwest', southwest: 'Southwest', international: 'International' };
 
-type Tab = 'cockpit' | 'workflow' | 'threads' | 'docdesk' | 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'artifacts' | 'documents' | 'activity';
+type Tab = 'cockpit' | 'workflow' | 'threads' | 'docdesk' | 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'case' | 'artifacts' | 'documents' | 'activity';
 type ResolveTarget = { tab: Tab; step?: string };
 type ActivityEntry = { actor?: string; action?: string; when?: string; via?: string | null };
 
@@ -157,6 +158,12 @@ const TAB_LABEL: Record<Tab, string> = {
   // lost them. Named for what is on it.
   workflow: 'Progress & follow-ups',
   ic: 'IC readiness',
+  // A committee member reads a deal once, cold, an hour before voting. Everything they
+  // need was in the product and none of it was in one place: the ask on the returns
+  // page, the killers on the register, the state on the readiness board, and the memo
+  // section that should have joined them up stored as an empty string. This is that
+  // page, composed from the record, and it says on its face that it is composed.
+  case: 'The case',
   stages: 'Work the deal',
   docdesk: 'Documents',
   workspace: 'Diligence workstreams',
@@ -217,7 +224,7 @@ const POST_IC = new Set(['approved', 'signing', 'signed', 'closed', 'owned', 'ex
 type TabGroup = { key: string; label: string; tabs: Tab[] };
 const TAB_GROUPS: TabGroup[] = [
   { key: 'brief', label: 'Brief', tabs: ['cockpit', 'overview'] },
-  { key: 'ic', label: 'IC readiness', tabs: ['ic'] },
+  { key: 'ic', label: 'IC readiness', tabs: ['case', 'ic'] },
   { key: 'work', label: 'The work', tabs: ['stages', 'workspace', 'workflow'] },
   { key: 'analysis', label: 'Analysis', tabs: ['artifacts', 'research'] },
   { key: 'papers', label: 'Papers', tabs: ['docdesk', 'documents'] },
@@ -226,6 +233,8 @@ const TAB_GROUPS: TabGroup[] = [
 // Inside a group the full names are redundant — "Diligence workstreams" under "The work"
 // says the same word twice.
 const SUB_LABEL: Partial<Record<Tab, string>> = {
+  case: 'The case',
+  ic: 'Checklist',
   cockpit: 'Summary',
   overview: 'Thesis & figures',
   stages: 'Plan',
@@ -281,13 +290,13 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   // are. Everything anyone might reasonably type is accepted on the way in, including
   // every old key, so no link that has already been sent stops working.
   const TAB_SLUG: Record<string, string> = {
-    cockpit: 'brief', overview: 'thesis', ic: 'ic-readiness', artifacts: 'returns',
+    cockpit: 'brief', overview: 'thesis', ic: 'ic-readiness', case: 'the-case', artifacts: 'returns',
     workflow: 'progress', stages: 'work', workspace: 'workstreams', docdesk: 'documents',
     documents: 'generate', threads: 'channel', research: 'comparables', activity: 'audit',
   };
   const TAB_ALIAS: Record<string, Tab> = {
     // the words on the tabs
-    brief: 'cockpit', thesis: 'overview', 'ic-readiness': 'ic', returns: 'artifacts',
+    brief: 'cockpit', thesis: 'overview', 'ic-readiness': 'ic', 'the-case': 'case', returns: 'artifacts',
     progress: 'workflow', work: 'stages', workstreams: 'workspace', documents: 'docdesk',
     generate: 'documents', channel: 'threads', comparables: 'research', audit: 'activity',
     // and the words people actually type
@@ -295,8 +304,10 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
     dataroom: 'workspace', 'follow-ups': 'workflow', followups: 'workflow',
     readiness: 'ic', 'key-figures': 'overview', risk: 'artifacts', irr: 'artifacts',
     'audit-trail': 'activity', precedents: 'research', diligence: 'workspace',
+    // What a committee member types when they want the case, rather than the checklist.
+    memo: 'case', recommendation: 'case', vote: 'case', ask: 'case',
   };
-  const ALL_TABS: string[] = ['cockpit', 'overview', 'ic', 'artifacts', 'workflow', 'stages', 'workspace', 'docdesk', 'documents', 'threads', 'research', 'activity'];
+  const ALL_TABS: string[] = ['cockpit', 'overview', 'ic', 'case', 'artifacts', 'workflow', 'stages', 'workspace', 'docdesk', 'documents', 'threads', 'research', 'activity'];
   const resolveTab = (raw?: string): Tab | undefined => {
     if (!raw) return undefined;
     const k = String(raw).toLowerCase();
@@ -1005,6 +1016,8 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   onAsk={(q) => { setChatSeed(q); setChatSeedNonce((n) => n + 1); setAskOpen(true); }}
                 />
               )}
+
+              {tab === 'case' && <DealCase dealId={dealId} onGoTab={(t) => setTab(t as Tab)} />}
 
               {tab === 'artifacts' && <DealArtifacts dealId={dealId} />}
 

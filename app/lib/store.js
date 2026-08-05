@@ -23,6 +23,7 @@ import { fundMandate, seedThemes, seedScreens } from '../data/mandates.js';
 import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scoring.js';
 import { buildScorecard, buildTriageScore, buildMemoBase } from './screening.js';
 import { buildDiligencePlan, buildFindingsReport, buildFinalMemoBase, buildExecutionPack, buildCloseoutPlan, buildReturnsModel, buildValueCreationPlan, buildRiskRegister, buildIoi, buildLoi } from './diligence.js';
+import { buildDealCase } from './dealCase.js';
 import { buildWorkspace, checklistStats, MD_OPTIONS, WORKSTREAM_DEFAULTS, ensureWorkspaceSwimlanes, LANE_ORDER } from '../data/workspace.js';
 import { ensureDealChannel, provisionDealDataRoom, m365Connected, m365Ready, publishTeamToGroup, installTeamsAppInTeam, ensureDealAccessGroup, saveDealDocument } from './m365/graph.js';
 import { buildIcMemoDocx, buildDealModelXlsx, buildReturnsXlsx, buildIcDeckPptx, buildDataRoomGuideDocx, OFFICE_MIME } from './m365/officeRich.js';
@@ -2631,6 +2632,13 @@ export function getDealIoi(id) {
 export function getDealLoi(id) {
   const deal = getDealRaw(id);
   return deal ? buildLoi(deal) : null;
+}
+// The case, composed from the record for a committee member reading cold. Distinct from
+// `memoSections`, which is what people have written; this is what the record already
+// says, and it exists because on most deals those two are not the same thing.
+export function getDealCase(id) {
+  const deal = getDealRaw(id);
+  return deal ? buildDealCase(deal) : null;
 }
 
 // The decision-grade IC Readiness board, grounded in real Fabric/OneLake market

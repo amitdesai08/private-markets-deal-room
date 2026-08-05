@@ -6,6 +6,7 @@ import { complete, getModelInfo } from './ai.js';
 import { LANES } from '../data/personas.js';
 import { recordReadingGuide } from './icReadiness.js';
 import { figuresBlock, enforceFigures, buildRiskRegister } from './diligence.js';
+import { buildDealCase } from './dealCase.js';
 
 // Compact money formatter for prompt text ($M in, B/M out).
 const money = (m) => (m == null ? '—' : m >= 1000 ? `$${(m / 1000).toFixed(1)}B` : `$${Math.round(m)}M`);
@@ -66,6 +67,23 @@ function registerBlock(deal) {
   } catch { return null; }
 }
 
+// The composed case, so "make the case for this deal" is answered from one place and
+// gives the same answer twice running.
+function caseBlock(deal) {
+  try {
+    const c = buildDealCase(deal);
+    if (!c) return null;
+    const lines = ['THE CASE — composed by the product from this deal\'s own record. Quote it; do not rebuild it. It is not an approved memo and must never be described as one.'];
+    if (c.ask) lines.push(`- The ask: ${c.ask.headline}`);
+    lines.push(`- The reading: ${c.recommendation.call} — ${c.recommendation.because}`);
+    for (const p of c.forIt) lines.push(`- For: ${p.point}. ${p.basis}`);
+    for (const r of c.againstIt) lines.push(`- Against [${r.severityLabel}]: ${r.risk}`);
+    for (const f of c.figures) lines.push(`- ${f.label} ${f.value} — ${f.basis}`);
+    for (const n of c.notOnRecord) lines.push(`- Not on record: ${n}`);
+    return lines.join('\n');
+  } catch { return null; }
+}
+
 function buildContext(deal) {
   const figs = deal.keyFigures.map((f) => `${f.label}: ${f.value} (${f.source})`).join('; ');
   const lanes = deal.workstreams
@@ -94,6 +112,11 @@ function buildContext(deal) {
     // adjusted figure". Denying a fact the product prints two tabs away is worse than
     // not knowing it.
     registerBlock(deal),
+    // "Make the case" and "what would kill this" are the two questions asked before a
+    // committee, and the model was answering them by reassembling the figures itself --
+    // arriving at a slightly different case each time it was asked. The product now
+    // composes one, so hand it over and require it to be quoted rather than rebuilt.
+    caseBlock(deal),
     // Without this the model had the key figures but not the returns, so it derived an
     // entry multiple, an IRR and a MOIC of its own -- and quoted them beside the ones
     // the deal's Returns page prints. Two different answers to one question, both

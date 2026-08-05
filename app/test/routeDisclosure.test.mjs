@@ -36,7 +36,7 @@ const hiddenFromAnalyst = () => {
 // Every sub-resource a deal id can carry. If a route is added to the product and not to
 // this list, that is the gap this file exists to catch.
 const SUB_ROUTES = [
-  '', '/ic-readiness', '/returns', '/risk-register', '/value-creation', '/ioi', '/loi',
+  '', '/ic-readiness', '/case', '/returns', '/risk-register', '/value-creation', '/ioi', '/loi',
   '/citations', '/cockpit', '/threads', '/workflow-desk', '/doc-desk', '/activity', '/documents',
 ];
 
@@ -67,7 +67,7 @@ test('a hidden deal never appears in the body of any of those routes', async () 
 test('a cleared seat still gets all of it', async () => {
   const id = hiddenFromAnalyst()[0];
   const denied = [];
-  for (const path of ['', '/ic-readiness', '/returns', '/risk-register', '/citations']) {
+  for (const path of ['', '/ic-readiness', '/case', '/returns', '/risk-register', '/citations']) {
     const r = await get(`/api/deals/${id}${path}`, 'partner');
     if (r.status !== 200) denied.push(`${path || '(record)'} -> ${r.status}`);
   }
