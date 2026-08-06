@@ -370,7 +370,11 @@ api.use((req, res, next) => {
   const deal = dealForCandidate(id);
   if (!deal) return next();
   if (dealAccessLevel(requestingIdentity(req), deal, (requestingFloor(req) || requestingViewAs(req))) === 'none') {
-    return res.status(404).json({ error: 'candidate not found' });
+    // Byte-identical to what the route itself answers for an id that was never issued.
+    // It said 'candidate not found' and the route says 'not-found', so the two refusals
+    // were thirty-one bytes and twenty-one — enough to sort real targets from invented
+    // ones by length alone, on ids you can count up to.
+    return res.status(404).json({ error: 'not-found' });
   }
   next();
 });

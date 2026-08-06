@@ -443,6 +443,16 @@ test('the candidate routes answer, and never name a candidate whose deal is hidd
       // 5xx is a fault in its own right and it is also an answer: it tells a caller the
       // route exists and reached code. Refusals must be quiet, not loud.
       if (r.status >= 500) { faults.push(`${id}${tail} -> ${r.status}`); continue; }
+      // A refusal that is a different length for a real id than for an invented one sorts
+      // the firm's targets out of the id space without ever being granted anything.
+      if (r.status === 404) {
+        const control = await fetch(`${base}/api/candidates/zz-never-issued${tail}`);
+        // Express's own 404 page echoes the path, which it does for every id alike, so
+        // the id itself is not the disclosure. Take it out and compare what is left.
+        const strip = (s, k) => s.split(k).join('<id>');
+        const [x, y] = await Promise.all([r.clone().text(), control.text()]);
+        if (strip(x, id) !== strip(y, 'zz-never-issued')) faults.push(`${id}${tail} refused differently than an invented id`);
+      }
       const body = (await r.text()).toLowerCase();
       for (const name of hiddenNames) {
         if (body.includes(name)) faults.push(`${id}${tail} named "${name}", hidden as a deal`);
