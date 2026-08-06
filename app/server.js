@@ -425,7 +425,12 @@ const OPEN_TO_THE_WORLD = [
   /^\/mcp\/[^/]+\/(login|callback)$/,
 ];
 api.use((req, res, next) => {
-  if ((requestingFloor(req) || requestingViewAs(req)) !== 'anonymous') return next();
+  // Proving the key and saying who you are are two different questions, and this guard
+  // only asks the first. The app itself has to reach /demo-profiles and /me/access before
+  // anyone has signed in — that is how the sign-in list gets drawn — so a keyed caller is
+  // let past here and then resolves to the `anonymous` ROLE, which sees nothing. What is
+  // refused outright is the caller that has not proved it is the app at all.
+  if (!BOT_BACKEND_KEY || req.headers['x-bot-key'] === BOT_BACKEND_KEY) return next();
   if (OPEN_TO_THE_WORLD.some((re) => re.test(req.path))) return next();
   return res.status(401).json({
     error: 'sign-in-required',

@@ -68,11 +68,7 @@ async function getDemoProfiles() {
   if (!isBackendLive()) return [];
   try {
     const headers = {};
-    // The key is the app's proof, and it was attached whatever the browser had told us —
-  // so an unauthenticated visitor to the tab host was forwarded as a proven caller and
-  // could pick its own seat with an x-dr-view-as header. Withhold it when we cannot say
-  // who is asking; the backend then treats the request as what it is.
-  if (config.backend.botKey && requestingUser) headers['x-bot-key'] = config.backend.botKey;
+    if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
     const r = await fetch(`${config.backend.url}/api/demo-profiles`, { headers });
     if (r.ok) { _demoProfiles = await r.json(); _demoProfilesAt = Date.now(); return _demoProfiles; }
   } catch { /* backend not ready — return empty, retry next request */ }
@@ -270,7 +266,8 @@ async function forwardChat(path, req, res) {
     ? { name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : null);
   const headers = { 'content-type': 'application/json' };
-  if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
+  // Same rule as forwardWithIdentity: no identity, no key, no seat.
+  if (config.backend.botKey && requestingUser) headers['x-bot-key'] = config.backend.botKey;
   const body = { ...(req.body || {}) };
   delete body.ssoToken; delete body.as;
   body.requestingUser = requestingUser;
@@ -302,7 +299,9 @@ app.use('/api/admin', async (req, res) => {
   delete body.ssoToken; delete body.as;
   body.requestingUser = requestingUser;
   const headers = { 'content-type': 'application/json' };
-  if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
+  // Same rule as forwardWithIdentity: no identity, no key, no seat. This is the ADMIN
+  // proxy, so it is the last place a browser should be handed the app's own proof.
+  if (config.backend.botKey && requestingUser) headers['x-bot-key'] = config.backend.botKey;
   try {
     const upstream = await fetch(`${config.backend.url}${req.originalUrl}`, {
       method: 'POST', headers, body: JSON.stringify(body),
@@ -416,7 +415,12 @@ async function forwardWithIdentity(req, res) {
     ? { name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
   const headers = { 'content-type': 'application/json' };
-  if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
+  // The key is the app's proof and it was attached whatever the browser had told us, so
+  // an unauthenticated visitor to the tab host was forwarded as a proven caller and could
+  // pick its own seat with an x-dr-view-as header — nineteen deals at accessLevel `full`.
+  // Withhold it when we cannot say who is asking, and the backend sees the request for
+  // what it is. This is the browser's request; the tab's own bootstrap calls still carry it.
+  if (config.backend.botKey && requestingUser) headers['x-bot-key'] = config.backend.botKey;
   if (requestingUser) headers['x-dr-user'] = JSON.stringify(requestingUser);
   if (viewAsRole) headers['x-dr-view-as'] = viewAsRole;
   // Only attach the delegated token when the caller is genuinely that user. Under a
