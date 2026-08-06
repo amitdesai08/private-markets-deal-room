@@ -21,6 +21,7 @@ import {
   getFlow,
   getMailbox,
   hiddenCompanyNames,
+  namesOf,
   getSignalCompanies,
   getCrm,
   getSourcingDesk,
@@ -255,7 +256,9 @@ function requestingViewAs(req) {
 // boundary so the platform's own internal callers keep the default they are configured
 // with.
 function requestingFloor(req) {
-  return BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY ? 'member' : null;
+  // 'anonymous', not 'member'. An unproven caller is not a quiet member of the firm; it
+  // is whoever has the URL, and the two were indistinguishable to every access decision.
+  return BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY ? 'anonymous' : null;
 }
 
 // A DELEGATED Microsoft Graph token for the signed-in user, obtained by the Teams
@@ -379,6 +382,23 @@ api.use((req, res, next) => {
   next();
 });
 
+// The firm's own reporting is not floor data.
+//
+// /market-intel/ic-precedents returned the committee's voting record to anyone with the
+// URL — 'Ferrand Engineering, Declined, 2 for and 5 against, would not underwrite above
+// 8.5x without a signed second customer' — and /fund/portfolio shipped six holdings with
+// entry EV, MOIC, IRR and realisation dates. Both took `_req` and discarded the caller.
+// How this firm votes and what it has made are the two things a competitor would ask for
+// first, and neither is about a deal, so the boundary guard above never saw them.
+const FIRM_ONLY_RE = /^\/(fund|market-intel|fabric)(\/|$)/;
+api.use((req, res, next) => {
+  if (!FIRM_ONLY_RE.test(req.path)) return next();
+  if ((requestingFloor(req) || requestingViewAs(req)) !== 'anonymous') return next();
+  return res.status(401).json({
+    error: 'sign-in-required',
+    detail: 'Fund reporting and market intelligence are open to the firm. Sign in to see them.',
+  });
+});
 // Microsoft Graph mailbox change-notifications (O1 Deal-Sourcing signals)
 api.use('/graph', graphRouter);
 
@@ -479,7 +499,11 @@ api.get('/analytics', (req, res) => res.json(portfolioStats(listDeals(requesting
 const fundPayload = (obj) => ({ ...withFundMeta(obj), _reporting: guardReporting(REPORTING_SOURCE_IDS) });
 api.get('/fund/overview', (_req, res) => res.json(fundPayload(fundOverview())));
 api.get('/fund/portfolio', (_req, res) => res.json(fundPayload(portfolioMonitoring())));
-api.get('/fund/value', (_req, res) => res.json(fundPayload(executiveValue(portfolioStats()))));
+// The underscore on `_req` was the whole finding: the caller was discarded before the
+// numbers were computed, so this tile told an anonymous visitor that the firm has 24 deals,
+// 12 in diligence and 17 awaiting committee, while the same visitor could list none of
+// them. A count is a disclosure — /analytics on the line above has always scoped it.
+api.get('/fund/value', (req, res) => res.json(fundPayload(executiveValue(portfolioStats(listDeals(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req))))))));
 // Canonical metric dictionary + lineage (advisor SC-4): formula, definition, source
 // and as-of for every fund/portfolio KPI, used identically by UI, exports and Power BI.
 api.get('/fund/methodology', (_req, res) => res.json(fundMethodology()));
@@ -1485,9 +1509,14 @@ api.post('/fabric/refresh', async (_req, res) => {
 // O1 · Deal Sourcing — CxO signals explorer
 api.get('/signals/mailbox', (req, res) => res.json(getMailbox(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)))));
 api.get('/signals/companies', (req, res) => res.json(getSignalCompanies(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)))));
+// "No CRM record — net-new target" is an answer about a company, and it was being given
+// for targets the caller cannot see.
 api.get('/signals/companies/:id/crm', (req, res) => {
   const crm = getCrm(req.params.id);
-  if (!crm) return res.status(404).json({ error: 'company not found' });
+  const hidden = hiddenCompanyNames(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
+  if (!crm || namesOf(crm).some((n) => hidden.has(n)) || hidden.has(String(canonicalCompany(req.params.id)?.company || '').toLowerCase())) {
+    return res.status(404).json({ error: 'company not found' });
+  }
   res.json(crm);
 });
 
@@ -1497,9 +1526,14 @@ api.get('/companies', (req, res) => {
   const inFunnel = req.query.inFunnel === 'true' ? true : req.query.inFunnel === 'false' ? false : undefined;
   res.json(canonicalCompanies({ inFunnel, identity: requestingIdentity(req), viewAsRole: (requestingFloor(req) || requestingViewAs(req)) }));
 });
+// Fixed on the list, missed on the record — the third name for the same target. The list
+// omitted five companies and this route served every one of them by id, with the funnel
+// disposition and the firm's own screening reasoning verbatim. The refusal is the same
+// bytes the route already emits for an id that does not exist.
 api.get('/companies/:id', (req, res) => {
   const c = canonicalCompany(req.params.id);
-  if (!c) return res.status(404).json({ error: 'company-not-found' });
+  const hidden = hiddenCompanyNames(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
+  if (!c || namesOf(c).some((n) => hidden.has(n))) return res.status(404).json({ error: 'company-not-found' });
   res.json(c);
 });
 

@@ -63,10 +63,17 @@ const BUILTIN_ROLE = {
   'deal-team': { rank: 60,  personas: DEAL_TEAM_PERSONAS, write: true,  stage2: true },
   analyst:     { rank: 40,  personas: ['analyst'],                                               write: false, stage2: false },
   member:      { rank: 20,  personas: [],                                                         write: false, stage2: false },
+  // The open internet. A caller who has proved nothing used to be floored to `member`,
+  // so the firm's own staff and anyone who had the URL were the same seat — and five
+  // live unannounced transactions were served to it by name, with stage and readiness,
+  // because `pipelineVisible` says "known internally" and there was no line in the code
+  // between the firm and the internet. This is that line.
+  anonymous:   { rank: 10,  personas: [],                                                         write: false, stage2: false },
 };
 
 const BUILTIN_LABEL = {
   admin: 'Administrator', partner: 'Partner / Deal Sponsor', 'deal-team': 'Deal Team', analyst: 'Analyst', member: 'Member',
+  anonymous: 'Not signed in',
 };
 
 // Effective roles = built-in defaults merged with admin-authored overrides / custom
@@ -488,7 +495,9 @@ export function dealAccessLevel(identity, deal, viewAsRole = null) {
   // `pipelineVisible` marks a deal the firm wants known internally — so two teams do not
   // court the same target — and only that flag produces the status tier. `confidential`
   // still overrides it, so a deal can never be made visible by accident.
-  else if (deal && deal.pipelineVisible) level = 'status';
+  // Awareness is internal. `pipelineVisible` exists so two teams do not court the same
+  // target, which is a statement about the firm and not about the public.
+  else if (deal && deal.pipelineVisible && access.role !== 'anonymous') level = 'status';
   else level = 'none';
   if (confidential && level === 'status') return 'none';
   return level;

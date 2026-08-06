@@ -636,6 +636,19 @@ export function getDealRaw(id) {
   return deals.find((d) => d.id === id);
 }
 
+// The deal a candidate became, if it became one. A screened deal takes the id
+// `screened-{n}-{candidateId}`, and a candidate promoted by name matches on the company.
+// Both are checked because the second is how a target entered before the first existed.
+export function dealForCandidate(candidateId) {
+  if (!candidateId) return null;
+  const byId = deals.find((d) => String(d.id).endsWith(`-${candidateId}`));
+  if (byId) return byId;
+  const cand = candidates.find((c) => c.id === candidateId);
+  if (!cand) return null;
+  const name = String(cand.company || '').toLowerCase();
+  return deals.find((d) => String(d.company || '').toLowerCase() === name) || null;
+}
+
 // Re-apply the demo FIXTURE (app/data/deals.js) over the persisted showcase deals.
 //
 // hydrate() inserts a seeded deal only when its id is absent, and leaves anything already
@@ -1987,7 +2000,7 @@ export function hiddenCompanyNames(identity, viewAsRole = null) {
 
 // Function declarations, not consts: the funnel counts are computed two hundred lines
 // above this point and a const arrow would not have hoisted to reach them.
-function namesOf(o) {
+export function namesOf(o) {
   return [o?.company, o?.name, o?.companyName].filter(Boolean).map((x) => String(x).toLowerCase());
 }
 function visibleTo(hidden) {

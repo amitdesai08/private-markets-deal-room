@@ -496,3 +496,99 @@ test('nothing served to an anonymous caller names a deal it cannot see', async (
   assert.ok(served > 8000, `the open feeds returned only ${served} bytes in total — this test has gone inert`);
   assert.deepEqual(leaks, [], leaks.join('; '));
 });
+
+// THE SWEEP ABOVE IS FIFTEEN LITERALS AND THAT IS THE SAME MISTAKE, ONE FILE LOWER.
+//
+// It listed /api/companies and not /api/companies/:id — and the singular served every
+// company the list omitted, with the funnel disposition and the firm's screening notes.
+// It listed ic-precedents WITH a sector filter and not without, and the unfiltered form
+// returned the committee's voting record. One test derives its routes from the router and
+// catches what I forgot; the other enumerates and catches only what I remembered.
+//
+// The assertion is a subset rule rather than a name list, because a name list only finds
+// leaks shaped like a company name — it passed vacuously over IC precedents, which are
+// historical deals. Anything an anonymous caller is told must also be told to a member.
+test('an anonymous caller is told nothing a proven member is not', async () => {
+  const src = await readFile(new URL('../server.js', import.meta.url), 'utf8');
+  const paths = new Set();
+  for (const m of src.matchAll(/api\.get\(\s*'(\/[^']*)'/g)) {
+    const route = m[1];
+    if (route.startsWith('/deals')) continue; // covered exhaustively above
+    if (route.includes('*')) continue;
+    paths.add(route);
+  }
+  assert.ok(paths.size > 40, `only ${paths.size} GET routes found — the scan has drifted`);
+
+  // A route with a parameter needs a real value or it proves nothing. These are the ids
+  // the leak was actually found on.
+  const REAL_IDS = {
+    ':id': ['co-allbirds', 'co-national-cinemedia-inc', 'co-xbp-global-holdings-inc'],
+    ':stage': ['O1', 'O2', 'O3', 'O4'],
+    ':ticker': ['ALLB'],
+  };
+  const expand = (route) => {
+    const param = route.match(/:[A-Za-z]+/);
+    if (!param) return [route];
+    const values = REAL_IDS[param[0]];
+    if (!values) return []; // no realistic value — a made-up one would assert nothing
+    return values.map((v) => route.replace(param[0], v));
+  };
+
+  const leaks = [];
+  let compared = 0;
+  for (const route of paths) {
+    for (const path of expand(route)) {
+      if (path.includes(':')) continue; // more than one parameter; out of scope here
+      const [a, b] = await Promise.all([
+        fetch(`${base}/api${path}`),
+        fetch(`${base}/api${path}`, { headers: seat('member') }),
+      ]);
+      if (a.status !== 200) continue; // refused outright, which is a fine answer
+      const [anon, member] = await Promise.all([a.text(), b.text()]);
+      compared += 1;
+      // Identical is fine — that is genuinely open reference data. MORE than the member
+      // gets is the fault, and so is anything the member is refused entirely.
+      if (b.status !== 200) { leaks.push(`${path}: anonymous 200, member ${b.status}`); continue; }
+      if (anon.length > member.length) leaks.push(`${path}: anonymous ${anon.length}b > member ${member.length}b`);
+    }
+  }
+  assert.ok(compared > 25, `only ${compared} routes actually answered — this test has gone inert`);
+  assert.deepEqual(leaks, [], `told an anonymous caller more than a member:\n${leaks.join("; ")}`);
+});
+
+// Both directions, because each half is a different failure.
+//
+// An unproven caller used to be floored to `member`, so the firm's own staff and whoever
+// had the URL were the same seat, and five live unannounced transactions were served to
+// the open internet by name with stage and readiness attached. The floor is its own role
+// now. The second half of this test is the one that matters in six months: `anonymous`
+// can be over-corrected into refusing the firm too, and nothing else here would notice.
+test('the floor is the open internet, and the firm is still above it', async () => {
+  const anon = await (await fetch(`${base}/api/deals`)).json();
+  assert.equal(anon.length, 0, `an unproven caller was listed ${anon.length} deals`);
+
+  const member = await (await fetch(`${base}/api/deals`, { headers: seat('member') })).json();
+  const aware = seededDeals.filter((d) => d.pipelineVisible && !d.confidential);
+  assert.ok(aware.length, 'no deal is marked visible to the firm — the second half would be vacuous');
+  assert.ok(member.length >= aware.length,
+    `a proven member sees ${member.length} deals but the firm marked ${aware.length} to be known`);
+
+  // And awareness is still only awareness: it never opens the workspace.
+  const status = member.find((d) => aware.some((a) => a.id === d.id));
+  if (status) {
+    const r = await fetch(`${base}/api/deals/${status.id}/case`, { headers: seat('member') });
+    assert.notEqual(r.status, 200, `${status.id} is marked for awareness and served its full case to a member`);
+  }
+});
+
+// The fund's own reporting, checked by hand because the subset test above only compares
+// routes that answer 200 to BOTH seats — a 401 to the floor is invisible to it, which is
+// exactly the state I want and therefore exactly the state that needs pinning.
+test('fund reporting and market intelligence are closed to the open internet', async () => {
+  for (const path of ['/api/fund/value', '/api/fund/portfolio', '/api/market-intel', '/api/market-intel/ic-precedents']) {
+    const anon = await fetch(`${base}${path}`);
+    assert.equal(anon.status, 401, `${path} answered an unproven caller with ${anon.status}`);
+    const firm = await fetch(`${base}${path}`, { headers: seat('partner') });
+    assert.equal(firm.status, 200, `${path} refused a partner with ${firm.status}`);
+  }
+});
