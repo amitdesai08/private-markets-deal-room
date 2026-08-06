@@ -375,6 +375,35 @@ api.use((req, res, next) => {
   next();
 });
 
+// canWrite WAS A LABEL ON A SCREEN, NOT A BOUNDARY.
+//
+// Every seat is told whether it may write, and /deals/:id/issues never asked: a `member`
+// and an `analyst`, both reporting canWrite false, POSTed findings onto a live deal and
+// both persisted — with `raisedBy` empty, so the record could not even say who had done
+// it. A read-only role that can write is not a role, and a diligence record that cannot
+// name its author is not a record.
+//
+// Deny by default, like the read side. The exceptions are the things a read-only reader
+// legitimately does: ask to be let in, talk to the assistant, and generate their own copy
+// of a document — none of which change what the deal says.
+const READ_ONLY_MAY = [
+  /^\/request-access$/, /^\/chat$/, /^\/assistant-actions$/,
+  /^\/artifact\//, /^\/steps\/[^/]+\/run$/, /^\/documents\/[^/]+$/,
+];
+api.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD') return next();
+  const m = /^\/deals\/([^/?]+)(\/.*)?$/.exec(req.path);
+  if (!m || DEAL_ID_RESERVED.has(decodeURIComponent(m[1]))) return next();
+  const tail = m[2] || '';
+  if (READ_ONLY_MAY.some((re) => re.test(tail))) return next();
+  const access = accessFor(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
+  if (access.canWrite) return next();
+  return refuse(res, {
+    status: 403,
+    code: 'read-only',
+    reason: 'Your role is read-only. The deal team records what goes on the deal.',
+  });
+});
 // A promoted candidate is addressable twice — as `cand-new-3` and as the deal
 // `screened-2-cand-new-3` it became — so there were two access decisions for one target
 // and only one of them was made. Anonymously, `GET /candidates/cand-new-1/chat` returned
@@ -557,7 +586,14 @@ api.get('/analytics', (req, res) => res.json(portfolioStats(listDeals(requesting
 // emitted from stale data.
 const fundPayload = (obj) => ({ ...withFundMeta(obj), _reporting: guardReporting(REPORTING_SOURCE_IDS) });
 api.get('/fund/overview', (_req, res) => res.json(fundPayload(fundOverview())));
-api.get('/fund/portfolio', (_req, res) => res.json(fundPayload(portfolioMonitoring())));
+// Byte-identical for a member and an administrator: six holdings, their sectors and the
+// count. The same `_req` as /fund/value, on the line above it, fixed there and not here.
+api.get('/fund/portfolio', (req, res) => {
+  const hidden = hiddenCompanyNames(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
+  const out = portfolioMonitoring();
+  const companies = (out?.companies || []).filter((c) => !namesOf(c).some((n) => hidden.has(n)));
+  res.json(fundPayload({ ...out, companies, count: companies.length }));
+});
 // The underscore on `_req` was the whole finding: the caller was discarded before the
 // numbers were computed, so this tile told an anonymous visitor that the firm has 24 deals,
 // 12 in diligence and 17 awaiting committee, while the same visitor could list none of
@@ -2147,7 +2183,9 @@ api.all('/capabilities', (req, res) => {
 api.get('/demo-profiles', (req, res) => {
   const profiles = describeDemoProfiles();
   if ((requestingFloor(req) || requestingViewAs(req)) !== 'anonymous') return res.json(profiles);
-  res.json(profiles.map((p) => ({ id: p.id, name: p.name, label: p.label })));
+  // The label still read "Michael Realman — The Architect — Administrator", so the seat
+  // ladder was published to the open internet next to the check that validates it.
+  res.json(profiles.map((p) => ({ id: p.id, name: p.name })));
 });
 
 // Demo "view as" — the profile a real person is currently acting as.

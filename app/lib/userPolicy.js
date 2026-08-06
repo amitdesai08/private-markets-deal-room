@@ -235,7 +235,18 @@ export function actingAsFor(identity = {}) {
 
 // Resolve a VERIFIED identity to a role. `identity` = { oid, upn, name, roles?, groups? }.
 export function roleForUser(identity = {}) {
-  const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn), norm(identity.name)].filter(Boolean);
+  // A DISPLAY NAME IS NOT AN IDENTIFIER.
+  //
+  // The identity on a request is asserted, never signed — the bot key proves which app is
+  // calling and nothing about who. Matching a role assignment against `name` therefore
+  // meant anyone holding the key became an administrator by sending {"name":"admin"}, and
+  // /demo-profiles published the exact word to use. oid and upn are directory identifiers
+  // and at least have to be known; a display name is a guess.
+  //
+  // The roster is the one place a name legitimately identifies somebody, because that is
+  // what a demo roster IS — so it is honoured only where the roster is actually live. The
+  // deployment was reporting demoMode false and honouring demo identities anyway.
+  const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn), demoModeActive() ? norm(identity.name) : null].filter(Boolean);
   const appRoles = (Array.isArray(identity.roles) ? identity.roles : []).map((r) => norm(r));
   const groups = (Array.isArray(identity.groups) ? identity.groups : []).map((g) => norm(g));
   const assign = getRoleAssignments() || {};
@@ -503,6 +514,15 @@ export function dealAccessLevel(identity, deal, viewAsRole = null) {
   // the full workspace, deal-team-tier roles get full on restricted stages, and awareness
   // for everybody else is something the deal opts into.
   let level;
+  // A confidential deal needs a NAME on it, and that check sat at the bottom of this
+  // function guarding only the status tier — which is the tier already excluded. So the
+  // flag was a no-op everywhere it mattered: any deal-team-tier role, without being on
+  // Project Onyx's team, was served the record at `full` — 610m, 4.3x entry, the returns
+  // model, the risk register and the team roster telling them who to go and ask. Project
+  // Sterling is a LISTED payments processor, so the same hole was handing out MNPI.
+  //
+  // It is checked here, before anything can grant, and only a name gets past it.
+  if (confidential && !team) return 'none';
   if (access.isAdmin || team) level = 'full';
   // `else if (!restricted) level = 'full'` used to sit here, and it inverted the rule
   // this file states four lines further down. `restricted` is a regex on the stage

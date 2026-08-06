@@ -644,3 +644,64 @@ test('a proven partner is refused nothing the router serves', async () => {
   }
   assert.deepEqual(refused, [], `a partner was refused: ${refused.join(', ')}`);
 });
+
+// A ROLE THAT SAYS READ-ONLY AND WRITES ANYWAY IS NOT A ROLE.
+//
+// Every seat is told whether it may write and /deals/:id/issues never asked. A member and
+// an analyst, both reporting canWrite false, POSTed findings onto a live deal in production
+// and both persisted — with raisedBy empty, so the record could not even name who had done
+// it. Nothing here had ever attempted a write as a read-only seat; every mutating test
+// above uses a HIDDEN deal, which 404s at the boundary long before any of this is reached.
+// The refusal was the only thing being tested, never the permission behind it.
+test('a read-only seat cannot write to a deal it can otherwise see', async () => {
+  const visible = await (await fetch(`${base}/api/deals`, { headers: seat('analyst') })).json();
+  assert.ok(visible.length, 'an analyst can see no deal — this test would be inert');
+  const id = visible[0].id;
+
+  const writes = [
+    ['POST', `/issues`, { lane: 'commercial', title: 'written by a read-only seat', severity: 'medium' }],
+    ['POST', `/conditions`, { text: 'written by a read-only seat' }],
+    ['POST', `/contributions`, { lane: 'commercial', text: 'written by a read-only seat' }],
+    ['POST', `/advance`, {}],
+    ['POST', `/launch`, {}],
+    ['POST', `/tags`, { tags: ['written-by-a-read-only-seat'] }],
+    ['POST', `/workiq-notes`, { text: 'written by a read-only seat' }],
+    ['PATCH', `/swimlanes/commercial`, { start: '2026-01-01' }],
+  ];
+  const wrote = [];
+  for (const [method, tail, body] of writes) {
+    for (const role of ['member', 'analyst']) {
+      const r = await fetch(`${base}/api/deals/${id}${tail}`, { method, headers: seat(role), body: JSON.stringify(body) });
+      if (r.status < 400) wrote.push(`${role} ${method} ${tail} -> ${r.status}`);
+    }
+  }
+  assert.deepEqual(wrote, [], `a read-only seat was allowed to write: ${wrote.join(', ')}`);
+
+  // And the seat that IS supposed to write still can, or this has been fixed by breaking it.
+  const allowed = await fetch(`${base}/api/deals/${id}/issues`, {
+    method: 'POST',
+    headers: seat('deal-team'),
+    body: JSON.stringify({ lane: 'commercial', title: 'recorded by the deal team', severity: 'medium' }),
+  });
+  assert.ok(allowed.status < 400, `the deal team was refused a write with ${allowed.status}`);
+});
+
+// A confidential deal needs a NAME on it, and the check guarded only the status tier —
+// the tier already excluded. So any deal-team-tier role not on Project Onyx's team was
+// served the record at `full`: the size, the entry multiple, the returns model, and the
+// team roster telling them who to ask. Project Sterling is a listed payments processor,
+// so the same hole was handing out inside information on a public issuer.
+test('a confidential deal is invisible to everyone not named on it', async () => {
+  const { dealAccessLevel } = await import('../lib/userPolicy.js');
+  const confidential = seededDeals.filter((d) => d.confidential);
+  assert.ok(confidential.length, 'no confidential deal in the fixture — this test would be inert');
+
+  for (const deal of confidential) {
+    for (const role of ['member', 'analyst', 'deal-team', 'partner', 'admin']) {
+      const named = (deal.team || []).map((x) => String(x).toLowerCase());
+      if (named.includes(role)) continue; // a role slug ON the team is a name, of a sort
+      assert.equal(dealAccessLevel(null, deal, role), 'none',
+        `${deal.id} is confidential and reads as ${dealAccessLevel(null, deal, role)} to ${role}`);
+    }
+  }
+});

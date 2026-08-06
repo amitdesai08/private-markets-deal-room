@@ -495,6 +495,9 @@ function derive(deal) {
 // is entitled to, and the UI says so in as many words. It is exported so the barrier can
 // be tested against the real function rather than against a restatement of it.
 export function applyStatusTier(s) {
+  // Who is on the deal is the other half of an unannounced target: it says which partner
+  // to go and ask, and on a confidential deal it is the guest list next to the padlock.
+  s.team = undefined;
   s.thesis = undefined;
   s.workstreams = [];
   s.diligenceProgress = null;
@@ -1830,11 +1833,9 @@ export function getPipelineFunnel(identity, viewAsRole = null, visibleDeals = nu
 // `pursued` rather than `active`. That is luck, not a rule: one triage action moves a
 // hidden candidate into an active cohort and it goes to anybody who asks.
 export function getCohort(stage, identity, viewAsRole = null) {
-  const hidden = hiddenCompanyNames(identity, viewAsRole);
-  const list = candidates
-    .filter((c) => c.disposition === 'active' && c.stage === stage)
-    .filter(visibleTo(hidden))
-    .map(publicCandidate);
+  const list = scopeCandidates(identity, viewAsRole)(
+    candidates.filter((c) => c.disposition === 'active' && c.stage === stage),
+  );
   // O3 is a relative-ranking activity — sort by score desc and attach a rank.
   if (stage === 'O3' || stage === 'O4') {
     list.sort((a, b) => b.score - a.score);
@@ -1954,12 +1955,39 @@ export async function chatCandidateById(id, message) {
 
 // The whole Stage-1 pipeline (for the Pipeline page), scoped to the caller — a candidate
 // bound to a deal this reader may not see is not theirs to know about.
-export function getPipeline(identity, viewAsRole = null) {
+// A candidate is a deal under another name, and the tiers had not been joined up: a
+// target the firm merely wants KNOWN about — status tier, no figures — came back through
+// the funnel with its size, ownership, revenue and EBITDA attached, because the candidate
+// record is built from the sourcing feed rather than from the deal. Origination is the
+// stage at which those figures are least established and most confidential.
+function statusOnlyNames(identity, viewAsRole = null) {
+  const out = new Set();
+  for (const d of deals) {
+    if (dealAccessLevel(identity, d, viewAsRole) === 'status') out.add(String(d.company || '').toLowerCase());
+  }
+  return out;
+}
+function reduceCandidate(c) {
+  return {
+    ...c,
+    dealSize: null, revenue: null, ebitda: null, ebitdaMargin: null, growth: null,
+    score: null, band: null, screenRec: null, ownership: null, thesis: undefined,
+    statusOnly: true,
+  };
+}
+const scopeCandidates = (identity, viewAsRole) => {
   const hidden = hiddenCompanyNames(identity, viewAsRole);
+  const status = statusOnlyNames(identity, viewAsRole);
+  return (list) => list
+    .filter(visibleTo(hidden))
+    .map(publicCandidate)
+    .map((c) => (namesOf(c).some((n) => status.has(n)) ? reduceCandidate(c) : c));
+};
+export function getPipeline(identity, viewAsRole = null) {
   return {
     fundName: fund.name,
     funnel: getStage1Funnel(identity, viewAsRole).funnel,
-    candidates: candidates.filter(visibleTo(hidden)).map(publicCandidate),
+    candidates: scopeCandidates(identity, viewAsRole)(candidates),
   };
 }
 
