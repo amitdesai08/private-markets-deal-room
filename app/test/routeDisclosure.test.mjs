@@ -422,3 +422,32 @@ test('no refusal explains itself in words the product does not use', async () =>
   }
   assert.deepEqual(offences, [], `refusal copy using house words:\n${offences.join('\n')}`);
 });
+
+// THE GUARD I ADDED TO /candidates SHIPPED WITH ITS IMPORT MISSING.
+//
+// `dealForCandidate` was called and never imported, so the middleware threw ReferenceError
+// on every request and production answered 500 for every candidate route for an hour. The
+// whole suite was green: nothing in it had ever issued a request to /candidates, so the
+// only evidence the guard worked was that I had written it. A guard with no request
+// against it is not a guard, which is the same lesson as the mutating sweep above.
+test('the candidate routes answer, and never name a candidate whose deal is hidden', async () => {
+  const { seedCandidates } = await import('../data/candidates.js');
+  const ids = seedCandidates.map((c) => c.id).filter(Boolean);
+  assert.ok(ids.length > 4, `only ${ids.length} candidates seeded — this test would be inert`);
+  const visible = new Set(listDeals(null, 'member').map((d) => String(d.company || '').toLowerCase()));
+  const hiddenNames = seededDeals.map((d) => String(d.company || '').toLowerCase()).filter((n) => n && !visible.has(n));
+  const faults = [];
+  for (const id of [...ids, 'an-invented-candidate']) {
+    for (const tail of ['', '/chat']) {
+      const r = await fetch(`${base}/api/candidates/${id}${tail}`);
+      // 5xx is a fault in its own right and it is also an answer: it tells a caller the
+      // route exists and reached code. Refusals must be quiet, not loud.
+      if (r.status >= 500) { faults.push(`${id}${tail} -> ${r.status}`); continue; }
+      const body = (await r.text()).toLowerCase();
+      for (const name of hiddenNames) {
+        if (body.includes(name)) faults.push(`${id}${tail} named "${name}", hidden as a deal`);
+      }
+    }
+  }
+  assert.deepEqual(faults, [], faults.join('; '));
+});

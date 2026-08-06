@@ -9,6 +9,7 @@ import {
   listDeals,
   getDeal,
   getDealRaw,
+  dealForCandidate,
   setDealTags,
   setDealRegion,
   createDealFromIntake,
