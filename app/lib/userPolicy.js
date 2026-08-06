@@ -299,6 +299,16 @@ export function viewAsRolesFor(identity) {
 // Full access profile. When `viewAsRole` is at or below the caller's actual rank the
 // profile is computed AS THAT lower role (view-as); an out-of-range/unknown viewAsRole
 // is ignored — you can never elevate your own access.
+// Whether a seat name is one the deployment actually defines.
+//
+// accessFor falls back to `member` for a name it does not recognise, which is right for
+// what it decides but wrong for anyone asking "has this caller named a seat at all?" —
+// the boundary read the mere PRESENCE of the header as a claim, so `x-dr-view-as: root`
+// lifted a caller off the floor and onto the deploy default. Five live deals for a word.
+export function isKnownRole(id) {
+  return !!(id && roleSpec(String(id)));
+}
+
 export function accessFor(identity, viewAsRole = null) {
   const actualRole = actualRoleFor(identity);
   let role = actualRole;

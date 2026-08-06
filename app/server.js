@@ -156,7 +156,7 @@ import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
-import { accessFor, authorizePersona, authorizeDealAccess, authorizeDealContent, dealAccessLevel, dealTeamOf, demoIdentityForRole, describeAccess, describeDemoProfiles, demoModeActive, demoProfilesEnabled, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
+import { accessFor, isKnownRole, authorizePersona, authorizeDealAccess, authorizeDealContent, dealAccessLevel, dealTeamOf, demoIdentityForRole, describeAccess, describeDemoProfiles, demoModeActive, demoProfilesEnabled, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
 import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
 import { buildCockpit } from './lib/cockpit.js';
 import { buildWorkflowDesk, buildThreads, buildDocumentDesk, detectCommitments } from './lib/dealDesk.js';
@@ -271,10 +271,15 @@ function requestingFloor(req) {
   // unconditionally, so a browser that had not signed in arrived exactly like that and was
   // shown nineteen deals at accessLevel `full`, Project Onyx among them.
   //
-  // Naming a seat is still honoured — that is the demo affordance, and view-as can only
-  // ever narrow. Saying nothing now means nothing, rather than everything.
+  // Naming a REAL seat is still honoured — that is the demo affordance, and view-as can
+  // only ever narrow. This tested the header's presence rather than its validity, so
+  // `x-dr-view-as: root` was a claim, accessFor discarded the unknown name, and the caller
+  // landed on the deploy default: five live deals for a word that means nothing. `x`,
+  // `superuser` and `ADMIN` all worked. An override that GRANTS is the one thing view-as
+  // must never be.
   if (requestingIdentity(req)) return null;
-  return req.body?.viewAsRole || req.headers['x-dr-view-as'] ? null : 'anonymous';
+  const claimed = req.body?.viewAsRole || req.headers['x-dr-view-as'];
+  return isKnownRole(claimed) ? null : 'anonymous';
 }
 
 // A DELEGATED Microsoft Graph token for the signed-in user, obtained by the Teams
@@ -418,6 +423,7 @@ api.use((req, res, next) => {
 // short enough to read: the Graph webhook handshake, the two OAuth callback legs, and the
 // liveness probe. Each of those authenticates itself by other means — a validationToken
 // echo, a state/nonce — so opening them costs nothing.
+const BOOTSTRAP = [/^\/demo-profiles$/, /^\/me\/access$/, /^\/capabilities$/];
 const OPEN_TO_THE_WORLD = [
   /^\/health$/,
   /^\/graph\/notifications$/,
@@ -425,13 +431,16 @@ const OPEN_TO_THE_WORLD = [
   /^\/mcp\/[^/]+\/(login|callback)$/,
 ];
 api.use((req, res, next) => {
-  // Proving the key and saying who you are are two different questions, and this guard
-  // only asks the first. The app itself has to reach /demo-profiles and /me/access before
-  // anyone has signed in — that is how the sign-in list gets drawn — so a keyed caller is
-  // let past here and then resolves to the `anonymous` ROLE, which sees nothing. What is
-  // refused outright is the caller that has not proved it is the app at all.
-  if (!BOT_BACKEND_KEY || req.headers['x-bot-key'] === BOT_BACKEND_KEY) return next();
+  // This asked whether the caller held the shared secret, and let every keyed caller
+  // through — so `x-bot-key` alone, naming nobody, was served the firm's inbound deal mail
+  // with the senders' names and addresses, seventeen scored targets and the whole news
+  // desk. Holding a shared secret is not being somebody. It asks about the floor now,
+  // however the caller reached it.
+  if ((requestingFloor(req) || requestingViewAs(req)) !== 'anonymous') return next();
   if (OPEN_TO_THE_WORLD.some((re) => re.test(req.path))) return next();
+  // The app must be able to draw the sign-in list before anyone has signed in, and to ask
+  // what it is currently allowed to do. Neither depends on who is asking.
+  if (BOOTSTRAP.some((re) => re.test(req.path))) return next();
   return res.status(401).json({
     error: 'sign-in-required',
     // Nothing about what is behind it. The 401 used to name 'Fund reporting and market

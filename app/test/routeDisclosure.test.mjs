@@ -110,8 +110,14 @@ test('deal-scoped chat on a hidden deal does not confirm it', async () => {
 
 test('an unrecognised seat sees no more than the floor', async () => {
   const floor = (await (await get('/api/deals', 'member')).json()).length;
-  for (const bogus of ['guest', 'xyzzy', 'Partner ']) {
-    const n = (await (await get('/api/deals', bogus)).json()).length;
+  for (const bogus of ['guest', 'xyzzy', 'Partner ', 'root', 'superuser', 'ADMIN']) {
+    // A name the deployment does not define is a refusal now, not a quiet demotion. It
+    // used to be read as a CLAIM — the boundary tested that the header was present, never
+    // that it meant anything — so `x-dr-view-as: root` lifted a caller off the floor and
+    // onto the deploy default, and five live deals came back for a word.
+    const r = await get('/api/deals', bogus);
+    if (r.status === 401) continue;
+    const n = (await r.json()).length;
     assert.ok(n <= floor, `"${bogus}" saw ${n} deals against a floor of ${floor}`);
   }
 });
@@ -530,11 +536,15 @@ test('every route refuses a caller that has proved nothing, except the ones that
   // The whole set that legitimately arrives without proof. Adding to it should feel like
   // a decision, which is why it is spelled out rather than derived.
   const OPEN = [/^\/health$/, /^\/graph\/notifications$/, /^\/m365\/(login|callback)$/, /^\/mcp\/[^/]+\/(login|callback)$/];
+  // The app has to be able to draw the sign-in list before anyone has signed in, and to
+  // ask what it is currently allowed to do. Neither answer depends on who is asking, and
+  // both are checked below for what they must NOT contain.
+  const BOOTSTRAP = [/^\/demo-profiles$/, /^\/me\/access$/, /^\/capabilities$/];
 
   const answered = [];
   for (const entry of routes) {
     const [method, path] = entry.split(' ');
-    if (OPEN.some((re) => re.test(path))) continue;
+    if (OPEN.some((re) => re.test(path)) || BOOTSTRAP.some((re) => re.test(path))) continue;
     const r = await fetch(`${base}/api${path}`, {
       method,
       headers: { 'content-type': 'application/json' },
@@ -571,5 +581,33 @@ test('the firm is still served everything it should be', async () => {
   if (status) {
     const r = await fetch(`${base}/api/deals/${status.id}/case`, { headers: seat('member') });
     assert.notEqual(r.status, 200, `${status.id} is marked for awareness and served its full case to a member`);
+  }
+});
+
+// Bootstrap is the hole in deny-by-default, so it gets its own assertions rather than a
+// `continue` and the benefit of the doubt.
+test('the routes open before sign-in say nothing about the firm', async () => {
+  const partnerIds = [...idsFor('partner')];
+  const anonNames = new Set(listDeals(null, 'anonymous').map((d) => String(d.company || '').toLowerCase()));
+  const hiddenNames = seededDeals
+    .filter((d) => partnerIds.includes(d.id))
+    .map((d) => String(d.company || '').toLowerCase())
+    .filter((n) => n && !anonNames.has(n));
+  assert.ok(hiddenNames.length, 'nothing is hidden from the floor — this test would be inert');
+
+  for (const path of ['/api/demo-profiles', '/api/capabilities']) {
+    const r = await fetch(`${base}${path}`);
+    if (r.status !== 200) continue;
+    const body = (await r.text()).toLowerCase();
+    for (const name of hiddenNames) {
+      assert.ok(!body.includes(name), `${path} names "${name}" before anyone has signed in`);
+    }
+  }
+  // And it must not hand out a seat.
+  const caps = await fetch(`${base}/api/capabilities`);
+  if (caps.status === 200) {
+    const j = await caps.json();
+    assert.notEqual(j.canWrite, true, 'the pre-sign-in seat can write');
+    assert.notEqual(j.canViewStage2, true, 'the pre-sign-in seat is cleared for diligence');
   }
 });

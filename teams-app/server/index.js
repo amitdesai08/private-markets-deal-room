@@ -111,7 +111,7 @@ app.get('/api/teams/config', (_req, res) =>
 app.post('/api/teams/context', async (req, res) => {
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const identity = identityFromSsoToken(ssoToken);
-  const asOverride = await resolveDemoOverride(req);                       // demo "view as USER", roster-checked
+  const asOverride = await resolveDemoOverride(req, identity);                       // demo "view as USER", roster-checked
   const viewAsRole = String(req.body?.viewAsRole || '').trim() || null; // hierarchy "view as ROLE"
   // Authoritative access profile from the orchestrator (single policy source): which
   // agents this user may use + the roles they can view-as. The requesting identity is
@@ -260,7 +260,7 @@ async function forwardChat(path, req, res) {
   if (!isBackendLive()) return res.status(502).json({ error: 'shared-backend-not-configured' });
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const identity = identityFromSsoToken(ssoToken);
-  const asOverride = await resolveDemoOverride(req);                                          // demo "view as USER", roster-checked
+  const asOverride = await resolveDemoOverride(req, identity);                                          // demo "view as USER", roster-checked
   const viewAsRole = String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim() || null;
   const requestingUser = asOverride
     ? { name: asOverride }
@@ -291,7 +291,7 @@ app.use('/api/admin', async (req, res) => {
   if (!isBackendLive()) return res.status(502).json({ error: 'shared-backend-not-configured' });
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const identity = identityFromSsoToken(ssoToken);
-  const asOverride = await resolveDemoOverride(req);
+  const asOverride = await resolveDemoOverride(req, identity);
   const requestingUser = asOverride
     ? { name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
@@ -382,9 +382,20 @@ async function workIqUserToken(ssoToken, identity, scopes = GRAPH_WORKIQ_SCOPES)
 // demo mode is off, which makes this fail closed in production by construction rather
 // than by a second flag someone has to remember to set. And the value must arrive in a
 // header or a body — never a query string.
-async function resolveDemoOverride(req) {
+// The roster answers WHAT may be asserted and was never asked WHO may assert it, so the
+// whole request was one header: `x-dr-as: admin` against the tab host returned twenty-four
+// deals including two marked confidential, and `admin`, `partner`, `analyst`, `member` are
+// four guesses. An assertion of identity is not identity.
+//
+// So the caller must already have one. The exception is a deployment that has deliberately
+// opened itself for a walkthrough — that is a decision someone makes with an environment
+// variable, knowing what is behind it, and it is off unless set. It is NOT something a
+// browser can decide for itself by sending a header.
+const OPEN_SIGN_IN = /^(1|true|yes|on)$/i.test(String(process.env.DEMO_OPEN_SIGN_IN || ''));
+async function resolveDemoOverride(req, identity = null) {
   const raw = String(req.headers['x-dr-as'] || req.body?.as || '').trim();
   if (!raw) return '';
+  if (!identity && !OPEN_SIGN_IN) return '';
   const roster = await getDemoProfiles();
   if (!Array.isArray(roster) || !roster.length) return '';
   const hit = roster.find((p) => String(p.id || p.upn || '').toLowerCase() === raw.toLowerCase());
@@ -408,7 +419,7 @@ async function forwardWithIdentity(req, res) {
   if (!isBackendLive()) return proxyToBackend(req, res);
   const ssoToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.ssoToken || '';
   const identity = identityFromSsoToken(ssoToken);
-  const asOverride = await resolveDemoOverride(req);
+  const asOverride = await resolveDemoOverride(req, identity);
   const viewAsRole = String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim();
 
   const requestingUser = asOverride
