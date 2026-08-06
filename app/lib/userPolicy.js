@@ -337,7 +337,13 @@ export function accessFor(identity, viewAsRole = null) {
     viewingAs: previewing ? role : null,
     roleLabel: labelOf(role),
     actualRoleLabel: labelOf(actualRole),
-    isAdmin: !!(roleSpec(actualRole)?.all),
+    // From the PREVIEWED role, not the real one. This read actualRole, so an administrator
+    // asking to be viewed as a member was reported `role: member, canWrite: false` and
+    // `isAdmin: true` in the same object — and dealAccessLevel opens on isAdmin, so all
+    // twenty-four deals came back at `full` under a member label. Every other flag on this
+    // object is already intersected with the real role by `narrowed()`; this one was not,
+    // which made view-as a preview that could not be trusted to answer its own question.
+    isAdmin: !!(spec?.all && actualSpec?.all),
     allowedPersonas: previewing
       ? (spec.personas || []).filter((p) => (actualSpec.all ? true : (actualSpec.personas || []).includes(p)))
       : (spec.personas || []),
@@ -475,19 +481,24 @@ export function dealAccessLevel(identity, deal, viewAsRole = null) {
   // ('analyst', 'legal-gc'), so matching the reader's role admits everyone holding it —
   // right for a deal the firm is running normally, wrong for one it has marked
   // confidential. Those keep needing a name, which is why Project Onyx stays shut.
+  const previewing = !!access.viewingAs;
   const roleNamed = !confidential && !!access.role && named.includes(norm(access.role));
   // Previewing a seat has to answer "what would THEY see", and the identity's own grants
   // were surviving the preview — so an administrator asking to be viewed as a member was
   // served all twenty-four deals under a member label, when the true answer for a member
   // is five and a 404 on Onyx. No confidentiality boundary was crossed; the instrument was
   // broken, and view-as is precisely the instrument an operator uses to audit this model.
-  const previewing = !!access.viewingAs;
   const team = (!previewing && (onDealTeam(identity, named) || groupGrantsDeal(identity, deal))) || roleNamed;
   // Data sovereignty: a region-restricted user can't see out-of-region deals at all
   // (region inferred from the deal's hq when not explicitly tagged). Admins and named
   // team / deal-group members bypass the territory wall.
   const region = regionForDeal(deal);
-  if (region && access.regions.length && !access.isAdmin && !team && !access.regions.map((x) => String(x).toLowerCase()).includes(String(region).toLowerCase())) return 'none';
+  // A preview answers "what would THIS SEAT see", so the previewer's own territory is not
+  // part of the question either — an administrator previewing an analyst was shown one deal
+  // fewer than a real analyst, because their own region wall came along for the ride. A
+  // preview that is wrong in the safe direction is still wrong; it is the instrument.
+  const regions = previewing ? [] : access.regions;
+  if (region && regions.length && !access.isAdmin && !team && !regions.map((x) => String(x).toLowerCase()).includes(String(region).toLowerCase())) return 'none';
   // Base level (ignoring confidential): admins and deal-team members (need-to-know) get
   // the full workspace, deal-team-tier roles get full on restricted stages, and awareness
   // for everybody else is something the deal opts into.

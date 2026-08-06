@@ -106,5 +106,59 @@ test('view-as still narrows normally, and no-preview is unaffected', () => {
   const preview = accessFor(admin, 'analyst');
   assert.equal(preview.viewingAs, 'analyst');
   assert.equal(preview.canWrite, false, 'previewing a read-only seat must close the write gate');
-  assert.equal(preview.isAdmin, true, 'the actual role is still reported, so the UI can offer a way back');
+  // This used to assert isAdmin stayed TRUE under a preview, so the UI could offer a way
+  // back. The way back is `actualRole`, which is on the same object and says so plainly.
+  // isAdmin is not a label, it is a grant — dealAccessLevel opens on it — so keeping it
+  // true served an administrator previewing a member all twenty-four deals, Onyx included,
+  // under a member label. Deliberately stricter than the assertion it replaces.
+  assert.equal(preview.isAdmin, false, 'a preview must not carry the administrator grant');
+  assert.equal(preview.actualRole, 'admin', 'the real role must still be reported so the UI can offer a way back');
+});
+
+// VIEW-AS MUST NARROW ROWS, NOT ONLY FLAGS.
+//
+// The capability object reported `role: member, canWrite: false, isAdmin: true` all at
+// once: every flag was intersected with the real role except that one, and dealAccessLevel
+// opens on isAdmin — so an administrator previewing a member was served all twenty-four
+// deals, Onyx included, under a member label. No confidentiality boundary was crossed. The
+// instrument was broken, and view-as is exactly what an operator uses to audit this model,
+// so a preview that overstates access is worse than no preview at all.
+//
+// The existing tests here read source text; this one asks the policy.
+test('previewing a seat shows what that seat would be shown', async () => {
+  const { hydrate, listDeals, getDealRaw } = await import('../lib/store.js');
+  const { accessFor, dealAccessLevel } = await import('../lib/userPolicy.js');
+  await hydrate();
+
+  const admin = { name: 'admin', roles: ['admin'] };
+  for (const seat of ['member', 'analyst']) {
+    const previewed = listDeals(admin, seat).map((d) => d.id);
+    const genuine = new Set(listDeals(null, seat).map((d) => d.id));
+    // Subset, not equality. The baseline here is itself a caller wearing `seat`, and what
+    // must hold is the direction: a preview may show less than the seat would be shown
+    // and must never show more. Equality would make this test a statement about the
+    // fixture's own grants rather than about the preview.
+    const extra = previewed.filter((id) => !genuine.has(id));
+    assert.deepEqual(extra, [],
+      `previewing ${seat} showed ${extra.length} deals that ${seat} is not shown: ${extra.join(', ')}`);
+
+    const a = accessFor(admin, seat);
+    // Only when the fixture identity genuinely outranks the seat. Without demo profiles
+    // configured it resolves to `member`, and a member asking to preview an analyst is
+    // correctly refused rather than promoted — asserting equality here would have been an
+    // assertion about the environment.
+    if (a.viewingAs) assert.equal(a.role, seat, `asked to preview ${seat} and was reported as ${a.role}`);
+    assert.equal(a.isAdmin, false, `previewing ${seat} still carried isAdmin`);
+    assert.equal(a.canWrite, false, `previewing ${seat} still carried write`);
+  }
+
+  // And the preview must agree with itself about a specific deal.
+  const RANK = { none: 0, status: 1, full: 2 };
+  for (const id of listDeals(null, 'partner').map((d) => d.id)) {
+    const deal = getDealRaw(id);
+    const under = dealAccessLevel(admin, deal, 'member');
+    const real = dealAccessLevel(null, deal, 'member');
+    assert.ok(RANK[under] <= RANK[real],
+      `${id} reads ${under} to someone previewing a member and ${real} to a member`);
+  }
 });
