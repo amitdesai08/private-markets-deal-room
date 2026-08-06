@@ -22,6 +22,8 @@ import {
   getMailbox,
   hiddenCompanyNames,
   namesOf,
+  reduceFigures,
+  figuresVisibleTo,
   getSignalCompanies,
   getCrm,
   getSourcingDesk,
@@ -218,6 +220,9 @@ function verifyModelToken(id, t) {
   if (t.length !== expected.length) return false;
   try { return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(t)); } catch { return false; }
 }
+// A distinct value for "the caller sent an identity we could not read", so it can be
+// refused rather than silently treated as nobody.
+const UNREADABLE_IDENTITY = Object.freeze({ unreadable: true });
 function requestingIdentity(req) {
   // Only honour a supplied identity when the caller proves it is the Teams bot.
   if (BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY) return null;
@@ -226,12 +231,24 @@ function requestingIdentity(req) {
   // GET requests (deal list / detail) carry the identity in a trusted header.
   const hdr = req.headers['x-dr-user'];
   if (hdr) {
-    try { const u = JSON.parse(hdr); return { oid: u.oid, upn: u.upn, name: u.name, roles: u.roles, groups: u.groups }; } catch { /* ignore */ }
+    // An unreadable identity is a failure, not an absence. `catch { ignore }` dropped
+    // through to the demo fallback below, so a truncated or proxy-mangled header UPGRADED
+    // the caller from twenty-one deals to twenty-four, both confidential ones included.
+    try { const u = JSON.parse(hdr); return { oid: u.oid, upn: u.upn, name: u.name, roles: u.roles, groups: u.groups }; }
+    catch { return UNREADABLE_IDENTITY; }
   }
-  // A proven caller previewing a seat in demo mode becomes that seat's demo person.
-  // Without it "view as partner" clamped to the deploy default, and a partner's first
-  // 45 seconds opened with "No specialist role is assigned to you yet".
-  return demoIdentityForRole(req.body?.viewAsRole || req.headers['x-dr-view-as']);
+  // ASKING TO BE VIEWED AS A SEAT USED TO MAKE YOU A PERSON.
+  //
+  // This returned the roster's demo person for the named seat, so a caller who supplied no
+  // identity at all BECAME Eleanor Shellstrop by sending one header — and she is on Project
+  // Onyx's team, so `confidential && !team` was satisfied by a request that named nobody.
+  // Omit the person and you got twenty-four rows and a 200; supply one and you got five and
+  // a 404. The same leak was closed on the role path and reopened on the identity path.
+  //
+  // view-as narrows an identity. It does not substitute for one. The seat is still honoured
+  // — accessFor(null, 'partner') resolves the role perfectly well — it just no longer
+  // carries somebody's team memberships with it.
+  return null;
 }
 
 // The role the caller is previewing as (demo "view as"), from body or trusted header.
@@ -461,6 +478,9 @@ const OPEN_TO_THE_WORLD = [
   /^\/mcp\/[^/]+\/(login|callback)$/,
 ];
 api.use((req, res, next) => {
+  if (requestingIdentity(req) === UNREADABLE_IDENTITY) {
+    return res.status(401).json({ error: 'sign-in-required', detail: 'Sign in to continue.' });
+  }
   // This asked whether the caller held the shared secret, and let every keyed caller
   // through — so `x-bot-key` alone, naming nobody, was served the firm's inbound deal mail
   // with the senders' names and addresses, seventeen scored targets and the whole news
@@ -692,9 +712,14 @@ api.post('/candidates/:id/assess', async (req, res) => {
 });
 
 // Persistent per-candidate conversation with the step's agent (O2/O3).
+// The screening transcript quotes the verdict and the numbers behind it — "quant score
+// 75/100, passes hard gates, no knockout flags" — which is the assessment the funnel
+// withholds, in prose, on a route nobody had scoped.
 api.get('/candidates/:id/chat', (req, res) => {
   const r = getCandidateChat(req.params.id);
   if (r.error) return res.status(404).json(r);
+  const visible = figuresVisibleTo(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
+  if (!visible(r)) return res.status(404).json({ error: 'not-found' });
   res.json(r);
 });
 api.post('/candidates/:id/chat', async (req, res) => {
@@ -1627,9 +1652,13 @@ api.get('/companies', (req, res) => {
 // bytes the route already emits for an id that does not exist.
 api.get('/companies/:id', (req, res) => {
   const c = canonicalCompany(req.params.id);
-  const hidden = hiddenCompanyNames(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
+  const identity = requestingIdentity(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
+  const hidden = hiddenCompanyNames(identity, viewAs);
   if (!c || namesOf(c).some((n) => hidden.has(n))) return res.status(404).json({ error: 'company-not-found' });
-  res.json(c);
+  // Byte-identical to the partner's response for a target the funnel had just reduced to a
+  // name — revenue, EBITDA, margin and size, on the id the reduced row was still handing out.
+  res.json(figuresVisibleTo(identity, viewAs)(c) ? c : reduceFigures(c));
 });
 
 // Data-source connectivity (Home connectivity panel). Real tests for Web + MCP

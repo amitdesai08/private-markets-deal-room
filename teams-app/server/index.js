@@ -116,8 +116,12 @@ app.post('/api/teams/context', async (req, res) => {
   // Authoritative access profile from the orchestrator (single policy source): which
   // agents this user may use + the roles they can view-as. The requesting identity is
   // the demo override (by name) or the SSO identity, trusted via the shared bot key.
+  // As an IDENTIFIER, not just a display name. The orchestrator stopped matching deal-team
+  // membership on `name` — an unsigned display name is published on the sign-in list, so
+  // asserting one was enough to become a person who is on a confidential deal. asOverride
+  // is already a roster id, which is what oid and upn are for.
   const requestingUser = asOverride
-    ? { name: asOverride }
+    ? { oid: asOverride, upn: asOverride, name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
   let acc = null;
   if (isBackendLive()) {
@@ -263,7 +267,7 @@ async function forwardChat(path, req, res) {
   const asOverride = await resolveDemoOverride(req, identity);                                          // demo "view as USER", roster-checked
   const viewAsRole = (asOverride && !identity) ? WALKTHROUGH_SEAT : (String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim() || null);
   const requestingUser = asOverride
-    ? { name: asOverride }
+    ? { oid: asOverride, upn: asOverride, name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : null);
   const headers = { 'content-type': 'application/json' };
   // Same rule as forwardWithIdentity: no identity, no key, no seat.
@@ -293,7 +297,7 @@ app.use('/api/admin', async (req, res) => {
   const identity = identityFromSsoToken(ssoToken);
   const asOverride = await resolveDemoOverride(req, identity);
   const requestingUser = asOverride
-    ? { name: asOverride }
+    ? { oid: asOverride, upn: asOverride, name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
   const body = { ...(req.body || {}) };
   delete body.ssoToken; delete body.as;
@@ -433,7 +437,7 @@ async function forwardWithIdentity(req, res) {
   const viewAsRole = (asOverride && !identity) ? WALKTHROUGH_SEAT : (String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim());
 
   const requestingUser = asOverride
-    ? { name: asOverride }
+    ? { oid: asOverride, upn: asOverride, name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
   const headers = { 'content-type': 'application/json' };
   // The key is the app's proof and it was attached whatever the browser had told us, so

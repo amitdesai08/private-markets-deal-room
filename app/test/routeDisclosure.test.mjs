@@ -738,3 +738,42 @@ test('an uncleared seat is told a target exists, not what it is worth', async ()
   assert.ok(cleared.some((c) => FIGURES.some((k) => c[k] != null)),
     'a partner was shown no figures on any target — the funnel has been emptied, not scoped');
 });
+
+// THE THREE WAYS AN IDENTITY CAN BE FAKED, EACH PINNED ON A CONFIDENTIAL DEAL.
+//
+// Counting rows was how all three of these survived a review: a smaller list looks like a
+// working boundary. Each assertion below names demo-onyx specifically, because that is the
+// record the fault actually reached.
+//   - view-as with NO identity returned the roster's partner, who is on Onyx's team, so a
+//     request naming nobody was answered as somebody. Omit the person, get 24 rows and a 200.
+//   - an UNREADABLE x-dr-user fell through the same way: a truncated header upgraded the
+//     caller from 21 deals to 24, both confidential ones included.
+//   - an asserted display NAME of 'partner' matched the deal team, because the team on a
+//     confidential deal is a list of person ids and the sign-in list publishes the names.
+test('no unsigned assertion reaches a confidential deal', async () => {
+  const confidential = seededDeals.filter((d) => d.confidential);
+  assert.ok(confidential.length, 'no confidential deal in the fixture — this test would be inert');
+  const key = process.env.BOT_BACKEND_KEY;
+
+  const attempts = [
+    ['view-as with no identity', { 'x-bot-key': key, 'x-dr-view-as': 'partner' }],
+    ['an unreadable identity', { 'x-bot-key': key, 'x-dr-view-as': 'partner', 'x-dr-user': 'not-json' }],
+    ['an empty identity', { 'x-bot-key': key, 'x-dr-view-as': 'partner', 'x-dr-user': '{}' }],
+  ];
+  for (const name of ['partner', 'analyst', 'legal-gc', 'admin']) {
+    attempts.push([`a display name of "${name}"`, {
+      'x-bot-key': key,
+      'x-dr-view-as': 'partner',
+      'x-dr-user': JSON.stringify({ oid: 'u-stranger', upn: 'stranger@example.test', name }),
+    }]);
+  }
+
+  const reached = [];
+  for (const [how, headers] of attempts) {
+    for (const deal of confidential) {
+      const r = await fetch(`${base}/api/deals/${deal.id}`, { headers });
+      if (r.status === 200) reached.push(`${how} opened ${deal.id}`);
+    }
+  }
+  assert.deepEqual(reached, [], reached.join('; '));
+});

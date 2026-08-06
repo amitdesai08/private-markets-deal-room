@@ -1260,18 +1260,52 @@ function findSourcingTarget(id) {
   return sig ? signalToTarget(sig) : null;
 }
 
+// The figures a caller may not have, wherever they are asked for.
+//
+// The funnel reduced a target correctly and three sibling routes served the same numbers
+// whole in the same session: /companies/:id came back byte-identical to the partner's, and
+// /targets/scored carried the score, the band and the parts it was built from. A reduction
+// applied on one route and not its neighbours is a screen that hides what the API gives
+// away, which is the shape of every leak in this file's history.
+export function reduceFigures(o) {
+  if (!o || typeof o !== 'object') return o;
+  const { canonicalId, ...rest } = o;
+  return {
+    ...rest,
+    dealSize: null, revenue: null, ebitda: null, ebitdaMargin: null, growth: null,
+    score: null, band: null, parts: null, matchedScreen: null, screenRec: null,
+    assessment: null, ownership: null, thesis: undefined, funnel: undefined,
+    statusOnly: true,
+  };
+}
+// True when the caller may see what a target is worth: the deal behind it is open to them.
+export function figuresVisibleTo(identity, viewAsRole = null) {
+  const openable = new Set(deals
+    .filter((d) => dealAccessLevel(identity, d, viewAsRole) === 'full')
+    .map((d) => String(d.company || '').toLowerCase()));
+  const cleared = !!accessFor(identity, viewAsRole).canViewStage2;
+  return (o) => cleared || namesOf(o).some((n) => openable.has(n));
+}
+
 export function getScoredTargets(identity, viewAsRole = null) {
   const hidden = hiddenCompanyNames(identity, viewAsRole);
   const sel = selectedScreens();
   const list = sourcingTargets().filter(visibleTo(hidden));
   const targets = scoreTargets(list, sel, fund);
   const inFunnel = new Set(candidates.map((c) => c.company.toLowerCase()));
+  const canSeeFigures = figuresVisibleTo(identity, viewAsRole);
   return {
     selectedCount: sel.length,
     discoveredCount: list.filter((c) => c.justDiscovered).length,
     totalCount: list.length,
     gatedCount: targets.filter((t) => t.gated).length,
-    targets: targets.map((t) => ({ ...t, inFunnel: inFunnel.has(t.name.toLowerCase()) }))
+    // Same rule as the funnel: a target whose deal the caller cannot open keeps its name
+    // and loses its figures. This route was serving the score, the band and the parts it
+    // was built from to a seat the funnel had just refused them to.
+    targets: targets.map((t) => {
+      const row = { ...t, inFunnel: inFunnel.has(t.name.toLowerCase()) };
+      return canSeeFigures(row) ? row : reduceFigures(row);
+    })
   };
 }
 
@@ -1968,10 +2002,14 @@ function statusOnlyNames(identity, viewAsRole = null) {
   return out;
 }
 function reduceCandidate(c) {
+  const { canonicalId, ...rest } = c;
   return {
-    ...c,
+    ...rest,
     dealSize: null, revenue: null, ebitda: null, ebitdaMargin: null, growth: null,
     score: null, band: null, screenRec: null, ownership: null, thesis: undefined,
+    // canonicalId is dropped above: the reduced row was still returning the exact id that
+    // /companies/:id accepts, which is the join key for the record this reduction exists to
+    // withhold.
     statusOnly: true,
   };
 }

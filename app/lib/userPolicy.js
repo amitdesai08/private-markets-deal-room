@@ -465,10 +465,17 @@ const RESTRICTED_NAME_RE = /diligence|approval|execution|closing|signing|financi
 
 // Is this identity (or its view-as) on a deal's team? Matches by oid / upn-local / upn /
 // name, like roleForUser.
+// A DISPLAY NAME IS NOT A DIRECTORY IDENTIFIER.
+//
+// roleForUser stopped honouring `name` and this did not, so the name-to-ROLE door was shut
+// and the name-to-TEAM door left open — which is the one that matters, because the team on
+// a confidential deal is a list of person ids. Asserting {"name":"partner"} made the caller
+// Eleanor Shellstrop, who is on Project Onyx, and the record came back in full. oid and upn
+// at least have to be known; a display name is published on the sign-in list.
 export function onDealTeam(identity, team) {
   const list = (team || []).map((s) => norm(s));
   if (!list.length || !identity) return false;
-  const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn), norm(identity.name)].filter(Boolean);
+  const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn)].filter(Boolean);
   return keys.some((k) => list.includes(k));
 }
 
