@@ -37,7 +37,7 @@ import {
 import { initRepo, repoMode, repoReady, companies as coRepo, deals as dealRepo, signals as sigRepo, recordEvent } from './repo/index.js';
 import { initConnectorSettings } from './connectorSettings.js';
 import { initAccessConfig } from './accessConfig.js';
-import { dealAccessLevel } from './userPolicy.js';
+import { accessFor, dealAccessLevel } from './userPolicy.js';
 import { primeTokenCache } from './mcp/oauth.js';
 import { computeICReadiness, currentAssumptions } from './icReadiness.js';
 import { canonicalFigures } from './diligence.js';
@@ -1975,13 +1975,27 @@ function reduceCandidate(c) {
     statusOnly: true,
   };
 }
-const scopeCandidates = (identity, viewAsRole) => {
+// Exported so the rule can be tested against the seed. The runtime candidate list comes
+// from Cosmos and is empty in a test run, which would make any test that reads it inert.
+export const scopeCandidates = (identity, viewAsRole) => {
   const hidden = hiddenCompanyNames(identity, viewAsRole);
   const status = statusOnlyNames(identity, viewAsRole);
+  // A candidate nobody has promoted has no deal, so nothing above governs it — and that is
+  // the target the firm has NOT approached, which is the most confidential thing here, not
+  // the least. It was coming back with its size, ownership, revenue, EBITDA and the
+  // screening verdict to any seat that asked. The name and the stage are what a colleague
+  // needs so two teams do not court the same target; the figures are not.
+  const cleared = !!accessFor(identity, viewAsRole).canViewStage2;
+  const known = new Set(deals.map((d) => String(d.company || '').toLowerCase()));
   return (list) => list
     .filter(visibleTo(hidden))
     .map(publicCandidate)
-    .map((c) => (namesOf(c).some((n) => status.has(n)) ? reduceCandidate(c) : c));
+    .map((c) => {
+      const names = namesOf(c);
+      if (names.some((n) => status.has(n))) return reduceCandidate(c);
+      if (!cleared && !names.some((n) => known.has(n))) return reduceCandidate(c);
+      return c;
+    });
 };
 export function getPipeline(identity, viewAsRole = null) {
   return {

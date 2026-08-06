@@ -705,3 +705,36 @@ test('a confidential deal is invisible to everyone not named on it', async () =>
     }
   }
 });
+
+// Origination is the stage at which nobody is supposed to know, and it was the one place
+// with no rule at all: a candidate nobody has promoted has no deal, so none of the deal
+// tiers governed it, and the funnel returned a live target's size, ownership, revenue,
+// EBITDA and screening verdict to any seat that asked. The name and the stage are what a
+// colleague needs so two teams do not court the same target. The figures are not.
+test('an uncleared seat is told a target exists, not what it is worth', async () => {
+  const { scopeCandidates, listDeals } = await import('../lib/store.js');
+  const { seedCandidates } = await import('../data/candidates.js');
+  // Against the SEED, not the runtime list: candidates come from Cosmos and are empty in a
+  // test run, so a test that read them would assert nothing and look green doing it.
+  assert.ok(seedCandidates.length > 4, 'no candidates in the seed — this test would be inert');
+  const FIGURES = ['dealSize', 'revenue', 'ebitda', 'score'];
+
+  for (const seatName of ['member', 'analyst']) {
+    const rows = scopeCandidates(null, seatName)(seedCandidates);
+    const openable = new Set(listDeals(null, seatName)
+      .filter((d) => d.accessLevel === 'full')
+      .map((d) => String(d.company || '').toLowerCase()));
+    const leaked = rows.filter((c) => {
+      if (!FIGURES.some((k) => c[k] != null)) return false;
+      const names = [c.company, c.name].filter(Boolean).map((x) => String(x).toLowerCase());
+      return !names.some((n) => openable.has(n));
+    });
+    assert.deepEqual(leaked.map((c) => c.company || c.name), [],
+      `${seatName} was given figures for targets it cannot open`);
+  }
+
+  // And a cleared seat still gets the numbers, or this has been fixed by breaking it.
+  const cleared = scopeCandidates(null, 'partner')(seedCandidates);
+  assert.ok(cleared.some((c) => FIGURES.some((k) => c[k] != null)),
+    'a partner was shown no figures on any target — the funnel has been emptied, not scoped');
+});
