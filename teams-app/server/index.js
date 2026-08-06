@@ -395,6 +395,7 @@ async function workIqUserToken(ssoToken, identity, scopes = GRAPH_WORKIQ_SCOPES)
 // opened itself for a walkthrough — that is a decision someone makes with an environment
 // variable, knowing what is behind it, and it is off unless set. It is NOT something a
 // browser can decide for itself by sending a header.
+const DEMO_ACCESS_KEY = String(process.env.DEMO_ACCESS_KEY || '').trim() === 'unset' ? '' : String(process.env.DEMO_ACCESS_KEY || '').trim();
 const OPEN_SIGN_IN = /^(1|true|yes|on)$/i.test(String(process.env.DEMO_OPEN_SIGN_IN || ''));
 // One environment variable used to open all nineteen deals at once, at whatever seat the
 // visitor named — `x-dr-as: admin` on the open host returned Project Onyx at full access
@@ -447,6 +448,16 @@ async function forwardWithIdentity(req, res) {
   // what it is. This is the browser's request; the tab's own bootstrap calls still carry it.
   if (config.backend.botKey && requestingUser) headers['x-bot-key'] = config.backend.botKey;
   if (requestingUser) headers['x-dr-user'] = JSON.stringify(requestingUser);
+  // A walkthrough visitor has no directory account, so there is nothing to forward that the
+  // orchestrator should believe. Present the credential the DEPLOYMENT holds instead: the
+  // backend reads it from its own secret store and answers a named, read-only seat. An
+  // assertion the browser made about itself never leaves this function.
+  if (DEMO_ACCESS_KEY && asOverride && !identity) {
+    delete headers['x-dr-user'];
+    delete headers['x-bot-key'];
+    headers['x-dr-demo-key'] = DEMO_ACCESS_KEY;
+    headers['x-dr-demo-as'] = asOverride;
+  }
   if (viewAsRole) headers['x-dr-view-as'] = viewAsRole;
   // Only attach the delegated token when the caller is genuinely that user. Under a
   // demo "view as USER" override the seat on screen is NOT the signed-in person, so
