@@ -21,25 +21,28 @@ test('a grouped region (West Coast) expands to its base regions', () => {
   assert.deepEqual(expandRegionScope('northeast'), ['northeast']);
 });
 
+// The fixtures carry pipelineVisible because the subject here is the REGION wall. Without
+// it they are hidden by the origination default and the test would pass on the wrong
+// reason \u2014 every assertion below would be about awareness rather than about territory.
 test('region-group membership scopes visibility; users in no region group see all', async () => {
   await setRegionGroup('grp-ne', ['northeast']);
   const neUser = { oid: 'u-ne', groups: ['grp-ne'] };
   assert.deepEqual(regionsForIdentity(neUser), ['northeast']);
-  assert.equal(dealAccessLevel(neUser, { hq: 'Dallas, Texas', stage: 'O1' }), 'none', 'out-of-region hidden');
-  assert.notEqual(dealAccessLevel(neUser, { hq: 'Boston, MA', stage: 'O1' }), 'none', 'in-region visible');
+  assert.equal(dealAccessLevel(neUser, { hq: 'Dallas, Texas', stage: 'O1', pipelineVisible: true }), 'none', 'out-of-region hidden');
+  assert.notEqual(dealAccessLevel(neUser, { hq: 'Boston, MA', stage: 'O1', pipelineVisible: true }), 'none', 'in-region visible');
 
   const anyUser = { oid: 'u-any', groups: [] };
   assert.deepEqual(regionsForIdentity(anyUser), []);
-  assert.notEqual(dealAccessLevel(anyUser, { hq: 'Dallas, Texas', stage: 'O1' }), 'none', 'no region group = all regions');
+  assert.notEqual(dealAccessLevel(anyUser, { hq: 'Dallas, Texas', stage: 'O1', pipelineVisible: true }), 'none', 'no region group = all regions');
 });
 
 test('a grouped-region manager sees every deal in the territory', async () => {
   await setRegionGroup('grp-west', ['northwest', 'southwest']);
   const mgr = { oid: 'u-mgr', groups: ['grp-west'] };
   assert.deepEqual(regionsForIdentity(mgr).sort(), ['northwest', 'southwest']);
-  assert.notEqual(dealAccessLevel(mgr, { hq: 'Seattle, Washington', stage: 'O1' }), 'none'); // NW
-  assert.notEqual(dealAccessLevel(mgr, { hq: 'Los Angeles, California', stage: 'O1' }), 'none'); // SW
-  assert.equal(dealAccessLevel(mgr, { hq: 'Boston, MA', stage: 'O1' }), 'none'); // outside territory
+  assert.notEqual(dealAccessLevel(mgr, { hq: 'Seattle, Washington', stage: 'O1', pipelineVisible: true }), 'none'); // NW
+  assert.notEqual(dealAccessLevel(mgr, { hq: 'Los Angeles, California', stage: 'O1', pipelineVisible: true }), 'none'); // SW
+  assert.equal(dealAccessLevel(mgr, { hq: 'Boston, MA', stage: 'O1', pipelineVisible: true }), 'none'); // outside territory
 });
 
 test('tag/deal-group membership grants FULL access to tagged deals', async () => {

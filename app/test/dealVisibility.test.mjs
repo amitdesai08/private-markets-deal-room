@@ -47,9 +47,23 @@ test('being on the deal team beats the flag — you get the workspace, not a lis
   assert.equal(dealAccessLevel({ oid: 'u-nobody' }, mine, 'analyst'), 'full');
 });
 
-test('origination and screening stay open to the firm', () => {
-  // Sourcing is a firm-wide activity; hiding it would defeat the point of the pipeline.
-  assert.equal(asAnalyst({ id: 'o1', stage: 'O2', hq: 'Dallas, Texas' }), 'full');
+test('origination is open to the firm only when the firm says so', () => {
+  // Sourcing is a firm-wide activity and hiding it would defeat the point of the
+  // pipeline — but that used to be inferred from the stage prefix, /^[dev]/i, so every
+  // deal at O1–O4 was FULL for every seat including the anonymous floor. Live and
+  // unauthenticated, GET /stage1/cohort/O2 returned a named target and its size, and a
+  // target added tomorrow was exposed by default until it reached diligence. That is
+  // backwards: origination is the stage at which nobody is supposed to know yet.
+  //
+  // This is deliberately STRICTER than the assertion it replaces. Awareness is a
+  // decision the deal records, at every stage, and the seed now carries it on the
+  // origination deals the firm genuinely wants known — so the behaviour a reader sees is
+  // unchanged and the reason for it is on the record instead of in a regex.
+  const o2 = { id: 'o1', stage: 'O2', hq: 'Dallas, Texas' };
+  assert.equal(asAnalyst(o2), 'none');
+  assert.equal(asAnalyst({ ...o2, pipelineVisible: true }), 'status');
+  // And the flag never promotes a stranger to the workspace.
+  assert.notEqual(asAnalyst({ ...o2, pipelineVisible: true }), 'full');
 });
 
 test('a cleared role is unaffected by the flag in either state', () => {

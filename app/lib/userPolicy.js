@@ -465,12 +465,19 @@ export function dealAccessLevel(identity, deal, viewAsRole = null) {
   // team / deal-group members bypass the territory wall.
   const region = regionForDeal(deal);
   if (region && access.regions.length && !access.isAdmin && !team && !access.regions.map((x) => String(x).toLowerCase()).includes(String(region).toLowerCase())) return 'none';
-  // Base level (ignoring confidential): admins + deal-team members (need-to-know) + open
-  // (origination) stages get the full workspace; deal-team-tier roles get full on
-  // restricted stages; everyone else gets status-only on restricted stages.
+  // Base level (ignoring confidential): admins and deal-team members (need-to-know) get
+  // the full workspace, deal-team-tier roles get full on restricted stages, and awareness
+  // for everybody else is something the deal opts into.
   let level;
   if (access.isAdmin || team) level = 'full';
-  else if (!restricted) level = 'full';
+  // `else if (!restricted) level = 'full'` used to sit here, and it inverted the rule
+  // this file states four lines further down. `restricted` is a regex on the stage
+  // prefix, /^[dev]/i, so a deal at O1-O4 was FULL for every seat including the floor:
+  // anonymously, GET /stage1/cohort/O2 returned a named target and its size. A target
+  // added tomorrow was exposed by default and only became hidden once it reached
+  // diligence — which is backwards, because origination is the stage where nobody is
+  // supposed to know yet. Awareness is the flag now, at every stage, and the stage
+  // prefix decides nothing about who can see a deal.
   else if (access.canViewStage2) level = 'full';
   // A deal you are not cleared for is not listed at all. It used to be listed with its
   // detail stripped, which told everyone in the firm that Project Onyx existed, who was
@@ -478,11 +485,9 @@ export function dealAccessLevel(identity, deal, viewAsRole = null) {
   // sensitive part of an unannounced transaction, and a row saying "you cannot open
   // this" is an invitation to go and ask someone who can.
   //
-  // Awareness is now something the deal opts into rather than something the reader has
-  // to be denied. `pipelineVisible` marks a deal the firm wants known internally — so
-  // two teams do not court the same target — and only that flag produces the status
-  // tier. `confidential` still overrides it, so a deal can never be made visible by
-  // accident.
+  // `pipelineVisible` marks a deal the firm wants known internally — so two teams do not
+  // court the same target — and only that flag produces the status tier. `confidential`
+  // still overrides it, so a deal can never be made visible by accident.
   else if (deal && deal.pipelineVisible) level = 'status';
   else level = 'none';
   if (confidential && level === 'status') return 'none';

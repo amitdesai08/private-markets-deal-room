@@ -317,6 +317,63 @@ api.use((req, res, next) => {
 
 api.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 
+// ---- Default-deny at the boundary -------------------------------------------
+// Every GET sub-route of a deal was gated and forty routes under the same prefix were
+// not, because each one was written to gate itself and twenty-eight of them forgot.
+// Unauthenticated, no bot key, no seat: POST /deals/demo-onyx/assumption-snapshot
+// returned twenty kilobytes of the raw record — name, size, HQ, thesis, the deal team,
+// and `confidential: true` telling the reader they had found the right thing — and wrote
+// a snapshot onto it. /actions/summarize-cim ran the model over the deal and handed back
+// the CIM and the risk register verbatim. /data-room/seed created SharePoint documents
+// and returned their URLs. /teams/ensure provisioned a channel and returned a live deep
+// link. Eleven more confirmed the deal existed by refusing differently from a deal that
+// does not.
+//
+// So this is not another gate to remember. Nothing under /deals/:id answers for a deal
+// the caller cannot see, and it answers identically for one that was never real. Routes
+// stay free to make finer decisions — status versus full — on top of it.
+//
+// Express does not populate req.params on a router-level use(), so the id comes off the
+// path. `create` and `resolve-team` are literals in that position, not ids.
+const DEAL_ID_RESERVED = new Set(['create', 'resolve-team', 'teams', 'facets']);
+api.use((req, res, next) => {
+  const m = /^\/deals\/([^/?]+)(?:\/|$)/.exec(req.path);
+  if (!m) return next();
+  const id = decodeURIComponent(m[1]);
+  if (DEAL_ID_RESERVED.has(id)) return next();
+  // The signed model link is its own capability: it is issued per deal, it expires, and
+  // it is how an Excel refresh reaches the workbook without a session.
+  if (req.query && req.query.t && verifyModelToken(id, req.query.t)) return next();
+  const raw = getDealRaw(id);
+  const level = raw ? dealAccessLevel(requestingIdentity(req), raw, (requestingFloor(req) || requestingViewAs(req))) : 'none';
+  if (level === 'none') return res.status(404).json({ error: 'deal not found' });
+  next();
+});
+
+// A promoted candidate is addressable twice — as `cand-new-3` and as the deal
+// `screened-2-cand-new-3` it became — so there were two access decisions for one target
+// and only one of them was made. Anonymously, `GET /candidates/cand-new-1/chat` returned
+// Allbirds, Sound United, National CineMedia and XBP Global by name, with their
+// screening chat logs, on ids you can count up to; all four are live deals that a proven
+// analyst and a proven member are refused with a 404. It is the same leak found on
+// /companies?inFunnel=true, fixed there and not on its sibling.
+//
+// One decision per target: resolve the candidate to the deal it became and answer for
+// that. A candidate nobody has promoted has no deal and is governed by the origination
+// default rather than by nothing.
+api.use((req, res, next) => {
+  const m = /^\/candidates\/([^/?]+)(?:\/|$)/.exec(req.path);
+  if (!m) return next();
+  const id = decodeURIComponent(m[1]);
+  if (id === 'send-to-screening') return next();
+  const deal = dealForCandidate(id);
+  if (!deal) return next();
+  if (dealAccessLevel(requestingIdentity(req), deal, (requestingFloor(req) || requestingViewAs(req))) === 'none') {
+    return res.status(404).json({ error: 'candidate not found' });
+  }
+  next();
+});
+
 // Microsoft Graph mailbox change-notifications (O1 Deal-Sourcing signals)
 api.use('/graph', graphRouter);
 
@@ -610,7 +667,11 @@ function dealVisibleTo(req) {
 }
 
 function refuse(res, { status = 403, reason, dealId, action, code }) {
-  const requestAccess = dealId
+  // Only ever on a 403. A 404 that offers you a way to request access to the very id it
+  // has just claimed not to know is a 404 in name only — it confirms the deal exists, and
+  // it hands over the id in a form the caller can replay. The route that refuses an
+  // unannounced target must not also advertise it.
+  const requestAccess = dealId && status === 403
     ? { method: 'POST', path: `/api/deals/${dealId}/request-access`, detail: 'Ask the deal team to add you. The request goes to the people who can grant it.' }
     : null;
   return res.status(status).json({
@@ -805,7 +866,7 @@ api.post('/deals/:id/contributions', async (req, res) => {
   if (!lane || !text) return res.status(422).json({ error: 'lane-and-text-required' });
   const identity = requestingIdentity(req);
   const access = accessFor(identity, (requestingFloor(req) || requestingViewAs(req)));
-  if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'This seat cannot write to the diligence record.' });
+  if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'Your access on this deal is read-only, so it cannot be written to.' });
   // An unidentified caller writes as an unidentified caller. It does not get to pick a name.
   const authored = identity?.name || identity?.upn || null;
   const mdName = (getMdOptions().find((m) => m.id === md) || {}).name || null;
@@ -868,7 +929,7 @@ function deskGate(req, res) {
   if (!raw) { res.status(404).json({ error: 'not-found' }); return null; }
   const level = dealAccessLevel(identity, raw, viewAs);
   if (level === 'none') { res.status(404).json({ error: 'not-found' }); return null; }
-  if (level === 'status') { res.status(403).json({ error: 'forbidden', detail: 'Status-only access — the deal desk is deal-team only.' }); return null; }
+  if (level === 'status') { res.status(403).json({ error: 'forbidden', detail: 'Status-only access — the full deal record is open to the deal team only.' }); return null; }
   const access = accessFor(identity, viewAs);
   return { raw, deal: getDeal(req.params.id) || raw, access, viewAs };
 }
@@ -938,7 +999,7 @@ function composeState({ link, liveChannel, userToken, canWrite }) {
     return { canSend: false, reason: 'No Teams channel is linked to this deal yet, so there is nowhere to post.' };
   }
   if (!canWrite) {
-    return { canSend: false, reason: 'Your seat is read-only on this deal.' };
+    return { canSend: false, reason: 'Your access on this deal is read-only.' };
   }
   if (!userToken) {
     return { canSend: false, reason: 'Sending posts as you, which needs your own Microsoft 365 sign-in. Open the Deal Room inside Teams and accept the permission prompt.' };
@@ -961,7 +1022,7 @@ api.post('/deals/:id/threads/message', async (req, res) => {
   const g = deskGate(req, res);
   if (!g) return;
   if (!g.access?.canWrite) {
-    return res.status(403).json({ error: 'read-only-seat', detail: 'Your seat is read-only on this deal, so it cannot post to the deal channel.' });
+    return res.status(403).json({ error: 'read-only', detail: 'Your access on this deal is read-only, so it cannot post to the deal channel.' });
   }
   const userToken = requestingGraphToken(req);
   if (!userToken) {
@@ -1299,7 +1360,7 @@ api.post('/deals/:id/assistant-actions', async (req, res) => {
   const identity = requestingIdentity(req);
   const viewAs = (requestingFloor(req) || requestingViewAs(req));
   const access = accessFor(identity, viewAs);
-  if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only; you cannot apply changes.' });
+  if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only, so you cannot apply changes.' });
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
   if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ error: 'forbidden', detail: gate.reason });
@@ -1359,7 +1420,7 @@ api.delete('/deals/:id/workiq-notes/:noteId', (req, res) => {
   const identity = requestingIdentity(req);
   const viewAs = (requestingFloor(req) || requestingViewAs(req));
   const access = accessFor(identity, viewAs);
-  if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only; you cannot remove Work IQ notes.' });
+  if (!access.canWrite) return res.status(403).json({ error: 'forbidden', detail: 'Your role is read-only, so you cannot remove notes.' });
   const deal = getDealRaw(req.params.id);
   const gate = authorizeDealContent(identity, deal, viewAs);
   if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ error: 'forbidden', detail: gate.reason });
@@ -1826,7 +1887,7 @@ api.post('/deals/:id/access-requests/:requestId', async (req, res) => {
   // "approved" while the team is unchanged is the one outcome an approver must not be
   // given. Say what happened.
   if (decision === 'approve' && !granted) {
-    return res.json({ ...body, detail: 'Recorded, but nobody was added: this request came from a seat with no named identity, so there is no person to admit. Add them to the deal team directly.' });
+    return res.json({ ...body, detail: 'Recorded, but nobody was added: the request arrived with no named person on it, so there is nobody to admit. Add them to the deal team directly.' });
   }
   res.json(body);
 });
@@ -2297,7 +2358,7 @@ api.post('/deals/:id/advance', async (req, res) => {
   // Advancing a deal is a write. `accessFor` computes `advanceWorkflow` and nothing read
   // it, so a read-only seat could move a deal through every ungated transition — a
   // capability computed, shipped to the UI, and enforced nowhere.
-  if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'This seat cannot move deals.' });
+  if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'Your access on this deal is read-only, so it cannot be moved on.' });
   const r = await advanceDeal(req.params.id, { persona: access.role || null, overrideReason });
   if (r && r.error === 'not-found') return res.status(404).json({ error: 'deal not found' });
   // A refused override is an authorization failure, not a conflict — it must not be
@@ -2327,7 +2388,7 @@ api.post('/deals/:id/artifact/:step', async (req, res) => {
 // client-supplied-attribution shape that was closed on the contributions route.
 api.post('/deals/:id/back', async (req, res) => {
   const access = accessFor(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
-  if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'This seat cannot move deals.' });
+  if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'Your access on this deal is read-only, so it cannot be moved on.' });
   const deal = await regressDeal(req.params.id, { persona: access.role || null, reason: (req.body || {}).reason });
   if (!deal) return res.status(404).json({ error: 'deal not found' });
   res.json(deal);
@@ -2338,7 +2399,7 @@ api.post('/deals/:id/back', async (req, res) => {
 api.post('/deals/:id/back-stage', async (req, res) => {
   const { reason } = req.body || {};
   const access = accessFor(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
-  if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'This seat cannot move deals.' });
+  if (!access.canWrite) return res.status(403).json({ error: 'read-only', detail: 'Your access on this deal is read-only, so it cannot be moved on.' });
   const deal = await regressDealStage(req.params.id, { persona: access.role || null, reason });
   if (!deal) return res.status(404).json({ error: 'deal not found' });
   res.json(deal);

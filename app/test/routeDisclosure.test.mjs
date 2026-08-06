@@ -320,3 +320,105 @@ test('the sub-route list is complete against the router', async () => {
   const missing = [...served].filter((r) => !SUB_ROUTES.includes(r));
   assert.deepEqual(missing, [], `sub-resources the router serves and this file does not test: ${missing.join(', ')}`);
 });
+
+// THE LIST THAT CLAIMED COMPLETENESS ONLY EVER LOOKED AT GET.
+//
+// Every assertion above this line issues a GET. The router serves twenty-eight MUTATING
+// sub-routes of a deal id and not one test had ever sent a request to any of them, so
+// POST /deals/:id/assumption-snapshot returned twenty kilobytes of a confidential record
+// to an unauthenticated caller AND wrote a snapshot to it, and the suite was green.
+// Reading the verbs from the router is the point: a hand-kept literal is what went stale.
+const mutatingSubRoutes = async () => {
+  const src = await readFile(new URL('../server.js', import.meta.url), 'utf8');
+  const out = new Set();
+  for (const m of src.matchAll(/api\.(post|patch|put|delete)\(\s*'\/deals\/:id([^']*)'/g)) {
+    // Nested parameters are real routes; give them a value that cannot match anything.
+    out.add([m[1].toUpperCase(), m[2].replace(/:[A-Za-z]+/g, 'x-not-a-real-id')].join(' '));
+  }
+  return [...out];
+};
+
+test('a mutating sub-route of a hidden deal answers exactly as it does for an invented id', async () => {
+  const routes = await mutatingSubRoutes();
+  assert.ok(routes.length > 20, `only ${routes.length} mutating sub-routes found — the scan has drifted`);
+  const id = hiddenFromAnalyst()[0];
+  const leaks = [];
+  for (const entry of routes) {
+    const [method, tail] = entry.split(' ');
+    const call = (d) => fetch(`${base}/api/deals/${d}${tail || ''}`, { method, headers: seat('analyst'), body: method === 'DELETE' ? undefined : '{}' });
+    const [real, invented] = await Promise.all([call(id), call('deal-that-does-not-exist')]);
+    const [a, b] = await Promise.all([real.text(), invented.text()]);
+    if (real.status !== 404) leaks.push(`${entry} -> ${real.status}`);
+    // Same status is not enough. Refusing differently is still an answer to "does it exist".
+    else if (a !== b) leaks.push(`${entry} -> 404 but a different body than for an invented id`);
+  }
+  assert.deepEqual(leaks, [], `mutating routes that confirmed a hidden deal: ${leaks.join(', ')}`);
+});
+
+// NOTHING IN THIS FILE HAD EVER MADE AN UNAUTHENTICATED REQUEST.
+//
+// The seat() helper sends the bot key on every call, which is correct for testing what a
+// PROVEN seat may see — and it meant the anonymous floor, the one surface reachable by
+// anyone who has the URL, was the only one with no coverage at all. Four unauthenticated
+// routes were returning confidential records and provisioning channels when this was
+// written. No headers below, deliberately.
+test('an unauthenticated caller gets nothing from a deal it cannot see, on any verb', async () => {
+  const anon = new Set(listDeals(null, 'member').map((d) => d.id));
+  const hidden = [...idsFor('partner')].filter((id) => !anon.has(id));
+  assert.ok(hidden.length, 'fixture must hide at least one deal from the anonymous floor');
+  const id = hidden[0];
+  const routes = [...SUB_ROUTES.map((t) => `GET ${t}`), ...(await mutatingSubRoutes())];
+  const leaks = [];
+  for (const entry of routes) {
+    const [method, tail] = entry.split(' ');
+    const r = await fetch(`${base}/api/deals/${id}${tail || ''}`, {
+      method,
+      headers: { 'content-type': 'application/json' },
+      body: method === 'GET' || method === 'DELETE' ? undefined : '{}',
+    });
+    const text = await r.text();
+    if (r.status !== 404) leaks.push(`${entry} -> ${r.status}`);
+    else if (text.length > 120) leaks.push(`${entry} -> 404 carrying ${text.length} bytes`);
+  }
+  assert.deepEqual(leaks, [], `answered an anonymous caller about a hidden deal: ${leaks.join(', ')}`);
+});
+
+// The five feeds the access review listed as still unscoped. None of them names a deal
+// the caller cannot see today, and the fix for that is to hold it rather than to add a
+// filter that does nothing — but nothing was checking, and /sourcing in particular is one
+// promote away from carrying a live target. If a future edit joins these to the deal
+// records, this is the test that says so.
+test('the market and sourcing feeds never name a deal the caller cannot see', async () => {
+  const S = await import('../lib/store.js');
+  const sectors = [...new Set(seededDeals.map((d) => d.sector).filter(Boolean))];
+  const visible = new Set(listDeals(null, 'member').map((d) => String(d.company || '').toLowerCase()));
+  const hiddenNames = seededDeals.map((d) => String(d.company || '').toLowerCase()).filter((n) => n && !visible.has(n));
+  assert.ok(hiddenNames.length, 'no deal is hidden from the anonymous floor — the guard would be inert');
+
+  const parts = [S.listSourcing(), S.getPassReasons(), S.getFramework()];
+  for (const sector of sectors) parts.push(S.comparableDeals({ sector }), S.icPrecedents(sector));
+  const body = JSON.stringify(parts).toLowerCase();
+  // These feeds carry several kilobytes of seeded content. If they ever come back empty
+  // the assertion below would pass for the wrong reason, so fail on that instead.
+  assert.ok(body.length > 4000, `the feeds returned only ${body.length} bytes — this test has gone inert`);
+  for (const name of hiddenNames) {
+    assert.ok(!body.includes(name), `"${name}" is hidden as a deal and named on an open feed`);
+  }
+});
+
+// Refusal copy is the one place the product speaks to someone it is turning away, and it
+// was the last place the house words were still in use: "This seat cannot move deals",
+// "read-only-seat", "you cannot remove Work IQ notes", "the deal desk is deal-team only".
+// A reader who is refused should be told what they cannot do in their own language, not
+// in the vocabulary of the implementation.
+test('no refusal explains itself in words the product does not use', async () => {
+  const src = await readFile(new URL('../server.js', import.meta.url), 'utf8');
+  const banned = /\b(cockpit|lane|gate|module|orchestrator|MCP|connector|provenance|seat|desk|agent|Work IQ)\b/i;
+  const offences = [];
+  // Only the prose fields. `error` codes are read by callers, not by people.
+  for (const m of src.matchAll(/\b(?:detail|reason|reply):\s*'([^']{12,})'/g)) {
+    const hit = m[1].match(banned);
+    if (hit) offences.push(`"${hit[0]}" in: ${m[1].slice(0, 70)}`);
+  }
+  assert.deepEqual(offences, [], `refusal copy using house words:\n${offences.join('\n')}`);
+});

@@ -572,6 +572,11 @@ export const demoStageDeals = [
   },
   {
     id: 'demo-mojave',
+    // The firm wants its own targets known internally so two teams do not court the
+    // same one. That used to be inferred from the stage prefix, which meant every deal
+    // at O1-O4 was open to anyone including an unauthenticated caller, and a target
+    // added tomorrow was exposed by default. It is a decision now, made here.
+    pipelineVisible: true,
     growth: 14, company: 'Mojave Renewables', region: 'southwest', tags: [],
     sector: 'Energy', subSector: 'Renewables / Storage', hq: 'Phoenix, Arizona, United States',
     dealSize: 350, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
@@ -594,6 +599,7 @@ export const demoStageDeals = [
   // freshly-screened deal that has not yet been launched into diligence.
   {
     id: 'demo-riverbend',
+    pipelineVisible: true,
     growth: 4, company: 'Riverbend Specialty Foods', region: 'midwest', tags: [],
     sector: 'Consumer & Retail', subSector: 'Specialty Food Manufacturing', hq: 'Milwaukee, Wisconsin, United States',
     dealSize: 165, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
@@ -612,6 +618,7 @@ export const demoStageDeals = [
   },
   {
     id: 'demo-harborlight',
+    pipelineVisible: true,
     growth: 5, region: 'northeast', tags: [],
     company: 'Harborlight Marine Services',
     sector: 'Industrials', subSector: 'Marine Infrastructure Services', hq: 'Portland, Maine, United States',
@@ -632,6 +639,7 @@ export const demoStageDeals = [
   },
   {
     id: 'demo-cypress',
+    pipelineVisible: true,
     growth: 9, company: 'Cypress Grove Dental Partners', region: 'southeast', tags: [],
     sector: 'Healthcare', subSector: 'Dental Services Organisation', hq: 'Tampa, Florida, United States',
     dealSize: 280, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
