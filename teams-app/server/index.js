@@ -68,7 +68,11 @@ async function getDemoProfiles() {
   if (!isBackendLive()) return [];
   try {
     const headers = {};
-    if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
+    // The key is the app's proof, and it was attached whatever the browser had told us —
+  // so an unauthenticated visitor to the tab host was forwarded as a proven caller and
+  // could pick its own seat with an x-dr-view-as header. Withhold it when we cannot say
+  // who is asking; the backend then treats the request as what it is.
+  if (config.backend.botKey && requestingUser) headers['x-bot-key'] = config.backend.botKey;
     const r = await fetch(`${config.backend.url}/api/demo-profiles`, { headers });
     if (r.ok) { _demoProfiles = await r.json(); _demoProfilesAt = Date.now(); return _demoProfiles; }
   } catch { /* backend not ready — return empty, retry next request */ }

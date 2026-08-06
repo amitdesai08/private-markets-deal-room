@@ -256,9 +256,25 @@ function requestingViewAs(req) {
 // boundary so the platform's own internal callers keep the default they are configured
 // with.
 function requestingFloor(req) {
-  // 'anonymous', not 'member'. An unproven caller is not a quiet member of the firm; it
-  // is whoever has the URL, and the two were indistinguishable to every access decision.
-  return BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY ? 'anonymous' : null;
+  // A key proves WHICH APP is calling. It has never proved which person, and this line
+  // treated it as if it did — so the Teams proxy, which attaches the key unconditionally
+  // and the signed-in user only if SSO was presented, converted a browser that had said
+  // nothing about itself into the deploy default. Anonymously, through the tab host, that
+  // was nineteen deals at accessLevel `full`, Project Onyx among them, and the only thing
+  // standing in the way was that the browser had not bothered to ask for more.
+  //
+  // Both halves are required now: the caller proves it is the app AND says who it is.
+  if (BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY) return 'anonymous';
+  // Proving the app is not the same as saying who is asking. A caller that proves the key
+  // and then says NOTHING — no user, no seat — used to land on the deploy default, which
+  // is the most privileged seat the deployment has. The Teams proxy attaches the key
+  // unconditionally, so a browser that had not signed in arrived exactly like that and was
+  // shown nineteen deals at accessLevel `full`, Project Onyx among them.
+  //
+  // Naming a seat is still honoured — that is the demo affordance, and view-as can only
+  // ever narrow. Saying nothing now means nothing, rather than everything.
+  if (requestingIdentity(req)) return null;
+  return req.body?.viewAsRole || req.headers['x-dr-view-as'] ? null : 'anonymous';
 }
 
 // A DELEGATED Microsoft Graph token for the signed-in user, obtained by the Teams
@@ -390,6 +406,34 @@ api.use((req, res, next) => {
 // entry EV, MOIC, IRR and realisation dates. Both took `_req` and discarded the caller.
 // How this firm votes and what it has made are the two things a competitor would ask for
 // first, and neither is about a deal, so the boundary guard above never saw them.
+// DENY BY DEFAULT.
+//
+// Adding a prefix to a guard every time a route is found open is a list, and the list is
+// what keeps going stale — POST /connectors returned 201 to the open internet and
+// persisted a record that /connectors/:id/config then writes credentials into, POST
+// /screens and POST /sourcing/:id/promote did the same, and GET /signals/mailbox served
+// the firm's inbound deal mail with the senders' addresses. None of them was on any list.
+//
+// The allowlist below is the whole set that legitimately arrives without proof, and it is
+// short enough to read: the Graph webhook handshake, the two OAuth callback legs, and the
+// liveness probe. Each of those authenticates itself by other means — a validationToken
+// echo, a state/nonce — so opening them costs nothing.
+const OPEN_TO_THE_WORLD = [
+  /^\/health$/,
+  /^\/graph\/notifications$/,
+  /^\/m365\/(login|callback)$/,
+  /^\/mcp\/[^/]+\/(login|callback)$/,
+];
+api.use((req, res, next) => {
+  if ((requestingFloor(req) || requestingViewAs(req)) !== 'anonymous') return next();
+  if (OPEN_TO_THE_WORLD.some((re) => re.test(req.path))) return next();
+  return res.status(401).json({
+    error: 'sign-in-required',
+    // Nothing about what is behind it. The 401 used to name 'Fund reporting and market
+    // intelligence', which tells a stranger what the firm keeps here.
+    detail: 'Sign in to continue.',
+  });
+});
 const FIRM_ONLY_RE = /^\/(fund|market-intel|fabric)(\/|$)/;
 api.use((req, res, next) => {
   if (!FIRM_ONLY_RE.test(req.path)) return next();
@@ -1986,7 +2030,18 @@ api.post('/deals/:id/region', (req, res) => {
   res.json({ id: updated.id, region: updated.region });
 });
 
-api.get('/sourcing', (_req, res) => res.json(listSourcing()));
+// The last `_req` on an origination feed. It returned the firm's own sourcing rationale —
+// "matches convenience-grocery mandate; adjacency to the Nordic Grocery thesis" — which
+// names a live deal inside the prose rather than in a company field, so scoping by the
+// company alone would have read as fixed and left the sentence in place.
+api.get('/sourcing', (req, res) => {
+  const hidden = hiddenCompanyNames(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
+  const mentionsHidden = (item) => {
+    const text = JSON.stringify(item).toLowerCase();
+    return [...hidden].some((name) => name && text.includes(name));
+  };
+  res.json(listSourcing().filter((item) => !mentionsHidden(item)));
+});
 
 api.post('/sourcing/:id/promote', (req, res) => {
   const item = promoteSourcing(req.params.id);

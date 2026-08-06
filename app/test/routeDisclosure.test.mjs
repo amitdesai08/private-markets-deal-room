@@ -164,8 +164,12 @@ test('an unproven caller cannot ask to be a cleared seat', async () => {
     assert.ok(true, 'no bot key configured in this run - boundary gate is inert');
     return;
   }
+  // These used to read a list off the floor. The floor is refused outright now, so the
+  // property is stronger than the one this test was written to hold: a caller that has
+  // proved nothing is not served a shorter list, it is not served a list.
   const ids = async (headers) => {
     const r = await fetch(`${base}/api/deals`, { headers });
+    if (r.status === 401) return [];
     return (await r.json()).map((d) => d.id).sort();
   };
   const anon = await ids({});
@@ -186,8 +190,11 @@ test('an unproven caller cannot ask to be a cleared seat', async () => {
 test('no route grants a seat to a caller that has not proven itself', async () => {
   const { BOT_BACKEND_KEY } = process.env;
   if (!BOT_BACKEND_KEY) { assert.ok(true, 'no bot key configured — boundary gate is inert'); return; }
-  const floor = await (await fetch(`${base}/api/capabilities`)).json();
-  assert.equal(floor.canWrite, false, 'fixture assumption: the floor cannot write');
+  // Refusing outright is the stronger answer, and it is the one given now. Accept either,
+  // because what this test exists to prove is the loop below: that a CLAIM changes nothing.
+  const floorRes = await fetch(`${base}/api/capabilities`);
+  if (floorRes.status === 200) assert.equal((await floorRes.json()).canWrite, false, 'the floor cannot write');
+  else assert.equal(floorRes.status, 401, `the floor was answered ${floorRes.status}`);
 
   // Every shape a claim can arrive in, on every route that reads one.
   const claims = [
@@ -466,36 +473,6 @@ test('the candidate routes answer, and never name a candidate whose deal is hidd
 // escaped it: the route reads a cohort of CANDIDATES rather than deals, so it is served by
 // a function that test never names, and it answers 200 to an anonymous caller. Everything
 // open enough to answer without a header gets swept here, over HTTP, as anyone would.
-test('nothing served to an anonymous caller names a deal it cannot see', async () => {
-  const partnerIds = [...idsFor('partner')];
-  const anonNames = new Set(listDeals(null, 'member').map((d) => String(d.company || '').toLowerCase()));
-  const hiddenNames = seededDeals
-    .filter((d) => partnerIds.includes(d.id))
-    .map((d) => String(d.company || '').toLowerCase())
-    .filter((n) => n && !anonNames.has(n));
-  assert.ok(hiddenNames.length, 'no deal is hidden from the anonymous floor — this test would be inert');
-
-  const open = [
-    '/api/stage1/cohort/O1', '/api/stage1/cohort/O2', '/api/stage1/cohort/O3', '/api/stage1/cohort/O4',
-    '/api/stage1/pipeline', '/api/stage1/pass-reasons', '/api/targets/scored', '/api/signals/companies',
-    '/api/news/desk', '/api/sourcing', '/api/framework', '/api/companies', '/api/companies?inFunnel=true',
-    '/api/market-intel/comps?sector=Software', '/api/market-intel/ic-precedents?sector=Software',
-  ];
-  const leaks = [];
-  let served = 0;
-  for (const path of open) {
-    const r = await fetch(`${base}${path}`);
-    if (r.status !== 200) continue;
-    const body = (await r.text()).toLowerCase();
-    served += body.length;
-    for (const name of hiddenNames) {
-      if (body.includes(name)) leaks.push(`${path} names "${name}"`);
-    }
-  }
-  // If these all start refusing, the loop above asserts nothing at all.
-  assert.ok(served > 8000, `the open feeds returned only ${served} bytes in total — this test has gone inert`);
-  assert.deepEqual(leaks, [], leaks.join('; '));
-});
 
 // THE SWEEP ABOVE IS FIFTEEN LITERALS AND THAT IS THE SAME MISTAKE, ONE FILE LOWER.
 //
@@ -508,53 +485,6 @@ test('nothing served to an anonymous caller names a deal it cannot see', async (
 // The assertion is a subset rule rather than a name list, because a name list only finds
 // leaks shaped like a company name — it passed vacuously over IC precedents, which are
 // historical deals. Anything an anonymous caller is told must also be told to a member.
-test('an anonymous caller is told nothing a proven member is not', async () => {
-  const src = await readFile(new URL('../server.js', import.meta.url), 'utf8');
-  const paths = new Set();
-  for (const m of src.matchAll(/api\.get\(\s*'(\/[^']*)'/g)) {
-    const route = m[1];
-    if (route.startsWith('/deals')) continue; // covered exhaustively above
-    if (route.includes('*')) continue;
-    paths.add(route);
-  }
-  assert.ok(paths.size > 40, `only ${paths.size} GET routes found — the scan has drifted`);
-
-  // A route with a parameter needs a real value or it proves nothing. These are the ids
-  // the leak was actually found on.
-  const REAL_IDS = {
-    ':id': ['co-allbirds', 'co-national-cinemedia-inc', 'co-xbp-global-holdings-inc'],
-    ':stage': ['O1', 'O2', 'O3', 'O4'],
-    ':ticker': ['ALLB'],
-  };
-  const expand = (route) => {
-    const param = route.match(/:[A-Za-z]+/);
-    if (!param) return [route];
-    const values = REAL_IDS[param[0]];
-    if (!values) return []; // no realistic value — a made-up one would assert nothing
-    return values.map((v) => route.replace(param[0], v));
-  };
-
-  const leaks = [];
-  let compared = 0;
-  for (const route of paths) {
-    for (const path of expand(route)) {
-      if (path.includes(':')) continue; // more than one parameter; out of scope here
-      const [a, b] = await Promise.all([
-        fetch(`${base}/api${path}`),
-        fetch(`${base}/api${path}`, { headers: seat('member') }),
-      ]);
-      if (a.status !== 200) continue; // refused outright, which is a fine answer
-      const [anon, member] = await Promise.all([a.text(), b.text()]);
-      compared += 1;
-      // Identical is fine — that is genuinely open reference data. MORE than the member
-      // gets is the fault, and so is anything the member is refused entirely.
-      if (b.status !== 200) { leaks.push(`${path}: anonymous 200, member ${b.status}`); continue; }
-      if (anon.length > member.length) leaks.push(`${path}: anonymous ${anon.length}b > member ${member.length}b`);
-    }
-  }
-  assert.ok(compared > 25, `only ${compared} routes actually answered — this test has gone inert`);
-  assert.deepEqual(leaks, [], `told an anonymous caller more than a member:\n${leaks.join("; ")}`);
-});
 
 // Both directions, because each half is a different failure.
 //
@@ -563,23 +493,6 @@ test('an anonymous caller is told nothing a proven member is not', async () => {
 // the open internet by name with stage and readiness attached. The floor is its own role
 // now. The second half of this test is the one that matters in six months: `anonymous`
 // can be over-corrected into refusing the firm too, and nothing else here would notice.
-test('the floor is the open internet, and the firm is still above it', async () => {
-  const anon = await (await fetch(`${base}/api/deals`)).json();
-  assert.equal(anon.length, 0, `an unproven caller was listed ${anon.length} deals`);
-
-  const member = await (await fetch(`${base}/api/deals`, { headers: seat('member') })).json();
-  const aware = seededDeals.filter((d) => d.pipelineVisible && !d.confidential);
-  assert.ok(aware.length, 'no deal is marked visible to the firm — the second half would be vacuous');
-  assert.ok(member.length >= aware.length,
-    `a proven member sees ${member.length} deals but the firm marked ${aware.length} to be known`);
-
-  // And awareness is still only awareness: it never opens the workspace.
-  const status = member.find((d) => aware.some((a) => a.id === d.id));
-  if (status) {
-    const r = await fetch(`${base}/api/deals/${status.id}/case`, { headers: seat('member') });
-    assert.notEqual(r.status, 200, `${status.id} is marked for awareness and served its full case to a member`);
-  }
-});
 
 // The fund's own reporting, checked by hand because the subset test above only compares
 // routes that answer 200 to BOTH seats — a 401 to the floor is invisible to it, which is
@@ -590,5 +503,73 @@ test('fund reporting and market intelligence are closed to the open internet', a
     assert.equal(anon.status, 401, `${path} answered an unproven caller with ${anon.status}`);
     const firm = await fetch(`${base}${path}`, { headers: seat('partner') });
     assert.equal(firm.status, 200, `${path} refused a partner with ${firm.status}`);
+  }
+});
+
+// DENY BY DEFAULT, PROVED ROUTE BY ROUTE OFF THE ROUTER.
+//
+// This replaces three tests, and it is worth saying what they were and why they went.
+// Two of them swept the routes an anonymous caller could reach and checked that the bodies
+// named no hidden company and were no longer than a member's. Both passed while POST
+// /connectors returned 201 to the open internet and persisted a record, /signals/mailbox
+// served the firm's inbound deal mail with the senders' addresses, and /stage1/cohort/O3
+// named a live target with its size and screening verdict — because all of those are
+// IDENTICAL for anonymous and member, and a subset rule calls identical acceptable.
+//
+// The third asserted the anonymous deal list was empty, which is now the least of what is
+// true. Comparing what the floor is told against what a member is told was the wrong
+// question; the right one is whether the floor is told anything at all.
+test('every route refuses a caller that has proved nothing, except the ones that cannot', async () => {
+  const src = await readFile(new URL('../server.js', import.meta.url), 'utf8');
+  const routes = new Set();
+  for (const m of src.matchAll(/api\.(get|post|patch|put|delete)\(\s*'(\/[^']*)'/g)) {
+    routes.add(`${m[1].toUpperCase()} ${m[2].replace(/:[A-Za-z]+/g, 'probe-value')}`);
+  }
+  assert.ok(routes.size > 100, `only ${routes.size} routes found — the scan has drifted`);
+
+  // The whole set that legitimately arrives without proof. Adding to it should feel like
+  // a decision, which is why it is spelled out rather than derived.
+  const OPEN = [/^\/health$/, /^\/graph\/notifications$/, /^\/m365\/(login|callback)$/, /^\/mcp\/[^/]+\/(login|callback)$/];
+
+  const answered = [];
+  for (const entry of routes) {
+    const [method, path] = entry.split(' ');
+    if (OPEN.some((re) => re.test(path))) continue;
+    const r = await fetch(`${base}/api${path}`, {
+      method,
+      headers: { 'content-type': 'application/json' },
+      body: method === 'GET' || method === 'DELETE' ? undefined : '{}',
+    });
+    // A deal sub-route answers 404 instead, because the deal boundary guard runs first
+    // and a 404 discloses strictly less than a 401: it does not concede that the id names
+    // anything. Both are refusals; only 2xx and 3xx are answers.
+    const acceptable = path.startsWith('/deals/') ? [401, 404] : [401];
+    if (!acceptable.includes(r.status)) answered.push(`${entry} -> ${r.status}`);
+  }
+  assert.deepEqual(answered, [], `routes that answered a caller who proved nothing: ${answered.join(', ')}`);
+});
+
+// The other half, and the half that will matter later: deny-by-default is one line away
+// from denying the firm too, and nothing above would notice.
+test('the firm is still served everything it should be', async () => {
+  const aware = seededDeals.filter((d) => d.pipelineVisible && !d.confidential);
+  assert.ok(aware.length, 'no deal is marked visible to the firm — this test would be vacuous');
+
+  const member = await (await fetch(`${base}/api/deals`, { headers: seat('member') })).json();
+  assert.ok(member.length >= aware.length,
+    `a proven member sees ${member.length} deals but the firm marked ${aware.length} to be known`);
+  const partner = await (await fetch(`${base}/api/deals`, { headers: seat('partner') })).json();
+  assert.ok(partner.length > member.length, 'a partner sees no more than a member — the ladder has collapsed');
+
+  for (const path of ['/api/fund/value', '/api/market-intel', '/api/analytics', '/api/companies', '/api/sourcing', '/api/signals/mailbox']) {
+    const r = await fetch(`${base}${path}`, { headers: seat('partner') });
+    assert.equal(r.status, 200, `${path} refused a partner with ${r.status}`);
+  }
+
+  // And awareness is still only awareness.
+  const status = member.find((d) => aware.some((a) => a.id === d.id));
+  if (status) {
+    const r = await fetch(`${base}/api/deals/${status.id}/case`, { headers: seat('member') });
+    assert.notEqual(r.status, 200, `${status.id} is marked for awareness and served its full case to a member`);
   }
 });

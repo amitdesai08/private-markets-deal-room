@@ -24,7 +24,15 @@ param(
 
 $ErrorActionPreference = 'Continue'
 if (-not $BotKey) { throw 'No bot key. Pass -BotKey or set DEAL_ROOM_BOT_KEY.' }
-$h = @{ 'x-bot-key' = $BotKey; 'x-dr-as' = 'desaiamit' }
+# The key proves which app is calling and never proved who is asking, though the backend
+# used to treat it as if it did — so this script ran as the deploy default, which is the
+# most privileged seat there is, and certified a view no real person would ever be shown.
+# It says who it is now, like every other caller.
+$h = @{
+  'x-bot-key' = $BotKey
+  'x-dr-as'   = 'desaiamit'
+  'x-dr-user' = '{"oid":"validate-prod","upn":"validate-prod@dealroom.local","name":"desaiamit","roles":["admin"]}'
+}
 $pass = 0; $fail = 0
 
 function Check($name, $ok, $detail) {
