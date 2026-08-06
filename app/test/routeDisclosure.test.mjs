@@ -867,3 +867,62 @@ test('no string that merely resembles a roster id opens a confidential deal', as
   assert.equal(onDealTeam(insider, real.team), true,
     `${real.id}: the person named on the team is no longer recognised`);
 });
+
+// THE SECOND TRANSPORT, WHICH NO TEST HAD EVER DRIVEN.
+//
+// Everything above this line speaks HTTP. The MCP surface reads the same store through a
+// different door, and `confidentialBlock(deal_id) || view(deal_id)` was pasted onto six of
+// the eleven tools that take a deal id — get_citation_audit was the one it was not pasted
+// onto, so the citation audit for a confidential deal came back in full.
+//
+// Table-driven off the registered tools, so tool number twelve fails the day it is added
+// rather than the day somebody looks.
+test('no MCP tool answers about a deal the shared surface may not discuss', async () => {
+  const { buildDealMcpServer } = await import('../lib/mcp/dealServer.js');
+  const confidential = seededDeals.filter((d) => d.confidential);
+  assert.ok(confidential.length, 'no confidential deal in the fixture — this test would be inert');
+
+  const server = buildDealMcpServer({ mode: 'disabled' });
+  // The SDK keeps what was registered; reach it however this version exposes it.
+  const registered = server._registeredTools || server.registeredTools || {};
+  const names = Object.keys(registered);
+  assert.ok(names.length > 8, `only ${names.length} tools found — the scan has drifted`);
+
+  const takesDeal = names.filter((n) => {
+    const schema = registered[n]?.inputSchema;
+    const keys = schema?.shape ? Object.keys(schema.shape) : Object.keys(schema || {});
+    return keys.includes('deal_id');
+  });
+  assert.ok(takesDeal.length > 4, `only ${takesDeal.length} tools take a deal id — the scan has drifted`);
+
+  const leaks = [];
+  for (const name of takesDeal) {
+    const cb = registered[name]?.callback;
+    if (typeof cb !== 'function') continue;
+    for (const deal of confidential) {
+      let out;
+      try { out = await cb({ deal_id: deal.id, step: 'D1', persona: 'analyst' }, {}); }
+      catch { continue; } // a schema rejection is a refusal too
+      const body = JSON.stringify(out || {}).toLowerCase();
+      if (body.includes(String(deal.company || '').toLowerCase())) leaks.push(`${name} named ${deal.id}`);
+      for (const figure of [deal.dealSize, deal.ebitda].filter((x) => x != null)) {
+        if (body.includes(String(figure))) leaks.push(`${name} quoted ${figure} from ${deal.id}`);
+      }
+    }
+  }
+  assert.deepEqual(leaks, [], leaks.join('; '));
+});
+
+// The signed model link is a capability for ONE workbook, and it was honoured in the
+// boundary middleware — so a token for demo-onyx satisfied the guard for the deal record
+// itself and all ten of its sub-routes: the returns model, the risk register, the
+// citations, the documents. A capability to read a spreadsheet opened the whole deal.
+test('a model link buys the two routes it is for and nothing else', async () => {
+  const hidden = hiddenFromAnalyst()[0];
+  assert.ok(hidden, 'fixture must hide a deal from an analyst');
+  // Any token value: what matters is that the OTHER routes do not consult it at all.
+  for (const tail of ['', '/case', '/returns', '/risk-register', '/citations', '/documents', '/ic-readiness']) {
+    const r = await fetch(`${base}/api/deals/${hidden}${tail}?t=anything`, { headers: seat('analyst') });
+    assert.equal(r.status, 404, `${tail || '(record)'} was reachable with a token in the query string (${r.status})`);
+  }
+});

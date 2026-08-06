@@ -259,13 +259,21 @@ export function dispatchTool(name, args, { scope = 'portfolio', focusId, focusCo
   // boundary — skipped the gate entirely and `get_deal` returned the full record for a
   // deal that seat is refused on the route. `list_deals` two lines down had always read
   // both; only the gate did not.
-  const enforce = !!identity || !!viewAsRole;
+  // AND NEITHER IS SILENCE. This asked whether a subject was PRESENT, not whether it was
+  // sufficient — so a caller who named neither a person nor a role skipped the gate
+  // entirely and get_deal returned the full record. That is the same rule the HTTP
+  // boundary states as "no person, no seat", living one layer down in the same repository,
+  // unfixed in the week it was fixed above.
+  //
+  // Enforcement is not conditional. A caller who says nothing is answered as nobody.
+  const enforce = true;
+  const seat = viewAsRole || (identity ? null : 'anonymous');
   if (name === 'list_deals') {
     if (dealScope) {
       const s = summaryFor(focusId);
       return { scoped_to: focusCompany, deals: s ? [dealSummary(s)] : [], note: `Scoped to ${focusCompany}; other deals are not accessible in this conversation.` };
     }
-    const base = enforce || viewAsRole ? listDeals(identity, viewAsRole) : listAgentDeals();
+    const base = listDeals(identity, seat);
     return { deals: base.map(dealSummary) };
   }
   if (name === 'get_deal') {

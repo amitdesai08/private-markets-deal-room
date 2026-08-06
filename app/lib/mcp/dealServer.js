@@ -34,7 +34,7 @@ import {
   dispatchAction, nextActionsFor
 } from '../dealTools.js';
 import { resolvePersona, PERSONAS } from '../personaPolicy.js';
-import { getDealRaw } from '../store.js';
+import { dealForCandidate, getDealRaw } from '../store.js';
 import { dealAccessLevel } from '../userPolicy.js';
 
 // The hosted MCP is a SHARED read surface: Foundry calls it with the agent's credentials,
@@ -96,6 +96,24 @@ function actionGuard(auth, argPersona) {
 // entirely, so a model-asserted persona can never drive a governed mutation there.
 export function buildDealMcpServer(auth = { mode: 'disabled' }) {
   const server = new McpServer(SERVER_INFO, { capabilities: { tools: {} } });
+
+  // THE GUARD IS APPLIED BY CONSTRUCTION, NOT BY REMEMBERING.
+  //
+  // `confidentialBlock(deal_id) || view(deal_id)` was pasted onto six of the eleven tools
+  // that take a deal id, and get_citation_audit was the one it was not pasted onto — so the
+  // citation audit for a confidential deal came back in full to anyone who could reach the
+  // shared surface. A reviewer reading `citationAuditView(deal_id)` sees nothing missing,
+  // which is the whole difficulty: nothing in the call's shape says a decision is owed.
+  //
+  // So the registrar makes it. Any tool whose arguments name a deal or a candidate is
+  // wrapped, and a tool added tomorrow is wrapped without anybody thinking about it.
+  const register = server.registerTool.bind(server);
+  server.registerTool = (name, spec, handler) => register(name, spec, async (args = {}, extra) => {
+    const subject = args.deal_id || (args.candidate_id ? dealForCandidate(args.candidate_id)?.id : null);
+    const blocked = subject ? confidentialBlock(subject) : null;
+    if (blocked) return toContent(blocked);
+    return handler(args, extra);
+  });
   const readOnly = !!auth.readOnly;
 
   // ---- READ: Stage-2 deals (existing contracts) ---------------------------

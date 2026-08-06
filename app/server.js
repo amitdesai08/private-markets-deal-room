@@ -399,9 +399,17 @@ api.use((req, res, next) => {
   if (!m) return next();
   const id = decodeURIComponent(m[1]);
   if (DEAL_ID_RESERVED.has(id)) return next();
-  // The signed model link is its own capability: it is issued per deal, it expires, and
-  // it is how an Excel refresh reaches the workbook without a session.
-  if (req.query && req.query.t && verifyModelToken(id, req.query.t)) return next();
+  // The signed model link is its own capability — issued per deal, and how an Excel
+  // refresh reaches the workbook without a session. It was honoured HERE, in the boundary
+  // middleware, so a token for demo-onyx satisfied the guard for the deal record itself and
+  // all ten of its sub-routes: the returns model, the risk register, the citations, the
+  // documents. A capability to read one workbook opened the whole deal.
+  //
+  // It buys the two routes it is for and nothing else. Everything else falls through to the
+  // access check below and 404s, and the two model handlers verify the token themselves.
+  const tail = req.path.slice(m[0].length - (m[0].endsWith('/') ? 1 : 0));
+  const isModelRoute = tail === '/model.html' || tail === '/model.csv';
+  if (isModelRoute && req.query && req.query.t && verifyModelToken(id, req.query.t)) return next();
   const raw = getDealRaw(id);
   const level = raw ? dealAccessLevel(requestingIdentity(req), raw, (requestingFloor(req) || requestingViewAs(req))) : 'none';
   if (level === 'none') return res.status(404).json({ error: 'deal not found' });
