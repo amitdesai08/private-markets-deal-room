@@ -31,12 +31,11 @@ if (-not $BotKey) { throw 'No bot key. Pass -BotKey or set DEAL_ROOM_BOT_KEY.' }
 $h = @{
   'x-bot-key' = $BotKey
   'x-dr-as'   = 'desaiamit'
-  'x-dr-user' = '{"oid":"validate-prod","upn":"validate-prod@dealroom.local","name":"desaiamit","roles":["admin"]}'
-  # A confidential deal needs a NAME on it, and an administrator is not one — being able to
-  # manage access is not the same as being on the deal. The two confidential records list
-  # 'partner' on their team, so this reads as a partner; otherwise the inventory check below
-  # reports them as LOST when they are merely not this seat's business.
-  'x-dr-view-as' = 'partner'
+  # An oid the deployment actually knows. This used to carry name='desaiamit' and rely on
+  # the name resolving a role; display names stopped granting anything, because asserting
+  # one was how a stranger became a person on a confidential deal — and this script quietly
+  # collapsed to the member seat and reported eleven deals as LOST.
+  'x-dr-user' = '{"oid":"admin","upn":"admin"}'
 }
 $pass = 0; $fail = 0
 
