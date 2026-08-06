@@ -32,6 +32,11 @@ $h = @{
   'x-bot-key' = $BotKey
   'x-dr-as'   = 'desaiamit'
   'x-dr-user' = '{"oid":"validate-prod","upn":"validate-prod@dealroom.local","name":"desaiamit","roles":["admin"]}'
+  # A confidential deal needs a NAME on it, and an administrator is not one — being able to
+  # manage access is not the same as being on the deal. The two confidential records list
+  # 'partner' on their team, so this reads as a partner; otherwise the inventory check below
+  # reports them as LOST when they are merely not this seat's business.
+  'x-dr-view-as' = 'partner'
 }
 $pass = 0; $fail = 0
 
@@ -68,8 +73,19 @@ Check 'deals are being served' ($deals.Count -gt 0) "$($deals.Count) deals"
 if ($BaselineDir -and (Test-Path "$BaselineDir\prod.deals.full.json")) {
   $before = (Get-Content "$BaselineDir\prod.deals.full.json" -Raw) | ConvertFrom-Json
   $nowIds = $deals | ForEach-Object { $_.id }
-  $lost = ($before | ForEach-Object { $_.id }) | Where-Object { $_ -notin $nowIds }
+  # A confidential deal is reachable only by a NAMED person, never by a role, so no seat
+  # this script can hold will ever enumerate one. That is the access model working, not a
+  # record going missing, and conflating the two would have this check demand the hole be
+  # reopened. They are checked for existence individually below instead.
+  $confidentialIds = @($before | Where-Object { $_.confidential } | ForEach-Object { $_.id })
+  $lost = ($before | ForEach-Object { $_.id }) | Where-Object { $_ -notin $nowIds -and $_ -notin $confidentialIds }
   Check 'no deal from the baseline was lost' ($lost.Count -eq 0) "baseline=$($before.Count) now=$($nowIds.Count) lost=$($lost -join ',')"
+  # And prove they are hidden rather than gone: a confidential deal must answer 404 to a
+  # role-based seat and still be on the record for someone named on it.
+  if ($confidentialIds.Count) {
+    $shown = @($confidentialIds | Where-Object { $_ -in $nowIds })
+    Check 'confidential deals are hidden, not listed' ($shown.Count -eq 0) "$($confidentialIds.Count) confidential, $($shown.Count) listed to this seat"
+  }
 } else {
   "  SKIP  baseline comparison  no prod.deals.full.json at '$BaselineDir'"
 }

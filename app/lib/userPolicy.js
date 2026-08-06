@@ -493,6 +493,12 @@ export function dealAccessLevel(identity, deal, viewAsRole = null) {
   // right for a deal the firm is running normally, wrong for one it has marked
   // confidential. Those keep needing a name, which is why Project Onyx stays shut.
   const previewing = !!access.viewingAs;
+  // A role is not a person, and a team written as a role slug admits everyone holding it —
+  // right for a deal the firm is running normally, wrong for one it has marked confidential.
+  // ownBook.test.mjs states that contract in as many words, so honouring slugs here would
+  // have been a weakening: the three confidential deals become unreachable by ROLE, and
+  // that is the intended consequence rather than an accident. What was actually broken is
+  // below — the stage-2 tier granted `full` before this flag was ever consulted.
   const roleNamed = !confidential && !!access.role && named.includes(norm(access.role));
   // Previewing a seat has to answer "what would THEY see", and the identity's own grants
   // were surviving the preview — so an administrator asking to be viewed as a member was
