@@ -76,12 +76,17 @@ export function dealSummary(s) {
   };
 }
 
-export function listDealSummaries() {
-  return listDeals().map(dealSummary);
+export function listDealSummaries(identity = null, viewAsRole = 'anonymous') {
+  return listDeals(identity, viewAsRole).map(dealSummary);
 }
 
-export function summaryFor(id) {
-  return listDeals().find((s) => s.id === id) || null;
+// The summary the tool layer publishes about ONE deal, and it was resolved from an
+// unscoped list — so it republished dealSize, daysToIC and the diligence and memo
+// aggregates that applyStatusTier exists to strip, under a note reading "you can see this
+// deal exists but not its confidential detail". The sentence was false in the same object
+// as the data it was describing.
+export function summaryFor(id, identity = null, viewAsRole = 'anonymous') {
+  return listDeals(identity, viewAsRole).find((s) => s.id === id) || null;
 }
 
 // Bounded "analyst view" of one deal. `sections` narrows what is returned.
@@ -235,7 +240,10 @@ export function searchDealSummaries(query, { identity, viewAsRole } = {}) {
   const terms = q.split(/\s+/).filter(Boolean);
   // Identity-aware: a caller only searches deals they may see; system callers (no
   // identity) get the confidential-excluding agent list.
-  const base = identity || viewAsRole ? listDeals(identity, viewAsRole) : listAgentDeals();
+  // Was `identity || viewAsRole ? listDeals(...) : listAgentDeals()` — the same question
+  // about PRESENCE, three lines below a call that had just been floored, returning sixteen
+  // deals at accessLevel full with unredacted size and thesis.
+  const base = listDeals(identity, viewAsRole || (identity ? null : 'anonymous'));
   return base
     .filter((s) => {
       const hay = `${s.company} ${s.sector} ${s.subSector} ${s.thesis}`.toLowerCase();
@@ -270,7 +278,7 @@ export function dispatchTool(name, args, { scope = 'portfolio', focusId, focusCo
   const seat = viewAsRole || (identity ? null : 'anonymous');
   if (name === 'list_deals') {
     if (dealScope) {
-      const s = summaryFor(focusId);
+      const s = summaryFor(focusId, identity, seat);
       return { scoped_to: focusCompany, deals: s ? [dealSummary(s)] : [], note: `Scoped to ${focusCompany}; other deals are not accessible in this conversation.` };
     }
     const base = listDeals(identity, seat);
@@ -292,7 +300,7 @@ export function dispatchTool(name, args, { scope = 'portfolio', focusId, focusCo
       const level = raw ? dealAccessLevel(identity, raw, viewAsRole) : 'none';
       if (level === 'none') return { error: 'access-denied', reason: 'You do not have access to this deal.' };
       if (level === 'status') {
-        const s = summaryFor(args.deal_id);
+        const s = summaryFor(args.deal_id, identity, seat);
         return { deal: s ? { ...dealSummary(s), thesis: undefined } : null, accessLevel: 'status', note: 'Status-only: you can see this deal exists (company, sector, stage, status) but not its confidential detail.' };
       }
     }
@@ -300,7 +308,7 @@ export function dispatchTool(name, args, { scope = 'portfolio', focusId, focusCo
   }
   if (name === 'search_deals') {
     if (dealScope) {
-      const s = summaryFor(focusId);
+      const s = summaryFor(focusId, identity, seat);
       return { scoped_to: focusCompany, deals: s ? [dealSummary(s)] : [], note: `Scoped to ${focusCompany}; search is limited to this deal.` };
     }
     return { deals: searchDealSummaries(args?.query, { identity, viewAsRole }) };

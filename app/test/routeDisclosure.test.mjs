@@ -896,9 +896,16 @@ test('no MCP tool answers about a deal the shared surface may not discuss', asyn
   assert.ok(takesDeal.length > 4, `only ${takesDeal.length} tools take a deal id — the scan has drifted`);
 
   const leaks = [];
+  let invoked = 0;
   for (const name of takesDeal) {
-    const cb = registered[name]?.callback;
+    // `.callback` on this SDK is undefined; the property is `.handler`. Every tool was
+    // therefore skipped, `leaks` stayed empty and the assertion passed — thirty-eight tools
+    // against three confidential deals in five milliseconds. The two length guards above
+    // check ENUMERATION, which is why it looked alive. A test that retires a concern
+    // without exercising it is worse than no test, so `invoked` is asserted below.
+    const cb = registered[name]?.handler || registered[name]?.callback;
     if (typeof cb !== 'function') continue;
+    invoked += 1;
     for (const deal of confidential) {
       let out;
       try { out = await cb({ deal_id: deal.id, step: 'D1', persona: 'analyst' }, {}); }
@@ -910,6 +917,8 @@ test('no MCP tool answers about a deal the shared surface may not discuss', asyn
       }
     }
   }
+  assert.ok(invoked >= takesDeal.length,
+    `only ${invoked} of ${takesDeal.length} tools were actually called — this test is inert`);
   assert.deepEqual(leaks, [], leaks.join('; '));
 });
 

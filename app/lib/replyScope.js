@@ -9,14 +9,16 @@
 // This does not excuse the root cause. It guarantees the outcome while the root cause is
 // found, in the same way the figures guard checks the numbers rather than trusting the
 // instruction not to invent them.
-import { listDeals, getDealRaw } from './store.js';
+import { listDeals, getDealRaw, listAllDealsUnscoped } from './store.js';
 import { dealAccessLevel } from './userPolicy.js';
 
 // Every company name on the book that THIS caller may not see.
 function hiddenNames(identity, viewAsRole) {
   const visible = new Set(listDeals(identity, viewAsRole).map((d) => d.id));
   const out = [];
-  for (const s of listDeals()) {
+  // The whole book, deliberately — this is counting what the caller CANNOT see, so it has
+  // to know about all of it. Named, so a reader can tell it apart from a call that forgot.
+  for (const s of listAllDealsUnscoped()) {
     if (visible.has(s.id)) continue;
     const raw = getDealRaw(s.id);
     if (dealAccessLevel(identity, raw, viewAsRole) === 'full') continue;

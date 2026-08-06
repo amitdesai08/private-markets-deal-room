@@ -609,8 +609,23 @@ function summarize(deal) {
   };
 }
 
+// THE MECHANISM, NOT THE ROUTE.
+//
+// `arguments.length > 0` made the UNSCOPED book the default: calling listDeals() with no
+// arguments returned every deal at `full`, unredacted, with no status tier and no region
+// wall. Nothing in that call's shape says a decision is owed, so it spread — summaryFor()
+// used it and republished the very fields applyStatusTier exists to strip, under a note
+// reading "you can see this deal exists but not its confidential detail", which was false
+// in the same object as the data. search_deals used it three lines below a call that had
+// just been floored. Four more copies sit on the assistant path.
+//
+// The default is the floor now. A caller that genuinely needs the whole book asks for it
+// by name, and that name is legible in a review.
+export function listAllDealsUnscoped() {
+  return deals.map((d) => { const s = summarize(d); s.accessLevel = 'full'; return s; });
+}
 export function listDeals(identity, viewAsRole = null) {
-  const scoped = arguments.length > 0;            // no-arg = system/agent view (unredacted)
+  const scoped = true;
   const out = [];
   for (const d of deals) {
     const level = scoped ? dealAccessLevel(identity, d, viewAsRole) : 'full';
