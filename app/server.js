@@ -277,6 +277,7 @@ function requestingIdentity(req) {
 // Teams app proves itself with a bot key and forwards a real signed-in user — not
 // something the open internet may ask for and be given.
 function requestingViewAs(req) {
+  if (req.drVerified) return req.body?.viewAsRole || req.headers['x-dr-view-as'] || null;
   if (BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY) return null;
   return req.body?.viewAsRole || req.headers['x-dr-view-as'] || null;
 }
@@ -293,6 +294,10 @@ function requestingFloor(req) {
   // standing in the way was that the browser had not bothered to ask for more.
   //
   // Both halves are required now: the caller proves it is the app AND says who it is.
+  // A caller Entra has vouched for does not also need the app's shared secret. This asked
+  // for the key first, so a verified identity was floored to `anonymous` before anyone
+  // looked at it — which is the bot key standing in for identity one last time.
+  if (req.drVerified) return null;
   if (BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY) return 'anonymous';
   // Proving the app is not the same as saying who is asking. A caller that proves the key
   // and then says NOTHING — no user, no seat — used to land on the deploy default, which

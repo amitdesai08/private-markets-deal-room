@@ -975,3 +975,40 @@ test('the tab does not accept an identity it has not verified', async () => {
   assert.doesNotMatch(src, /Buffer\.from\(ssoToken\.split\('\.'\)\[1\]/,
     'the SSO token payload is being decoded rather than verified');
 });
+
+// The walkthrough credential, in both directions.
+//
+// A demo still has to be shown to somebody who has not been given a directory account, and
+// the honest way to do that is a credential the DEPLOYMENT holds rather than a header
+// anyone can guess — which is what `x-dr-as: admin` was. It shows the room and never
+// changes it.
+test('the walkthrough credential opens a seat and cannot write', async () => {
+  const KEY = process.env.DEMO_ACCESS_KEY;
+  const { describeDemoProfiles } = await import('../lib/userPolicy.js');
+  // The walkthrough names somebody on the roster, so it needs both the key and the roster.
+  // Without either it is inert BY DESIGN rather than by accident, which is worth saying
+  // out loud given how many tests in this file turned out to be inert by accident.
+  if (!KEY || !describeDemoProfiles().length) {
+    assert.ok(true, 'no walkthrough key or no roster in this run — the path is unreachable here');
+    return;
+  }
+  const demo = (who) => ({ 'x-dr-demo-key': KEY, 'x-dr-demo-as': who, 'content-type': 'application/json' });
+
+  const rows = await (await fetch(`${base}/api/deals`, { headers: demo('member') })).json();
+  assert.ok(Array.isArray(rows), 'the walkthrough seat was refused a deal list');
+
+  // A wrong key is nobody, and so is a right key naming a person who does not exist.
+  for (const headers of [{ 'x-dr-demo-key': 'not-the-key', 'x-dr-demo-as': 'partner' }, { 'x-dr-demo-key': KEY, 'x-dr-demo-as': 'zaphod' }]) {
+    const r = await fetch(`${base}/api/deals`, { headers });
+    assert.equal(r.status, 401, `a bad walkthrough credential was answered ${r.status}`);
+  }
+
+  if (rows.length) {
+    const r = await fetch(`${base}/api/deals/${rows[0].id}/issues`, {
+      method: 'POST',
+      headers: demo('partner'),
+      body: JSON.stringify({ lane: 'commercial', title: 'written by a walkthrough', severity: 'low' }),
+    });
+    assert.ok(r.status >= 400, `a walkthrough wrote to a deal (${r.status})`);
+  }
+});
