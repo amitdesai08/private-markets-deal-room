@@ -17,6 +17,15 @@ import { hydrate, listDeals } from '../lib/store.js';
 
 await hydrate();
 
+// A seat is something a PERSON holds, and a person has to be somebody the deployment knows.
+// These tests used to claim a seat with no identity on the request at all, which the
+// boundary now refuses — so without this every assertion below would quietly become a test
+// of the anonymous floor, five times over, and pass.
+const { setRoleAssignments } = await import('../lib/accessConfig.js');
+for (const role of ['admin', 'partner', 'deal-team', 'analyst']) {
+  await setRoleAssignments(role, [role, `${role}@dealroom.test`]);
+}
+
 const server = app.listen(0);
 await once(server, 'listening');
 const base = `http://127.0.0.1:${server.address().port}`;
@@ -24,7 +33,19 @@ test.after(() => server.close());
 
 // A seat claim is only honoured for a caller that proves it is the app, so these tests
 // have to prove it too — otherwise every one of them silently tests the member floor.
-const seat = (role) => ({ 'x-dr-view-as': role, 'x-bot-key': process.env.BOT_BACKEND_KEY, 'content-type': 'application/json' });
+// A seat is something a PERSON holds, and these used to claim one without naming anybody —
+// which is exactly the request the boundary now refuses, so every assertion below would
+// have quietly become a test of the anonymous floor.
+const seat = (role) => ({
+  'x-dr-view-as': role,
+  'x-bot-key': process.env.BOT_BACKEND_KEY,
+  // The roster is keyed by role name — `partner` is a person, and so is `legal-gc` — so
+  // this names the one who actually holds the seat. An invented oid resolves to nobody and
+  // view-as only ever narrows, so every seat below would have collapsed to `member` and the
+  // suite would have passed by testing the floor five times over.
+  'x-dr-user': JSON.stringify({ oid: role, upn: role }),
+  'content-type': 'application/json',
+});
 const get = (path, role) => fetch(`${base}${path}`, { headers: seat(role) });
 const post = (path, role, body) => fetch(`${base}${path}`, { method: 'POST', headers: seat(role), body: JSON.stringify(body || {}) });
 
@@ -232,8 +253,8 @@ test('no route grants a seat to a caller that has not proven itself', async () =
 test('the decide route refuses what it should and admits what it cannot do', async () => {
   const { BOT_BACKEND_KEY } = process.env;
   if (!BOT_BACKEND_KEY) { assert.ok(true, 'no bot key configured'); return; }
-  const cleared = { 'x-bot-key': BOT_BACKEND_KEY, 'x-dr-view-as': 'deal-team', 'content-type': 'application/json' };
-  const statusSeat = { 'x-bot-key': BOT_BACKEND_KEY, 'x-dr-view-as': 'member', 'content-type': 'application/json' };
+  const cleared = seat('deal-team');
+  const statusSeat = seat('member');
 
   const target = [...idsFor('member')].find((id) => !idsFor('member').has(id) === false);
   const ask = await fetch(`${base}/api/deals/${target}/request-access`, { method: 'POST', headers: statusSeat, body: '{}' });
@@ -279,9 +300,11 @@ test('every seat a proven caller can preview actually resolves to that seat', as
   if (!BOT_BACKEND_KEY) { assert.ok(true, 'no bot key configured'); return; }
   // Shipped a 500 to production here: the demo profile lookup is a map and was called as
   // a function, so /api/capabilities threw for every seat. Nothing exercised it.
-  const me = await (await fetch(`${base}/api/me/access`, { method: 'POST', headers: { 'x-bot-key': BOT_BACKEND_KEY, 'content-type': 'application/json' }, body: '{}' })).json();
+  // These built headers inline and named no person, which is the request the boundary now
+  // refuses — so every seat below came back `anonymous` and the preview was never exercised.
+  const me = await (await fetch(`${base}/api/me/access`, { method: 'POST', headers: seat('admin'), body: '{}' })).json();
   for (const role of ['partner', 'admin', 'analyst', 'deal-team', 'member']) {
-    const r = await fetch(`${base}/api/capabilities`, { headers: { 'x-bot-key': BOT_BACKEND_KEY, 'x-dr-view-as': role } });
+    const r = await fetch(`${base}/api/capabilities`, { headers: seat(role) });
     assert.equal(r.status, 200, `${role}: /api/capabilities answered ${r.status}`);
     const j = await r.json();
     assert.ok(j.roleLabel, `${role}: no label`);
@@ -589,9 +612,19 @@ test('the firm is still served everything it should be', async () => {
   }
 
   // And awareness is still only awareness.
-  const status = member.find((d) => aware.some((a) => a.id === d.id));
+  // The LAST such deal, not the first. The decide-route test earlier in this file asks for
+  // access to the first one a member can see and the request is granted — which appends to
+  // that deal's team, so by the time this ran the answer was legitimately 200 and the
+  // assertion had quietly become about membership rather than about awareness.
+  const awareRows = member.filter((d) => aware.some((a) => a.id === d.id));
+  const status = awareRows[awareRows.length - 1];
   if (status) {
-    const r = await fetch(`${base}/api/deals/${status.id}/case`, { headers: seat('member') });
+    // A reader nobody has admitted to anything. Once the seats carried real identities, the
+    // request-access test earlier in this file started genuinely ADDING its member to a deal
+    // team — so by the time this ran, `member` was on the deal and 200 was the correct
+    // answer. The assertion was about awareness and had quietly become about membership.
+    const stranger = { ...seat('member'), 'x-dr-user': JSON.stringify({ oid: 'u-never-admitted', upn: 'never-admitted@dealroom.test' }) };
+    const r = await fetch(`${base}/api/deals/${status.id}/case`, { headers: stranger });
     assert.notEqual(r.status, 200, `${status.id} is marked for awareness and served its full case to a member`);
   }
 });

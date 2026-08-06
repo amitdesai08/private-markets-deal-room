@@ -294,9 +294,12 @@ function requestingFloor(req) {
   // landed on the deploy default: five live deals for a word that means nothing. `x`,
   // `superuser` and `ADMIN` all worked. An override that GRANTS is the one thing view-as
   // must never be.
-  if (requestingIdentity(req)) return null;
-  const claimed = req.body?.viewAsRole || req.headers['x-dr-view-as'];
-  return isKnownRole(claimed) ? null : 'anonymous';
+  // Sending NO identity got more than sending a forged one: a forgery resolves to whoever
+  // it names, usually nobody, and lands on `member` — while naming a seat and no person at
+  // all landed on the deploy default. Twenty-one deals for saying less.
+  //
+  // A seat is something a person holds. No person, no seat.
+  return requestingIdentity(req) ? null : 'anonymous';
 }
 
 // A DELEGATED Microsoft Graph token for the signed-in user, obtained by the Teams
@@ -500,7 +503,11 @@ api.use((req, res, next) => {
   if (OPEN_TO_THE_WORLD.some((re) => re.test(req.path))) return next();
   // The app must be able to draw the sign-in list before anyone has signed in, and to ask
   // what it is currently allowed to do. Neither depends on who is asking.
-  if (BOOTSTRAP.some((re) => re.test(req.path))) return next();
+  // Reachable by the APP, which has to draw the sign-in list before anyone has signed in —
+  // not by the open internet. /demo-profiles publishes the ids that identity resolution
+  // matches on, and identity is asserted rather than signed, so that list is the key ring.
+  const proven = !BOT_BACKEND_KEY || req.headers['x-bot-key'] === BOT_BACKEND_KEY;
+  if (proven && BOOTSTRAP.some((re) => re.test(req.path))) return next();
   return res.status(401).json({
     error: 'sign-in-required',
     // Nothing about what is behind it. The 401 used to name 'Fund reporting and market
@@ -1011,7 +1018,7 @@ api.get('/deals/:id/model.html', (req, res) => {
 });
 api.get('/deals/:id/model.csv', (req, res) => {
   if (!dealVisibleTo(req)) return res.status(404).json({ error: 'not-found' });
-  if (!verifyModelToken(req.params.id, req.query.t)) return refuse(res, { reason: 'This model link is not valid. Links are issued per deal and expire; open the deal and take a fresh one.' });
+  if (!verifyModelToken(req.params.id, req.query.t)) return refuse(res, { status: 403, dealId: req.params.id, reason: 'This model is open to the deal team. Ask to be added and the link will work.' });
   const deal = getDealRaw(req.params.id);
   if (!deal) return res.status(404).type('text/plain').send('not found');
   res.type('text/csv; charset=utf-8').setHeader('Content-Disposition', `attachment; filename="deal-model-${req.params.id}.csv"`);

@@ -272,7 +272,11 @@ export async function chatPersonaAgent({ persona, message, dealId, previousRespo
     if (raw) {
       // Need-to-know: refuse a deal the caller may not see (defense in depth behind the HTTP gate).
       if (identity && dealAccessLevel(identity, raw, viewAsRole) === 'none') {
-        return { reply: 'You do not have access to this deal.', denied: true, persona: p, dealId, citations: [] };
+        // Same as the deal agent: confirming is the disclosure. This one was missed twice —
+      // once when the routes were made indistinguishable, and again when the deal agent
+      // was fixed and its two siblings were not. Fixing the instance instead of the class
+      // is what left it here.
+      effScope = 'portfolio';
       }
       focusId = raw.id; focusCompany = raw.company;
     }
