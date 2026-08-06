@@ -136,9 +136,26 @@ export function regionsForIdentity(identity = {}) {
   return [...set];
 }
 // The region scope of a demo profile (region keys), when demo mode is active.
+// THE ONLY THING THAT IDENTIFIES A CALLER.
+//
+// This existed five times over, spelled differently each time, and each spelling was found
+// and fixed on its own: the display name bought a role, then the display name bought a deal
+// team, then a upn's LOCAL PART bought one — partner@totally-not-the-fund.example has the
+// local part `partner`, which is a roster id on Project Sterling, so an address at a domain
+// the firm has never heard of read the record in full.
+//
+// The identity on a request is asserted and never signed, so every one of these is a string
+// somebody chose. An oid and a whole upn at least have to be KNOWN; a display name and a
+// local part are picked by their owner. One list, so the next fix is one fix.
+function identityKeys(identity) {
+  if (!identity) return [];
+  const upn = norm(identity.upn);
+  return [norm(identity.oid), upn && upn.includes('@') ? upn : null].filter(Boolean);
+}
+
 function demoRegionScopeFor(identity) {
   if (!demoProfilesEnabled || !identity) return [];
-  const keys = [norm(identity.oid), norm(identity.upn), localPart(identity.upn), norm(identity.name)].filter(Boolean);
+  const keys = identityKeys(identity);
   for (const k of keys) { const p = demoProfileById[k]; if (p && Array.isArray(p.regionScope) && p.regionScope.length) return p.regionScope; }
   return [];
 }
@@ -179,7 +196,7 @@ const PERSONA_ASSIGN_ENV = parseJsonEnv('PERSONA_ASSIGNMENTS');
 export function personaForIdentity(identity = {}) {
   if (!identity || !(identity.oid || identity.upn || identity.name)) return null;
   const valid = (p) => (ALL_PERSONAS.includes(String(p)) ? String(p) : null);
-  const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn)].filter(Boolean);
+  const keys = identityKeys(identity);
 
   // 1. explicit per-user assignment
   for (const [persona, ids] of Object.entries(PERSONA_ASSIGN_ENV)) {
@@ -225,7 +242,7 @@ export function personaForIdentity(identity = {}) {
 export function actingAsFor(identity = {}) {
   if (!demoModeActive() || !identity) return null;
   const map = getActingAs() || {};
-  const keys = [norm(identity.oid), norm(identity.upn), localPart(identity.upn)].filter(Boolean);
+  const keys = identityKeys(identity);
   for (const k of keys) {
     const id = norm(map[k]);
     if (id && demoProfileById[id]) return id;
@@ -246,7 +263,10 @@ export function roleForUser(identity = {}) {
   // The roster is the one place a name legitimately identifies somebody, because that is
   // what a demo roster IS — so it is honoured only where the roster is actually live. The
   // deployment was reporting demoMode false and honouring demo identities anyway.
-  const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn), demoModeActive() ? norm(identity.name) : null].filter(Boolean);
+  // `name` was gated on demo mode, and demo mode is ON wherever the roster is used — so
+  // {"name":"principal"} still bought twenty-one rows. Gating a hole on the flag that is
+  // set precisely when the hole is reachable is not a control. Identifiers only, here too.
+  const keys = identityKeys(identity);
   const appRoles = (Array.isArray(identity.roles) ? identity.roles : []).map((r) => norm(r));
   const groups = (Array.isArray(identity.groups) ? identity.groups : []).map((g) => norm(g));
   const assign = getRoleAssignments() || {};
@@ -475,7 +495,14 @@ const RESTRICTED_NAME_RE = /diligence|approval|execution|closing|signing|financi
 export function onDealTeam(identity, team) {
   const list = (team || []).map((s) => norm(s));
   if (!list.length || !identity) return false;
-  const keys = [norm(identity.oid), localPart(identity.upn), norm(identity.upn)].filter(Boolean);
+  // And neither is a upn's local part. Dropping `name` shut one door and left this one:
+  // partner@totally-not-the-fund.example has the local part `partner`, which is the roster
+  // id of somebody on Project Sterling, so an address at a domain the firm has never heard
+  // of read the record in full. A local part is chosen by whoever owns the mailbox.
+  //
+  // oid, or a whole upn — and a whole upn only when it looks like an address, so the same
+  // collision cannot come back through the string that is left.
+  const keys = identityKeys(identity);
   return keys.some((k) => list.includes(k));
 }
 

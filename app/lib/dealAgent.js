@@ -319,7 +319,12 @@ export async function chatDealAgent({ message, dealId, scope, previousResponseId
       // the unredacted record behind it — the size, the multiple and the workstream owners
       // the card two panels away deliberately nulls. Only the outer HTTP gate was stopping
       // it, which makes this the leak that appears the day a route changes.
-      return { reply: 'You do not have access to this deal.', denied: true, citations: [], scope: 'deal', dealId };
+      // Degrade, exactly as an id that names nothing does four lines above. Saying "you do
+      // not have access to this deal" is a confirmation: the REST routes answer 404 for a
+      // hidden id and 404 for an invented one, and the assistant sat beside them telling
+      // the difference. An unannounced target's existence is most of the disclosure, and it
+      // was available by asking politely.
+      effScope = 'portfolio';
     } else {
       focusId = raw.id;
       focusCompany = raw.company;

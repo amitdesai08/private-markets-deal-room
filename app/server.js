@@ -377,6 +377,19 @@ api.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptim
 //
 // Express does not populate req.params on a router-level use(), so the id comes off the
 // path. `create` and `resolve-team` are literals in that position, not ids.
+// AUTHENTICATION BEFORE EXISTENCE, OR THE REFUSAL IS THE ANSWER.
+//
+// This sat after the deal boundary guard, which looks the id up — so an unreadable
+// x-dr-user got 401 on a deal that exists and 404 on one that does not, and the two
+// refusals told a caller which ids were real. Every other refusal in this file was made
+// indistinguishable and this one quietly undid it, from in front.
+//
+// Nothing may be looked up on behalf of a caller we cannot read.
+api.use((req, res, next) => {
+  if (requestingIdentity(req) !== UNREADABLE_IDENTITY) return next();
+  return res.status(401).json({ error: 'sign-in-required', detail: 'Sign in to continue.' });
+});
+
 const DEAL_ID_RESERVED = new Set(['create', 'resolve-team', 'teams', 'facets']);
 api.use((req, res, next) => {
   const m = /^\/deals\/([^/?]+)(?:\/|$)/.exec(req.path);
@@ -478,9 +491,6 @@ const OPEN_TO_THE_WORLD = [
   /^\/mcp\/[^/]+\/(login|callback)$/,
 ];
 api.use((req, res, next) => {
-  if (requestingIdentity(req) === UNREADABLE_IDENTITY) {
-    return res.status(401).json({ error: 'sign-in-required', detail: 'Sign in to continue.' });
-  }
   // This asked whether the caller held the shared secret, and let every keyed caller
   // through — so `x-bot-key` alone, naming nobody, was served the firm's inbound deal mail
   // with the senders' names and addresses, seventeen scored targets and the whole news
@@ -873,7 +883,9 @@ api.get('/deals/:id/documents', async (req, res) => {
   if (!deal) return res.status(404).json({ error: 'not-found' });
   const identity = requestingIdentity(req);
   const gate = authorizeDealContent(identity, deal, (requestingFloor(req) || requestingViewAs(req)));
-  if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'not-found' }) : res.status(403).json({ denied: true, reason: gate.reason });
+  if (!gate.ok) return gate.level === 'none'
+    ? res.status(404).json({ error: 'not-found' })
+    : refuse(res, { status: 403, dealId: deal.id, reason: gate.reason });
   // Auto-provision the data room on first access — a deal on the platform shouldn't
   // need a manual “launch”. If M365 is connected and there's no Teams/SharePoint space
   // yet, kick provisioning off in the background and report progress (the UI polls).
@@ -990,7 +1002,9 @@ api.get('/deals/:id/model.html', (req, res) => {
   if (!dealVisibleTo(req)) return res.status(404).json({ error: 'not-found' });
   // Was nine bytes of text/plain. Every other refusal on this server is JSON, and a
   // caller parsing the body got a string where it expected a reason.
-  if (!verifyModelToken(req.params.id, req.query.t)) return refuse(res, { reason: 'This model link is not valid. Links are issued per deal and expire; open the deal and take a fresh one.' });
+  // This described an EXPIRY on what is usually an access refusal, so a reader who may
+  // not open the deal was told to go and take a fresh link — retry rather than ask.
+  if (!verifyModelToken(req.params.id, req.query.t)) return refuse(res, { status: 403, dealId: req.params.id, reason: 'This model is open to the deal team. Ask to be added and the link will work.' });
   const deal = getDealRaw(req.params.id);
   if (!deal) return res.status(404).type('text/plain').send('not found');
   res.type('text/html; charset=utf-8').send(buildModelHtml(deal));
@@ -1078,7 +1092,10 @@ function deskGate(req, res) {
   if (!raw) { res.status(404).json({ error: 'not-found' }); return null; }
   const level = dealAccessLevel(identity, raw, viewAs);
   if (level === 'none') { res.status(404).json({ error: 'not-found' }); return null; }
-  if (level === 'status') { res.status(403).json({ error: 'forbidden', detail: 'Status-only access — the full deal record is open to the deal team only.' }); return null; }
+  // Was a bare {error, detail} with no route out, while the deal's own routes returned the
+  // full envelope with a requestAccess pointer. Five shapes for one decision meant a
+  // reader saw a different refusal depending on which panel they had open.
+  if (level === 'status') { refuse(res, { status: 403, dealId: raw.id, reason: 'Status-only access — the full deal record is open to the deal team.' }); return null; }
   const access = accessFor(identity, viewAs);
   return { raw, deal: getDeal(req.params.id) || raw, access, viewAs };
 }

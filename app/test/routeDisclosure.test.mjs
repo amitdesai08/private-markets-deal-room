@@ -137,8 +137,20 @@ test('the agent refuses a status-tier deal, with or without a signed-in identity
   assert.ok(statusDeal, 'fixture must contain a status-tier deal for a member, or this asserts nothing');
 
   for (const [name, fn] of [['deal agent', chatDealAgent], ['orchestrator', chatOrchestrator]]) {
-    const out = await fn({ message: 'What is the deal size and entry multiple?', dealId: statusDeal.id, scope: 'deal', identity: null, viewAsRole: 'member' });
-    assert.equal(out.denied, true, `${name}: answered a status-tier deal for a seat that may not open it`);
+    const ask = (id) => fn({ message: 'What is the deal size and entry multiple?', dealId: id, scope: 'deal', identity: null, viewAsRole: 'member' });
+    const [hidden, invented] = await Promise.all([ask(statusDeal.id), ask('a-deal-that-was-never-opened')]);
+    // This asserted `denied === true`, and `denied` WAS the disclosure: "You do not have
+    // access to this deal" for a real id, and a normal answer for one that names nothing,
+    // told them apart. The REST routes beside it answer 404 to both. Deliberately stricter
+    // — refusing is no longer enough, the two must be indistinguishable.
+    assert.equal(hidden.scope, invented.scope, `${name}: a hidden id is scoped differently to an invented one`);
+    assert.equal(!!hidden.denied, !!invented.denied, `${name}: a hidden id is refused differently to an invented one`);
+    // The NAME is not the secret at this tier — status means the firm wants the deal known
+    // and the reader can already list it. The figures are what the tier withholds.
+    const body = JSON.stringify(hidden).toLowerCase();
+    for (const figure of [statusDeal.dealSize, statusDeal.ebitda].filter((x) => x != null)) {
+      assert.ok(!body.includes(String(figure)), `${name}: quoted ${figure} from a deal the caller may not open`);
+    }
   }
 });
 
@@ -776,4 +788,49 @@ test('no unsigned assertion reaches a confidential deal', async () => {
     }
   }
   assert.deepEqual(reached, [], reached.join('; '));
+});
+
+// EVERY ROSTER ID, EVERY STRING THAT COULD BE MISTAKEN FOR ONE.
+//
+// The test above this enumerated three ways to fake an identity and there were five. Each
+// was found on its own, after the last one was fixed: the display name bought a role, then
+// the display name bought a deal team, then a upn's LOCAL PART bought one — and
+// partner@totally-not-the-fund.example has the local part `partner`, which is a roster id on
+// Project Sterling, so an address at a domain the firm has never heard of read the record.
+//
+// Enumerating the ways was the mistake. This enumerates the IDS instead, and tries every
+// shape a caller could put one in.
+test('no string that merely resembles a roster id opens a confidential deal', async () => {
+  const { onDealTeam } = await import('../lib/userPolicy.js');
+  const confidential = seededDeals.filter((d) => d.confidential);
+  assert.ok(confidential.length, 'no confidential deal in the fixture — this test would be inert');
+  const rosterIds = [...new Set(confidential.flatMap((d) => d.team || []))];
+  assert.ok(rosterIds.length, 'no team entries to impersonate — this test would be inert');
+
+  const reached = [];
+  for (const id of rosterIds) {
+    const impostors = [
+      { oid: 'u-outsider', upn: `${id}@totally-not-the-fund.example`, name: 'Someone Else' },
+      { oid: 'u-outsider', upn: 'outsider@example.test', name: id },
+      { oid: 'u-outsider', upn: `${id}` },
+      { name: id },
+    ];
+    for (const who of impostors) {
+      for (const deal of confidential) {
+        if (onDealTeam(who, deal.team)) reached.push(`${JSON.stringify(who)} matched ${deal.id}`);
+        const r = await fetch(`${base}/api/deals/${deal.id}`, {
+          headers: { ...seat('partner'), 'x-dr-user': JSON.stringify(who) },
+        });
+        if (r.status === 200) reached.push(`${JSON.stringify(who)} opened ${deal.id} over HTTP`);
+      }
+    }
+  }
+  assert.deepEqual(reached, [], reached.join('; '));
+
+  // And the person whose id it actually is still gets in, or this has been fixed by
+  // locking everybody out — which is how the flag came to be a no-op in the first place.
+  const real = confidential[0];
+  const insider = { oid: (real.team || [])[0], upn: (real.team || [])[0] };
+  assert.equal(onDealTeam(insider, real.team), true,
+    `${real.id}: the person named on the team is no longer recognised`);
 });
