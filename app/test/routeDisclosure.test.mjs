@@ -461,3 +461,38 @@ test('the candidate routes answer, and never name a candidate whose deal is hidd
   }
   assert.deepEqual(faults, [], faults.join('; '));
 });
+
+// The in-process feed test above calls the store directly, which is how /stage1/cohort
+// escaped it: the route reads a cohort of CANDIDATES rather than deals, so it is served by
+// a function that test never names, and it answers 200 to an anonymous caller. Everything
+// open enough to answer without a header gets swept here, over HTTP, as anyone would.
+test('nothing served to an anonymous caller names a deal it cannot see', async () => {
+  const partnerIds = [...idsFor('partner')];
+  const anonNames = new Set(listDeals(null, 'member').map((d) => String(d.company || '').toLowerCase()));
+  const hiddenNames = seededDeals
+    .filter((d) => partnerIds.includes(d.id))
+    .map((d) => String(d.company || '').toLowerCase())
+    .filter((n) => n && !anonNames.has(n));
+  assert.ok(hiddenNames.length, 'no deal is hidden from the anonymous floor — this test would be inert');
+
+  const open = [
+    '/api/stage1/cohort/O1', '/api/stage1/cohort/O2', '/api/stage1/cohort/O3', '/api/stage1/cohort/O4',
+    '/api/stage1/pipeline', '/api/stage1/pass-reasons', '/api/targets/scored', '/api/signals/companies',
+    '/api/news/desk', '/api/sourcing', '/api/framework', '/api/companies', '/api/companies?inFunnel=true',
+    '/api/market-intel/comps?sector=Software', '/api/market-intel/ic-precedents?sector=Software',
+  ];
+  const leaks = [];
+  let served = 0;
+  for (const path of open) {
+    const r = await fetch(`${base}${path}`);
+    if (r.status !== 200) continue;
+    const body = (await r.text()).toLowerCase();
+    served += body.length;
+    for (const name of hiddenNames) {
+      if (body.includes(name)) leaks.push(`${path} names "${name}"`);
+    }
+  }
+  // If these all start refusing, the loop above asserts nothing at all.
+  assert.ok(served > 8000, `the open feeds returned only ${served} bytes in total — this test has gone inert`);
+  assert.deepEqual(leaks, [], leaks.join('; '));
+});
