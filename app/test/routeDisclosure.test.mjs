@@ -935,3 +935,43 @@ test('a model link buys the two routes it is for and nothing else', async () => 
     assert.equal(r.status, 404, `${tail || '(record)'} was reachable with a token in the query string (${r.status})`);
   }
 });
+
+// A FORGED TOKEN MUST NOT BE BELIEVED, AND AN UNVERIFIABLE ONE IS FORGED.
+//
+// This is the fault every other test in this file was downstream of. teams-app/server/sso.js
+// base64-decoded a JWT payload and returned it — no signature, no issuer, no audience, no
+// expiry — so `{"oid":"partner","roles":["admin"]}` between two dots was a signed-in
+// administrator. /mcp had verified properly against the tenant's JWKS since the day it was
+// written, and its own comment said it guarded only itself: "the rest of the app (the SPA
+// and /api/*) stays anonymous by design."
+test('a token nobody signed grants nothing', async () => {
+  const { verifiedIdentity } = await import('../lib/entraIdentity.js');
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const forge = (payload) => `${b64({ alg: 'RS256', typ: 'JWT' })}.${b64(payload)}.${b64('not-a-signature')}`;
+
+  const forgeries = [
+    { oid: 'partner', roles: ['DealRoom.Admin'] },
+    { oid: 'admin', upn: 'admin', roles: ['DealRoom.Admin'], groups: ['fd59b346-caf3-4fb3-a007-04bb5620c473'] },
+    { sub: 'anyone', name: 'Eleanor Shellstrop' },
+  ];
+  for (const payload of forgeries) {
+    const who = await verifiedIdentity(forge(payload));
+    assert.equal(who, null, `a token signed by nobody resolved to ${JSON.stringify(who)}`);
+  }
+  // Garbage, and the empty case, are the same answer.
+  for (const junk of ['', 'not-a-token', 'a.b', 'a.b.c']) {
+    assert.equal(await verifiedIdentity(junk), null, `"${junk}" resolved to an identity`);
+  }
+});
+
+// The tab is the other half: it is what turns a browser into a person for the backend.
+test('the tab does not accept an identity it has not verified', async () => {
+  const src = await readFile(new URL('../../teams-app/server/sso.js', import.meta.url), 'utf8');
+  assert.match(src, /jwtVerify\(/, 'the SSO path must verify a signature, not decode a payload');
+  assert.match(src, /createRemoteJWKSet\(/, 'verification must use the tenant JWKS');
+  assert.match(src, /issuer:/, 'the issuer must be checked');
+  assert.match(src, /audience:/, 'the audience must be checked');
+  // The exact shape of the bug: reading the payload segment straight off the wire.
+  assert.doesNotMatch(src, /Buffer\.from\(ssoToken\.split\('\.'\)\[1\]/,
+    'the SSO token payload is being decoded rather than verified');
+});

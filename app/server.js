@@ -158,6 +158,7 @@ import { buildIcMemoDocx, buildDealModelXlsx, buildLiveModelXlsx, buildModelHtml
 import { repoMode } from './lib/repo/index.js';
 import graphRouter from './lib/graph.js';
 import { config, validateConfig } from './lib/config.js';
+import { bearerFrom, verifiedIdentity } from './lib/entraIdentity.js';
 import { accessFor, isKnownRole, authorizePersona, authorizeDealAccess, authorizeDealContent, dealAccessLevel, dealTeamOf, demoIdentityForRole, describeAccess, describeDemoProfiles, demoModeActive, demoProfilesEnabled, rolesView, ALL_PERSONA_IDS } from './lib/userPolicy.js';
 import { actionsCatalog, personasView, LANES_CATALOG } from './lib/personaPolicy.js';
 import { buildCockpit } from './lib/cockpit.js';
@@ -223,7 +224,18 @@ function verifyModelToken(id, t) {
 // A distinct value for "the caller sent an identity we could not read", so it can be
 // refused rather than silently treated as nobody.
 const UNREADABLE_IDENTITY = Object.freeze({ unreadable: true });
+
+// An ASSERTED identity is a claim the caller typed. A VERIFIED one is a signature Entra
+// put on it. This server has always accepted the first, gated behind a shared key that sits
+// in plaintext on the container app — which is why eleven rounds of access review kept
+// finding new ways to be somebody else: they were all downstream of a door that did not
+// lock. Where a verified identity is present it wins, and where the deployment says so it
+// is the only thing that counts.
+const DEMO_ACCESS_KEY = String(process.env.DEMO_ACCESS_KEY || '').trim() === 'unset' ? '' : String(process.env.DEMO_ACCESS_KEY || '').trim();
+const TRUST_ASSERTED = /^(1|true|yes|on)$/i.test(String(process.env.TRUST_ASSERTED_IDENTITY ?? 'true'));
 function requestingIdentity(req) {
+  if (req.drVerified) return req.drVerified;
+  if (!TRUST_ASSERTED) return null;
   // Only honour a supplied identity when the caller proves it is the Teams bot.
   if (BOT_BACKEND_KEY && req.headers['x-bot-key'] !== BOT_BACKEND_KEY) return null;
   const ru = req.body?.requestingUser;
@@ -380,6 +392,25 @@ api.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptim
 //
 // Express does not populate req.params on a router-level use(), so the id comes off the
 // path. `create` and `resolve-team` are literals in that position, not ids.
+// Establish who is asking, once, before any of it.
+//
+// jwtVerify is async and requestingIdentity is read synchronously in dozens of places, so
+// the verification happens here and the result rides on the request.
+api.use(async (req, _res, next) => {
+  const token = bearerFrom(req);
+  if (token) req.drVerified = await verifiedIdentity(token);
+  // The walkthrough seat. A demo still has to be shown to somebody who has not been given
+  // a directory account, and the honest way to do that is a credential the deployment
+  // holds — a secret in Key Vault — rather than a header anyone can guess. It names one of
+  // the roster people and it is READ-ONLY, so the worst it can do is show the room.
+  if (!req.drVerified && DEMO_ACCESS_KEY && req.headers['x-dr-demo-key'] === DEMO_ACCESS_KEY) {
+    const who = String(req.headers['x-dr-demo-as'] || 'member').trim();
+    const profile = describeDemoProfiles().find((x) => x.id === who);
+    if (profile) req.drVerified = { oid: profile.id, upn: profile.id, name: profile.name, roles: [], groups: [], verified: true, walkthrough: true };
+  }
+  next();
+});
+
 // AUTHENTICATION BEFORE EXISTENCE, OR THE REFUSAL IS THE ANSWER.
 //
 // This sat after the deal boundary guard, which looks the id up — so an unreadable
@@ -437,6 +468,10 @@ api.use((req, res, next) => {
   if (!m || DEAL_ID_RESERVED.has(decodeURIComponent(m[1]))) return next();
   const tail = m[2] || '';
   if (READ_ONLY_MAY.some((re) => re.test(tail))) return next();
+  // A walkthrough credential shows the room and never changes it, whatever seat it names.
+  if (requestingIdentity(req)?.walkthrough) {
+    return refuse(res, { status: 403, code: 'read-only', reason: 'This is a walkthrough. Sign in to record anything on a deal.' });
+  }
   const access = accessFor(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
   if (access.canWrite) return next();
   return refuse(res, {

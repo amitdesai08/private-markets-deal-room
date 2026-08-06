@@ -34,17 +34,17 @@ app.get('/healthz', (_req, res) => res.json({ status: 'ok', uptime: process.upti
 // These are served by the Teams app itself (NOT proxied) so they work even when
 // the orchestrator is asleep. The tab uses /status to render an "offline" gate and
 // /wake to bring the orchestrator back (for 1 hour, or indefinitely — admin only).
-function ssoIdentity(req) {
+async function ssoIdentity(req) {
   const tok = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.ssoToken || '';
   return identityFromSsoToken(tok);
 }
 app.get('/api/platform/status', async (req, res) => {
-  try { res.json(await platformStatus(ssoIdentity(req))); }
+  try { res.json(await platformStatus(await ssoIdentity(req))); }
   catch (e) { res.status(502).json({ control: platformControlEnabled(), online: false, error: String(e?.message || e) }); }
 });
 app.post('/api/platform/wake', async (req, res) => {
   const mode = req.body?.mode === 'indefinite' ? 'indefinite' : 'hour';
-  const identity = ssoIdentity(req);
+  const identity = await ssoIdentity(req);
   const by = String(req.body?.by || identity?.name || '').trim() || 'teams';
   try {
     const result = await platformWake(mode, { by, identity });
@@ -110,7 +110,7 @@ app.get('/api/teams/config', (_req, res) =>
 // Per-user context: Teams SSO token -> identity -> Deal Room persona + stage access.
 app.post('/api/teams/context', async (req, res) => {
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  const identity = identityFromSsoToken(ssoToken);
+  const identity = await identityFromSsoToken(ssoToken);
   const asOverride = await resolveDemoOverride(req, identity);                       // demo "view as USER", roster-checked
   const viewAsRole = (asOverride && !identity) ? WALKTHROUGH_SEAT : (String(req.body?.viewAsRole || '').trim() || null); // hierarchy "view as ROLE"
   // Authoritative access profile from the orchestrator (single policy source): which
@@ -170,7 +170,7 @@ app.post('/api/teams/context', async (req, res) => {
 app.post('/api/teams/acting-as', async (req, res) => {
   if (!isBackendLive()) return res.status(503).json({ error: 'backend not configured' });
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  const identity = identityFromSsoToken(ssoToken);
+  const identity = await identityFromSsoToken(ssoToken);
   if (!identity || !(identity.oid || identity.upn)) return res.status(401).json({ error: 'sign-in required' });
   try {
     const headers = { 'content-type': 'application/json' };
@@ -211,7 +211,7 @@ const GRAPH_DOC_SCOPES = [
 app.post('/api/deals/:id/documents/:kind', async (req, res) => {
   if (!isBackendLive()) return res.status(502).json({ error: 'shared-backend-not-configured' });
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  const identity = identityFromSsoToken(ssoToken);
+  const identity = await identityFromSsoToken(ssoToken);
   const dest = String(req.query.dest || req.body?.dest || 'download').toLowerCase();
 
   let userToken = null;
@@ -263,7 +263,7 @@ app.post('/api/powerbi/embed', async (req, res) => {
 async function forwardChat(path, req, res) {
   if (!isBackendLive()) return res.status(502).json({ error: 'shared-backend-not-configured' });
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  const identity = identityFromSsoToken(ssoToken);
+  const identity = await identityFromSsoToken(ssoToken);
   const asOverride = await resolveDemoOverride(req, identity);                                          // demo "view as USER", roster-checked
   const viewAsRole = (asOverride && !identity) ? WALKTHROUGH_SEAT : (String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim() || null);
   const requestingUser = asOverride
@@ -294,7 +294,7 @@ app.post('/api/persona-agents/:persona/chat', (req, res) => forwardChat(`/api/pe
 app.use('/api/admin', async (req, res) => {
   if (!isBackendLive()) return res.status(502).json({ error: 'shared-backend-not-configured' });
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  const identity = identityFromSsoToken(ssoToken);
+  const identity = await identityFromSsoToken(ssoToken);
   const asOverride = await resolveDemoOverride(req, identity);
   const requestingUser = asOverride
     ? { oid: asOverride, upn: asOverride, name: asOverride }
@@ -432,7 +432,7 @@ async function resolveDemoOverride(req, identity = null) {
 async function forwardWithIdentity(req, res) {
   if (!isBackendLive()) return proxyToBackend(req, res);
   const ssoToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.ssoToken || '';
-  const identity = identityFromSsoToken(ssoToken);
+  const identity = await identityFromSsoToken(ssoToken);
   const asOverride = await resolveDemoOverride(req, identity);
   const viewAsRole = (asOverride && !identity) ? WALKTHROUGH_SEAT : (String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim());
 
