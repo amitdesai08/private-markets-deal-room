@@ -19,6 +19,7 @@ import {
   getStages,
   getFlow,
   getMailbox,
+  hiddenCompanyNames,
   getSignalCompanies,
   getCrm,
   getSourcingDesk,
@@ -482,7 +483,7 @@ api.get('/stage1/funnel', (req, res) => {
 // of these did that, and an unauthenticated `?inFunnel=true` returned four live deals by
 // name and by size.
 api.get('/stage1/pipeline', (req, res) => res.json(getPipeline(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)))));
-api.get('/stage1/cohort/:stage', (req, res) => res.json(getCohort(req.params.stage)));
+api.get('/stage1/cohort/:stage', (req, res) => res.json(getCohort(req.params.stage, requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)))));
 api.get('/stage1/pass-reasons', (_req, res) => res.json(getPassReasons()));
 
 // Run the step's assessment agent across the whole active cohort (O2/O3), then
@@ -1390,7 +1391,15 @@ api.get('/deals/:id/activity', (req, res) => {
 
 // Fabric / OneLake market intelligence — comparable deals, benchmark diligence
 // findings, IC voting precedents and real company financials.
-api.get('/market-intel', (_req, res) => res.json(marketIntel() || { info: fabricStatus(), companies: [], comparableDeals: [], benchmarkFindings: [], icPrecedents: [], companyFinancials: {} }));
+// The `companies` block of the market snapshot is the same canonical set the origination
+// feeds serve, so it needs the same scope. The comparables and precedents are the fund's
+// own closed transactions and are not deal-scoped.
+api.get('/market-intel', (req, res) => {
+  const mi = marketIntel() || { info: fabricStatus(), companies: [], comparableDeals: [], benchmarkFindings: [], icPrecedents: [], companyFinancials: {} };
+  const hidden = hiddenCompanyNames(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
+  const named = (o) => [o?.company, o?.name, o?.companyName].filter(Boolean).map((x) => String(x).toLowerCase());
+  res.json({ ...mi, companies: (mi.companies || []).filter((c) => !named(c).some((n) => hidden.has(n))) });
+});
 api.get('/market-intel/comps', (req, res) => res.json(comparableDeals({ sector: req.query.sector })));
 api.get('/market-intel/benchmarks', (req, res) => res.json(benchmarkFindings(req.query.workstream)));
 api.get('/market-intel/ic-precedents', (req, res) => res.json(icPrecedents(req.query.sector)));
@@ -1408,7 +1417,7 @@ api.post('/fabric/refresh', async (_req, res) => {
 });
 
 // O1 · Deal Sourcing — CxO signals explorer
-api.get('/signals/mailbox', (_req, res) => res.json(getMailbox()));
+api.get('/signals/mailbox', (req, res) => res.json(getMailbox(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)))));
 api.get('/signals/companies', (req, res) => res.json(getSignalCompanies(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)))));
 api.get('/signals/companies/:id/crm', (req, res) => {
   const crm = getCrm(req.params.id);

@@ -23,6 +23,7 @@ import {
 } from './dealTools.js';
 import { PERSONAS, PERSONA_LABEL } from './personaPolicy.js';
 import { guardInternalToolCall } from './agentSovereignty.js';
+import { hiddenCompanyNames } from './store.js';
 import { dispatchWorkiq } from './mcp/workiq.js';
 import { dealAccessLevel } from './userPolicy.js';
 import { lensBlock } from './personaLens.js';
@@ -240,7 +241,7 @@ async function runToolLoop({ persona, focusId, focusCompany, message, previousRe
       if (denied) {
         result = denied;
       } else if (call.name.startsWith('workiq_')) {
-        result = await dispatchWorkiq(call.name, call.args);   // M365 work data (SharePoint/Teams/mail) over MCP
+        result = await dispatchWorkiq(call.name, call.args, { hidden: hiddenCompanyNames(identity, viewAsRole) });
       } else if (READ_TOOLS.has(call.name)) {
         result = await readDispatch(call.name, call.args, { persona, focusId, focusCompany, identity, viewAsRole });
       } else {

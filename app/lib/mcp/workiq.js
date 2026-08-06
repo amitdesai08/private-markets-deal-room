@@ -87,7 +87,7 @@ export async function callWorkiqTool(mcpToolName, args = {}) {
 // so Microsoft 365 enforces their own permissions on top of our deal need-to-know
 // model. Without it the read is app-only and therefore tenant-wide; the result carries
 // `asUser` so callers can state which actually happened instead of assuming.
-export async function dispatchWorkiq(governedName, args = {}) {
+export async function dispatchWorkiq(governedName, args = {}, { hidden } = {}) {
   const graphFn = GRAPH_BACKEND[governedName];
   if (!graphFn) return { error: 'unknown-workiq-tool', name: governedName };
   let result;
@@ -108,9 +108,41 @@ export async function dispatchWorkiq(governedName, args = {}) {
   // has realistic material to show. Marked `demo: true` so it's transparent.
   if (isEmptyOrError(result)) {
     const seed = seedFor(governedName, args);
-    if (seed) return seed;
+    if (seed) return scrub(seed, hidden);
   }
-  return result;
+  return scrub(result, hidden);
+}
+
+// This whole family took no identity. Asked a generic question, a `member` — the floor
+// every unproven caller lands on — was read four mail subjects naming Helvetia,
+// Project Sterling and Sound United, three of which return 404 to that same seat, under
+// a banner reading "This answer covers the deals you are on". With no user token the
+// Graph call falls to the app-only branch and reads with the application's own
+// Mail.Read, so the seat never reached the function in either the live branch or the
+// seeded fallback. The reply-level name guard could not save it: that only fires when
+// the reader already knows the name to ask about, and a generic question has nothing
+// for it to match on.
+//
+// Scrubbed here rather than in each backend, because there are three of them and the
+// one that leaked was the fallback.
+function scrub(result, hidden) {
+  if (!hidden || !hidden.size || !result || typeof result !== 'object') return result;
+  const names = (o) => JSON.stringify(o ?? '').toLowerCase();
+  const drop = (o) => [...hidden].some((n) => n && names(o).includes(n));
+  const out = Array.isArray(result) ? result.filter((r) => !drop(r)) : { ...result };
+  if (Array.isArray(result)) return out;
+  let removed = 0;
+  for (const [k, v] of Object.entries(out)) {
+    if (!Array.isArray(v)) continue;
+    const kept = v.filter((r) => !drop(r));
+    removed += v.length - kept.length;
+    out[k] = kept;
+  }
+  // Said unconditionally when the caller has anything hidden, so its presence is a fact
+  // about the seat rather than an answer to what was searched for.
+  out.scope = 'Rows about deals you are not on are not returned here.';
+  if (removed) out.withheld = removed;
+  return out;
 }
 
 function isEmptyOrError(r) {

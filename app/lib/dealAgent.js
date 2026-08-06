@@ -22,6 +22,7 @@
 import { DefaultAzureCredential, getBearerTokenProvider } from '@azure/identity';
 import { listAgentDeals, listDeals, getDeal, getDealRaw, getPersonas } from './store.js';
 import { dispatchTool, dealAnalystView, dealSummary } from './dealTools.js';
+import { hiddenCompanyNames } from './store.js';
 import { dispatchWorkiq } from './mcp/workiq.js';
 import { guardInternalToolCall } from './agentSovereignty.js';
 import { chat as directDealChat, portfolioChat } from './agents.js';
@@ -227,7 +228,7 @@ async function runToolLoop({ scope, focusId, focusCompany, message, previousResp
       const result = denied
         ? denied
         : call.name.startsWith('workiq_')
-          ? await dispatchWorkiq(call.name, call.args)          // M365 work data (SharePoint/Teams/mail) over MCP
+          ? await dispatchWorkiq(call.name, call.args, { hidden: hiddenCompanyNames(identity, viewAsRole) })
           : dispatchTool(call.name, call.args, { scope, focusId, focusCompany, identity, viewAsRole });
       outputs.push({
         type: 'function_call_output',

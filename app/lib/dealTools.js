@@ -253,7 +253,13 @@ export function dispatchTool(name, args, { scope = 'portfolio', focusId, focusCo
   // When an identity is supplied, EVERY read is gated to what that user may see, so an
   // agent can never become a side-channel around the RBAC / need-to-know model. System
   // callers (no identity, e.g. the MCP) fall back to the confidential-excluding list.
-  const enforce = !!identity;
+  //
+  // A ROLE IS ALSO AN ANSWER. This read identity alone, so the caller with no identity
+  // and a role — which is every unproven caller, floored to `member` at the HTTP
+  // boundary — skipped the gate entirely and `get_deal` returned the full record for a
+  // deal that seat is refused on the route. `list_deals` two lines down had always read
+  // both; only the gate did not.
+  const enforce = !!identity || !!viewAsRole;
   if (name === 'list_deals') {
     if (dealScope) {
       const s = summaryFor(focusId);

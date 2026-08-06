@@ -774,10 +774,17 @@ export function getFlow() {
 // signals only.
 const bySignalId = (id) => signalCompanies.find((c) => c.id === id);
 
-export function getMailbox() {
+// The raw feed that /signals/companies is derived from. Its sibling was scoped and this
+// was left open, so an unauthenticated caller read "Allbirds — open to a take-private
+// partner" and "Allbirds — DTC margins and store rationalisation plan", with the named
+// counterparties and their titles, for a $300m deal the same caller gets a 404 on.
+// Scoping a view and leaving the table under it is not scoping.
+export function getMailbox(identity, viewAsRole = null) {
+  const hidden = hiddenCompanyNames(identity, viewAsRole);
   const flat = (kind) =>
     signalCompanies
-      .flatMap((c) => c[kind] || [])
+      .filter(visibleTo(hidden))
+      .flatMap((c) => (c[kind] || []).filter(visibleTo(hidden)))
       .sort((a, b) => new Date(b.when) - new Date(a.when));
   return { emails: flat('emails'), chats: flat('chats'), meetings: flat('meetings') };
 }
@@ -1735,7 +1742,17 @@ function originationReach(d) {
 // those pages is scoped to the caller; this one now is too.
 export function getStage1Funnel(identity, viewAsRole = null, visibleDeals = null) {
   const scoped = arguments.length > 0;
-  const all = candidates;
+  // The scoping added for the candidate LIST was never applied to the COUNTS. `all` was
+  // the raw array, and the identity arguments were consulted only on the `fromDeals`
+  // branch below -- which runs when the candidate store is EMPTY. So the fix worked in
+  // the one case where there was nothing to leak, and in production, where six
+  // candidates exist, `counts.total = 6` went to anybody: byte-identical for anonymous,
+  // member and partner, on a page where the same anonymous caller is served two
+  // candidates and a partner six. That difference is the whole disclosure -- it hands
+  // the reader the exact size of the gap, and the assistant read it out loud to a member
+  // and then contradicted itself about it in the next paragraph.
+  const hidden = scoped ? hiddenCompanyNames(identity, viewAsRole) : new Set();
+  const all = scoped ? candidates.filter(visibleTo(hidden)) : candidates;
   const reachedAtLeast = (n) => all.filter((c) => reachedIndex(c) >= n).length;
   const activeAt = (s) => all.filter((c) => c.disposition === 'active' && c.stage === s).length;
   // Every deal on the page reached the end of origination -- that is how it became a
@@ -1795,9 +1812,15 @@ export function getPipelineFunnel(identity, viewAsRole = null, visibleDeals = nu
 }
 
 // The actionable cohort at a stage — active candidates awaiting the step action.
-export function getCohort(stage) {
+// The cohort behind a funnel tile. This took `stage` only, so it was served unscoped --
+// which happens to be harmless today because every hidden candidate carries disposition
+// `pursued` rather than `active`. That is luck, not a rule: one triage action moves a
+// hidden candidate into an active cohort and it goes to anybody who asks.
+export function getCohort(stage, identity, viewAsRole = null) {
+  const hidden = hiddenCompanyNames(identity, viewAsRole);
   const list = candidates
     .filter((c) => c.disposition === 'active' && c.stage === stage)
+    .filter(visibleTo(hidden))
     .map(publicCandidate);
   // O3 is a relative-ranking activity — sort by score desc and attach a rank.
   if (stage === 'O3' || stage === 'O4') {
@@ -1922,7 +1945,7 @@ export function getPipeline(identity, viewAsRole = null) {
   const hidden = hiddenCompanyNames(identity, viewAsRole);
   return {
     fundName: fund.name,
-    funnel: getStage1Funnel().funnel,
+    funnel: getStage1Funnel(identity, viewAsRole).funnel,
     candidates: candidates.filter(visibleTo(hidden)).map(publicCandidate),
   };
 }
@@ -1962,8 +1985,14 @@ export function hiddenCompanyNames(identity, viewAsRole = null) {
   return out;
 }
 
-const namesOf = (o) => [o?.company, o?.name, o?.companyName].filter(Boolean).map((x) => String(x).toLowerCase());
-const visibleTo = (hidden) => (o) => !namesOf(o).some((n) => hidden.has(n));
+// Function declarations, not consts: the funnel counts are computed two hundred lines
+// above this point and a const arrow would not have hoisted to reach them.
+function namesOf(o) {
+  return [o?.company, o?.name, o?.companyName].filter(Boolean).map((x) => String(x).toLowerCase());
+}
+function visibleTo(hidden) {
+  return (o) => !namesOf(o).some((n) => hidden.has(n));
+}
 
 export function canonicalCompanies({ inFunnel, identity, viewAsRole } = {}) {
   const hidden = hiddenCompanyNames(identity, viewAsRole);
