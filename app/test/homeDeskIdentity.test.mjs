@@ -27,22 +27,24 @@ import { buildHomeDesk } from '../lib/homeDesk.js';
 
 const indexSrc = readFileSync(new URL('../../teams-app/server/index.js', import.meta.url), 'utf8');
 
-test('the home-desk route is wired to the identity forwarder', () => {
-  assert.match(indexSrc, /app\.use\('\/api\/home-desk',\s*forwardWithIdentity\)/);
-});
-
-test('the identity forwarder is registered BEFORE the catch-all proxy', () => {
-  // Express matches in registration order. Registered after the catch-all, the route
-  // would still resolve to proxyToBackend and the bug would be intact with a passing
-  // "route exists" test above it.
-  const seat = indexSrc.indexOf(`app.use('/api/home-desk', forwardWithIdentity)`);
-  const catchAll = indexSrc.indexOf(`app.use('/api', proxyToBackend)`);
-  assert.ok(seat > 0 && catchAll > 0, 'both registrations must be present');
-  assert.ok(seat < catchAll, 'the identity route must be registered before the catch-all proxy');
+// This asserted that /api/home-desk was on a list of nine prefixes routed to the
+// forwarder, with everything else falling through to the blind proxy. The list was the
+// defect: once the orchestrator started refusing an unidentified caller instead of
+// answering it as the deploy default, the thirty-five routes NOT on the list went dark
+// for everyone, and the product told people who had signed in to sign in.
+//
+// There is no list now. Asserting the stronger property — every /api route resolves
+// through the forwarder, and nothing is left for a blind proxy to catch.
+test('every /api route resolves through the identity forwarder', () => {
+  assert.match(indexSrc, /app\.use\('\/api',\s*forwardWithIdentity\)/);
+  assert.ok(
+    !/app\.use\('\/api',\s*proxyToBackend\)/.test(indexSrc),
+    'the blind catch-all is back: routes registered after it lose the caller silently',
+  );
 });
 
 test('the forwarder attaches the bot key, which is what makes the identity trusted', () => {
-  const body = indexSrc.slice(indexSrc.indexOf('async function forwardWithIdentity'), indexSrc.indexOf(`app.use('/api/deals'`));
+  const body = indexSrc.slice(indexSrc.indexOf('async function forwardWithIdentity'), indexSrc.indexOf(`app.use('/api',`));
   assert.match(body, /headers\['x-bot-key'\] = config\.backend\.botKey/);
   assert.match(body, /headers\['x-dr-user'\] = JSON\.stringify\(requestingUser\)/);
 });

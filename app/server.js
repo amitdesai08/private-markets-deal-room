@@ -423,7 +423,8 @@ api.use((req, res, next) => {
 // short enough to read: the Graph webhook handshake, the two OAuth callback legs, and the
 // liveness probe. Each of those authenticates itself by other means — a validationToken
 // echo, a state/nonce — so opening them costs nothing.
-const BOOTSTRAP = [/^\/demo-profiles$/, /^\/me\/access$/, /^\/capabilities$/];
+// /me/access was on this list and does not exist — a permanently open hole for nothing.
+const BOOTSTRAP = [/^\/demo-profiles$/, /^\/capabilities$/];
 const OPEN_TO_THE_WORLD = [
   /^\/health$/,
   /^\/graph\/notifications$/,
@@ -2138,7 +2139,16 @@ api.all('/capabilities', (req, res) => {
 
 // Demo showcase roster — one named identity per role (empty unless DEMO_PROFILES is
 // enabled). Powers the "view as" switcher so the access model is demoable end-to-end.
-api.get('/demo-profiles', (_req, res) => res.json(describeDemoProfiles()));
+// This has to answer before anyone has signed in — it is how the sign-in list is drawn —
+// and it was answering with the whole role model: every valid seat id, the persona ids, and
+// canWrite / canViewStage2 / isAdmin per profile. Nine kilobytes, to a stranger. It names no
+// company so it is not a disclosure, but it is the answer key to the seat-name check the
+// boundary performs, published next to the lock. A stranger gets the names to choose from.
+api.get('/demo-profiles', (req, res) => {
+  const profiles = describeDemoProfiles();
+  if ((requestingFloor(req) || requestingViewAs(req)) !== 'anonymous') return res.json(profiles);
+  res.json(profiles.map((p) => ({ id: p.id, name: p.name, label: p.label })));
+});
 
 // Demo "view as" — the profile a real person is currently acting as.
 //

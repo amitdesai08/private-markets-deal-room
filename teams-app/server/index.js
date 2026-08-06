@@ -112,7 +112,7 @@ app.post('/api/teams/context', async (req, res) => {
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const identity = identityFromSsoToken(ssoToken);
   const asOverride = await resolveDemoOverride(req, identity);                       // demo "view as USER", roster-checked
-  const viewAsRole = String(req.body?.viewAsRole || '').trim() || null; // hierarchy "view as ROLE"
+  const viewAsRole = (asOverride && !identity) ? WALKTHROUGH_SEAT : (String(req.body?.viewAsRole || '').trim() || null); // hierarchy "view as ROLE"
   // Authoritative access profile from the orchestrator (single policy source): which
   // agents this user may use + the roles they can view-as. The requesting identity is
   // the demo override (by name) or the SSO identity, trusted via the shared bot key.
@@ -261,7 +261,7 @@ async function forwardChat(path, req, res) {
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const identity = identityFromSsoToken(ssoToken);
   const asOverride = await resolveDemoOverride(req, identity);                                          // demo "view as USER", roster-checked
-  const viewAsRole = String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim() || null;
+  const viewAsRole = (asOverride && !identity) ? WALKTHROUGH_SEAT : (String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim() || null);
   const requestingUser = asOverride
     ? { name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : null);
@@ -392,6 +392,16 @@ async function workIqUserToken(ssoToken, identity, scopes = GRAPH_WORKIQ_SCOPES)
 // variable, knowing what is behind it, and it is off unless set. It is NOT something a
 // browser can decide for itself by sending a header.
 const OPEN_SIGN_IN = /^(1|true|yes|on)$/i.test(String(process.env.DEMO_OPEN_SIGN_IN || ''));
+// One environment variable used to open all nineteen deals at once, at whatever seat the
+// visitor named — `x-dr-as: admin` on the open host returned Project Onyx at full access
+// and canWrite true, which is the same sentence this file uses to describe the leak it was
+// meant to close. The behaviour had been renamed, not removed.
+//
+// A visitor who has not signed in is capped at `member`: read-only, and shown only the
+// deals the firm has separately marked as known internally. So the walkthrough is still a
+// per-deal decision recorded on the deal, and the environment variable only decides whether
+// a stranger may hold that seat at all.
+const WALKTHROUGH_SEAT = 'member';
 async function resolveDemoOverride(req, identity = null) {
   const raw = String(req.headers['x-dr-as'] || req.body?.as || '').trim();
   if (!raw) return '';
@@ -420,7 +430,7 @@ async function forwardWithIdentity(req, res) {
   const ssoToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.ssoToken || '';
   const identity = identityFromSsoToken(ssoToken);
   const asOverride = await resolveDemoOverride(req, identity);
-  const viewAsRole = String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim();
+  const viewAsRole = (asOverride && !identity) ? WALKTHROUGH_SEAT : (String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim());
 
   const requestingUser = asOverride
     ? { name: asOverride }
@@ -459,35 +469,23 @@ async function forwardWithIdentity(req, res) {
   }
 }
 
-// Deal list / detail / subresources — two-tier access + deal-team need-to-know.
-app.use('/api/deals', forwardWithIdentity);
-// The home page briefing, attention queue and tiles. Same identity, same reason.
-app.use('/api/home-desk', forwardWithIdentity);
-// Everything below composes an answer FROM the caller's identity. Each of these was
-// blind-proxied, which meant the orchestrator threw the identity away and answered as
-// the default deal-team role — so /me/access and /capabilities, the two endpoints whose
-// entire job is to report what THIS person may do, were reporting somebody else's
-// permissions, and /analytics was reporting the whole book to every seat.
-app.use('/api/me/access', forwardWithIdentity);
-app.use('/api/capabilities', forwardWithIdentity);
-app.use('/api/analytics', forwardWithIdentity);
-// The origination funnel. It is scoped server-side and captioned "within your access",
-// but it was blind-proxied — and the blind proxy strips the caller's identity by design,
-// so the backend answered as nobody and returned the whole book. An analyst read
-// "19 Sourced" directly above a table headed "Every deal you can see - 4 records".
-// The number was not the lie; the route was.
-app.use('/api/pipeline', forwardWithIdentity);
-app.use('/api/stage1/funnel', forwardWithIdentity);
-// The assistant. Its tools were already gated on the caller, but the DEALS IT IS TOLD
-// ABOUT were not: the grounding context is a second access surface, and this route was
-// blind-proxied, so the model was handed the whole book and answered from it. Asked the
-// product's own suggested question, an analyst cleared for four deals got twenty-one
-// back, including one they are only allowed to see the status of.
-app.use('/api/deal-agent', forwardWithIdentity);
-app.use('/api/persona-agents', forwardWithIdentity);
-
-// Everything else under /api forwards to the shared backend (single data source).
-app.use('/api', proxyToBackend);
+// EVERY route under /api goes through the identity forwarder.
+//
+// This was nine hand-kept prefixes and everything else fell through to the blind proxy,
+// which attaches no key by design. That was survivable while the backend answered an
+// unidentified caller as the deploy default — it was the bug, but the product worked.
+// Once the backend started refusing that caller, the same list turned thirty-five routes
+// dark for everyone: fund reporting, market intelligence, the sourcing feed, the signals
+// mailbox and the news desk all returned "Sign in to continue" to people who had.
+//
+// A refusal that states the wrong remedy is worse than a leak in one respect — nobody
+// reports it as a security problem, they report it as the product being broken. And it is
+// the same anti-pattern the backend comment complains about, kept on the other side of the
+// wire: adding a prefix each time is a list, and the list goes stale in both directions.
+//
+// One rule. The forwarder resolves who is asking and hands that to the orchestrator; the
+// orchestrator decides what they may have. That is the only place that decision belongs.
+app.use('/api', forwardWithIdentity);
 
 // Teams bootstrap injected into the embedded dashboard (theme sync + SSO notify).
 app.get('/teams-bootstrap.js', (_req, res) => {

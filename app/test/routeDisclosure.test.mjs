@@ -611,3 +611,36 @@ test('the routes open before sign-in say nothing about the firm', async () => {
     assert.notEqual(j.canViewStage2, true, 'the pre-sign-in seat is cleared for diligence');
   }
 });
+
+// OVER-REFUSAL, WHICH IS THE FAILURE THIS FILE KEPT CAUSING AND NEVER CHECKED.
+//
+// Every test above asks whether someone is told too much. Tightening the boundary five
+// times in a row and never asking the other question is how thirty-five routes came to
+// answer "Sign in to continue" to people who had — fund reporting, market intelligence,
+// the sourcing feed, the signals mailbox and the news desk, all dark, for everyone.
+//
+// A refusal that states the wrong remedy is worse than a leak in one respect: nobody
+// reports it as a security problem, they report it as the product being broken, and the
+// team that hears it loosens something to make it stop.
+test('a proven partner is refused nothing the router serves', async () => {
+  const src = await readFile(new URL('../server.js', import.meta.url), 'utf8');
+  const paths = new Set();
+  for (const m of src.matchAll(/api\.get\(\s*'(\/[^']*)'/g)) {
+    const route = m[1];
+    if (route.includes(':') || route.includes('*')) continue; // needs a real id; covered above
+    paths.add(route);
+  }
+  assert.ok(paths.size > 30, `only ${paths.size} plain GET routes found — the scan has drifted`);
+
+  // A signed-in partner, not just a proven app naming a seat: routes like /demo/acting-as
+  // legitimately need a person, and refusing an app that named nobody is the right answer.
+  const signedIn = { ...seat('partner'), 'x-dr-user': JSON.stringify({ oid: 'u-test-partner', upn: 'partner@dealroom.test', name: 'Test Partner' }) };
+  const refused = [];
+  for (const path of paths) {
+    const r = await fetch(`${base}/api${path}`, { headers: signedIn });
+    // 4xx is the fault. A 5xx is a different bug and 404 may be honest for an unwired
+    // integration, so only the refusals that mean "not for you" are counted.
+    if (r.status === 401 || r.status === 403) refused.push(`${path} -> ${r.status}`);
+  }
+  assert.deepEqual(refused, [], `a partner was refused: ${refused.join(', ')}`);
+});

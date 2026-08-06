@@ -476,7 +476,13 @@ export function dealAccessLevel(identity, deal, viewAsRole = null) {
   // right for a deal the firm is running normally, wrong for one it has marked
   // confidential. Those keep needing a name, which is why Project Onyx stays shut.
   const roleNamed = !confidential && !!access.role && named.includes(norm(access.role));
-  const team = onDealTeam(identity, named) || roleNamed || groupGrantsDeal(identity, deal);
+  // Previewing a seat has to answer "what would THEY see", and the identity's own grants
+  // were surviving the preview — so an administrator asking to be viewed as a member was
+  // served all twenty-four deals under a member label, when the true answer for a member
+  // is five and a 404 on Onyx. No confidentiality boundary was crossed; the instrument was
+  // broken, and view-as is precisely the instrument an operator uses to audit this model.
+  const previewing = !!access.viewingAs;
+  const team = (!previewing && (onDealTeam(identity, named) || groupGrantsDeal(identity, deal))) || roleNamed;
   // Data sovereignty: a region-restricted user can't see out-of-region deals at all
   // (region inferred from the deal's hq when not explicitly tagged). Admins and named
   // team / deal-group members bypass the territory wall.

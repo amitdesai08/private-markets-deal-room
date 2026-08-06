@@ -45,20 +45,36 @@ test('every handler that honours the override validates it against the roster', 
   const overrides = [...tabSrc.matchAll(/const asOverride = (.+);/g)].map((m) => m[1]);
   assert.ok(overrides.length >= 4, 'expected the four handlers that honour an override');
   for (const expr of overrides) {
-    assert.equal(expr, 'await resolveDemoOverride(req)', `an unvalidated override remains: ${expr}`);
+    // The override takes the resolved identity now, because the roster only ever answered
+    // WHAT may be asserted and was never asked WHO may assert it — `x-dr-as: admin` was the
+    // entire request, and it returned twenty-four deals including two marked confidential.
+    assert.equal(expr, 'await resolveDemoOverride(req, identity)', `an unvalidated override remains: ${expr}`);
   }
 });
 
-test('the identity-dependent routes are all on the forwarder, not the blind proxy', () => {
-  // Each of these composes its answer FROM the caller. Blind-proxied, they answer as
-  // the default role: /me/access and /capabilities exist solely to report what THIS
-  // person may do, and were reporting somebody else's permissions.
-  const catchAll = tabSrc.indexOf(`app.use('/api', proxyToBackend)`);
-  for (const route of ['/api/deals', '/api/home-desk', '/api/me/access', '/api/capabilities', '/api/analytics']) {
-    const at = tabSrc.indexOf(`app.use('${route}', forwardWithIdentity)`);
-    assert.ok(at > 0, `${route} must be registered on the identity forwarder`);
-    assert.ok(at < catchAll, `${route} must be registered before the catch-all proxy`);
-  }
+// This enumerated five routes that had to be on the forwarder. The other thirty-five were
+// nobody's business, and when the orchestrator started refusing an unidentified caller they
+// all went dark — the product told people who had signed in to sign in. Enumerating is the
+// defect; there is one rule now and this asserts it.
+test('no route can reach the orchestrator without the caller attached', () => {
+  assert.match(tabSrc, /app\.use\('\/api',\s*forwardWithIdentity\)/, 'the single identity rule is gone');
+  assert.ok(
+    !/app\.use\('\/api',\s*proxyToBackend\)/.test(tabSrc),
+    'the blind catch-all is back — anything registered after it loses the caller silently',
+  );
+});
+
+// The walkthrough is the one place a caller arrives with no identity and is still answered,
+// so it is the one that needs pinning in both directions. It had no test at all.
+test('the open walkthrough is off by default, and read-only when it is on', () => {
+  assert.match(tabSrc, /const OPEN_SIGN_IN = /,
+    'the walkthrough must be a deployment decision, not a request-time one');
+  assert.match(tabSrc, /if \(!identity && !OPEN_SIGN_IN\) return '';/,
+    'without the opt-in, asserting an identity must not produce one');
+  // And with it, the seat may read and never write. A walkthrough needs to show the room;
+  // nothing about it requires an anonymous visitor to advance a deal.
+  assert.match(tabSrc, /WALKTHROUGH_SEAT/,
+    'the identity-less walkthrough must be capped to a read-only seat');
 });
 
 test('view-as cannot grant a capability the caller does not already hold', async () => {
