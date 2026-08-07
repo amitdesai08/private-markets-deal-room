@@ -215,8 +215,18 @@ async function consultSpecialist(slug, ctx, message) {
     ...baseContext(ctx),
     '',
     `You are the ${slug} specialist, consulted by the Deal Room orchestrator for the request below.`,
-    'Give your decision-grade specialist analysis, grounded in your tools; be concise and quantitative;',
-    'cite which tool each figure came from. Do not answer outside your specialty.',
+    // "Be concise" is a hope, not a budget, and it produced 4,700-character answers that
+    // took thirty seconds to generate. The length is the latency: this is a partner with
+    // forty-five seconds, not a reader with ten minutes, so the shape is fixed and the
+    // budget is stated. The figures are already in the context above and are authoritative.
+    'Answer in this shape and nothing else:',
+    '  Recommendation: <one line>',
+    '  Why: at most THREE bullets, each carrying a figure from the record above.',
+    '  What would change it: one line.',
+    'Hard limit 900 characters. Do not restate the question, do not summarise your own',
+    'answer at the end, and do not describe your process. Quote the figures above exactly;',
+    'they are the deal\'s own and you may not recompute them. Do not answer outside your',
+    'specialty — say the record does not hold it instead.',
     '',
     `REQUEST: ${message}`,
   ].join('\n');
@@ -272,6 +282,9 @@ async function composeAnswer(ctx, message, findings, previousResponseId) {
     'specialist findings below. Synthesize (do not just concatenate), keep every figure that is grounded,',
     'attribute the key points to the specialist that produced them, and DO NOT invent anything not present.',
     'End by naming the current stage and the single next best action.',
+    // The same budget as the specialists, for the same reason: length is latency, and a
+    // partner reading before a committee has forty-five seconds.
+    'Hard limit 1200 characters. Do not restate the request and do not describe your process.',
     '',
     'SPECIALIST FINDINGS:',
     blocks || '(no specialist produced output — answer from the deal record above)',
