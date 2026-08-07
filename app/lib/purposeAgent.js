@@ -309,6 +309,34 @@ async function composeAnswer(ctx, message, findings, previousResponseId) {
 
 // ---- public entry point ------------------------------------------------------
 // Same signature + response shape as chatDealAgent, so server.js can swap on a flag.
+// THE UNIT OF LATENCY IS A HOSTED-AGENT CALL, AND IT COSTS ABOUT TWENTY SECONDS.
+//
+// Measured against the live service, same model, same data, same question:
+//
+//   deterministic screens (pure functions over the record)   0.67 - 0.85 s
+//   direct model call + local tool loop (chatDealAgent)      3 - 6 s
+//   Foundry hosted agent_reference, ONE turn                 21 - 24 s
+//
+// So "How many deals do I have in view?" took 25 seconds and used a single agent, all of
+// it the routing turn — twenty-one seconds spent deciding to answer directly. Delegating
+// costs three of those turns.
+//
+// A question only earns the hosted path if it actually needs several disciplines
+// answering at depth. Everything else goes to the fast path, which holds the caller's
+// identity in our own process, runs its tool loop locally, and answers the same question
+// four to seven times quicker. This is decided here, in under a millisecond, rather than
+// by asking a remote agent to decide it for us.
+const NAMES_A_DISCIPLINE = /\b(lbo|returns?|sensitivit|irr|moic|leverage|memo|deck|citation audit|red[- ]?flag|diligence|workstream|100[- ]?day|value[- ]creation|comps?|precedent|screening|origination|sourcing|model)\b/i;
+// The stems here are deliberately open-ended (`analys` catches analyse/analysis/analyst),
+// so there is no trailing word boundary — one would stop `analys` matching "Analyse".
+const ASKS_FOR_DEPTH = /\b(walk me through|deep[- ]?dive|analys|analyz|assess|build|draft|produce|write|compare|evaluat|recommend|explain why|make the case)/i;
+export function needsSpecialists(text) {
+  const s = String(text || '');
+  // Depth in a named discipline is the only thing a specialist gives that the fast path
+  // does not. Both, or it is not worth twenty seconds of someone's attention.
+  return NAMES_A_DISCIPLINE.test(s) && ASKS_FOR_DEPTH.test(s);
+}
+
 export async function chatOrchestrator({ message, dealId, scope, previousResponseId, identity, viewAsRole, askerPersona } = {}) {
   const text = String(message || '').trim();
   if (!text) return { error: 'message-required' };
@@ -349,6 +377,12 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
   }
 
   const ctx = { scope: effScope, focusId, focusCompany, identity, viewAsRole, lens: lensBlock({ identity, viewAsRole, persona: askerPersona }) };
+
+  // The fast path, unless the question has earned the slow one.
+  if (!needsSpecialists(text)) {
+    const fast = await chatDealAgent({ message, dealId: focusId || dealId, scope: effScope, previousResponseId, identity, viewAsRole, askerPersona });
+    return fast && fast.reply ? { ...fast, reply: withoutPlumbing(fast.reply), orchestration: 'direct' } : fast;
+  }
 
   try {
     // 1) Route.
