@@ -22,6 +22,7 @@
 // Every one of those is the same fault: a sentence written once and then not checked
 // against the number it was about to sit beside. The guards are in the tests.
 import { buildReturnsModel, buildRiskRegister, canonicalFigures, reconcileFindingText } from './diligence.js';
+import { screeningMultiple } from './screening.js';
 import { computeICReadiness } from './icReadiness.js';
 import { validateCitations } from './citations.js';
 import { compsForDeal } from './fabric.js';
@@ -100,7 +101,7 @@ function figureBasis(kind, canon, deal) {
     if (canon.ebitdaSource === 'implied by the recorded entry multiple') {
       return `Not recorded. Implied by dividing the ${cur}${canon.ev}M enterprise value by the ${canon.entryMultiple}x multiple the record states.`;
     }
-    return 'Not recorded. This is 12% of enterprise value — the screening default the model falls back to when no EBITDA is on file. The multiple below rests on it.';
+    return `Not recorded. Implied from the ${screeningMultiple(deal)}x screening default for ${deal.subSector || deal.sector || 'this sector'} — the convention the model falls back to when no EBITDA is on file. The multiple below rests on it.`;
   }
   if (kind === 'multiple') {
     return canon.entryMultipleSource === 'recorded'
@@ -534,7 +535,10 @@ export function buildDealCase(deal) {
     risks.unshift({
       risk: returns.headline,
       severity: 'stopper',
-      severityLabel: 'Deal-stopper',
+      // Not a diligence finding, so not the register's word for one. The register
+      // grades zero deal-stoppers on this deal and the badge said otherwise.
+      severityLabel: 'Below the fund hurdle',
+      raisedBy: 'this paper',
       likelihood: null,
       workstream: 'Returns',
       owner: null,
@@ -563,7 +567,8 @@ export function buildDealCase(deal) {
     risks.push({
       risk: downside.text,
       severity: 'reprice',
-      severityLabel: 'Price-adjuster',
+      severityLabel: 'Downside breaks the hurdle',
+      raisedBy: 'this paper',
       likelihood: null,
       workstream: 'Returns',
       owner: null,
@@ -628,7 +633,8 @@ export function buildDealCase(deal) {
         ? `The entry multiple rests on a draft. The ${canon.currency}${canon.ebitda}M of EBITDA under it comes from ${String(ebitdaKf.source).trim()}, and no completed result is on the record.`
         : `The entry multiple rests on an EBITDA nobody has diligenced. Every return below is arithmetic on ${canon.currency}${canon.ebitda}M that no workstream has produced.`,
       severity: 'stopper',
-      severityLabel: 'Deal-stopper',
+      severityLabel: 'The price is not evidenced',
+      raisedBy: 'this paper',
       likelihood: null,
       workstream: 'Financial / Quality of Earnings',
       owner: null,
@@ -848,6 +854,23 @@ export function buildDealCase(deal) {
     forIt: forIt(deal, canon, returns, tooEarly || priceOnly),
     downside: theDownside(deal, returns, canon),
     againstIt: risks,
+    // "How many open risks?" is the second question a partner asks after "what's the
+    // price", and the product had five answers for it on one deal: twelve rows on the
+    // register, eight on the readiness board, three here, and two red badges against a
+    // register grading zero deal-stoppers. They are different questions — everything
+    // diligence found, what blocks the committee, and the three most likely to lose the
+    // money — so this says which one it just answered and where the rest live.
+    againstItNote: (() => {
+      const own = risks.filter((r) => r.raisedBy === 'this paper').length;
+      const found = risks.length - own;
+      const total = (register.risks || []).length;
+      if (!risks.length) return null;
+      const parts = [risks.length === 1 ? 'The one most likely to lose the money' : `The ${risks.length} most likely to lose the money`];
+      if (found && total > found) parts.push(`${found} of them drawn from the ${total} on the risk register`);
+      else if (found) parts.push(`drawn from the risk register`);
+      if (own) parts.push(`${own} raised by this paper rather than by a workstream`);
+      return `${parts.join(', ')}.`;
+    })(),
     // What nobody has looked at. These never reached the page: on the deal four days
     // from committee the paper reported "no blocking workstreams" while its own register
     // said nobody had spoken to a customer, referenced the management team below the
@@ -918,12 +941,12 @@ export function buildDealCase(deal) {
             : null,
         ].filter(Boolean).join(' ') },
       revenueFigure(canon, deal),
-      // "Modelled at the financeable ceiling for the sector" on six deals out of six,
-      // where debt is 60% of enterprise value on every one and there is no sector input
-      // anywhere in the calculation. On a listed payments processor that produced 2.2x,
-      // presented as a ceiling no lender would recognise as one. Leverage is the largest
-      // single driver of the IRR being voted on; attributing it to a judgement nobody
-      // made is the worst place in the paper to do that.
+      // Leverage is the largest single driver of the IRR being voted on, and this said
+      // "debt at 60% of enterprise value... there is no sector input in the calculation"
+      // on every deal, because there wasn't one: the quantum was a constant and the cap
+      // bound on all nineteen. There is a sector input now, so the paper states what it
+      // was and why, and a reader can argue with the credit view rather than only with
+      // the number it produced.
       //
       // "No lender is on the record" was then printed three sections from a recorded
       // finding reading "take-private financing pre-underwritten by two banks", so the
@@ -933,7 +956,8 @@ export function buildDealCase(deal) {
           .flatMap((w) => (w.findings || []))
           .map((f) => String(f?.text || ''))
           .find((t) => /underwritten|debt package|financing (?:secured|committed)|lender|credit committee|term sheet/i.test(t));
-        const base = `Modelled: debt at 60% of enterprise value, over ${canon.currency}${canon.ebitda}M of EBITDA. There is no sector input in the calculation.`;
+        const credit = returns.leverageBasis || (returns.entry || {}).leverageBasis;
+        const base = credit || `Modelled over ${canon.currency}${canon.ebitda}M of EBITDA.`;
         return financing
           ? `${base} A financing finding is on the record and the model does not read it: “${financing.trim()}”`
           : `${base} No lender or indicative terms are on the record.`;

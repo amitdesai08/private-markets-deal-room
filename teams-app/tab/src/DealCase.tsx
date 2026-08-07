@@ -126,6 +126,10 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
         {/* Three, not fifteen. A committee handed every monitor alongside the stopper
             has been given a list rather than a case, and reads neither. */}
         <div className="dc-h">What could kill it</div>
+        {/* The register, the readiness board and this list answer different questions, and
+            a partner asking "how many open risks?" was getting five numbers. Say which
+            question this one answered. */}
+        {c.againstItNote ? <div className="dc-basis">{c.againstItNote}</div> : null}
         {(c.againstIt || []).length ? c.againstIt.map((r: Any, i: number) => (
           <div key={i} className="dc-point">
             <div className="dc-pt">

@@ -77,3 +77,30 @@ test('a deal with no modelled uplift says so instead of showing an empty plan', 
     assert.match(plan.headline, /no ebitda uplift/i, 'a zero-target plan still headlines a target');
   }
 });
+
+// The value bridge sat beside the returns waterfall and disagreed with it by up to $39M
+// on the same deal: each bar was re-derived, and debt paydown was struck at a flat 50%
+// while the model repays a margin-driven share. A "multiple expansion" bar also appeared
+// on deals whose returns page says in terms that the base case assumes none.
+test('the value bridge decomposes the equity gain exactly', () => {
+  for (const { deal, plan } of plans) {
+    const sum = plan.valueBridge.reduce((s, b) => s + b.value, 0);
+    assert.equal(
+      sum,
+      plan.valueBridgeTotal,
+      `${deal.company}: the bridge bars add to ${sum} against an equity gain of ${plan.valueBridgeTotal}`,
+    );
+    assert.equal(plan.valueBridgeTies, true, `${deal.company}: the bridge does not claim to tie`);
+  }
+});
+
+// A zero-height bar labelled "multiple expansion" on a page that says there is none is
+// worse than no bar at all.
+test('a multiple bar appears only when the exit multiple actually moves', () => {
+  for (const { deal, plan } of plans) {
+    const bar = plan.valueBridge.find((b) => /multiple/i.test(b.source));
+    if (bar) {
+      assert.ok(Math.abs(bar.value) >= 1, `${deal.company}: a ${bar.value} multiple bar is drawn`);
+    }
+  }
+});

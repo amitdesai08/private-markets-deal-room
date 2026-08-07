@@ -13,7 +13,7 @@
 //   D4 Approval    -> Execution Pack (IC decision, SPA terms, conditions precedent, funds flow)
 //   D5 Archive     -> Close-out & 100-Day Plan (value creation, governance, records)
 
-import { buildReturns, paperLbo } from './screening.js';
+import { buildReturns, paperLbo, screeningMultiple } from './screening.js';
 import { money as fmtMoney, symbolFor } from './money.js';
 import { ownerLabel } from './cockpit.js';
 
@@ -67,7 +67,7 @@ function dealFinancials(deal) {
   // and the product told a committee that an asset the fund owns "is below the 20% / 2x
   // hurdle on both legs" — on $73M it invented, while $142M sat on the same record. At
   // the real figure the entry is 4.3x, not 8.4x, and the deal does not fail.
-  const ebitda = num('(adj\\.?|adjusted|ltm|normalised|run.?rate)?\\s*ebitda(?!\\s*(margin|vs|growth|uplift|delta|change))', round(ev * 0.12));
+  const ebitda = num('(adj\\.?|adjusted|ltm|normalised|run.?rate)?\\s*ebitda(?!\\s*(margin|vs|growth|uplift|delta|change))', round(ev / screeningMultiple(deal)));
   const marginKf = (deal.keyFigures || []).find((k) => /margin/i.test(k.label));
   const ebitdaMargin = marginKf ? Number(String(marginKf.value).replace(/[^0-9.]/g, '')) : (revenue ? +((ebitda / revenue) * 100).toFixed(1) : 12);
   return { ev, revenue, ebitda, ebitdaMargin, growth: dealGrowth(deal) };
@@ -116,7 +116,7 @@ function dealAsCandidate(deal) {
   const ebitdaRecorded = (deal.keyFigures || []).some((k) => /ebitda(?! margin)/i.test(k.label));
   const ebitda = !ebitdaRecorded && stated ? round(f.ev / stated) : f.ebitda;
   return {
-    company: deal.company, sector: deal.sector, ownership: deal.ownership || 'private',
+    company: deal.company, sector: deal.sector, subSector: deal.subSector || null, ownership: deal.ownership || 'private',
     dealSize: f.ev, revenue: f.revenue, ebitda, ebitdaMargin: f.ebitdaMargin,
     statedMultiple: stated,
     growth: f.growth ?? undefined, keywords: deal.keywords || [], sources: deal.sources || []
@@ -165,6 +165,8 @@ export function canonicalFigures(deal) {
       modelledEntryMultiple: r.entryMultiple,
       entryAboveCeiling: !!r.entryAboveCeiling,
       leverage: r.leverage,
+      leverageBasis: r.leverageBasis || null,
+      debtToEv: r.debtToEv ?? null,
       irr: base.irr,
       moic: base.moic,
       holdYears: r.holdYears,
@@ -965,6 +967,8 @@ export function buildReturnsModel(deal) {
         impliedEvEbitda: r.impliedMultiple,
         modelledEvEbitda: r.entryMultiple,
         leverage: r.leverage,
+        leverageBasis: r.leverageBasis || null,
+        debtToEv: r.debtToEv ?? null,
         entryEV: base.entryEV,
         ebitda,
         holdYears: r.holdYears,
@@ -986,6 +990,11 @@ export function buildReturnsModel(deal) {
       { name: 'Upside', ...r.scenarios.upside },
     ],
     hurdle: r.hurdle, meetsHurdle: r.meetsHurdle, entryAboveCeiling: r.entryAboveCeiling,
+    // The credit view, at the level every consumer reads. It was only reachable inside
+    // `entry`, so the case page silently fell back to a generic sentence and the sector
+    // input was invisible again.
+    leverageBasis: r.leverageBasis || null,
+    debtToEv: r.debtToEv ?? null,
     sensitivity,
     headline: `${shownMult}x entry · ${r.leverage} leverage · base ${base.irr}% IRR / ${base.moic}x MOIC${
       r.meetsHurdle
@@ -1183,7 +1192,7 @@ export function buildValueCreationPlan(deal) {
   const cand = dealAsCandidate(deal);
   const r = buildReturns(cand);
   const base = r.scenarios.base;
-  const entryEbitda = f.ebitda;
+  const entryEbitda = cand.ebitda ?? f.ebitda;
   const exitEbitda = base.exitEbitda;
   const deltaEbitda = Math.max(0, round(exitEbitda - entryEbitda));
   const play = vcpPlaybook(deal);
@@ -1221,11 +1230,41 @@ export function buildValueCreationPlan(deal) {
     owner: /buy-and-build/i.test(lever) ? 'principal' : 'operating-partner',
   }));
 
+  // THE BRIDGE HAS TO EXPLAIN THE WATERFALL, NOT SIT NEXT TO IT.
+  //
+  // These three bars were each re-derived: EBITDA growth from the entry multiple, multiple
+  // expansion as whatever was left over, and debt paydown at a flat 50% while the model
+  // actually repays a margin-driven share. So the bars summed to $376M against an equity
+  // gain of $337M on the same deal, and a "multiple expansion" bar appeared on deals whose
+  // returns page says in terms that the base case assumes none.
+  //
+  // Decomposed from the base scenario, the three are the equity gain by construction:
+  //   (exitEV - debtAtExit) - (entryEV - debt)
+  //     = (exitEbitda - entryEbitda) x entryMult      <- earnings growth
+  //     + exitEbitda x (exitMult - entryMult)         <- the exit multiple
+  //     + (debt - debtAtExit)                         <- debt repaid
+  const entryMult = base.entryMult ?? r.entryMultiple;
+  const exitMult = base.exitMult ?? entryMult;
+  const growthValue = round((base.exitEbitda - entryEbitda) * entryMult);
+  const multipleValue = round(base.exitEbitda * (exitMult - entryMult));
+  const paydownValue = round(base.debtRepaid ?? 0);
+  // Each bar is rounded to whole millions, so three of them can miss the total they are
+  // decomposing by a million or two. Push the drift onto the largest bar rather than
+  // publishing three numbers that visibly do not add up.
+  const equityGainRaw = round(base.equityOut - base.equityIn);
+  const drift = equityGainRaw - (growthValue + multipleValue + paydownValue);
+  const bars = [growthValue, multipleValue, paydownValue];
+  const biggest = bars.reduce((bi, v, i, arr) => (Math.abs(v) > Math.abs(arr[bi]) ? i : bi), 0);
+  bars[biggest] += drift;
+  const [growthBar, multipleBar, paydownBar] = bars;
   const valueBridge = [
-    { source: 'EBITDA growth', value: round((exitEbitda - entryEbitda) * r.entryMultiple) },
-    { source: 'Multiple expansion', value: Math.max(0, round(base.exitEV - base.exitEbitda * r.entryMultiple)) },
-    { source: 'Debt paydown', value: round(base.debt * 0.5) },
+    { source: 'EBITDA growth', value: growthBar },
+    // A zero-height bar labelled "multiple expansion" on a page that says there is none is
+    // worse than no bar, so it only appears when the exit multiple actually moves.
+    ...(Math.abs(multipleBar) >= 1 ? [{ source: exitMult >= entryMult ? 'Multiple expansion' : 'Multiple contraction', value: multipleBar }] : []),
+    { source: 'Debt paydown', value: paydownBar },
   ];
+  const equityGain = equityGainRaw;
 
   const firstThirty = play.firstThirty || VCP_FALLBACK.firstThirty;
   const named = levers.filter((l) => !/bolt-on|acquisition/i.test(l.name)).slice(0, 3).map((l) => l.name);
@@ -1234,6 +1273,10 @@ export function buildValueCreationPlan(deal) {
     playbook: play.group || null,
     ebitdaBridge: { entry: entryEbitda, exit: exitEbitda, delta: deltaEbitda, components: ebitdaComponents },
     valueBridge,
+    // The bars ARE the equity gain, split three ways. Saying so lets a reader check the
+    // page against the returns waterfall instead of finding they disagree.
+    valueBridgeTotal: equityGain,
+    valueBridgeTies: Math.abs(valueBridge.reduce((s, x) => s + x.value, 0) - equityGain) <= 2,
     levers,
     // The plan reconciles to its own headline by construction. Saying so on the card is
     // cheap, and it is the first thing a sceptical reader checks.

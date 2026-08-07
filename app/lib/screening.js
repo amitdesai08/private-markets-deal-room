@@ -288,7 +288,88 @@ const HOLD_YEARS = 5;
 // that when the leverage multiple approaches the entry multiple (e.g. a 5x floor
 // entry with 5x leverage) the equity check can't collapse to ~$0 and blow the
 // MOIC/IRR up to absurd numbers.
-const MAX_DEBT_TO_EV = 0.6;
+const MAX_DEBT_TO_EV = 0.65;
+
+// CREDIT IS A DECISION. IT WAS A CONSTANT, AND THE CONSTANT BOUND EVERYWHERE.
+//
+// Debt was `min(EBITDA x 5, EV x 0.6)`. Where no EBITDA is recorded the model assumes
+// 12% of EV, and 5/8.33 is 0.60 exactly — so the cap and the turns agreed to the decimal
+// and every deal came out at 60.0% debt. On the cheaper deals the cap simply bound. All
+// nineteen were financed identically: a $194M precision-components carve-out and an $814M
+// grocery chain, same structure, same leverage, same page. Put two side by side and the
+// room sees one spreadsheet with the company name changed.
+//
+// Lenders do not do that. What a business can carry depends on how contracted and how
+// cash-generative it is, so that is what decides it here — and the returns page says which
+// reason applied, because leverage is the largest single driver of the IRR being voted on.
+const CREDIT_PROFILES = [
+  { match: /renewable|storage/i, turns: 6.0, evCap: 0.70, why: 'contracted offtake supports project-style gearing' },
+  { match: /vertical saas|software|data/i, turns: 5.5, evCap: 0.55, why: 'recurring revenue and high gross margin support a full quantum, but lenders discount the asset base' },
+  { match: /payment|fintech/i, turns: 5.25, evCap: 0.55, why: 'recurring transaction revenue, offset by regulatory capital sensitivity' },
+  { match: /multi-site care|care \/ services|health partners|dental/i, turns: 5.0, evCap: 0.60, why: 'reimbursement-backed cash flows across many small sites' },
+  { match: /3pl|logistics|cold chain/i, turns: 4.5, evCap: 0.60, why: 'contracted volumes and a financeable fleet, against operational gearing' },
+  { match: /packaging/i, turns: 4.5, evCap: 0.60, why: 'long customer contracts and hard assets, against raw-material pass-through risk' },
+  { match: /diagnostic|lab services/i, turns: 4.75, evCap: 0.58, why: 'annuity-like testing volumes with meaningful equipment capex' },
+  { match: /grocery|convenience/i, turns: 4.0, evCap: 0.60, why: 'defensive demand and property, against thin margins that leave little headroom' },
+  { match: /specialty food|food manufactur/i, turns: 4.25, evCap: 0.58, why: 'staple demand, against commodity input volatility' },
+  { match: /precision|manufactur|component/i, turns: 4.0, evCap: 0.55, why: 'programme backlog and hard assets, against cyclical end markets' },
+  { match: /forestry|building product|timber/i, turns: 3.75, evCap: 0.55, why: 'asset backing, against commodity price and housing cyclicality' },
+  { match: /biotech tools|cro/i, turns: 4.0, evCap: 0.50, why: 'contracted study backlog, against customer concentration and funding cyclicality' },
+  { match: /marine/i, turns: 3.5, evCap: 0.55, why: 'vessel security, against day-rate volatility' },
+  { match: /carve-out|specialty chemical/i, turns: 3.5, evCap: 0.50, why: 'no standalone track record through a cycle, and a live TSA' },
+  { match: /energy service|electrification/i, turns: 3.0, evCap: 0.50, why: 'activity-driven earnings that lenders will not underwrite through the trough' },
+];
+const DEFAULT_CREDIT = { turns: 4.5, evCap: 0.60, why: 'no sector precedent on file; the fund\'s standard mid-market structure' };
+
+// WHAT A SECTOR TRADES AT, USED ONLY WHERE NOBODY HAS PRODUCED AN EBITDA.
+//
+// The screening default was a flat 12% of enterprise value, and 1/0.12 is 8.33 — so every
+// deal without a diligenced EBITDA priced at 8.3x. A narrator clicked four consecutive
+// deals — renewables, marine services, vertical SaaS and specialty foods — and read 8.3x,
+// 8.3x, 8.3x, 8.3x. Four sectors, one number, because it was never about the sector.
+//
+// A screening default should be the sector's own convention. It is still a placeholder and
+// the page still says so; it is just no longer the SAME placeholder for a grocer and a
+// software business.
+const SCREENING_MULTIPLES = [
+  { match: /vertical saas|software|data/i, x: 12 },
+  { match: /biotech tools|cro/i, x: 11.5 },
+  { match: /payment|fintech/i, x: 11 },
+  { match: /diagnostic|lab services/i, x: 10.5 },
+  { match: /renewable|storage/i, x: 10 },
+  { match: /multi-site care|care \/ services|health partners|dental/i, x: 9.5 },
+  { match: /specialty food|food manufactur/i, x: 9 },
+  { match: /3pl|logistics|cold chain/i, x: 8.5 },
+  { match: /packaging/i, x: 8 },
+  { match: /precision|manufactur|component/i, x: 7.5 },
+  { match: /carve-out|specialty chemical/i, x: 7 },
+  { match: /grocery|convenience/i, x: 6.5 },
+  { match: /forestry|building product|timber/i, x: 6.5 },
+  { match: /marine/i, x: 6 },
+  { match: /energy service|electrification/i, x: 5.5 },
+];
+const DEFAULT_SCREENING_MULTIPLE = 8.5;
+
+export function screeningMultiple(deal) {
+  const hay = `${deal?.subSector || ''} ${deal?.sector || ''}`;
+  return (SCREENING_MULTIPLES.find((s) => s.match.test(hay)) || { x: DEFAULT_SCREENING_MULTIPLE }).x;
+}
+
+// Turns of EBITDA this business can carry, and the reason in words.
+export function creditProfile(c) {
+  const hay = `${c?.subSector || ''} ${c?.sector || ''}`;
+  const p = CREDIT_PROFILES.find((x) => x.match.test(hay)) || DEFAULT_CREDIT;
+  // Margin is the other half of the credit question: cash conversion decides how much of
+  // the quantum is actually serviceable, whatever the sector convention says.
+  const margin = c?.ebitdaMargin ?? null;
+  const adj = margin == null ? 0 : margin >= 25 ? 0.5 : margin >= 15 ? 0.25 : margin < 8 ? -0.5 : 0;
+  const turns = +Math.max(2.5, Math.min(6.5, p.turns + adj)).toFixed(2);
+  const marginNote = margin == null ? null
+    : adj > 0 ? `${margin}% EBITDA margins convert well, which supports the upper end`
+      : adj < 0 ? `${margin}% EBITDA margins leave little headroom, so the quantum is cut back`
+        : null;
+  return { turns, evCap: p.evCap, why: p.why, marginNote };
+}
 
 // The most EBITDA growth we are willing to compound for the whole hold at screening
 // grade. A 41%-growth asset gets 15%; the upside of being right about the rest is
@@ -300,10 +381,12 @@ const UNDERWRITTEN_GROWTH_CAP = 0.15;
 // with a number.
 const DEFAULT_GROWTH = 6;
 
-function paperLbo(c, { entryMult, leverageMult, ebitdaCagr, exitMult }) {
+function paperLbo(c, { entryMult, leverageMult, ebitdaCagr, exitMult, evCap }) {
   const entryEbitda = Math.max(1, c.ebitda || 1);
   const entryEV = entryEbitda * entryMult;
-  const debt = Math.min(entryEbitda * leverageMult, entryEV * MAX_DEBT_TO_EV);
+  // The sector's own ceiling, not one number for the whole book.
+  const cap = Math.min(evCap ?? MAX_DEBT_TO_EV, MAX_DEBT_TO_EV);
+  const debt = Math.min(entryEbitda * leverageMult, entryEV * cap);
   const equityIn = Math.max(1, entryEV - debt);
   const exitEbitda = entryEbitda * Math.pow(1 + ebitdaCagr, HOLD_YEARS);
   const exitEV = exitEbitda * exitMult;
@@ -318,7 +401,12 @@ function paperLbo(c, { entryMult, leverageMult, ebitdaCagr, exitMult }) {
   const irr = moic > 0 ? Math.pow(moic, 1 / HOLD_YEARS) - 1 : -1;
   return {
     entryEV: Math.round(entryEV), equityIn: Math.round(equityIn), debt: Math.round(debt),
+    // What is actually repaid over the hold. The value bridge used to re-derive this at a
+    // flat 50% while the model repaid a margin-driven share, so the bridge and the returns
+    // waterfall disagreed by up to $39M on the same deal, on adjacent screens.
+    debtAtExit: Math.round(debtAtExit), debtRepaid: Math.round(debt - debtAtExit),
     exitEbitda: Math.round(exitEbitda), exitEV: Math.round(exitEV), equityOut: Math.round(equityOut),
+    entryMult, exitMult,
     moic: +moic.toFixed(2), irr: +(irr * 100).toFixed(1)
   };
 }
@@ -353,10 +441,13 @@ export function buildReturns(c) {
   // where 15% came from when the front page says 41% and got "not recorded... no sign-off"
   // — the cap had silently replaced the recorded rate and nothing said so.
   const growthCapped = recordedGrowth != null && recordedGrowth / 100 > UNDERWRITTEN_GROWTH_CAP;
+  // The quantum this business can carry, decided from what it is rather than from a
+  // constant. The scenarios move around it: a lender offers less in the downside.
+  const credit = creditProfile(c);
   const scenarios = {
-    downside: paperLbo(c, { entryMult: baseMult, leverageMult: 4.5, ebitdaCagr: Math.max(0, g - 0.04), exitMult: baseMult - 1 }),
-    base: paperLbo(c, { entryMult: baseMult, leverageMult: 5, ebitdaCagr: g, exitMult: baseMult }),
-    upside: paperLbo(c, { entryMult: baseMult, leverageMult: 5.5, ebitdaCagr: g + 0.04, exitMult: baseMult + 1 })
+    downside: paperLbo(c, { entryMult: baseMult, leverageMult: Math.max(2, credit.turns - 0.5), ebitdaCagr: Math.max(0, g - 0.04), exitMult: baseMult - 1, evCap: credit.evCap }),
+    base: paperLbo(c, { entryMult: baseMult, leverageMult: credit.turns, ebitdaCagr: g, exitMult: baseMult, evCap: credit.evCap }),
+    upside: paperLbo(c, { entryMult: baseMult, leverageMult: credit.turns + 0.5, ebitdaCagr: g + 0.04, exitMult: baseMult + 1, evCap: credit.evCap })
   };
   const meetsHurdle = !entryAboveCeiling && scenarios.base.irr >= 20 && scenarios.base.moic >= 2.0;
   const entryEbitda = Math.max(1, c.ebitda || 1);
@@ -367,11 +458,18 @@ export function buildReturns(c) {
     impliedMultiple: impliedMult == null ? null : +impliedMult.toFixed(1),
     entryAboveCeiling,
     leverage: `${effLeverage}x`,
+    // "Modelled at the financeable ceiling for the sector" was printed on every deal while
+    // there was no sector input anywhere in the calculation. Now there is one, so it can
+    // be named.
+    leverageBasis: [`Modelled at ${credit.turns}x EBITDA: ${credit.why}.`, credit.marginNote ? `${credit.marginNote}.` : null,
+      `Capped so debt stays within ${Math.round(credit.evCap * 100)}% of enterprise value.`].filter(Boolean).join(' '),
+    creditTurns: credit.turns,
+    debtToEv: scenarios.base.entryEV ? +(scenarios.base.debt / scenarios.base.entryEV).toFixed(3) : null,
     // The inputs the base case was actually struck on. Without these a sensitivity grid
     // has to guess them, and the one on the Returns page guessed a different growth rate
     // and a different leverage -- so none of its nine cells contained the deal.
     ebitdaCagr: g,
-    baseLeverageMult: 5,
+    baseLeverageMult: credit.turns,
     growthCapped,
     growthBasis: growthCapped
       ? `Underwritten at ${Math.round(g * 100)}% EBITDA growth, not the ${recordedGrowth}% on the record: this is the ceiling the fund will put in a model at screening, and the rest of the case is argued in the IC paper rather than compounded into the headline return.`
