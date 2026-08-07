@@ -260,6 +260,31 @@ app.post('/api/powerbi/embed', async (req, res) => {
 // shared bot key so the orchestrator gates every agent read by the caller's need-to-know
 // (an agent can't be used to reach a deal the caller can't see). Registered BEFORE the
 // generic proxy so it wins for the chat endpoints.
+// THE CREDENTIALS A FORWARDED REQUEST CARRIES, DECIDED ONCE.
+//
+// Three proxies each assembled this by hand and they drifted the moment the rules changed:
+// the walkthrough credential was added to the deal forwarder and not to the assistant, so
+// every chat entry point answered "Sign in to continue." while the screen beside it worked.
+// Three separate reviewers reported it as the assistant being broken.
+function backendAuth({ identity, ssoToken, asOverride, requestingUser }) {
+  const h = { 'content-type': 'application/json' };
+  // The app's proof, only when we can say who is asking.
+  if (config.backend.botKey && requestingUser) h['x-bot-key'] = config.backend.botKey;
+  if (requestingUser) h['x-dr-user'] = JSON.stringify(requestingUser);
+  // The proof itself, and the seat chosen to look through — two different facts.
+  if (identity && ssoToken) h.authorization = `Bearer ${ssoToken}`;
+  if (identity && asOverride) h['x-dr-demo-as'] = asOverride;
+  // A walkthrough visitor has no directory account, so the deployment's own credential
+  // stands in — and it must reach the assistant as well as the deal list.
+  if (DEMO_ACCESS_KEY && asOverride && !identity) {
+    delete h['x-dr-user'];
+    delete h['x-bot-key'];
+    h['x-dr-demo-key'] = DEMO_ACCESS_KEY;
+    h['x-dr-demo-as'] = asOverride;
+  }
+  return h;
+}
+
 async function forwardChat(path, req, res) {
   if (!isBackendLive()) return res.status(502).json({ error: 'shared-backend-not-configured' });
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -269,12 +294,7 @@ async function forwardChat(path, req, res) {
   const requestingUser = asOverride
     ? { oid: asOverride, upn: asOverride, name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : null);
-  const headers = { 'content-type': 'application/json' };
-  // Same rule as forwardWithIdentity: no identity, no key, no seat — and the same two
-  // facts, or the assistant answers as a different person than the screen beside it.
-  if (config.backend.botKey && requestingUser) headers['x-bot-key'] = config.backend.botKey;
-  if (identity && ssoToken) headers.authorization = `Bearer ${ssoToken}`;
-  if (identity && asOverride) headers['x-dr-demo-as'] = asOverride;
+  const headers = backendAuth({ identity, ssoToken, asOverride, requestingUser });
   const body = { ...(req.body || {}) };
   delete body.ssoToken; delete body.as;
   body.requestingUser = requestingUser;
@@ -305,10 +325,7 @@ app.use('/api/admin', async (req, res) => {
   const body = { ...(req.body || {}) };
   delete body.ssoToken; delete body.as;
   body.requestingUser = requestingUser;
-  const headers = { 'content-type': 'application/json' };
-  // Same rule as forwardWithIdentity: no identity, no key, no seat. This is the ADMIN
-  // proxy, so it is the last place a browser should be handed the app's own proof.
-  if (config.backend.botKey && requestingUser) headers['x-bot-key'] = config.backend.botKey;
+  const headers = backendAuth({ identity, ssoToken, asOverride, requestingUser });
   try {
     const upstream = await fetch(`${config.backend.url}${req.originalUrl}`, {
       method: 'POST', headers, body: JSON.stringify(body),
@@ -452,36 +469,7 @@ async function forwardWithIdentity(req, res) {
   const requestingUser = asOverride
     ? { oid: asOverride, upn: asOverride, name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
-  const headers = { 'content-type': 'application/json' };
-  // The key is the app's proof and it was attached whatever the browser had told us, so
-  // an unauthenticated visitor to the tab host was forwarded as a proven caller and could
-  // pick its own seat with an x-dr-view-as header — nineteen deals at accessLevel `full`.
-  // Withhold it when we cannot say who is asking, and the backend sees the request for
-  // what it is. This is the browser's request; the tab's own bootstrap calls still carry it.
-  if (config.backend.botKey && requestingUser) headers['x-bot-key'] = config.backend.botKey;
-  if (requestingUser) headers['x-dr-user'] = JSON.stringify(requestingUser);
-  // Forward the PROOF, not our reading of it. This verified the SSO token and then sent the
-  // orchestrator a JSON assertion, so a genuinely signed-in person arrived as somebody's
-  // word for it — and the moment the orchestrator stopped taking anybody's word, real users
-  // would have been the ones locked out while the walkthrough kept working.
-  //
-  // The token is the identity. The orchestrator checks the same signature we did.
-  if (identity && ssoToken) headers.authorization = `Bearer ${ssoToken}`;
-  // ...and the persona the signed-in person has chosen to look through, which is a separate
-  // act. Forwarding the token alone meant the verified user won every time and a switch in
-  // Teams changed nothing — the seat used to ride in x-dr-user, which stopped counting when
-  // assertions did. Roster-checked at both ends.
-  if (identity && asOverride) headers['x-dr-demo-as'] = asOverride;
-  // A walkthrough visitor has no directory account, so there is nothing to forward that the
-  // orchestrator should believe. Present the credential the DEPLOYMENT holds instead: the
-  // backend reads it from its own secret store and answers a named, read-only seat. An
-  // assertion the browser made about itself never leaves this function.
-  if (DEMO_ACCESS_KEY && asOverride && !identity) {
-    delete headers['x-dr-user'];
-    delete headers['x-bot-key'];
-    headers['x-dr-demo-key'] = DEMO_ACCESS_KEY;
-    headers['x-dr-demo-as'] = asOverride;
-  }
+  const headers = backendAuth({ identity, ssoToken, asOverride, requestingUser });
   if (viewAsRole) headers['x-dr-view-as'] = viewAsRole;
   // Only attach the delegated token when the caller is genuinely that user. Under a
   // demo "view as USER" override the seat on screen is NOT the signed-in person, so

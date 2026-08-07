@@ -177,10 +177,14 @@ test('previewing a seat shows what that seat would be shown', async () => {
 // was reported as 'the personas do not switch' rather than as an access change.
 test('the tab sends both who you are and who you are looking through', () => {
   const src = readFileSync(new URL('../../teams-app/server/index.js', import.meta.url), 'utf8');
-  const bearer = (src.match(/headers\.authorization = `Bearer \$\{ssoToken\}`/g) || []).length;
-  const seat = (src.match(/headers\['x-dr-demo-as'\] = asOverride/g) || []).length;
-  assert.ok(bearer >= 2, `only ${bearer} proxies forward the verified token`);
-  assert.ok(seat >= bearer, `${bearer} proxies forward the token and only ${seat} forward the chosen persona`);
+  // Both facts are assembled in one builder now, so this asserts the builder carries them
+  // and that every proxy goes through it — rather than counting hand-rolled copies, which is
+  // what allowed the assistant to be forgotten.
+  const builder = src.slice(src.indexOf('function backendAuth'), src.indexOf('async function forwardChat'));
+  assert.match(builder, /authorization = `Bearer \$\{ssoToken\}`/, 'the verified token is no longer forwarded');
+  assert.match(builder, /\['x-dr-demo-as'\] = asOverride/, 'the chosen persona is no longer forwarded');
+  const uses = (src.match(/backendAuth\(\{/g) || []).length;
+  assert.ok(uses >= 3, `only ${uses} proxies use the shared builder`);
 });
 
 // And the orchestrator has to honour it, for a caller that has proved BOTH.

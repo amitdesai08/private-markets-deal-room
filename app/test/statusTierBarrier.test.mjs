@@ -116,3 +116,31 @@ test('a status-tier deal is never described as healthy', () => {
     assert.notEqual(a.tag, 'On track', 'the queue must not assert health it cannot see');
   }
 });
+
+// The padlock screen is the one moment in the demo that exists to prove access control
+// works. It opened with "9 deals in view ... carrying $0 of enterprise value across 6
+// sectors" — because `dealSize` is stripped from a status-tier row and the headline summed
+// nine masked deals to nothing. The fund was reported as worthless at exactly the point we
+// were claiming the product is careful. A figure that cannot be computed is withheld and
+// named as withheld; it is never rendered as zero.
+test('a book whose sizes are all withheld reports them as withheld, not as zero', () => {
+  const desk = buildHomeDesk([statusRow, { ...statusRow, id: 'unseen-2', company: 'Second Holdings' }], {
+    rawFor: () => null,
+  });
+  const tile = desk.kpis.find((k) => k.key === 'capital');
+  assert.ok(tile, 'the enterprise-value tile is gone entirely');
+  assert.ok(!/^[$£€]?0([^0-9]|$)/.test(String(tile.value)), `the tile asserts the book is worth ${tile.value}`);
+  assert.match(String(tile.value) + ' ' + String(tile.sub || ''), /not shown|withheld/i, 'the tile does not say why the figure is missing');
+
+  const prose = ((desk.briefing || {}).paragraphs || []).map((b) => b.text || b).join(' ');
+  assert.ok(!/\$0\b/.test(prose), `the briefing tells the reader the book carries $0: ${prose}`);
+  assert.match(prose, /not shown|withheld|access level/i, 'the briefing never explains that the sizes are withheld');
+});
+
+// The other half of the same rule: when the figures ARE readable the product must still
+// give them, or the fix above would have been to delete the number.
+test('a book with readable sizes still reports the total', () => {
+  const desk = buildHomeDesk([unstrippedSummary()], { rawFor: () => null });
+  const tile = desk.kpis.find((k) => k.key === 'capital');
+  assert.match(String(tile.value), /400/, `expected the $400M book to be reported, got ${tile.value}`);
+});

@@ -650,7 +650,18 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
 
   // Headline numbers, all derived from the deals THIS caller can see so the
   // narrative and the tiles can never disagree.
-  const capital = list.reduce((s, d) => s + num(d.dealSize), 0) * 1e6;
+  // A sum over redacted values is not a small number, it is a missing one. Enterprise
+  // value is stripped from every row a member can only see the status of, so this summed
+  // nine masked deals to nothing and the padlock screen — the one moment in the demo that
+  // exists to show access working — opened with "carrying $0 of enterprise value". The
+  // fund appeared to be worth nothing at precisely the point we were claiming the product
+  // is careful with what it shows. Count what is actually readable and say the rest is
+  // withheld; a number that cannot be honestly computed is not rendered as zero.
+  const priced = list.filter((d) => num(d.dealSize) > 0);
+  const capital = priced.reduce((s, d) => s + num(d.dealSize), 0) * 1e6;
+  const capitalWithheld = list.length - priced.length;
+  // The whole book is masked: there is no honest headline to give, only the reason.
+  const capitalUnknown = list.length > 0 && priced.length === 0;
   // Counted from the verdict, not from a percentage bar. "3 not IC-ready" is a number
   // a partner can act on; "62% average readiness" is a number nobody has ever acted on.
   //
@@ -715,6 +726,11 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   // and the true number of conditions (3) appeared nowhere.
   const openConditionCount = list.reduce((s, d, i) => s + (!inDiligence(d) ? condsOf(i) : 0), 0);
   const sectors = new Set(list.map((d) => d.sector).filter(Boolean)).size;
+  // `${sectorWord}` printed "1 sectors" whenever no
+  // row carried a sector: the fallback said one and the plural test read the raw zero.
+  // Decide the number once and agree with it.
+  const sectorCount = sectors || 1;
+  const sectorWord = `${sectorCount} sector${sectorCount === 1 ? '' : 's'}`;
   // "The next committee" must include the deal that is AT committee.
   //
   // `icPending` is `stepIndex < IC_STEP_INDEX`, and IC_STEP_INDEX is D4 — the committee
@@ -764,7 +780,15 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   };
   const phases = PHASES.map((p) => {
     const ds = list.filter((d) => stripPhase(d) === p.key);
-    return { key: p.key, label: p.label, count: ds.length, capital: ds.reduce((s, d) => s + num(d.dealSize), 0) * 1e6 };
+    // Same rule as the headline: a phase whose sizes are all withheld carries an
+    // unknown amount, not nothing. Sentences built from this check `capitalKnown`
+    // before quoting a figure.
+    const pPriced = ds.filter((d) => num(d.dealSize) > 0);
+    return {
+      key: p.key, label: p.label, count: ds.length,
+      capital: pPriced.reduce((s, d) => s + num(d.dealSize), 0) * 1e6,
+      capitalKnown: pPriced.length > 0,
+    };
   }).filter((p) => p.count > 0);
 
   const workiq = portfolioCommitments(list, rawFor, 6, seat.laneLabels);
@@ -927,7 +951,9 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
         // has completed, not which diligence lane is late.
         const closed = phases.find((p) => p.key === 'value');
         c.add(
-          `Across the book you can see, ${money(capital)} of enterprise value in ${list.length} deal${list.length === 1 ? '' : 's'}${closed ? `, of which ${closed.count} ${closed.count === 1 ? 'company has' : 'companies have'} completed and moved into value creation carrying ${money(closed.capital)}` : ''}.`,
+          capitalUnknown
+            ? `Across the book you can see, ${list.length} deal${list.length === 1 ? '' : 's'}${closed ? `, of which ${closed.count} ${closed.count === 1 ? 'company has' : 'companies have'} completed and moved into value creation` : ''}. Deal sizes are not shown at your access level.`
+            : `Across the book you can see, ${money(capital)} of enterprise value in ${list.length} deal${list.length === 1 ? '' : 's'}${closed ? `, of which ${closed.count} ${closed.count === 1 ? 'company has' : 'companies have'} completed and moved into value creation${closed.capitalKnown ? ` carrying ${money(closed.capital)}` : ''}` : ''}.`,
           'Deal list',
         );
         if (openObligations) {
@@ -948,7 +974,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
         const soonClosing = phases.find((p) => p.key === 'execution')?.count || 0;
         c.add(
           owned && owned.count
-            ? `You own ${owned.count} ${owned.count === 1 ? 'company' : 'companies'} post-close carrying ${money(owned.capital)}${soonClosing ? `, with ${soonClosing} more signed and about to become yours` : ''}.`
+            ? `You own ${owned.count} ${owned.count === 1 ? 'company' : 'companies'} post-close${owned.capitalKnown ? ` carrying ${money(owned.capital)}` : ''}${soonClosing ? `, with ${soonClosing} more signed and about to become yours` : ''}.`
             : `No company in your view has completed yet${soonClosing ? `, though ${soonClosing} ${soonClosing === 1 ? 'is' : 'are'} signed and about to close` : ''}.`,
           'Deal list — post-close portfolio',
         );
@@ -962,9 +988,13 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     const openedWithJob = jobOpener();
 
     c.add(
-      openedWithJob
-        ? `Across everything you can see, screening to exit: ${list.length} deal${list.length === 1 ? '' : 's'} carrying ${money(capital)} of enterprise value in ${sectors || 1} sector${sectors === 1 ? '' : 's'}.`
-        : `You have ${list.length} deal${list.length === 1 ? '' : 's'} in view, screening to exit, carrying ${money(capital)} of enterprise value across ${sectors || 1} sector${sectors === 1 ? '' : 's'}.`,
+        // The same rule as the tile: with every size withheld, the sentence says so
+        // rather than reporting the fund as carrying nothing.
+        capitalUnknown
+          ? `You have ${list.length} deal${list.length === 1 ? '' : 's'} in view across ${sectorWord}, screening to exit. Deal sizes are not shown at your access level — ask the deal team if you need them.`
+          : openedWithJob
+            ? `Across everything you can see, screening to exit: ${list.length} deal${list.length === 1 ? '' : 's'} carrying ${money(capital)} of enterprise value in ${sectorWord}${capitalWithheld ? `, with ${capitalWithheld} more shown to you as status only` : ''}.`
+            : `You have ${list.length} deal${list.length === 1 ? '' : 's'} in view, screening to exit, carrying ${money(capital)} of enterprise value across ${sectorWord}${capitalWithheld ? `, with ${capitalWithheld} shown to you as status only` : ''}.`,
       'Deal list',
     );
 
@@ -981,7 +1011,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
       const val = phases.find((p) => p.key === 'value');
       c.add(
         val
-          ? `${val.count} ${val.count === 1 ? 'company is' : 'companies are'} owned and in the value phase, carrying ${money(val.capital)}.`
+          ? `${val.count} ${val.count === 1 ? 'company is' : 'companies are'} owned and in the value phase${val.capitalKnown ? `, carrying ${money(val.capital)}` : ''}.`
           : 'Nothing has reached the value phase yet, so the value-creation plan is still forward-looking on every deal here.',
         'Deal record — current step',
       );
@@ -1049,7 +1079,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   // caller can see, so no tile can describe a deal they cannot open.
   const portfolioKpis = [
     { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${diligenceCount} in diligence` },
-    { key: 'capital', label: 'Enterprise value', value: money(capital), sub: list.length ? `avg ${money(capital / list.length)} · ${sectors || 1} sector${sectors === 1 ? '' : 's'}` : '—' },
+    { key: 'capital', label: 'Enterprise value', value: capitalUnknown ? 'Not shown' : money(capital), sub: capitalUnknown ? 'Withheld at your access level' : (priced.length ? `avg ${money(capital / priced.length)} · ${sectorWord}${capitalWithheld ? ` · ${capitalWithheld} withheld` : ''}` : '—') },
     { key: 'readiness', label: 'Not IC-ready', value: String(notReady), sub: `${icReady} ready for IC · ${openObligations} with conditions open` },
     { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : noIcSub },
   ];
@@ -1093,12 +1123,12 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
       { key: 'to-gate', label: 'IC within 3 weeks', value: String(soon), sub: nearest ? `soonest ${nearest.company}, ${nearest.daysToIC}d` : noIcSub },
       { key: 'notready', label: 'Not yet ready for IC', value: String(notReady), sub: `${icReady} ready for IC` },
       { key: 'commitments', label: 'Untracked follow-ups', value: String(workiq.total), sub: workiq.total ? `across ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'}` : 'nothing outstanding' },
-      { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
+      { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectorWord}` },
     ];
   } else if (seat.kind === 'lp') {
     const val = phases.find((p) => p.key === 'value');
     kpis = [
-      { key: 'capital', label: 'Enterprise value', value: money(capital), sub: `${list.length} deal${list.length === 1 ? '' : 's'} · ${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
+      { key: 'capital', label: 'Enterprise value', value: capitalUnknown ? 'Not shown' : money(capital), sub: capitalUnknown ? 'Withheld at your access level' : `${priced.length} deal${priced.length === 1 ? '' : 's'} · ${sectorWord}${capitalWithheld ? ` · ${capitalWithheld} withheld` : ''}` },
       { key: 'owned', label: 'Completed', value: String(val?.count || 0), sub: val ? `${money(val.capital)} now in value creation` : 'none completed yet' },
       { key: 'obligations', label: 'Deals with conditions open', value: String(openObligations), sub: `${openConditionCount} outstanding on signed or completed deals` },
       { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : noIcSub },
@@ -1109,7 +1139,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     kpis = [
       { key: 'origination', label: 'In origination', value: String(orig), sub: 'screened, not yet launched' },
       { key: 'diligence', label: 'In diligence', value: String(dil), sub: 'live workstreams' },
-      { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
+      { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectorWord}` },
       { key: 'ic', label: 'Next IC', value: nearest ? `${nearest.daysToIC}d` : '—', sub: nearest ? nearest.company : noIcSub },
     ];
   } else if (seat.kind === 'value') {
@@ -1119,7 +1149,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
       { key: 'owned', label: 'Owned companies', value: String(val?.count || 0), sub: val ? `${money(val.capital)} of enterprise value` : 'none in the value phase' },
       { key: 'closing', label: 'Closing soon', value: String(exe?.count || 0), sub: 'about to become yours' },
       { key: 'obligations', label: 'Deals with conditions open', value: String(openObligations), sub: `${openConditionCount} carried past IC` },
-      { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectors || 1} sector${sectors === 1 ? '' : 's'}` },
+      { key: 'deals', label: 'Deals in view', value: String(list.length), sub: `${sectorWord}` },
     ];
   }
 

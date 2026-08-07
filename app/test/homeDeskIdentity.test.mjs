@@ -43,10 +43,19 @@ test('every /api route resolves through the identity forwarder', () => {
   );
 });
 
-test('the forwarder attaches the bot key, which is what makes the identity trusted', () => {
-  const body = indexSrc.slice(indexSrc.indexOf('async function forwardWithIdentity'), indexSrc.indexOf(`app.use('/api',`));
-  assert.match(body, /headers\['x-bot-key'\] = config\.backend\.botKey/);
-  assert.match(body, /headers\['x-dr-user'\] = JSON\.stringify\(requestingUser\)/);
+// Three proxies each assembled the forwarded credentials by hand and they drifted the
+// moment the rules changed: the walkthrough credential reached the deal list and not the
+// assistant, so every chat entry point answered "Sign in to continue." while the screen
+// beside it worked. One builder decides now, and this asserts that rather than the shape
+// of any single proxy.
+test('every proxy gets its credentials from one place', () => {
+  assert.match(indexSrc, /function backendAuth\(/, 'the shared credential builder is gone');
+  const uses = (indexSrc.match(/backendAuth\(\{/g) || []).length;
+  assert.ok(uses >= 3, `only ${uses} proxies use the shared builder`);
+  const body = indexSrc.slice(indexSrc.indexOf('function backendAuth'), indexSrc.indexOf('async function forwardChat'));
+  assert.match(body, /x-bot-key/, 'the builder no longer attaches the app proof');
+  assert.match(body, /x-dr-user/, 'the builder no longer forwards the resolved identity');
+  assert.match(body, /x-dr-demo-key/, 'the builder no longer carries the walkthrough credential');
 });
 
 await hydrate();
