@@ -71,10 +71,15 @@ test('the open walkthrough is off by default, and read-only when it is on', () =
     'the walkthrough must be a deployment decision, not a request-time one');
   assert.match(tabSrc, /if \(!identity && !OPEN_SIGN_IN\) return '';/,
     'without the opt-in, asserting an identity must not produce one');
-  // And with it, the seat may read and never write. A walkthrough needs to show the room;
-  // nothing about it requires an anonymous visitor to advance a deal.
-  assert.match(tabSrc, /WALKTHROUGH_SEAT/,
-    'the identity-less walkthrough must be capped to a read-only seat');
+  // And with it, the seat may read and never write. That is enforced on the RECORD rather
+  // than by flattening the seat: capping every persona to `member` made an administrator, a
+  // partner and an analyst all see the same nine deals, which is the one thing a persona
+  // showcase exists to disprove. The orchestrator refuses the write; the seat stays real.
+  const srv = readFileSync(new URL('../server.js', import.meta.url), 'utf8');
+  assert.match(srv, /walkthrough/,
+    'the orchestrator no longer recognises a walkthrough credential');
+  assert.match(srv, /requestingIdentity\(req\)\?\.walkthrough/,
+    'nothing stops a walkthrough credential from writing to a deal');
 });
 
 test('view-as cannot grant a capability the caller does not already hold', async () => {

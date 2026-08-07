@@ -112,7 +112,7 @@ app.post('/api/teams/context', async (req, res) => {
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const identity = await identityFromSsoToken(ssoToken);
   const asOverride = await resolveDemoOverride(req, identity);                       // demo "view as USER", roster-checked
-  const viewAsRole = (asOverride && !identity) ? WALKTHROUGH_SEAT : (String(req.body?.viewAsRole || '').trim() || null); // hierarchy "view as ROLE"
+  const viewAsRole = (String(req.body?.viewAsRole || '').trim() || null); // hierarchy "view as ROLE"
   // Authoritative access profile from the orchestrator (single policy source): which
   // agents this user may use + the roles they can view-as. The requesting identity is
   // the demo override (by name) or the SSO identity, trusted via the shared bot key.
@@ -265,7 +265,7 @@ async function forwardChat(path, req, res) {
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const identity = await identityFromSsoToken(ssoToken);
   const asOverride = await resolveDemoOverride(req, identity);                                          // demo "view as USER", roster-checked
-  const viewAsRole = (asOverride && !identity) ? WALKTHROUGH_SEAT : (String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim() || null);
+  const viewAsRole = (String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim() || null);
   const requestingUser = asOverride
     ? { oid: asOverride, upn: asOverride, name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : null);
@@ -406,7 +406,16 @@ const OPEN_SIGN_IN = /^(1|true|yes|on)$/i.test(String(process.env.DEMO_OPEN_SIGN
 // deals the firm has separately marked as known internally. So the walkthrough is still a
 // per-deal decision recorded on the deal, and the environment variable only decides whether
 // a stranger may hold that seat at all.
-const WALKTHROUGH_SEAT = 'member';
+// A WALKTHROUGH THAT SHOWS EVERY PERSONA THE SAME THING IS NOT A WALKTHROUGH.
+//
+// This forced every chosen persona down to `member`, so an administrator, a partner and an
+// analyst all saw the same nine deals — and the one thing the showcase exists to
+// demonstrate is that they do not. Flattening the seat was the wrong lever: what a
+// walkthrough must not do is CHANGE anything, and that is enforced on the record, where
+// the orchestrator refuses every write from a walkthrough credential whatever seat it holds.
+//
+// The deployment already made the security decision, once, by setting DEMO_OPEN_SIGN_IN.
+// Within it the personas have to differ or there is nothing to show.
 async function resolveDemoOverride(req, identity = null) {
   const raw = String(req.headers['x-dr-as'] || req.body?.as || '').trim();
   if (!raw) return '';
@@ -435,7 +444,7 @@ async function forwardWithIdentity(req, res) {
   const ssoToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.ssoToken || '';
   const identity = await identityFromSsoToken(ssoToken);
   const asOverride = await resolveDemoOverride(req, identity);
-  const viewAsRole = (asOverride && !identity) ? WALKTHROUGH_SEAT : (String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim());
+  const viewAsRole = (String(req.headers['x-dr-view-as'] || req.body?.viewAsRole || '').trim());
 
   const requestingUser = asOverride
     ? { oid: asOverride, upn: asOverride, name: asOverride }
