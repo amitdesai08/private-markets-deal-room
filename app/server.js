@@ -2271,7 +2271,12 @@ api.all('/capabilities', (req, res) => {
   // GRANTING is the thing that must never happen, and one route reading the raw input is
   // how it comes back.
   const access = accessFor(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
-  res.json({ ...capabilitiesFor(access), narrative: capabilitiesNarrative(access) });
+  // A walkthrough holds a real seat and still cannot write, so saying otherwise puts buttons
+  // on the screen that fail when pressed — worse in front of an audience than not offering
+  // them. The refusal is on the record; this is the label agreeing with it.
+  const walkthrough = !!requestingIdentity(req)?.walkthrough;
+  const shown = walkthrough ? { ...access, canWrite: false } : access;
+  res.json({ ...capabilitiesFor(shown), narrative: capabilitiesNarrative(shown), walkthrough });
 });
 
 // Demo showcase roster — one named identity per role (empty unless DEMO_PROFILES is
