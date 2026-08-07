@@ -336,6 +336,23 @@ function requestingGraphToken(req) {
 // demo "sign in as" into a requesting identity whose name IS the profile id (or it
 // arrives directly in x-dr-as / body.as) — map that back to the profile's display name.
 // Never a bare role label here — callers fall back to a label only if this returns null.
+// THE HEADER SHOULD SAY WHAT THIS PERSON DOES, NOT WHAT TIER THEY SIT IN.
+//
+// `roleLabel` is the ACCESS tier — partner, deal team, analyst, member — and the header
+// printed it as though it were a job title. So the investor-relations seat wore "Partner /
+// Deal Sponsor", and so did the regional MD, and the operating partner was labelled "Deal
+// Team". Opening the LP seat to show an investor's view, above a header naming them a
+// deal sponsor, undoes the access story in the act of telling it.
+//
+// The profiles already carry the right words. Access tier and job title are two different
+// facts and both are worth showing, so both are sent.
+function actingTitle(req) {
+  const id = requestingIdentity(req);
+  const asId = req.body?.as || req.headers['x-dr-as'] || id?.oid || id?.upn;
+  const p = asId && demoProfileById[String(asId)];
+  return (p && p.title) || null;
+}
+
 function actingName(req) {
   const id = requestingIdentity(req);
   const asId = req.body?.as || req.headers['x-dr-as'] || id?.oid || id?.upn || id?.name;
@@ -664,6 +681,7 @@ api.get('/home-desk', (req, res) => {
   res.json(buildHomeDesk(visible, {
     role: access?.role || null,
     roleLabel: access?.roleLabel || null,
+    seatLabel: actingTitle(req) || access?.roleLabel || null,
     // A demo seat has no signed-in identity, so persona resolution returned null and the
     // home page opened with "No specialist role is assigned to you yet — ask an
     // administrator to add you to the workstreams you own." That was shown to the analyst
@@ -1221,6 +1239,7 @@ api.get('/deals/:id/threads', async (req, res) => {
     origin: corpus.origin,
     canWrite: !!g.access?.canWrite,
     roleLabel: g.access?.roleLabel || null,
+    seatLabel: actingTitle(req) || g.access?.roleLabel || null,
     // Whether this person can actually speak in this channel from here, and if not,
     // precisely why. The composer is only offered when the answer is yes, so nobody
     // types a message into a box that was never going to send it.
@@ -1331,6 +1350,7 @@ api.get('/deals/:id/doc-desk', async (req, res) => {
     dataRoomUrl: g.raw.workspace?.sharePointProvisioned ? (g.raw.workspace?.sharePointUrl || null) : null,
     canWrite: !!g.access?.canWrite,
     roleLabel: g.access?.roleLabel || null,
+    seatLabel: actingTitle(req) || g.access?.roleLabel || null,
   });
 });
 

@@ -1196,9 +1196,12 @@ export function buildValueCreationPlan(deal) {
     name: l.name,
     workstream: l.workstream,
     impact: amounts[k],
-    // What share of the plan this lever is being asked to carry, so a reader can argue
-    // with the allocation and not only with the total.
-    shareOfPlan: `${Math.round((l.weight / totalWeight) * 100)}% of the plan`,
+    // The share has to be a share of the FIGURE PRINTED BESIDE IT, not of the weight the
+    // figure was derived from. Rounding to whole millions moves the real proportions, so
+    // two levers both showing $6M of a $24M plan were labelled 24% and 22%, and a $6M and
+    // a $6M lever elsewhere were labelled 22% and 20%. The reader divides 6 by 24 without
+    // thinking about it and catches us in a four-row table.
+    shareOfPlan: deltaEbitda ? `${Math.round((amounts[k] / deltaEbitda) * 100)}% of the plan` : null,
     impactBasis: l.unsized
       ? 'Allocated share of the plan. Bolt-ons are not sized bottom-up until targets are identified.'
       : 'Allocated share of the EBITDA bridge above.',

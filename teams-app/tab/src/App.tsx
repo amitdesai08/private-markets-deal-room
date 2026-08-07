@@ -147,6 +147,10 @@ export default function App() {
   const [allowedPersonas, setAllowedPersonas] = useState<string[] | null>(null);
   const [viewAsRole, setViewAsRole] = useState('');
   const [roleLabel, setRoleLabel] = useState('');
+  // The access tier and the job are different facts. The header printed the tier, so the
+  // investor-relations seat wore "Partner / Deal Sponsor" and the operating partner was
+  // labelled "Deal Team".
+  const [seatLabel, setSeatLabel] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   // A legacy channel tab pinned with ?view=report opens straight to the in-app
   // Report tab (the standalone Power BI report tab is now folded into the app).
@@ -217,6 +221,7 @@ export default function App() {
     setCanWrite(ctx.canWrite !== false);
     if (Array.isArray(ctx.allowedPersonas)) setAllowedPersonas(ctx.allowedPersonas);
     if (typeof ctx.roleLabel === 'string') setRoleLabel(ctx.roleLabel);
+    if (typeof ctx.seatLabel === 'string') setSeatLabel(ctx.seatLabel);
     setIsAdmin(!!ctx.isAdmin);
   }
 
@@ -432,7 +437,7 @@ export default function App() {
     setAccFlash(true);
     const id = setTimeout(() => setAccFlash(false), 1500);
     return () => clearTimeout(id);
-  }, [viewAs, roleLabel, canWrite, canViewStage2]);
+  }, [viewAs, roleLabel, seatLabel, canWrite, canViewStage2]);
 
   // The counters and the funnel are scoped server-side to whoever asks, so they have to
   // be re-asked every time the person changes — and only the LATEST answer may win.
@@ -529,8 +534,8 @@ export default function App() {
           </div>
         </div>
         <div className="topbar-r">
-          {isDemoMode && persona?.name ? <span className="badge" title="The showcase profile you are signed in as">{persona.name}</span> : null}
-          {roleLabel ? <span className="badge" title="Your role">{isAdmin ? '★ ' : ''}{roleLabel}</span> : null}
+          {isDemoMode && persona?.name ? <span className="badge" title="The person you are signed in as">{persona.name}</span> : null}
+          {(seatLabel || roleLabel) ? <span className="badge" title={roleLabel ? `Access level: ${roleLabel}` : 'Your role'}>{isAdmin ? '★ ' : ''}{seatLabel || roleLabel}</span> : null}
           {demoUsers.length ? (
             <select className="viewas" value={viewAs} onChange={(e) => {
               // Changing who you are is not a filter, it is a different account. Leaving the
@@ -542,8 +547,8 @@ export default function App() {
               setAuthContext({ as: e.target.value, viewAsRole: '' });
               try { localStorage.setItem('dr.viewAs', e.target.value); } catch { /* storage blocked */ }
               setViewAs(e.target.value);
-            }} title="Sign in as one of the showcase profiles to see their view and access — the assistant in your Teams channels answers as them too">
-              {demoUsers.map((u) => (<option key={u.id} value={u.upn}>👤 {u.label}</option>))}
+            }} title="Sign in as another person to see their view and their access — the assistant in your Teams channels answers as them too">
+              {demoUsers.map((u) => (<option key={u.id} value={u.upn}>{u.label}</option>))}
             </select>
           ) : null}
           {teamsInfo?.inTeams ? <a className="dashlink" href={cfg?.appBaseUrl || window.location.origin} target="_blank" rel="noopener noreferrer">Open web console ↗</a> : null}
@@ -579,13 +584,20 @@ export default function App() {
             .sbn-x { flex:none; border:0; background:none; color:var(--muted); font-size:15px; line-height:1; cursor:pointer; padding:2px 4px; border-radius:4px; }
             .sbn-x:hover { color: var(--fg); background: var(--chip); }
           `}</style>
-          {/* "Showcase mode" read to a partner as though the whole firm on screen were a
-              sales demo rather than her own book. The data is real; only the person is
-              borrowed. Say exactly that, and say it as the thing you are doing. */}
+          {/* A DISCLAIMER ABOUT YOUR OWN CREDIBILITY IS NOT A FEATURE.
+              This read "You are looking at this firm through someone else's eyes — X. The
+              deals are the real ones; only the person is borrowed" — above the fold, on
+              every screen, every time the seat changed. Switching seats is the strongest
+              ten seconds in a walkthrough and the product spent it arguing that it is not
+              a fake, which is not a sentence a shipped product says about itself.
+              Impersonation is an ordinary administrative capability. State it as one: who
+              you are now, and what that person may do. */}
           <div role="note" className={`sbn${accFlash ? ' flash' : ''}`}>
-            <span title="Their role controls what they can open — access rules are still enforced. Their job controls how the assistant frames an answer for them.">You are looking at this firm through someone else&apos;s eyes — <strong>{persona?.name || viewAs}</strong>. The deals are the real ones; only the person is borrowed.</span>
+            <span title="Their role controls what they can open — access rules are still enforced. Their job controls how the assistant frames an answer for them.">Now viewing as <strong>{persona?.name || viewAs}</strong>{seatLabel ? `, ${seatLabel}` : ''}. Access rules are enforced as they are for them.</span>
             <span className="sbn-chips">
-              <span className="sbn-chip">{isAdmin ? '★ ' : ''}{roleLabel || 'role'}</span>
+              {/* This fell back to the literal string "role", which is a variable name
+                  printed at a reader. If we cannot say what their access is, say nothing. */}
+              {roleLabel ? <span className="sbn-chip">{isAdmin ? '★ ' : ''}{roleLabel}</span> : null}
               <span className={`sbn-chip ${canWrite ? 'on' : 'off'}`}>{canWrite ? 'Can act · write' : 'Read-only'}</span>
               {/* "Stage-2 visible" was on every screen in the product and defined on none
                   of them. Stage 2 is our internal name for the confidential half of a

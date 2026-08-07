@@ -4,6 +4,7 @@
 // themes / screens / flow / personas remain in-memory config. lib/repo falls
 // back to an in-memory Map when COSMOS_ENDPOINT is unset so local dev still runs.
 
+import { daysUntil as sharedDaysUntil } from './cockpit.js';
 import { seedSourcing, seededDeals } from '../data/deals.js';
 import { regionForDeal } from '../data/regions.js';
 import { personas } from '../data/personas.js';
@@ -18,7 +19,7 @@ import { morningstarConfigured, quality as morningstarQuality } from './mcp/morn
 import { fetchFilings, fetchFormD, scanFormD, downloadEntireFiling, companyFundamentals } from './filings.js';
 import { uploadFiles as uploadFilingFiles, getFile as getBlobFile } from './blob.js';
 import { writeFilingSet, listFilings, onelakeInfo, onelakeStatusSync, onelakeConfigured } from './onelake.js';
-import { markSync } from './connectors.js';
+import { markSync, listConnectors } from './connectors.js';
 import { fundMandate, seedThemes, seedScreens } from '../data/mandates.js';
 import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scoring.js';
 import { buildScorecard, buildTriageScore, buildMemoBase } from './screening.js';
@@ -484,8 +485,11 @@ const DAY = 24 * 60 * 60 * 1000;
 // Now that DAY is initialised, seed screened deals from pursued candidates.
 initScreenedFromCandidates();
 
+// One definition, in cockpit.js. This private copy agreed with it by luck rather than by
+// construction, and the copy in cockpit rounded where this one ceilinged — which is how
+// home and the deal page disagreed by a day about the same committee.
 function daysUntil(iso) {
-  return Math.ceil((new Date(iso).getTime() - Date.now()) / DAY);
+  return sharedDaysUntil(iso);
 }
 
 export function computeReadiness(deal) {
@@ -1015,11 +1019,42 @@ function publicCompany(c) {
   };
 }
 
+// A GREEN LIGHT IS A CLAIM, AND THIS ONE WAS NOT TRUE.
+//
+// The source cards shipped hard-coded telemetry: PitchBook "connected, 360ms, synced 14
+// minutes ago", FactSet "connected, 190ms, synced 1 minute ago", Capital IQ "degraded,
+// 910ms" — invented operational drama, in front of a room where everyone pays for
+// PitchBook, above a company list that was empty. The first question is "you're integrated
+// with PitchBook?" and the honest answer is no.
+//
+// The connector registry already knows the truth and reports these three as `disconnected`
+// because there is nothing to connect them with. Ask it, rather than shipping a literal.
+function sourcesWithRealStatus() {
+  const live = Object.fromEntries(listConnectors().map((c) => [c.id, c]));
+  return sources.map((s) => {
+    const c = live[s.id];
+    if (!c) return { ...s, status: 'not-connected', latencyMs: null, lastSyncMin: null, availability: 'Illustrative — no connection is configured for this source.' };
+    const connected = c.status === 'connected' || c.status === 'ok';
+    return {
+      ...s,
+      status: c.status,
+      latencyMs: c.latencyMs ?? null,
+      // A "synced N minutes ago" with no sync behind it is the same lie in a smaller font.
+      lastSyncMin: c.lastSync ? Math.max(0, Math.round((Date.now() - new Date(c.lastSync).getTime()) / 60000)) : null,
+      availability: connected
+        ? null
+        : c.kind === 'database'
+          ? `Illustrative. ${s.name} is not connected in this environment; the desk shows what it would contribute.`
+          : (c.message || `Not connected. ${s.name} has no credentials configured here.`),
+    };
+  });
+}
+
 export function getSourcingDesk(identity, viewAsRole = null) {
   const hidden = hiddenCompanyNames(identity, viewAsRole);
   return {
     l1: l1Mandate(),
-    sources,
+    sources: sourcesWithRealStatus(),
     catalysts,
     companies: desk.filter((c) => c.visible).filter(visibleTo(hidden)).map(publicCompany)
   };

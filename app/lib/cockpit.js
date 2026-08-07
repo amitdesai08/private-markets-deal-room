@@ -130,11 +130,21 @@ function verdictLine(board) {
   return v.headline || v.state || null;
 }
 
+// HOW MANY DAYS UNTIL A DATE, ANSWERED ONCE.
+//
+// There were two of these — this one rounding and another in the store ceiling — over the
+// same targetICDate. Home said "IC in 9 days" and the deal you clicked into said "IC in 8
+// days", at the same instant, about the same committee. Click-through is the most-used
+// gesture in the product and the number changed as the reader made it.
+//
+// Ceiling is the right answer for a deadline: with 7.2 days left you have eight days to
+// work with in the sense anybody means it, and rounding to 7 quietly loses one. Both
+// callers now use this.
 export function daysUntil(iso) {
   if (!iso) return null;
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return null;
-  return Math.round((then - Date.now()) / 86400000);
+  return Math.ceil((then - Date.now()) / 86400000);
 }
 
 export function dueLabel(iso) {

@@ -1079,25 +1079,65 @@ test('a finding in another currency is declared as one', () => {
   assert.ok(mixed > 0, 'no deal mixed currencies — the guard would be inert');
 });
 
+// ONE VOICE ABOUT THE PRICE.
+//
 // A screening default is enterprise value times 0.12, so the multiple it produces is
-// 1/0.12 = 8.33x on EVERY deal that lacks a diligenced EBITDA. A demo narrator clicked
-// through four consecutive deals -- a dental roll-up, a specialty-foods business, a
-// listed BPO and a vertical-SaaS platform -- and read 8.3x, 8.2x, 8.3x, 8.4x. The room
-// sees the arithmetic rather than the companies. Saying "not recorded" under the figure
-// was not enough: the figure is what gets read, quoted and remembered.
-test('a multiple nobody could have struck is not printed', () => {
-  let suppressed = 0;
+// 1/0.12 = 8.33x on every deal lacking a diligenced EBITDA, and a narrator clicking four
+// consecutive deals read 8.3x, 8.2x, 8.3x, 8.4x. The first attempt at this suppressed the
+// figure: the table printed an em dash and 'Not calculable', and the ask said 'no multiple
+// is quoted, because nobody has produced an EBITDA to strike one on'.
+//
+// That was worse. Two cards further down THE SAME PAGE the returns block said '8.3x
+// entry', the exit sentence said '8.3x, against 8.3x at entry', and the readiness tab one
+// click away said '8.3x LTM EBITDA'. On eight of nineteen deals the case declared the
+// price incomputable and then computed it four times, and there is no answer to 'so is it
+// 8.3x or not?' that does not concede the product is arguing with itself.
+//
+// The multiple is not incomputable; it is computable and weakly grounded. So it is
+// printed once, everywhere, with a warning that names WHICH weakness, and the page is
+// never allowed to claim it cannot be worked out.
+test('the case never says the price cannot be computed', () => {
   for (const [id, c] of CASES) {
-    const ebitda = c.figures.find((f) => /EBITDA/.test(f.label));
     const mult = c.figures.find((f) => /Entry multiple/.test(f.label));
-    if (!/No workstream has produced an EBITDA/i.test(ebitda.basis)) continue;
-    suppressed += 1;
-    assert.equal(ebitda.value, 'Not recorded', `${id}: prints an EBITDA nobody produced`);
-    assert.equal(mult.value, '—', `${id}: prints a multiple struck on an EBITDA nobody produced`);
-    assert.equal(c.ask.entryMultiple, null, `${id}: the ask quotes a multiple nobody could have struck`);
-    assert.doesNotMatch(c.ask.headline, /at [\d.]+x,/, `${id}: the ask headline quotes it anyway`);
+    assert.ok(mult, `${id}: no entry multiple on the case at all`);
+    assert.notEqual(String(mult.value).trim(), '\u2014', `${id}: the entry multiple is withheld`);
+    assert.ok(!/not calculable|cannot be calculated|no multiple is quoted/i.test(`${mult.basis} ${c.ask.headline}`),
+      `${id}: the case claims the price cannot be computed: ${mult.basis}`);
   }
-  assert.ok(suppressed > 0, 'no deal exercised the unproduced-EBITDA path — the guard would be inert');
+});
+
+// And the number it prints has to be the SAME number the rest of the page prints.
+test('every figure the case quotes for the entry multiple is the same figure', () => {
+  for (const [id, c] of CASES) {
+    const mult = c.figures.find((f) => /Entry multiple/.test(f.label));
+    const shown = Number(String(mult.value).replace(/[^0-9.]/g, ''));
+    assert.ok(Number.isFinite(shown) && shown > 0, `${id}: the entry multiple is not a number`);
+    assert.ok(Math.abs(shown - c.ask.entryMultiple) < 0.05,
+      `${id}: the figures table says ${shown}x and the ask says ${c.ask.entryMultiple}x`);
+  }
+});
+
+// Printing it is only defensible if the weakness travels with it, and the two weaknesses
+// are different sentences: a default nobody produced, versus a real number from a draft.
+// Collapsing them told a reader no EBITDA existed on a deal whose own row above read
+// 'Recorded from CIM p.14 / QoE draft at high confidence'.
+test('a weakly-grounded price says which weakness it has', () => {
+  let flagged = 0;
+  for (const [id, c] of CASES) {
+    if (!c.ask.entryMultipleUnevidenced) continue;
+    flagged += 1;
+    const mult = c.figures.find((f) => /Entry multiple/.test(f.label));
+    assert.match(mult.basis, /screening default|from a draft/i,
+      `${id}: the price is flagged as unevidenced but does not say why: ${mult.basis}`);
+    const ebitda = c.figures.find((f) => /EBITDA/.test(f.label));
+    if (/screening default/i.test(mult.basis)) {
+      assert.match(ebitda.basis, /Not recorded/i, `${id}: a screening-default price sits over an EBITDA presented as recorded`);
+    } else {
+      assert.ok(!/No workstream has produced an EBITDA/i.test(ebitda.basis),
+        `${id}: a drafted EBITDA is described as one nobody produced`);
+    }
+  }
+  assert.ok(flagged > 0, 'no deal exercised the weakly-grounded path, so the guard would be inert');
 });
 
 // "Nobody has diligenced the EBITDA under the 8.4x" printed on a company the fund owns

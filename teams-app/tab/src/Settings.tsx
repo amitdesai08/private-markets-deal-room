@@ -56,8 +56,8 @@ export default function Settings({ isAdmin, ssoToken, viewAs, onClose }: {
             <div className="set-demo-t">Demo mode is {demo.demoMode ? 'on' : 'off'}</div>
             <div className="set-demo-s">
               {demo.demoMode
-                ? 'You can sign in as one of the showcase people and look at the firm through their eyes. Turn this off to use the product as yourself.'
-                : 'The product is running as itself — no showcase people, no borrowed identities. Turn it back on to demonstrate the access model.'}
+                ? 'You can sign in as another member of the firm and see the product as they see it. Turn this off to use it as yourself.'
+                : 'Everyone sees the product as themselves. Turn it back on to review the access model from another person's seat.'}
             </div>
           </div>
           <button className="btn" disabled={demoBusy} onClick={toggleDemo}>

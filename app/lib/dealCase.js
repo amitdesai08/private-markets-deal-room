@@ -194,13 +194,29 @@ function theAsk(canon, returns, deal, priceUnproduced) {
     // Past the decision this is a record of what was authorised, not a request. The
     // verb is the whole difference and it was wrong on eight deals.
     headline: decided
-      ? `Committed: ${m(base.entryEV)} enterprise value${priceUnproduced ? '' : ` at ${mult}x`}, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at ${canon.leverage}. This deal is past the committee decision.${multNote}`
+      ? `Committed: ${m(base.entryEV)} enterprise value at ${mult}x${priceUnproduced ? ' on an EBITDA no workstream has produced' : ''}, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at ${canon.leverage}. This deal is past the committee decision.${multNote}`
       // "Authorise up to ... $492M of debt at 3.3x" states as a fact a leverage nobody
       // has offered. It is disclosed as modelled two sections down; the sentence a
       // committee votes on should not need the footnote.
-      : `Authorise up to ${m(base.entryEV)} enterprise value${priceUnproduced ? ' — no multiple is quoted, because nobody has produced an EBITDA to strike one on' : ` at ${mult}x`}, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at a modelled ${canon.leverage} — no lender or indicative terms are on the record.${multNote}`,
+      // WITHHOLDING A NUMBER THE SAME PAGE THEN PRINTS FOUR TIMES IS WORSE THAN
+      // PRINTING IT WITH A WARNING.
+      //
+      // This said "no multiple is quoted, because nobody has produced an EBITDA to strike
+      // one on", and the figures table beside it read "Entry multiple —  Not calculable".
+      // Two cards further down the same screen the returns block said "8.3x entry", the
+      // exit sentence said "8.3x, against 8.3x at entry", and the readiness tab one click
+      // away said "8.3x LTM EBITDA". On eight of nineteen deals the case declared the
+      // price incomputable and then computed it four times, and there is no answer to
+      // "so is it 8.3x or not?" that does not concede the product is arguing with itself.
+      //
+      // The multiple is not incomputable. It is computable and weakly grounded, which is a
+      // different sentence and the one the returns page already tells properly. Say that,
+      // once, everywhere. The verdict may still be NOT ON THIS PRICE -- that is a
+      // judgement about whether to pay it, not a claim that the arithmetic cannot be done.
+      : `Authorise up to ${m(base.entryEV)} enterprise value at ${mult}x${priceUnproduced ? ', struck on a screening-default EBITDA that no workstream has produced' : ''}, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at a modelled ${canon.leverage} — no lender or indicative terms are on the record.${multNote}`,
     decided,
-    entryMultiple: priceUnproduced ? null : mult,
+    entryMultiple: mult,
+    entryMultipleUnevidenced: !!priceUnproduced,
     enterpriseValue: base.entryEV,
     equityCheque: base.equityIn,
     debt: base.debt,
@@ -884,12 +900,23 @@ export function buildDealCase(deal) {
       // of them sees the arithmetic rather than the companies. Saying "not recorded" under
       // the number was not enough: the number is the thing that gets read, quoted and
       // remembered. Where nobody has produced the EBITDA there is no multiple to print.
-      priceUnproduced
-        ? { label: 'LTM EBITDA', value: 'Not recorded', basis: 'No workstream has produced an EBITDA for this company. The model runs on a screening default of 12% of enterprise value so that a return can be computed at all; that default is not shown here, because it is the same figure on every deal that lacks one.' }
-        : { label: 'LTM EBITDA', value: `${canon.currency}${canon.ebitda}M`, basis: figureBasis('ebitda', canon, deal) },
-      priceUnproduced
-        ? { label: 'Entry multiple', value: '—', basis: `Not calculable. ${canon.currency}${canon.ev}M over an EBITDA nobody has produced is arithmetic on the asking price, not a price for this company.` }
-        : { label: 'Entry multiple', value: `${canon.entryMultiple}x`, basis: [figureBasis('multiple', canon, deal), (returns.entry || {}).entryNote].filter(Boolean).join(' ') },
+      // The figure is always shown, and the WARNING beside it names which of the two
+      // faults applies — a screening default nobody produced, or a real number from a
+      // draft that is not a result. Those are different sentences and collapsing them
+      // told a reader no EBITDA existed on a deal whose own row above said "Recorded from
+      // CIM p.14 / QoE draft at high confidence".
+      { label: 'LTM EBITDA', value: `${canon.currency}${canon.ebitda}M`, basis: figureBasis('ebitda', canon, deal) },
+      { label: 'Entry multiple',
+        value: `${canon.entryMultiple}x`,
+        basis: [
+          figureBasis('multiple', canon, deal),
+          (returns.entry || {}).entryNote,
+          priceUnproduced
+            ? (canon.ebitdaSource === 'derived'
+              ? 'The EBITDA under it is the screening default, not a diligenced figure, so this reads the same on every deal without one on file. Treat it as the ask rather than as a valuation.'
+              : 'The EBITDA under it comes from a draft rather than a completed result, so the multiple will move if the draft does.')
+            : null,
+        ].filter(Boolean).join(' ') },
       revenueFigure(canon, deal),
       // "Modelled at the financeable ceiling for the sector" on six deals out of six,
       // where debt is 60% of enterprise value on every one and there is no sector input

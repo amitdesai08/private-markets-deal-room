@@ -62,7 +62,7 @@ export default function Admin({ ssoToken, viewAs }: { ssoToken?: string; viewAs?
         <div className="adm-demo">
           <div className="adm-demo-txt">
             <div className="adm-demo-t">Demo mode {data.demoMode ? <span className="adm-demo-on">On</span> : <span className="adm-demo-off">Off</span>}</div>
-            <div className="adm-demo-s">Shows the “View as” switcher and the showcase profiles so you can preview the access model from any job type. Turn this off for a production-style experience — every user then sees only their own role and identity.</div>
+            <div className="adm-demo-s">Shows the “View as” switcher so you can review the access model from any job type. Turn this off for a production-style experience — every user then sees only their own role and identity.</div>
           </div>
           <label className="adm-toggle" title={data.demoMode ? 'Disable demo mode' : 'Enable demo mode'}>
             <input

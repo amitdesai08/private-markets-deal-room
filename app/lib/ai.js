@@ -149,14 +149,31 @@ export function houseStyle(md) {
   s = s.replace(/\s*\((?:[A-Z][A-Za-z]*\s+)?only\)/g, '');
   // Our internal step codes, printed as though they were vocabulary: "Current step is
   // D3", "finalize the D3 IC memo", "convert Proceed → Hold/Pass".
-  s = s.replace(/\b(?:current step is\s*)?\b([ODEV])(\d)\b(?=[\s.,;:)]|$)/g, (m) => m.replace(/[ODEV]\d/, 'this stage'));
+  // Replacing a step code with the words "this stage" removed the jargon and left prose
+  // that is not English: "Lumen is in this stage (diligence & approval)", "confirm this
+  // stage execution pack", "a material hole in the this stage execution pack". A deictic
+  // phrase only works where the code stood alone as a noun, and the model uses it
+  // attributively at least as often. The letter in the code already names the stage, so
+  // substitute the stage instead of pointing at it.
+  const STAGE_BY_LETTER = { O: 'origination', D: 'diligence', E: 'execution and closing', V: 'value creation' };
+  s = s.replace(/\b(?:current step is\s*)?([ODEV])(\d)\b(?=[\s.,;:)]|$)/g, (_m, letter) => STAGE_BY_LETTER[letter] || 'this stage');
   // ...which, where the code had a label in front of it, left a stutter: a partner
   // read "Deal size $240M; Stage this stage." in a briefing. A rule that cleans up
   // after itself has to run after the rule that makes the mess. Where the fragment is
   // a value in a list it carries no information at all, so it goes; elsewhere the
   // redundant label goes and the phrase stands on its own.
-  s = s.replace(/(?:^|(?<=[;·|]))\s*Stages?\s*:?\s*this stage\s*(?=[;.·|]|$)/gim, '');
-  s = s.replace(/\b(?:Stage|Step)s?\s*:?\s*this stage\b/gi, 'this stage');
+  // The same stutter, now against the stage words rather than the placeholder: a label in
+  // front of the code becomes "Stage: diligence", which is a field name and a value where
+  // a sentence belongs. And where the substitution lands after an article the model had
+  // written for the code, "the the diligence" has to be cleaned up after.
+  const STAGE_WORD_RE = 'origination|diligence|execution and closing|value creation|this stage';
+  s = s.replace(new RegExp(`(?:^|(?<=[;\u00b7|]))\\s*Stages?\\s*:?\\s*(${STAGE_WORD_RE})\\s*(?=[;.\u00b7|]|$)`, 'gim'), '');
+  s = s.replace(new RegExp(`\\b(?:Stage|Step)s?\\s*:?\\s+(${STAGE_WORD_RE})\\b`, 'gi'), '$1');
+  s = s.replace(/\bthe\s+the\b/gi, 'the');
+  // Removing a stripped label can leave its punctuation behind: "Deal size $240M; Stage:
+  // D3." became "Deal size $240M;." Tidy the join rather than the label.
+  s = s.replace(/([;,\u00b7|])\s*([.!?])/g, '$2');
+  s = s.replace(/\s+([.!?])/g, '$1');
   s = s.replace(/\bNOT[-\s\u2011]READY\b/gi, 'not ready for committee');
   s = s.replace(/\bIC[-\s\u2011]READY\b/gi, 'ready for committee');
   // The model writes "IC-ready for committee" often enough that spelling the enum out

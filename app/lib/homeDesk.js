@@ -503,7 +503,7 @@ function portfolioCommitments(deals, rawFor, limit = 6, laneLabels = []) {
 // `rawFor` resolves a list summary back to its full deal record, which the Work IQ
 // corpus needs (workstream leads and sponsors are stripped from summaries). It defaults to
 // the identity function so the builder stays testable with plain objects.
-export function buildHomeDesk(deals = [], { role = null, roleLabel = null, persona = null, demoMode = false, rawFor = (d) => d } = {}) {
+export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatLabel = null, persona = null, demoMode = false, rawFor = (d) => d } = {}) {
   const list = Array.isArray(deals) ? deals.filter(Boolean) : [];
   const seat = seatFor({ role, persona });
 
@@ -1092,7 +1092,20 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
     kpis = [
       portfolioKpis[0], portfolioKpis[1],
       { key: 'near', label: 'IC within 14 days', value: restricted ? `${observerNearCommittee} of ${list.length - restricted}` : String(observerNearCommittee), sub: observerNearCommittee && nearest ? `soonest: ${nearest.company}, in ${nearest.daysToIC} day${nearest.daysToIC === 1 ? '' : 's'}` : (restricted ? `${restricted} ${restricted === 1 ? 'deal does' : 'deals do'} not show dates at your access level` : 'none in the next two weeks') },
-      { key: 'passed', label: 'Past target IC date', value: String(observerOverdue), sub: observerOverdue ? 'still shown as pre-IC' : 'none overdue' },
+      // The tile immediately above says "9 deals do not show dates at your access level".
+      // This one then reported "0 — none overdue", which is a claim about exactly those
+      // withheld dates, one inch away. Counting zero out of nothing and rendering it as
+      // reassurance is the same fault as summing redacted deal sizes to $0: an unknown
+      // presented as a finding. Where every date is withheld there is nothing to count.
+      { key: 'passed', label: 'Past target IC date',
+        value: restricted >= list.length ? 'Not shown' : String(observerOverdue),
+        sub: restricted >= list.length
+          ? 'Dates are withheld at your access level'
+          : observerOverdue
+            ? 'still shown as pre-IC'
+            : restricted
+              ? `none overdue among the ${list.length - restricted} that show dates`
+              : 'none overdue' },
     ];
   } else if (isLaneSeat) {
     const lane = laneName(seat.laneLabels);
@@ -1206,6 +1219,9 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, perso
   return {
     generatedAt: new Date().toISOString(),
     roleLabel: roleLabel || null,
+    // The access tier and the job are two different facts. The header used to print the
+    // tier, so the investor-relations seat wore "Partner / Deal Sponsor".
+    seatLabel: seatLabel || roleLabel || null,
     role: role || null,
     // The seat is returned so the page can say whose desk it is, and admit when it
     // could not work that out, instead of printing "weighted for Deal Team" over a
