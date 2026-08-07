@@ -92,11 +92,14 @@ function intentOf(msg, lines) {
 // US-target enrichment. The company/CxO/intent all come from the real email;
 // sector/hq are firmographics a market-data connector (Phase 2) will supply —
 // a small known-target map covers the current desk, with a keyword fallback.
-const KNOWN = [
-  { m: /peloton/i, sector: 'Consumer · Connected Fitness', hq: 'New York, NY, USA', summary: 'Connected-fitness maker pivoting to high-margin recurring subscription revenue; board open to a strategic minority growth partner.' },
-  { m: /allbird/i, sector: 'Consumer · Footwear & Apparel', hq: 'San Francisco, CA, USA', summary: 'Sustainable footwear brand exploring a take-private to rationalize retail and refocus on profitable DTC and material innovation.' },
-  { m: /fairway/i, sector: 'Consumer · Grocery', hq: 'New York, NY, USA', summary: 'New York specialty grocer weighing a recapitalization and ownership succession off strong store-level EBITDA.' }
-];
+// Firmographics only. These entries previously carried invented summaries asserting
+// board intent and strategic posture about REAL, NAMED, LISTED companies — that one was
+// "open to a strategic minority growth partner", that another was "exploring a
+// take-private". None of that is on any record we hold, and it was rendered in the same
+// voice as the diligence written about the fictional targets beside it. A demo may not
+// put words in a real company's board's mouth. Sector and headquarters are public facts
+// and stay; the story goes.
+const KNOWN = [];
 function guessSector(text) {
   const t = text.toLowerCase();
   if (/fitness|wellness|gym|workout/.test(t)) return 'Consumer · Fitness';
@@ -116,12 +119,27 @@ function enrich(name, text) {
 export function parseMessage(msg) {
   const lines = bodyText(msg);
   const sig = parseSignature(lines);
-  const company = (sig.org && sig.org.length <= 40 ? sig.org : '') || companyFromSubject(msg?.subject);
+  // THE COMPANY AN EMAIL IS ABOUT IS NOT THE COMPANY THE SENDER WORKS FOR.
+  //
+  // This preferred the org line in the signature block, so a banker at a large listed
+  // asset manager writing about a private grocer produced a sourcing target named after
+  // his employer. That target then went to the filings connector, which resolved the name
+  // correctly — to the real listed firm — and attached its 10-K and 10-Q to a fictional
+  // private company on the sourcing desk. The connector was working; it was asked about
+  // the wrong company.
+  //
+  // The subject line names the target. The signature names who told us, which is worth
+  // keeping and worth keeping SEPARATE.
+  const fromSubject = companyFromSubject(msg?.subject);
+  const sourceOrg = sig.org && sig.org.length <= 60 ? sig.org : '';
+  const company = fromSubject || sourceOrg;
   if (!company) return null;
   const intent = intentOf(msg, lines);
   return {
     company,
-    key: entityKey(companyFromSubject(msg?.subject) || company),
+    // Who raised it, kept apart from what it is about.
+    sourceOrg: sourceOrg && sourceOrg !== company ? sourceOrg : null,
+    key: entityKey(company),
     text: lines.join(' '),
     item: {
       id: msg?.id || `sig-${slug(company)}-${Math.random().toString(36).slice(2, 8)}`,
@@ -146,10 +164,14 @@ export function messagesToSignals(messages) {
   for (const msg of messages || []) {
     const p = parseMessage(msg);
     if (!p || !p.key) continue;
-    if (!groups.has(p.key)) groups.set(p.key, { company: p.company, text: p.text, items: [] });
+    if (!groups.has(p.key)) groups.set(p.key, { company: p.company, text: p.text, items: [], sourceOrgs: [] });
     const g = groups.get(p.key);
     g.items.push(p.item);
-    if (p.company.length > g.company.length) g.company = p.company; // prefer fuller name
+    // "Prefer the fuller name" renamed a whole group to whichever signature org happened
+    // to be longest, which is how one thread about a private target ended up filed under a
+    // listed asset manager. Only ever prefer a longer form of the SAME name.
+    if (p.company.length > g.company.length && entityKey(p.company) === entityKey(g.company)) g.company = p.company;
+    if (p.sourceOrg && !g.sourceOrgs.includes(p.sourceOrg)) g.sourceOrgs.push(p.sourceOrg);
     g.text += ` ${p.text}`;
   }
 
@@ -162,6 +184,8 @@ export function messagesToSignals(messages) {
       id: `signal-${slug(key || g.company)}`,
       kind: 'signal',
       name: g.company,
+      // Recorded, not merged into the target's identity.
+      sourceOrgs: g.sourceOrgs || [],
       sector: info.sector,
       hq: info.hq,
       summary: info.summary || (emails[0] && emails[0].preview) || '',

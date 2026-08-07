@@ -319,7 +319,19 @@ export function getMarketIntel(sectors) {
   const scope = (arr, fn) => (list.length ? list.flatMap(fn).filter((v, i, a) => a.indexOf(v) === i) : arr);
   return {
     info: fabricInfo(),
-    companies: s.companies || [],
+    // The same rule the comparables and precedents got, applied to the one list that
+    // was left out of it. `companies` is the market-data snapshot's own watchlist and on
+    // this data set it is three real listed consumer names, so a mid-market industrials
+    // book was shown Wayfair, Allbirds and Peloton on the market-intelligence panel — the
+    // exact complaint the scoping was introduced to answer, arriving through the one
+    // field that still went out unscoped.
+    companies: list.length
+      ? (s.companies || []).filter((c) => list.some((sec) => {
+          const keys = norm(sec).split(/[^a-z0-9]+/).filter((k) => k.length > 2);
+          const hay = `${norm(c.sector)} ${norm(c.industry)} ${norm(c.name)}`;
+          return keys.some((k) => hay.includes(k));
+        }))
+      : (s.companies || []),
     comparableDeals: scope(s.comparableDeals || [], (sec) => getComparableDeals({ sector: sec, limit: 4 })),
     benchmarkFindings: s.benchmarkFindings || [],
     icPrecedents: scope(s.icPrecedents || [], (sec) => getICPrecedents(sec)),

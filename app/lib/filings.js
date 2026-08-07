@@ -105,7 +105,7 @@ export async function fetchFilings(name, ticker = null, { limit = 6 } = {}) {
   if (!r.ok) throw new Error(`EDGAR submissions ${r.status}`);
   const data = await r.json();
   const recent = data?.filings?.recent;
-  if (!recent) return { source: 'edgar', matched: true, cik: hit.cik, name: data.name, filings: [] };
+  if (!recent) return { source: 'edgar', matched: true, cik: hit.cik, name: data.name, registrant: data.name, queriedAs: name, filings: [] };
 
   const cikNum = String(Number(hit.cik)); // un-padded for the Archives path
   const out = [];
@@ -134,7 +134,12 @@ export async function fetchFilings(name, ticker = null, { limit = 6 } = {}) {
       live: true
     });
   }
-  return { source: 'edgar', matched: true, cik: hit.cik, name: data.name, filings: out };
+  // Say which registrant these actually belong to, and what we asked for. A name-only
+  // lookup can resolve perfectly well to a real listed company that is not the company
+  // the desk had in mind — that is exactly how a large listed asset manager's 10-K came
+  // to be attached to a private grocer — and when it does, the only thing that makes it
+  // visible rather than silent is the registrant's own name travelling with the filings.
+  return { source: 'edgar', matched: true, cik: hit.cik, name: data.name, registrant: data.name, queriedAs: name, filings: out };
 }
 
 // Lightweight connectivity probe (used by the Home connectivity panel).
@@ -320,9 +325,20 @@ export async function fetchFormD(name, { limit = 2 } = {}) {
   const key = normName(name);
   if (!key) return { source: 'edgar-formd', matched: false, filings: [] };
   const hits = await searchFormD(`"${name}"`, { limit: 4 });
-  // keep only hits whose name shares a significant token with the query
+  // ONE shared token of three characters was enough here, which is a far weaker test
+  // than resolveCik above applies — and this is the path a miss falls through to, so it
+  // is the one most likely to attach the wrong company's filings. "Nordic Grocery Group"
+  // and "Nordic Metals Group" share two tokens; the words that actually identify a
+  // company are the ones the rest of its industry does not also use.
+  const GENERIC = new Set(['group', 'holdings', 'holding', 'partners', 'company', 'corp', 'corporation', 'inc', 'llc', 'ltd', 'limited', 'plc', 'the', 'and', 'international', 'global', 'services', 'systems', 'solutions', 'capital', 'fund', 'trust']);
   const qWords = new Set(key.split(' ').filter((w) => w.length >= 3));
-  const good = hits.filter((h) => normName(h.name).split(' ').some((w) => qWords.has(w))).slice(0, limit);
+  const distinctive = new Set([...qWords].filter((w) => !GENERIC.has(w)));
+  const good = hits.filter((h) => {
+    const hw = new Set(normName(h.name).split(' '));
+    const sharedDistinctive = [...distinctive].filter((w) => hw.has(w)).length;
+    // Either two words in common that are not boilerplate, or the whole distinctive name.
+    return sharedDistinctive >= 2 || (distinctive.size > 0 && sharedDistinctive === distinctive.size);
+  }).slice(0, limit);
   if (!good.length) return { source: 'edgar-formd', matched: false, filings: [] };
 
   const filings = [];

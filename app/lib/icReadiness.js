@@ -20,7 +20,7 @@
 // deal's documents/filings — so the board is defensible, not decorative.
 
 import { buildReturns, fmtMoney as money } from './screening.js';
-import { canonicalFigures, dealGrowth, buildRiskRegister } from './diligence.js';
+import { canonicalFigures, dealGrowth, buildRiskRegister , statedMultipleOf, reconcileFindingText } from './diligence.js';
 import { ownerLabel } from './cockpit.js';
 
 const LANE_LABEL = {
@@ -184,13 +184,20 @@ export function currentAssumptions(deal) {
     else if (/ebitda/i.test(f.label)) kf.ebitda = num(f.value);
   }
   const cand = { ...deal, revenue: kf.revenue, ebitda: kf.ebitda, growth: dealGrowth(deal) ?? undefined };
+  // Read the same canonical figures the deal's own Returns page renders, rather than
+  // rebuilding the model from key figures that mostly are not there. Doing the latter fed
+  // the engine a zero EBITDA on every deal, which fell through to the 8x default — so the
+  // committee's "assumptions" panel reported a flat 8.0x entry on nineteen different
+  // companies while each deal's own page said something else, and any deal drafted from
+  // that snapshot showed the multiple as having CHANGED when nothing had.
   let entryMultiple = null, baseIrr = null, baseMoic = null;
   try {
-    const r = buildReturns({ ebitda: kf.ebitda ?? 0, dealSize: deal.dealSize ?? 0, growth: dealGrowth(deal) ?? undefined, revenue: kf.revenue ?? 0 });
-    entryMultiple = r.entryMultiple;
-    baseIrr = r.scenarios?.base?.irr ?? null;
-    baseMoic = r.scenarios?.base?.moic ?? null;
-  } catch { /* returns are best-effort */ }
+    const canon = canonicalFigures(deal);
+    if (canon) {
+      entryMultiple = canon.entryMultiple;
+      baseIrr = canon.irr ?? null;
+      baseMoic = canon.moic ?? null;
+    }  } catch { /* returns are best-effort */ }
   return { revenue: kf.revenue, ebitda: kf.ebitda, ebitdaMargin: kf.ebitdaMargin, dealSize: deal.dealSize ?? null, entryMultiple, baseIrr, baseMoic };
 }
 
@@ -469,12 +476,16 @@ export function computeICReadiness(deal) {
   const unresolvedRisks = openIssues
     .filter((i) => BLOCKING_SEVERITIES.has(i.severity) || i.severity === 'caution')
     .sort((a, b) => sevRank(b.severity) - sevRank(a.severity))
-    .map((i) => ({ id: i.id, lane: i.lane, laneLabel: laneLabel(i.lane), title: i.title, severity: i.severity, owner: i.owner ? ownerLabel(i.owner, i.lane) : null, status: i.status, resolutionPath: i.resolutionPath || null, sources: (i.sources || []).length }))
+    // A stored issue quotes figures too, and this board is the last thing read before a
+    // vote. Lumen's QoE finding arrived here as "moves the entry multiple from 9.4x to
+    // 10.1x" while the case and the assistant, which both reconcile, said "roughly 0.7x
+    // against the 8.3x on the returns page" — one finding, two prices, three screens.
+    .map((i) => ({ id: i.id, lane: i.lane, laneLabel: laneLabel(i.lane), title: reconcileFindingText(String(i.title || ''), deal), severity: i.severity, owner: i.owner ? ownerLabel(i.owner, i.lane) : null, status: i.status, resolutionPath: i.resolutionPath ? reconcileFindingText(String(i.resolutionPath), deal) : null, sources: (i.sources || []).length }))
     .concat(registerRisks(deal, openIssues))
     .sort((a, b) => sevRank(b.severity) - sevRank(a.severity));
   const sources = supportingSources(deal, allIssues);
   const ask = icAsk(deal);
-  const conditions = (deal.conditions || []).map((c) => ({ id: c.id, text: c.text, owner: c.owner || null, status: c.status || 'proposed' }));
+  const conditions = (deal.conditions || []).map((c) => ({ id: c.id, text: reconcileFindingText(String(c.text || ''), deal), owner: c.owner || null, status: c.status || 'proposed' }));
 
   const v = verdict({ required, blocking, unresolvedRisks, conditions, phase: dealPhase(deal), deal });
 

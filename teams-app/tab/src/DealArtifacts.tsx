@@ -76,9 +76,15 @@ export default function DealArtifacts({ dealId }: { dealId: string }) {
           )}
           <div className="da-levers">
             {(vcp.levers || []).map((l: Any) => (
-              <div key={l.name} className="da-lever"><span className="l">{l.name}</span><span className="i">{l.impact != null ? money(l.impact) : '—'}</span><span className="t">{l.timeline}</span></div>
+              <div key={l.name} className="da-lever"><span className="l">{l.name}</span><span className="i">{l.impact != null ? money(l.impact) : '—'}</span><span className="t">{l.shareOfPlan || l.timeline}</span></div>
             ))}
           </div>
+          {/* The levers are a decomposition of the headline, so the card says so. The
+              previous version listed levers summing to four times its own target and left
+              the reader to do the addition and lose confidence in the page. */}
+          {vcp.leversReconcile && vcp.ebitdaBridge?.delta ? (
+            <div className="da-bridge">The levers above allocate the full {money(vcp.ebitdaBridge.delta)} target.</div>
+          ) : null}
         </section>
       )}
 

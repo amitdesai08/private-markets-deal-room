@@ -92,11 +92,33 @@ export function dealGrowth(deal) {
 }
 
 // A candidate-shaped object so we can reuse the Stage-1 paper-LBO returns engine.
+// The multiple the RECORD states, if it states one. Extracted here rather than inline,
+// because four separate places used to read it — or fail to — and each disagreement
+// became a different number on a different screen for the same deal.
+export function statedMultipleOf(deal) {
+  const kf = (deal?.keyFigures || []).find((k) => /entry multiple|ev\s*\/\s*ebitda/i.test(k.label));
+  const v = kf ? Number(String(kf.value).replace(/[^0-9.]/g, '')) : NaN;
+  return Number.isFinite(v) && v > 0 ? +v.toFixed(1) : null;
+}
+
 function dealAsCandidate(deal) {
   const f = dealFinancials(deal);
+  // The price the record states is an input to the model, not something to be checked
+  // against it afterwards. Screening derived its own multiple from EV over EBITDA and
+  // modelled the deal at THAT, so the returns page, the triage note, the IC assumption
+  // snapshot and the deal's own header each ended up quoting a different entry price for
+  // one company. The record's number goes in at the top and everything downstream
+  // inherits it.
+  const stated = statedMultipleOf(deal);
+  // Where no EBITDA is recorded but a multiple is, the EBITDA the model runs on must be
+  // the one that number implies — otherwise EV over EBITDA silently contradicts the
+  // multiple sitting beside it.
+  const ebitdaRecorded = (deal.keyFigures || []).some((k) => /ebitda(?! margin)/i.test(k.label));
+  const ebitda = !ebitdaRecorded && stated ? round(f.ev / stated) : f.ebitda;
   return {
     company: deal.company, sector: deal.sector, ownership: deal.ownership || 'private',
-    dealSize: f.ev, revenue: f.revenue, ebitda: f.ebitda, ebitdaMargin: f.ebitdaMargin,
+    dealSize: f.ev, revenue: f.revenue, ebitda, ebitdaMargin: f.ebitdaMargin,
+    statedMultiple: stated,
     growth: f.growth ?? undefined, keywords: deal.keywords || [], sources: deal.sources || []
   };
 }
@@ -126,11 +148,7 @@ export function canonicalFigures(deal) {
     // EBITDA line; we invented an EBITDA at 12% of enterprise value, divided by it, and
     // published 8.3x in the comparison table beside the contractual 8.1x on the deal's
     // own header. On a signed deal the multiple is not ours to recompute.
-    const statedMult = (() => {
-      const kf = (deal.keyFigures || []).find((k) => /entry multiple|ev\s*\/\s*ebitda/i.test(k.label));
-      const v = kf ? Number(String(kf.value).replace(/[^0-9.]/g, '')) : NaN;
-      return Number.isFinite(v) && v > 0 ? +v.toFixed(1) : null;
-    })();
+    const statedMult = statedMultipleOf(deal);
     const entryMultiple = statedMult ?? (r.impliedMultiple ?? r.entryMultiple);
     // Keep EBITDA consistent with whichever multiple we publish, rather than leaving a
     // derived EBITDA that no longer divides into it.
@@ -418,7 +436,18 @@ function workstreamFindings(deal) {
   // (e.g. a £ deal never reads "$131M" in its red-flag report).
   const money = (m) => fmtMoney(m, symbolFor(deal));
   const out = [];
-  const add = (workstream, severity, finding, impact, basis = 'templated') => out.push({ workstream, severity, finding, impact, basis });
+  // Reconcile the multiple HERE, at the one place a finding is created, rather than at
+  // each place one is displayed. The committee case and the assistant both ran
+  // reconcileFindingText over these; the IC readiness board did not — so a Lumen finding
+  // read "would raise the entry multiple by roughly 0.7x against the 8.3x on the returns
+  // page" on two screens and "moves the entry multiple from 9.4x to 10.1x" on the third,
+  // for the same finding, four days before a vote. Every consumer of this list now gets
+  // text already squared with the deal's own figures, and none of them can forget to.
+  const add = (workstream, severity, finding, impact, basis = 'templated') => out.push({
+    workstream, severity, basis,
+    finding: reconcileFindingText(String(finding == null ? '' : finding), deal),
+    impact: impact == null ? impact : reconcileFindingText(String(impact), deal),
+  });
   // Whether the lane behind a finding has actually been worked. The register was stating
   // settled opinions -- "no material undisclosed litigation identified", "cyber posture
   // adequate", "structured references positive" -- on deals whose own workstream board
@@ -981,6 +1010,173 @@ export function buildReturnsModel(deal) {
 // ===========================================================================
 //  VALUE-CREATION PLAN — EBITDA bridge + levers (Operating Partner · 100-day)
 // ===========================================================================
+// ===========================================================================
+//  VALUE-CREATION PLAN — the plan has to be this company's, and it has to add up
+// ===========================================================================
+// Two faults, one card. Every deal in the book got the same five levers in the same
+// order with the same owners and the same 100-day plan, so a grocery roll-up, a vertical
+// SaaS business and a marine-services operator were all going to be improved by
+// "Pricing optimisation, Procurement & COGS cost-out, SG&A efficiency, AI / digital
+// productivity" — levers that name nothing anyone would actually do at any of them.
+//
+// Worse, the numbers did not reconcile. The levers were struck as fixed percentages of
+// REVENUE while the headline target was a delta in EBITDA, and the two have no reason to
+// agree: on Nordic Grocery the card claimed a $24M uplift and then listed levers adding
+// to $106M. Ten of nineteen deals published a headline their own table contradicted, one
+// of them by more than four times. The residual guard only ever handled the shortfall
+// direction, so an overshoot could not be caught at all.
+//
+// A value-creation plan is a DECOMPOSITION of the target, so it is built as one here:
+// weights that sum to one, applied to the target, distributed by largest remainder so the
+// column adds to the headline exactly. And the levers come from a playbook chosen by what
+// the company actually does.
+const VCP_FALLBACK = {
+  levers: [
+    { name: 'Pricing and commercial terms', workstream: 'commercial', weight: 0.3, timeline: 'Days 1-100', owner: 'Operating Partner + Commercial MD' },
+    { name: 'Procurement and cost of goods', workstream: 'operational', weight: 0.3, timeline: 'Months 3-12', owner: 'Operating Partner + Supply MD' },
+    { name: 'Overhead and support-function efficiency', workstream: 'operational', weight: 0.2, timeline: 'Months 3-9', owner: 'Operating Partner' },
+    { name: 'Bolt-on acquisitions', workstream: 'commercial', weight: 0.2, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ],
+  firstThirty: ['Board and reporting cadence', 'Key customer and vendor continuity', 'KPI baseline'],
+};
+
+// Keyed on the sub-sector where the record has one, falling back to the sector. The levers
+// are the ones an operating partner in that industry would actually name, and the weights
+// differ because the money is in different places in different businesses.
+const VCP_PLAYBOOKS = [
+  { match: /vertical saas|software|data/i, group: 'Software', levers: [
+    { name: 'Net revenue retention and list-price realisation', workstream: 'commercial', weight: 0.34, timeline: 'Days 1-180', owner: 'Operating Partner + Commercial MD' },
+    { name: 'Gross-margin recovery (hosting, support and third-party COGS)', workstream: 'tech', weight: 0.22, timeline: 'Months 3-12', owner: 'AI MD' },
+    { name: 'Go-to-market efficiency (CAC payback and quota coverage)', workstream: 'commercial', weight: 0.24, timeline: 'Months 3-18', owner: 'Commercial MD' },
+    { name: 'Product bolt-ons into adjacent modules', workstream: 'commercial', weight: 0.2, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Retention and churn cohort baseline', 'Contract and renewal calendar', 'Engineering and hosting cost baseline'] },
+
+  { match: /grocery|convenience/i, group: 'Consumer', levers: [
+    { name: 'Own-brand and private-label mix', workstream: 'commercial', weight: 0.3, timeline: 'Months 3-18', owner: 'Commercial MD' },
+    { name: 'Shrink, waste and markdown control', workstream: 'operational', weight: 0.24, timeline: 'Days 1-180', owner: 'Operating Partner' },
+    { name: 'Store labour scheduling and replenishment', workstream: 'operational', weight: 0.24, timeline: 'Months 3-12', owner: 'Operating Partner + Supply MD' },
+    { name: 'Store-network bolt-ons', workstream: 'commercial', weight: 0.22, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Store-level P&L baseline', 'Supplier terms and rebate register', 'Shrink measurement by category'] },
+
+  { match: /specialty food|food manufactur/i, group: 'Consumer', levers: [
+    { name: 'Trade-spend effectiveness and promotional return', workstream: 'commercial', weight: 0.28, timeline: 'Months 3-12', owner: 'Commercial MD' },
+    { name: 'Yield, giveaway and line efficiency', workstream: 'operational', weight: 0.28, timeline: 'Months 3-18', owner: 'Operating Partner' },
+    { name: 'Commodity procurement and hedging discipline', workstream: 'operational', weight: 0.24, timeline: 'Days 1-180', owner: 'Supply MD' },
+    { name: 'Category bolt-ons', workstream: 'commercial', weight: 0.2, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Line-level yield baseline', 'Trade-spend and promotion register', 'Commodity exposure and hedge position'] },
+
+  { match: /dental/i, group: 'Healthcare', levers: [
+    { name: 'Chair utilisation and clinician scheduling', workstream: 'operational', weight: 0.3, timeline: 'Days 1-180', owner: 'Operating Partner' },
+    { name: 'Hygiene recall and treatment-plan acceptance', workstream: 'commercial', weight: 0.26, timeline: 'Months 3-12', owner: 'Commercial MD' },
+    { name: 'Clinical supply procurement across the group', workstream: 'operational', weight: 0.2, timeline: 'Months 3-9', owner: 'Supply MD' },
+    { name: 'Practice acquisitions and de novo sites', workstream: 'commercial', weight: 0.24, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Chair-hour utilisation by site', 'Recall list and reactivation baseline', 'Clinician contract and retention review'] },
+
+  { match: /diagnostic|lab services/i, group: 'Healthcare', levers: [
+    { name: 'Assay mix and price realisation', workstream: 'commercial', weight: 0.3, timeline: 'Months 3-12', owner: 'Commercial MD' },
+    { name: 'Laboratory automation and sample throughput', workstream: 'operational', weight: 0.28, timeline: 'Months 6-24', owner: 'Operating Partner' },
+    { name: 'Reagent and consumables procurement', workstream: 'operational', weight: 0.22, timeline: 'Days 1-180', owner: 'Supply MD' },
+    { name: 'Insourcing of referred-out testing', workstream: 'commercial', weight: 0.2, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Test-menu profitability baseline', 'Turnaround-time and throughput measurement', 'Reagent contract register'] },
+
+  { match: /biotech tools|cro/i, group: 'Healthcare', levers: [
+    { name: 'Study win-rate and pricing discipline', workstream: 'commercial', weight: 0.32, timeline: 'Months 3-12', owner: 'Commercial MD' },
+    { name: 'Utilisation of scientific capacity', workstream: 'operational', weight: 0.28, timeline: 'Days 1-180', owner: 'Operating Partner' },
+    { name: 'Consumables and instrument procurement', workstream: 'operational', weight: 0.2, timeline: 'Months 3-9', owner: 'Supply MD' },
+    { name: 'Capability bolt-ons', workstream: 'commercial', weight: 0.2, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Backlog and book-to-bill baseline', 'Scientific capacity utilisation', 'Client concentration review'] },
+
+  { match: /multi-site care|care \/ services|health partners/i, group: 'Healthcare', levers: [
+    { name: 'Payer and procedure mix', workstream: 'commercial', weight: 0.3, timeline: 'Months 3-18', owner: 'Commercial MD' },
+    { name: 'Clinical staffing productivity and agency reduction', workstream: 'operational', weight: 0.3, timeline: 'Days 1-180', owner: 'Operating Partner' },
+    { name: 'Site maturation and capacity fill', workstream: 'operational', weight: 0.2, timeline: 'Months 6-24', owner: 'Operating Partner' },
+    { name: 'Site acquisitions', workstream: 'commercial', weight: 0.2, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Site-level contribution baseline', 'Agency and overtime spend', 'Payer contract calendar'] },
+
+  { match: /3pl|logistics|cold chain/i, group: 'Industrials', levers: [
+    { name: 'Lane pricing and surcharge recovery', workstream: 'commercial', weight: 0.3, timeline: 'Days 1-180', owner: 'Commercial MD' },
+    { name: 'Network density and route optimisation', workstream: 'operational', weight: 0.28, timeline: 'Months 3-18', owner: 'Operating Partner' },
+    { name: 'Fleet, fuel and energy cost', workstream: 'operational', weight: 0.22, timeline: 'Months 3-12', owner: 'Supply MD' },
+    { name: 'Regional bolt-ons to fill the network', workstream: 'commercial', weight: 0.2, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Lane-level margin baseline', 'Customer contract and indexation review', 'Fleet utilisation and energy baseline'] },
+
+  { match: /marine/i, group: 'Industrials', levers: [
+    { name: 'Vessel utilisation and day-rate discipline', workstream: 'commercial', weight: 0.32, timeline: 'Days 1-180', owner: 'Commercial MD' },
+    { name: 'Drydock and maintenance planning', workstream: 'operational', weight: 0.26, timeline: 'Months 3-18', owner: 'Operating Partner' },
+    { name: 'Crewing and rotation efficiency', workstream: 'operational', weight: 0.22, timeline: 'Months 3-12', owner: 'Operating Partner' },
+    { name: 'Fleet or service-line acquisitions', workstream: 'commercial', weight: 0.2, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Vessel-by-vessel utilisation baseline', 'Contract and day-rate register', 'Drydock schedule and deferred maintenance'] },
+
+  { match: /packaging/i, group: 'Industrials', levers: [
+    { name: 'Resin pass-through and price recovery', workstream: 'commercial', weight: 0.3, timeline: 'Days 1-180', owner: 'Commercial MD' },
+    { name: 'Line efficiency and overall equipment effectiveness', workstream: 'operational', weight: 0.28, timeline: 'Months 3-18', owner: 'Operating Partner' },
+    { name: 'Substrate light-weighting and material yield', workstream: 'operational', weight: 0.22, timeline: 'Months 6-24', owner: 'Supply MD' },
+    { name: 'Footprint consolidation and bolt-ons', workstream: 'commercial', weight: 0.2, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Plant-level OEE baseline', 'Raw-material indexation clauses', 'Scrap and yield measurement'] },
+
+  { match: /carve-out|specialty chemical/i, group: 'Industrials', levers: [
+    { name: 'Transitional-services exit and standalone cost base', workstream: 'operational', weight: 0.34, timeline: 'Days 1-365', owner: 'Operating Partner' },
+    { name: 'Grade and formulation mix', workstream: 'commercial', weight: 0.26, timeline: 'Months 3-18', owner: 'Commercial MD' },
+    { name: 'Feedstock procurement and contract renegotiation', workstream: 'operational', weight: 0.22, timeline: 'Days 1-180', owner: 'Supply MD' },
+    { name: 'Debottlenecking and adjacent bolt-ons', workstream: 'commercial', weight: 0.18, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['TSA scope, cost and exit dates', 'Standalone organisation design', 'Feedstock contract register'] },
+
+  { match: /forestry|building product|timber/i, group: 'Industrials', levers: [
+    { name: 'Log and fibre procurement cost', workstream: 'operational', weight: 0.3, timeline: 'Days 1-180', owner: 'Supply MD' },
+    { name: 'Mill uptime and conversion efficiency', workstream: 'operational', weight: 0.28, timeline: 'Months 3-18', owner: 'Operating Partner' },
+    { name: 'Grade and product-mix optimisation', workstream: 'commercial', weight: 0.24, timeline: 'Months 3-12', owner: 'Commercial MD' },
+    { name: 'Adjacent mill acquisitions', workstream: 'commercial', weight: 0.18, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Fibre cost and supply baseline', 'Mill uptime and downtime causes', 'Product-mix margin baseline'] },
+
+  { match: /precision|manufactur|component/i, group: 'Industrials', levers: [
+    { name: 'Price and cost recovery on contracted programmes', workstream: 'commercial', weight: 0.3, timeline: 'Days 1-180', owner: 'Commercial MD' },
+    { name: 'Plant productivity and scrap reduction', workstream: 'operational', weight: 0.28, timeline: 'Months 3-18', owner: 'Operating Partner' },
+    { name: 'Direct-material procurement and footprint', workstream: 'operational', weight: 0.24, timeline: 'Months 3-12', owner: 'Supply MD' },
+    { name: 'Capability bolt-ons', workstream: 'commercial', weight: 0.18, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Programme-level margin baseline', 'Scrap and rework measurement', 'Direct-material spend review'] },
+
+  { match: /renewable|storage/i, group: 'Energy', levers: [
+    { name: 'Offtake repricing and merchant capture', workstream: 'commercial', weight: 0.32, timeline: 'Months 3-18', owner: 'Commercial MD' },
+    { name: 'Availability and operations-and-maintenance cost', workstream: 'operational', weight: 0.3, timeline: 'Days 1-180', owner: 'Operating Partner' },
+    { name: 'Curtailment mitigation and grid-service revenue', workstream: 'operational', weight: 0.2, timeline: 'Months 6-24', owner: 'Operating Partner' },
+    { name: 'Portfolio acquisitions', workstream: 'commercial', weight: 0.18, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Asset-level availability baseline', 'Offtake contract calendar', 'Operations-and-maintenance contract review'] },
+
+  { match: /energy service|electrification/i, group: 'Energy', levers: [
+    { name: 'Crew utilisation and job-level productivity', workstream: 'operational', weight: 0.32, timeline: 'Days 1-180', owner: 'Operating Partner' },
+    { name: 'Contract repricing and scope discipline', workstream: 'commercial', weight: 0.28, timeline: 'Months 3-12', owner: 'Commercial MD' },
+    { name: 'Fleet maintenance and fuel cost', workstream: 'operational', weight: 0.22, timeline: 'Months 3-18', owner: 'Supply MD' },
+    { name: 'Regional service bolt-ons', workstream: 'commercial', weight: 0.18, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Crew utilisation baseline', 'Job-level margin review', 'Fleet condition and maintenance backlog'] },
+
+  { match: /payment|fintech/i, group: 'Financials', levers: [
+    { name: 'Take-rate and interchange optimisation', workstream: 'commercial', weight: 0.32, timeline: 'Months 3-12', owner: 'Commercial MD' },
+    { name: 'Fraud, chargeback and loss reduction', workstream: 'operational', weight: 0.24, timeline: 'Days 1-180', owner: 'Operating Partner' },
+    { name: 'Processing cost per transaction', workstream: 'tech', weight: 0.24, timeline: 'Months 6-18', owner: 'AI MD' },
+    { name: 'Attach of value-added services', workstream: 'commercial', weight: 0.2, timeline: 'Year 1+', owner: 'Principal', unsized: true },
+  ], firstThirty: ['Merchant-level take-rate baseline', 'Fraud and chargeback loss register', 'Processing cost per transaction'] },
+];
+
+function vcpPlaybook(deal) {
+  const hay = `${deal?.subSector || ''} ${deal?.sector || ''}`;
+  return VCP_PLAYBOOKS.find((p) => p.match.test(hay)) || VCP_FALLBACK;
+}
+
+// Split a whole number across weights so the parts sum to the whole EXACTLY. Rounding
+// each share independently is what let a column of levers miss its own headline even
+// once the weights were right.
+function apportion(total, weights) {
+  const t = Math.max(0, Math.round(total));
+  const sum = weights.reduce((s, w) => s + w, 0) || 1;
+  const exact = weights.map((w) => (t * w) / sum);
+  const floors = exact.map((v) => Math.floor(v));
+  let left = t - floors.reduce((s, v) => s + v, 0);
+  const order = exact.map((v, k) => ({ k, frac: v - Math.floor(v) })).sort((a, b) => b.frac - a.frac);
+  const out = floors.slice();
+  for (let n = 0; n < order.length && left > 0; n += 1, left -= 1) out[order[n].k] += 1;
+  return out;
+}
+
 export function buildValueCreationPlan(deal) {
   const money = (m) => fmtMoney(m, symbolFor(deal));
   const f = dealFinancials(deal);
@@ -989,46 +1185,64 @@ export function buildValueCreationPlan(deal) {
   const base = r.scenarios.base;
   const entryEbitda = f.ebitda;
   const exitEbitda = base.exitEbitda;
-  const deltaEbitda = Math.max(0, exitEbitda - entryEbitda);
-  const ebitdaComponents = [
-    { lever: 'Organic revenue growth', contribution: round(deltaEbitda * 0.45), owner: 'operating-partner' },
-    { lever: 'Margin expansion (pricing + cost-out)', contribution: round(deltaEbitda * 0.30), owner: 'operating-partner' },
-    { lever: 'Buy-and-build / bolt-ons', contribution: round(deltaEbitda * 0.25), owner: 'principal' },
-  ];
-  const sizedLevers = [
-    { name: 'Pricing optimisation', workstream: 'commercial', impact: round(f.revenue * 0.015), timeline: 'Days 1–100', owner: 'Operating Partner + Commercial MD' },
-    { name: 'Procurement & COGS cost-out', workstream: 'operational', impact: round(f.revenue * 0.02), timeline: 'Months 3–12', owner: 'Operating Partner + Supply MD' },
-    { name: 'SG&A efficiency', workstream: 'operational', impact: round(f.revenue * 0.01), timeline: 'Months 3–9', owner: 'Operating Partner' },
-    { name: 'AI / digital productivity', workstream: 'tech', impact: round(f.revenue * 0.01), timeline: 'Months 6–18', owner: 'AI MD' },
-  ];
-  // The card headlines "$92M → $129M (+$37M)" and then lists levers adding to $22M with
-  // buy-and-build showing nothing at all, so the plan appeared to be $15M short of its
-  // own target with no explanation. Bolt-ons genuinely are not sized at this stage --
-  // they depend on which targets are available -- so the line carries the residual and
-  // says outright that it is a residual rather than a bottom-up number.
-  const leverResidual = round(Math.max(0, deltaEbitda - sizedLevers.reduce((s, l) => s + (l.impact || 0), 0)));
-  const levers = [
-    ...sizedLevers,
-    { name: 'Buy-and-build platform', workstream: 'commercial', impact: leverResidual || null,
-      impactBasis: leverResidual ? 'Residual to plan — not yet sized bottom-up' : null,
-      timeline: 'Year 1+', owner: 'Principal' },
-  ];
+  const deltaEbitda = Math.max(0, round(exitEbitda - entryEbitda));
+  const play = vcpPlaybook(deal);
+  const totalWeight = play.levers.reduce((s, x) => s + x.weight, 0) || 1;
+
+  // The levers ARE the target, split up — not a separate calculation that happens to sit
+  // beside it.
+  const amounts = apportion(deltaEbitda, play.levers.map((l) => l.weight));
+  const levers = play.levers.map((l, k) => ({
+    name: l.name,
+    workstream: l.workstream,
+    impact: amounts[k],
+    // What share of the plan this lever is being asked to carry, so a reader can argue
+    // with the allocation and not only with the total.
+    shareOfPlan: `${Math.round((l.weight / totalWeight) * 100)}% of the plan`,
+    impactBasis: l.unsized
+      ? 'Allocated share of the plan. Bolt-ons are not sized bottom-up until targets are identified.'
+      : 'Allocated share of the EBITDA bridge above.',
+    timeline: l.timeline,
+    owner: l.owner,
+  }));
+
+  // The bridge is the same money grouped a second way, so the two cannot disagree.
+  const groupOf = (l) => (/bolt-on|acquisition|de novo|insourcing|attach of|footprint consolidation|debottleneck/i.test(l.name)
+    ? 'Buy-and-build and adjacencies'
+    : l.workstream === 'commercial' ? 'Revenue, pricing and mix' : 'Margin, cost and productivity');
+  const groups = new Map();
+  for (const l of levers) groups.set(groupOf(l), (groups.get(groupOf(l)) || 0) + l.impact);
+  const ebitdaComponents = [...groups].map(([lever, contribution]) => ({
+    lever,
+    contribution,
+    owner: /buy-and-build/i.test(lever) ? 'principal' : 'operating-partner',
+  }));
+
   const valueBridge = [
     { source: 'EBITDA growth', value: round((exitEbitda - entryEbitda) * r.entryMultiple) },
     { source: 'Multiple expansion', value: Math.max(0, round(base.exitEV - base.exitEbitda * r.entryMultiple)) },
     { source: 'Debt paydown', value: round(base.debt * 0.5) },
   ];
+
+  const firstThirty = play.firstThirty || VCP_FALLBACK.firstThirty;
+  const named = levers.filter((l) => !/bolt-on|acquisition/i.test(l.name)).slice(0, 3).map((l) => l.name);
   return {
     kind: 'vcp', company: deal.company, owner: 'operating-partner',
+    playbook: play.group || null,
     ebitdaBridge: { entry: entryEbitda, exit: exitEbitda, delta: deltaEbitda, components: ebitdaComponents },
     valueBridge,
     levers,
+    // The plan reconciles to its own headline by construction. Saying so on the card is
+    // cheap, and it is the first thing a sceptical reader checks.
+    leversReconcile: levers.reduce((s, l) => s + (l.impact || 0), 0) === deltaEbitda,
     hundredDay: [
-      { window: 'Days 1–30 · Stabilize', focus: ['Board & reporting cadence', 'Key customer/vendor continuity', 'KPI baseline'] },
-      { window: 'Days 31–60 · Diagnose', focus: ['Validate levers with management', 'Finalize org & key hires', 'IT/systems roadmap'] },
-      { window: 'Days 61–100 · Execute', focus: ['Launch procurement/cost-out', 'Commercial growth workstream', 'Open the bolt-on pipeline'] },
+      { window: 'Days 1-30 · Establish the baseline', focus: firstThirty },
+      { window: 'Days 31-60 · Test the levers with management', focus: named.length ? named.map((n) => `Validate: ${n}`) : ['Validate the levers with management'] },
+      { window: 'Days 61-100 · Start the work', focus: named.length ? named.map((n) => `Mobilise: ${n}`) : ['Mobilise the plan'] },
     ],
-    headline: `Value-creation plan targets ${money(deltaEbitda)} EBITDA uplift over the hold via pricing, cost-out, AI and buy-and-build.`,
+    headline: deltaEbitda
+      ? `Value-creation plan targets ${money(deltaEbitda)} of EBITDA uplift over the hold, allocated across ${levers.length} levers below.`
+      : 'No EBITDA uplift is modelled over the hold on the current assumptions, so there is no value-creation target to allocate.',
   };
 }
 

@@ -225,10 +225,13 @@ function scoreActionability(c) {
   return { pct, note: `${c.ownership}-owned${cxo ? ', warm CxO relationship' : ''}.` };
 }
 function scoreValuation(c) {
-  const mult = c.ebitda > 0 ? c.dealSize / c.ebitda : 99;
+  // Same rule as the model: where the record states the entry price, score THAT, so the
+  // sourcing note and the deal's own page cannot rank a company on a multiple it is not
+  // actually being bought at.
+  const mult = c.statedMultiple ?? (c.ebitda > 0 ? c.dealSize / c.ebitda : 99);
   // Cheaper entry = more attractive; ~6x great, ~12x full.
   const pct = clamp(1 - (mult - 6) / 8, 0, 1);
-  return { pct, note: c.ebitda > 0 ? `Implied ${mult.toFixed(1)}x EV/EBITDA entry.` : 'No positive EBITDA to value.' };
+  return { pct, note: c.statedMultiple ? `${mult.toFixed(1)}x EV/EBITDA entry, as recorded.` : c.ebitda > 0 ? `Implied ${mult.toFixed(1)}x EV/EBITDA entry.` : 'No positive EBITDA to value.' };
 }
 function scoreCompetitive(c) {
   // Founder/family + a CxO angle implies a more proprietary look; sponsor/public implies an auction.
@@ -334,8 +337,13 @@ export function buildReturns(c) {
   // no reason to model a deal as dearer than it is. The ceiling stays, because an ask
   // above the financeable limit genuinely cannot be underwritten as asked, and that case
   // already says so in terms.
-  const baseMult = impliedMult == null ? 8 : Math.min(impliedMult, MAX_ENTRY_MULT);
-  const entryAboveCeiling = impliedMult != null && impliedMult > MAX_ENTRY_MULT;
+  // A price the record STATES is the price. Deriving one from EV over EBITDA and
+  // modelling at that instead is how one deal came to show five different entry
+  // multiples across four screens — the returns page, the triage note, the IC
+  // assumption snapshot and the deal header each did this arithmetic separately.
+  const askMult = c.statedMultiple ?? impliedMult;
+  const baseMult = askMult == null ? 8 : Math.min(askMult, MAX_ENTRY_MULT);
+  const entryAboveCeiling = askMult != null && askMult > MAX_ENTRY_MULT;
   // Nobody underwrites a fast-growing asset's current rate for five straight years at
   // screening. Cap what we are willing to put in the model, and say so in the
   // assumptions rather than quietly compounding 41% into a headline return.
