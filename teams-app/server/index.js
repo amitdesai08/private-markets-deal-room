@@ -302,13 +302,34 @@ async function forwardChat(path, req, res) {
   try {
     const upstream = await fetch(`${config.backend.url}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
     res.status(upstream.status);
-    res.setHeader('content-type', upstream.headers.get('content-type') || 'application/json');
-    res.send(Buffer.from(await upstream.arrayBuffer()));
+    const ct = upstream.headers.get('content-type') || 'application/json';
+    res.setHeader('content-type', ct);
+    // An event stream buffered by the proxy is not a stream. `arrayBuffer()` waits for the
+    // last byte, which would have given the reader the same thirty-second wait with more
+    // machinery behind it.
+    if (/text\/event-stream/i.test(ct) && upstream.body?.getReader) {
+      res.setHeader('cache-control', 'no-cache, no-transform');
+      res.setHeader('x-accel-buffering', 'no');
+      if (res.flushHeaders) res.flushHeaders();
+      const reader = upstream.body.getReader();
+      // A reader who closes the panel should stop the copy, not keep a socket writing.
+      let closed = false;
+      res.on('close', () => { closed = true; try { reader.cancel(); } catch { /* already gone */ } });
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done || closed) break;
+        res.write(Buffer.from(value));
+      }
+      return res.end();
+    }
+    return res.send(Buffer.from(await upstream.arrayBuffer()));
   } catch (e) {
-    res.status(502).json({ error: 'backend-unreachable', detail: String(e?.message || e) });
+    if (res.headersSent) return res.end();
+    return res.status(502).json({ error: 'backend-unreachable', detail: String(e?.message || e) });
   }
 }
 app.post('/api/deal-agent/chat', (req, res) => forwardChat('/api/deal-agent/chat', req, res));
+app.post('/api/deal-agent/stream', (req, res) => forwardChat('/api/deal-agent/stream', req, res));
 app.post('/api/persona-agents/:persona/chat', (req, res) => forwardChat(`/api/persona-agents/${encodeURIComponent(req.params.persona)}/chat`, req, res));
 
 // Admin (role builder / persona designer) — inject the resolved requesting identity

@@ -34,6 +34,7 @@ import { workiqNotesContext } from './workiqMemory.js';
 import { houseStyle } from './ai.js';
 import { computeICReadiness, recordReadingGuide } from './icReadiness.js';
 import { figuresBlock, enforceFigures } from './diligence.js';
+import { consumeSse, readResponseStream } from './sse.js';
 
 const PROJECT_ENDPOINT = config.foundry.projectEndpoint;
 const AGENT_NAME = config.foundry.dealAgentName;
@@ -69,7 +70,7 @@ function tokenFor(scope) {
 
 // POST to the Responses API, trying auth scopes on 401/403 and remembering the one
 // that works so the rest of the tool loop reuses it.
-async function postResponses(body) {
+async function responsesFetch(body) {
   let lastErr;
   const order = workingScope ? [workingScope, ...SCOPES.filter((s) => s !== workingScope)] : SCOPES;
   for (const scope of order) {
@@ -100,12 +101,31 @@ async function postResponses(body) {
         throw err;
       }
       workingScope = scope;
-      return await resp.json();
+      return resp;
     } finally {
       clearTimeout(timer);
     }
   }
   throw lastErr || new Error('deal agent unauthorized');
+}
+
+async function postResponses(body) {
+  const resp = await responsesFetch(body);
+  return resp.json();
+}
+
+// Read as it is generated. A turn that turns out to be a tool call has its text withdrawn
+// by the caller, because what the model says on its way to fetching something is not the
+// answer and must not be left on screen as though it were.
+async function streamResponses(body, onDelta) {
+  const resp = await responsesFetch({ ...body, stream: true });
+  let text = '';
+  let completed = null;
+  await consumeSse(resp, (e) => readResponseStream(e, {
+    onDelta: (d) => { text += d; if (onDelta) onDelta(d); },
+    onDone: (r) => { completed = r; },
+  }));
+  return completed && (completed.output_text || completed.output) ? completed : { ...(completed || {}), output_text: text };
 }
 
 // ---- Responses API parsing --------------------------------------------------
@@ -205,19 +225,27 @@ function buildComposedInput({ scope, focusId, focusCompany, message, lens, ident
 }
 
 // ---- the tool loop ----------------------------------------------------------
-async function runToolLoop({ scope, focusId, focusCompany, message, previousResponseId, identity, viewAsRole, lens }) {
+async function runToolLoop({ scope, focusId, focusCompany, message, previousResponseId, identity, viewAsRole, lens, onDelta, onReset }) {
   const agentRef = { name: AGENT_NAME, type: 'agent_reference' };
   const toolNamesUsed = [];
+  // A turn either answers or fetches. Text from a turn that then fetches is the model
+  // thinking aloud on the way to a tool, and leaving it on screen would show the reader a
+  // sentence the product is about to contradict — so it is withdrawn.
+  let turnHadText = false;
+  const watch = onDelta ? (d) => { turnHadText = true; onDelta(d); } : undefined;
+  const send = (b) => (watch ? streamResponses(b, watch) : postResponses(b));
 
   // First turn: a single composed string input (proven to work with agent_reference),
   // carrying the focus/scope directive + pre-injected context + the user question.
   let body = { model: AGENT_MODEL, input: buildComposedInput({ scope, focusId, focusCompany, message, lens, identity, viewAsRole }), agent_reference: agentRef };
   if (previousResponseId) body.previous_response_id = previousResponseId;
-  let data = await postResponses(body);
+  let data = await send(body);
 
   for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
     const calls = extractFunctionCalls(data);
     if (!calls.length) break;
+    if (turnHadText && onReset) onReset();
+    turnHadText = false;
     const outputs = [];
     for (const call of calls.slice(0, MAX_CALLS_PER_TURN)) {
       toolNamesUsed.push(call.name);
@@ -236,7 +264,7 @@ async function runToolLoop({ scope, focusId, focusCompany, message, previousResp
         output: JSON.stringify(result).slice(0, MAX_OUTPUT_CHARS)
       });
     }
-    data = await postResponses({ model: AGENT_MODEL, agent_reference: agentRef, previous_response_id: data.id, input: outputs });
+    data = await send({ model: AGENT_MODEL, agent_reference: agentRef, previous_response_id: data.id, input: outputs });
   }
 
   return { text: extractOutputText(data), responseId: data.id, toolCalls: toolNamesUsed };
@@ -287,7 +315,7 @@ async function dealFallback(focusId, message, lens) {
 //   scope defaults to 'deal' when a dealId is given, else 'portfolio'. When an identity
 //   is supplied, every deal read is gated to what that user may see (no RBAC bypass).
 //   askerPersona pins the persona lens to the specific specialist the caller signed in as.
-export async function chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole, askerPersona } = {}) {
+export async function chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole, askerPersona , onDelta, onReset } = {}) {
   const text = String(message || '').trim();
   if (!text) return { error: 'message-required' };
   const lens = lensBlock({ identity, viewAsRole, persona: askerPersona });
@@ -348,7 +376,9 @@ export async function chatDealAgent({ message, dealId, scope, previousResponseId
       previousResponseId,
       identity,
       viewAsRole,
-      lens
+      lens,
+      onDelta,
+      onReset
     });
     if (!reply) throw new Error('empty agent reply');
     // Checked, not trusted: the prompt asks for the record's figures, this makes sure

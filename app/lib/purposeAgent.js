@@ -27,6 +27,7 @@ import { lensBlock } from './personaLens.js';
 import { workiqNotesContext } from './workiqMemory.js';
 import { houseStyle } from './ai.js';
 import { answerFromRecord } from './knownAnswers.js';
+import { consumeSse, readResponseStream } from './sse.js';
 import { figuresBlock, enforceFigures } from './diligence.js';
 
 const PROJECT_ENDPOINT = config.foundry.projectEndpoint;
@@ -47,6 +48,12 @@ const SPECIALISTS = {
   'value-creation': 'deal-room-value-creation',
 };
 const SPECIALIST_KEYS = Object.keys(SPECIALISTS);
+// What to call each of them on screen. "ic-memo specialist" is a slug; a partner reads
+// the status line while they wait and it is the only thing on the panel for a while.
+const LABELS = {
+  sourcing: 'sourcing', screening: 'screening', diligence: 'diligence',
+  modeling: 'modelling', 'ic-memo': 'IC memo', 'value-creation': 'value-creation',
+};
 
 export function orchestrationEnabled() {
   return (process.env.ORCHESTRATION || '').trim().toLowerCase() === 'purpose';
@@ -75,7 +82,10 @@ function tokenFor(scope) {
   return providers[scope]();
 }
 
-async function postResponses(body) {
+// The auth and scope-fallback loop, shared by the buffered and streamed calls. Copying
+// it for streaming would mean two places to change the day a scope moves, and one of them
+// would be missed.
+async function responsesFetch(body) {
   let lastErr;
   const order = workingScope ? [workingScope, ...SCOPES.filter((s) => s !== workingScope)] : SCOPES;
   for (const scope of order) {
@@ -106,12 +116,30 @@ async function postResponses(body) {
         throw err;
       }
       workingScope = scope;
-      return await resp.json();
+      return resp;
     } finally {
       clearTimeout(timer);
     }
   }
   throw lastErr || new Error('orchestrator unauthorized');
+}
+
+async function postResponses(body) {
+  const resp = await responsesFetch(body);
+  return resp.json();
+}
+
+// The same call, read as it is generated. Returns the same shape the buffered call does,
+// so every caller downstream is unchanged whether or not anyone was watching.
+async function streamResponses(body, onDelta) {
+  const resp = await responsesFetch({ ...body, stream: true });
+  let text = '';
+  let completed = null;
+  await consumeSse(resp, (e) => readResponseStream(e, {
+    onDelta: (delta) => { text += delta; if (onDelta) onDelta(delta); },
+    onDone: (r) => { completed = r; },
+  }));
+  return completed && (completed.output_text || completed.output) ? completed : { ...(completed || {}), output_text: text };
 }
 
 function extractOutputText(data) {
@@ -132,10 +160,10 @@ function extractOutputText(data) {
 
 // One turn against a single agent (each purpose agent self-grounds via its hosted
 // MCP tool, so there is no client function-tool loop to run here).
-async function invokeAgent(agentName, input, previousResponseId) {
+async function invokeAgent(agentName, input, previousResponseId, onDelta) {
   const body = { model: AGENT_MODEL, input, agent_reference: { name: agentName, type: 'agent_reference' } };
   if (previousResponseId) body.previous_response_id = previousResponseId;
-  const data = await postResponses(body);
+  const data = onDelta ? await streamResponses(body, onDelta) : await postResponses(body);
   return { text: extractOutputText(data), responseId: data.id };
 }
 
@@ -210,7 +238,7 @@ function stripControlLine(text) {
 }
 
 // ---- consult a specialist ----------------------------------------------------
-async function consultSpecialist(slug, ctx, message) {
+async function consultSpecialist(slug, ctx, message, onDelta) {
   const input = [
     ...baseContext(ctx),
     '',
@@ -232,7 +260,7 @@ async function consultSpecialist(slug, ctx, message) {
     '',
     `REQUEST: ${message}`,
   ].join('\n');
-  const { text } = await invokeAgent(SPECIALISTS[slug], input);
+  const { text } = await invokeAgent(SPECIALISTS[slug], input, undefined, onDelta);
   return { slug, text: (text || '').trim() };
 }
 
@@ -272,7 +300,7 @@ export function withoutPlumbing(text) {
   return cleaned || 'I could not assemble an answer from the deal record for that question. Ask it about a specific figure on the deal and I will answer from the record.';
 }
 
-async function composeAnswer(ctx, message, findings, previousResponseId) {
+async function composeAnswer(ctx, message, findings, previousResponseId, onDelta) {
   const blocks = findings
     .filter((f) => f.text)
     .map((f) => `--- ${f.slug} specialist ---\n${f.text}`)
@@ -293,7 +321,7 @@ async function composeAnswer(ctx, message, findings, previousResponseId) {
     '',
     `USER REQUEST: ${message}`,
   ].join('\n');
-  return invokeAgent(ORCHESTRATOR_AGENT, input, previousResponseId);
+  return invokeAgent(ORCHESTRATOR_AGENT, input, previousResponseId, onDelta);
 }
 
 // ---- public entry point ------------------------------------------------------
@@ -357,7 +385,11 @@ export function needsSpecialists(text) {
   return NAMES_A_DISCIPLINE.test(s) && ASKS_FOR_DEPTH.test(s);
 }
 
-export async function chatOrchestrator({ message, dealId, scope, previousResponseId, identity, viewAsRole, askerPersona } = {}) {
+export async function chatOrchestrator({ message, dealId, scope, previousResponseId, identity, viewAsRole, askerPersona, onEvent } = {}) {
+  // Streaming is the same code path with somebody watching, not a second implementation.
+  // A stream that took its own route through the access checks would be the place those
+  // checks quietly stopped applying.
+  const emit = (e) => { if (onEvent) { try { onEvent(e); } catch { /* a dead client must not fail the answer */ } } };
   const text = String(message || '').trim();
   if (!text) return { error: 'message-required' };
 
@@ -407,11 +439,17 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
     deals: listDeals(identity, viewAsRole),
     rawFor: getDealRaw,
   });
-  if (known) return { ...known, scope: effScope, dealId: focusId, citations: known.citations || [] };
+  if (known) {
+    // Nothing was generated, so there is nothing to stream — but the caller is watching a
+    // panel and wants the same event shape whatever answered.
+    emit({ type: 'delta', text: known.reply });
+    return { ...known, scope: effScope, dealId: focusId, citations: known.citations || [] };
+  }
 
   // The fast path, unless the question has earned the slow one.
   if (!needsSpecialists(text)) {
-    const fast = await chatDealAgent({ message, dealId: focusId || dealId, scope: effScope, previousResponseId, identity, viewAsRole, askerPersona });
+    emit({ type: 'status', text: 'Reading the deal record' });
+    const fast = await chatDealAgent({ message, dealId: focusId || dealId, scope: effScope, previousResponseId, identity, viewAsRole, askerPersona, onDelta: (d) => emit({ type: 'delta', text: d }) });
     return fast && fast.reply ? { ...fast, reply: withoutPlumbing(fast.reply), orchestration: 'direct' } : fast;
   }
 
@@ -424,16 +462,33 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
     const specialists = pickSpecialists(text);
     phase.route = Date.now() - t0;
 
-    // 2) Consult the chosen specialists in parallel.
-    const findings = await clock('specialists', () => Promise.all(specialists.map((slug) => clock(`specialist:${slug}`, () => consultSpecialist(slug, ctx, text)))));
+    // 2) Consult the chosen specialists in parallel. With ONE specialist its output is
+    // the answer, so it is streamed straight to the reader; with several, nothing is
+    // publishable until they are synthesised, so the reader is told who is working
+    // instead of being shown a spinner for twenty seconds.
+    const solo = specialists.length === 1;
+    emit({
+      type: 'status',
+      text: solo
+        ? `Consulting the ${LABELS[specialists[0]] || specialists[0]} specialist`
+        : `Consulting the ${specialists.map((s) => LABELS[s] || s).join(' and ')} specialists`,
+    });
+    const findings = await clock('specialists', () => Promise.all(specialists.map((slug) => clock(
+      `specialist:${slug}`,
+      () => consultSpecialist(slug, ctx, text, solo ? ((d) => emit({ type: 'delta', text: d })) : undefined)
+        // One static line for twenty seconds reads as a stall. Report each as it lands, so
+        // the reader can see the thing is moving and roughly how far in it is.
+        .then((f) => { if (!solo) emit({ type: 'status', text: `${LABELS[slug] || slug} specialist has reported` }); return f; }),
+    ))));
 
     // 3) Compose — only when there is something to compose. With one specialist the
     // "synthesis" was a pass-through that cost 13.7 seconds to restate a single finding.
     const usable = findings.filter((f) => f && f.text && f.text.trim());
     const single = usable.length === 1;
+    if (!single) emit({ type: 'status', text: 'Weighing the findings' });
     const composed = single
       ? { text: usable[0].text, responseId: usable[0].responseId }
-      : await clock('compose', () => composeAnswer(ctx, text, findings, previousResponseId));
+      : await clock('compose', () => composeAnswer(ctx, text, findings, previousResponseId, (d) => emit({ type: 'delta', text: d })));
     if (single) phase.compose = 0;
     const reply = grounded(withoutPlumbing(stripControlLine(composed.text)), focusId);
     if (!reply) throw new Error('empty composed reply');

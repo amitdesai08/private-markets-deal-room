@@ -1150,6 +1150,8 @@ details[open] > summary:before { content: "\\25BE "; }
 .md th, .md td { border: 1px solid var(--border); padding: 5px 8px; text-align: left; vertical-align: top; overflow-wrap: break-word; }
 .md th { background: var(--chip); font-weight: 700; }
 .typing { display: inline-flex; gap: 4px; }
+.typing-wrap { display:inline-flex; align-items:center; gap:8px; }
+.typing-status { font-size:12px; color:var(--muted); }
 .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: b 1.2s infinite ease-in-out; }
 .typing span:nth-child(2) { animation-delay: .2s; } .typing span:nth-child(3) { animation-delay: .4s; }
 @keyframes b { 0%, 80%, 100% { opacity: .3; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }

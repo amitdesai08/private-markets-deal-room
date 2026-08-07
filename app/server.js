@@ -4,6 +4,7 @@
 
 import express from 'express';
 import crypto from 'node:crypto';
+import { sseFrame } from './lib/sse.js';
 
 import {
   listDeals,
@@ -2607,9 +2608,9 @@ api.post('/persona-agents/:persona/chat', async (req, res) => {
 // Portfolio-wide or single-deal-scoped chat with the analyst agent.
 // Body: { message, dealId?, scope? ('portfolio'|'deal'), previousResponseId? }.
 // Pass a dealId (or scope:'deal') to LOCK the conversation to one deal.
-api.post('/deal-agent/chat', async (req, res) => {
+async function runDealAgentChat(req, res, onEvent) {
   const message = (req.body?.message || '').toString().slice(0, 2000);
-  if (!message) return res.status(400).json({ error: 'message required' });
+  if (!message) { const e = new Error('message required'); e.httpStatus = 400; e.payload = { error: 'message required' }; throw e; }
   const dealId = req.body?.dealId ? String(req.body.dealId) : undefined;
   const scope = req.body?.scope === 'deal' || req.body?.scope === 'portfolio' ? req.body.scope : undefined;
   const previousResponseId = req.body?.previousResponseId ? String(req.body.previousResponseId) : undefined;
@@ -2626,18 +2627,20 @@ api.post('/deal-agent/chat', async (req, res) => {
   // instant, always correctly scoped) so a new user can start cold.
   const access = accessFor(identity, viewAs);
   if (isCapabilityQuestion(message)) {
-    return res.json({ reply: capabilitiesNarrative(access), source: 'capabilities', role: access.role, capabilities: true });
+    const out = { reply: capabilitiesNarrative(access), source: 'capabilities', role: access.role, capabilities: true };
+    if (onEvent) onEvent({ type: 'delta', text: out.reply });
+    return out;
   }
   if (dealId) {
     const d = getDealRaw(dealId);
     const gate = authorizeDealContent(identity, d, viewAs);
-    if (!gate.ok) return gate.level === 'none' ? res.status(404).json({ error: 'deal not found' }) : res.status(403).json({ reply: gate.reason, denied: true, role: gate.access.role });
+    if (!gate.ok) { const e = new Error(gate.level === 'none' ? 'deal not found' : gate.reason); e.httpStatus = gate.level === 'none' ? 404 : 403; e.payload = gate.level === 'none' ? { error: 'deal not found' } : { reply: gate.reason, denied: true, role: gate.access.role }; throw e; }
   }
   try {
     const out = orchestrationEnabled()
-      ? await chatOrchestrator({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs, askerPersona })
-      : await chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs, askerPersona });
-    if (out?.error && !out.reply) return res.status(400).json(out);
+      ? await chatOrchestrator({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs, askerPersona, onEvent })
+      : await chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole: viewAs, askerPersona, onDelta: onEvent && ((d) => onEvent({ type: 'delta', text: d })), onReset: onEvent && (() => onEvent({ type: 'reset' })) });
+    if (out?.error && !out.reply) { const e = new Error(out.error); e.httpStatus = 400; e.payload = out; throw e; }
     out.reply = redactHiddenDeals(out.reply, identity, viewAs).text;
     // Assistant proposes concrete next steps (user approves) — deterministic, grounded in
     // deal state. Only for a deal-scoped, write-capable, authorised caller.
@@ -2645,9 +2648,46 @@ api.post('/deal-agent/chat', async (req, res) => {
     if (effDealId && access.canWrite && !out.denied) {
       try { out.proposedActions = proposeAssistantActions(effDealId); } catch { /* non-fatal */ }
     }
-    res.json(out);
+    return out;
   } catch (err) {
-    res.status(500).json({ error: 'deal-agent chat failed', detail: String(err?.message || err) });
+    if (err && err.httpStatus) throw err;
+    const e = new Error(String(err?.message || err));
+    e.httpStatus = 500;
+    e.payload = { error: 'deal-agent chat failed', detail: String(err?.message || err) };
+    throw e;
+  }
+}
+
+// Body: { message, dealId?, scope?, previousResponseId? }.
+api.post('/deal-agent/chat', async (req, res) => {
+  try { res.json(await runDealAgentChat(req, res)); }
+  catch (err) { res.status(err?.httpStatus || 500).json(err?.payload || { error: 'deal-agent chat failed' }); }
+});
+
+// The same answer, read as it is written. STREAMING IS NOT A SECOND IMPLEMENTATION: it is
+// the handler above with somebody watching, because a stream that took its own route
+// through the access checks is exactly where those checks would quietly stop applying.
+api.post('/deal-agent/stream', async (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    // Container Apps and any proxy in between will buffer an event stream unless told.
+    'X-Accel-Buffering': 'no',
+  });
+  const send = (obj) => { if (!res.writableEnded) res.write(sseFrame(obj)); };
+  // Something on the wire immediately, so the reader sees the panel wake up rather than
+  // waiting on the first token of a thirty-second answer.
+  send({ type: 'status', text: 'Working' });
+  const keepAlive = setInterval(() => { if (!res.writableEnded) res.write(': ping'+String.fromCharCode(10,10)); }, 15000);
+  try {
+    const out = await runDealAgentChat(req, res, send);
+    send({ type: 'done', ...out });
+  } catch (err) {
+    send({ type: 'error', status: err?.httpStatus || 500, ...(err?.payload || { error: String(err?.message || err) }) });
+  } finally {
+    clearInterval(keepAlive);
+    if (!res.writableEnded) res.end();
   }
 });
 

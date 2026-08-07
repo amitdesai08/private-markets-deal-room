@@ -10,7 +10,10 @@ import type { Agent, Deal } from './types';
 
 type ProposedAction = { id: string; kind: string; label: string; summary: string; args: Record<string, unknown>; sources?: string[] };
 type CompareCol = { seat: string; label: string; text: string; role?: string; pending?: boolean };
-type Msg = { role: 'user' | 'agent'; text: string; source?: string; tools?: string[]; pending?: boolean; proposed?: ProposedAction[]; applied?: string[]; saved?: boolean; question?: string; compare?: CompareCol[] };
+type Any = Record<string, any>;
+// `status` is what the assistant is doing while there is nothing to show yet — the reader
+// waits a real amount of time for a multi-specialist answer and deserves to know why.
+type Msg = { role: 'user' | 'agent'; text: string; source?: string; tools?: string[]; pending?: boolean; status?: string; proposed?: ProposedAction[]; applied?: string[]; saved?: boolean; question?: string; compare?: CompareCol[] };
 
 const DEAL_STARTERS = [
   'Is this ready for IC, and what is blocking it?',
@@ -101,8 +104,45 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
     if (agent.kind === 'orchestrator') body.scope = dealId ? 'deal' : 'portfolio';
     if (viewAsRole) body.viewAsRole = viewAsRole;
     try {
-      const res = await af(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-      const data = await res.json();
+      // Read the answer as it is written. A considered multi-specialist reply takes the
+      // best part of a minute to generate and there is no way around that, but watching it
+      // arrive is a different experience from watching a spinner: the reader can start on
+      // the recommendation while the reasoning is still being written.
+      const streaming = agent.kind === 'orchestrator';
+      const res = await af(streaming ? '/api/deal-agent/stream' : endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      let data: Any = null;
+      if (streaming && /text\/event-stream/i.test(res.headers.get('content-type') || '') && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let shown = '';
+        let status = '';
+        const paint = () => setThreads((tt) => { const arr = (tt[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: shown, pending: !shown, status: shown ? undefined : status }; return { ...tt, [threadKey]: arr }; });
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let nl;
+          while ((nl = buffer.indexOf('\n')) >= 0) {
+            const line = buffer.slice(0, nl).replace(/\r$/, '');
+            buffer = buffer.slice(nl + 1);
+            if (!line.startsWith('data:')) continue;
+            let ev: Any;
+            try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
+            if (ev.type === 'status') { status = ev.text; if (!shown) paint(); }
+            else if (ev.type === 'delta') { shown += ev.text; paint(); }
+            // A turn that turned out to be a tool call was the model thinking aloud on
+            // the way to fetching something. Take it back rather than leave a sentence
+            // on screen that the answer is about to contradict.
+            else if (ev.type === 'reset') { shown = ''; paint(); }
+            else if (ev.type === 'done') { data = ev; }
+            else if (ev.type === 'error') { data = ev; }
+          }
+        }
+        if (!data) data = { reply: shown };
+      } else {
+        data = await res.json();
+      }
       const reply = data?.reply || data?.error || 'No response.';
       const tools = Array.isArray(data?.toolCalls) && data.toolCalls.length ? Array.from(new Set(data.toolCalls)) as string[] : undefined;
       const proposed = Array.isArray(data?.proposedActions) && data.proposedActions.length ? data.proposedActions as ProposedAction[] : undefined;
@@ -234,7 +274,14 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
                       </div>
                     ))}
                   </div>
-                ) : m.pending ? (<span className="typing"><span></span><span></span><span></span></span>)
+                ) : m.pending ? (
+                  // The wait for a multi-specialist answer is real. Naming the specialist that
+                  // is working turns a spinner into a progress report.
+                  <span className="typing-wrap">
+                    <span className="typing"><span></span><span></span><span></span></span>
+                    {m.status ? <span className="typing-status">{m.status}…</span> : null}
+                  </span>
+                )
                     : m.role === 'agent' ? (<><div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />{m.tools?.length ? <div className="tools">Sources: {m.tools.join(', ')}</div> : m.source === 'live' ? (
                       // The word "live", alone, under every answer. It means the answer was
                       // written just now against the current record rather than replayed
