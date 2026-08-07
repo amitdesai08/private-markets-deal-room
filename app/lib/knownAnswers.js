@@ -134,10 +134,48 @@ const ANSWERS = [
   },
 ];
 
+// Which deal a question is about, matched against the names this caller can actually
+// see. Longest name first, so "Great Lakes Precision" is not matched as "Great Lakes".
+function dealNamedIn(message, deals) {
+  const m = norm(message);
+  return [...deals]
+    .filter(openable)
+    .sort((x, y) => String(y.company).length - String(x.company).length)
+    .find((d) => d.company && m.includes(norm(d.company)));
+}
+
+// "Why is {company} not ready?" is the most-clicked chip on the home page, and the
+// readiness board answers it in terms — the gating list IS the answer. Kept out of the
+// table above because it needs the message to resolve which deal is meant.
+function whyNotReady({ message, deals, rawFor }) {
+  const m = norm(message);
+  if (!/(not ready|isn't ready|is not ready|short of|blocking|holding it up)/.test(m)) return null;
+  const d = dealNamedIn(message, deals);
+  if (!d) return null;
+  const raw = rawFor(d.id);
+  if (!raw) return null;
+  let board;
+  try { board = computeICReadiness(raw); } catch { return null; }
+  const v = board.verdict || {};
+  if (!v.headline) return null;
+  const gating = (v.gating || []).filter(Boolean);
+  return {
+    reply: [
+      v.state === 'READY'
+        ? `${d.company} is ready for committee — nothing on the record is gating it.`
+        : `${d.company} is not ready for committee.`,
+      gating.length ? gating.map((g) => `- ${g}`).join('\n') : v.headline,
+    ].join('\n\n'),
+    citations: ['IC readiness board'],
+  };
+}
+
 // Returns a grounded answer, or null when the record does not give a complete one.
 export function answerFromRecord({ message, deals, rawFor }) {
   const m = norm(message);
   if (!m || !Array.isArray(deals) || typeof rawFor !== 'function') return null;
+  const why = whyNotReady({ message, deals, rawFor });
+  if (why) return { ...why, source: 'record', orchestration: 'record' };
   for (const a of ANSWERS) {
     if (!a.match(m)) continue;
     let out = null;

@@ -42,7 +42,6 @@ test('a question that needs judgement is left to the assistant', () => {
   const list = [deal()];
   const judgement = [
     'Walk me through the returns on Testco and what could kill it.',
-    'Why is Testco not ready?',
     'Draft the IC memo.',
     'What should I ask management about the QoE?',
     'Is this a good price?',
@@ -75,6 +74,25 @@ test('a status-only deal is counted but never described', () => {
 });
 
 // "Nothing is ready" and "I could not work out what is ready" are different sentences.
+// "Why is X not ready?" is the most-clicked chip on the home page, and the readiness
+// board answers it in terms — the gating list IS the answer. It reads as judgement and is
+// actually a lookup, which is exactly the kind of question worth catching here.
+test('why a named deal is not ready comes from the readiness board', () => {
+  const list = [deal({ company: 'Testco' })];
+  const a = answerFromRecord({ message: 'Why is Testco not ready?', deals: list, rawFor: rawOf(list) });
+  assert.ok(a, 'the readiness board already holds this answer');
+  assert.match(a.reply, /Testco/);
+  assert.ok((a.citations || []).some((c) => /readiness/i.test(c)), 'the answer names no source');
+});
+
+// A company we cannot see, or that does not exist, must not be answered at all — the
+// assistant has a careful refusal for that and it must not be pre-empted by a lookup.
+test('a deal the caller cannot see is not answered from the record', () => {
+  const list = [deal({ company: 'Testco' }), deal({ id: 'shut', company: 'Secretco', accessLevel: 'status', locked: true })];
+  assert.equal(answerFromRecord({ message: 'Why is Contoso not ready?', deals: list, rawFor: rawOf(list) }), null);
+  assert.equal(answerFromRecord({ message: 'Why is Secretco not ready?', deals: list, rawFor: rawOf(list) }), null);
+});
+
 test('an empty book is answered honestly rather than confidently', () => {
   const a = answerFromRecord({ message: 'What is ready for the next IC?', deals: [], rawFor: () => null });
   if (a) assert.match(a.reply, /nothing|no deal/i, `an empty book produced: ${a.reply}`);
