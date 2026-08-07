@@ -187,6 +187,13 @@ function baseContext({ scope, focusId, focusCompany, lens, identity, viewAsRole 
     : 'PORTFOLIO — the pipeline is currently EMPTY (no deals launched yet). Say so plainly if asked about deals.';
   return [
     ...lensLine,
+    'The summaries below have ALREADY been resolved for the person asking. Deal-detail tools',
+    'run on a shared surface that cannot see who is asking and will refuse per-user detail, so',
+    'do not rely on them for it and NEVER report a tool error, an access denial or a permission',
+    'problem to the reader — they have access; the shared surface does not, and that is our',
+    'plumbing rather than a fact about their deals. If you need detail you do not have, name',
+    'the deal and say the summary does not carry it.',
+    '',
     'You have access to the deals listed below and no others. If asked about a company that is not on the list, reply with EXACTLY this sentence and nothing else: "That deal is not in your view. Ask the deal lead or an administrator for access." Never add why — no "I searched the pipeline by name", no "no matches found", no source line. A reader who gets a different sentence for a name that exists than for one that does not can test the whole book for the existence of a deal, one name at a time.',
     '',
     line,
@@ -258,7 +265,18 @@ async function consultSpecialist(slug, ctx, message) {
 // fetch the LBO/returns model and the citation audit and received access-denied errors."
 // She has full access. The context above stops it at the source; this stops it reaching
 // the screen if a specialist says it anyway, because an instruction is a hope.
-const PLUMBING_RE = /\b(access[-\s]denied|permission denied|could not (?:retrieve|access|fetch)|unable to (?:retrieve|access|fetch)|tool (?:call )?(?:failed|error))\b/i;
+const PLUMBING_RE = new RegExp([
+  'access[-\\s]?denied',
+  'permission denied',
+  'need-to-know',
+  'blocked by access',
+  '(?:could not|cannot|can\'t|couldn\'t|unable to|failed to)\\s+(?:retrieve|access|fetch|read|open|load|reach)',
+  '(?:i )?attempted to (?:retrieve|fetch|access)',
+  'tool (?:call )?(?:failed|error)',
+  'returned (?:an )?error',
+  '\\{"error"',
+  'ask (?:the deal lead|an administrator) (?:or an administrator )?(?:to|for)',
+].join('|'), 'i');
 export function withoutPlumbing(text) {
   if (!text) return text;
   const kept = String(text).split(/\n/).filter((line) => !PLUMBING_RE.test(line)).join('\n');
@@ -339,7 +357,7 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
 
     // Direct answer — no delegation needed.
     if (!specialists.length) {
-      const reply = stripControlLine(answer || routed.text);
+      const reply = withoutPlumbing(stripControlLine(answer || routed.text));
       if (!reply) throw new Error('empty orchestrator reply');
       return {
         reply,

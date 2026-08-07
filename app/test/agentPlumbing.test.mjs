@@ -16,7 +16,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { withoutPlumbing } from '../lib/purposeAgent.js';
 
+// These four are verbatim from the deployed orchestrator, captured after the first
+// attempt at this fix. The first attempt scrubbed one of the two return paths and used a
+// pattern built from the words I had thought of rather than the ones the model used --
+// it wrote "blocked by access controls" and quoted the tool's own JSON at the reader.
 const CONFESSIONS = [
+  'Why (short): I attempted to retrieve the deal returns model and the citation audit to trace the entry multiple but the Deal Room calls were blocked by access controls:',
+  '- the deal record returned: {"error":"access-denied","reason":"Deal detail is need-to-know and is resolved per user."}.',
+  'Ask the deal lead or an administrator to share the LBO/returns model.',
+  'I could not retrieve the citation audit for Lumen Analytics.',
   'Both specialists tried to fetch the LBO/returns model and the citation audit and received access-denied errors.',
   'I can\'t retrieve the provenance inside the Deal Room — my calls returned "access-denied" (need-to-know).',
   'The tool call failed, so I could not retrieve the returns model.',
