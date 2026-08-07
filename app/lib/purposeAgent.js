@@ -26,6 +26,7 @@ import { dealAccessLevel } from './userPolicy.js';
 import { lensBlock } from './personaLens.js';
 import { workiqNotesContext } from './workiqMemory.js';
 import { houseStyle } from './ai.js';
+import { answerFromRecord } from './knownAnswers.js';
 import { figuresBlock } from './diligence.js';
 
 const PROJECT_ENDPOINT = config.foundry.projectEndpoint;
@@ -377,6 +378,17 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
   }
 
   const ctx = { scope: effScope, focusId, focusCompany, identity, viewAsRole, lens: lensBlock({ identity, viewAsRole, persona: askerPersona }) };
+
+  // Before either model path: the questions we have already answered. IC readiness for
+  // the whole book computes in 3ms; the assistant was taking 21 seconds to read it out,
+  // with no tool calls, purely generating prose. Answering from the record is instant and
+  // cannot be got wrong.
+  const known = answerFromRecord({
+    message: text,
+    deals: listDeals(identity, viewAsRole),
+    rawFor: getDealRaw,
+  });
+  if (known) return { ...known, scope: effScope, dealId: focusId, citations: known.citations || [] };
 
   // The fast path, unless the question has earned the slow one.
   if (!needsSpecialists(text)) {
