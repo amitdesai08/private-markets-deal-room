@@ -3,6 +3,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { installAuthFetch } from './authFetch';
+
+// Before anything renders — the first request goes out during App's first effect.
+installAuthFetch();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
