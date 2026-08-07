@@ -38,7 +38,12 @@ test('the overwrite is written to the activity log, with an actor', () => {
   // An operator replacing a deal record with fabricated fixture content is exactly the
   // event that has to leave a trace. This release was spent making the log say who did
   // what; a route that silently discards a deal's history would undo it.
-  resyncSeededDeals({ persona: 'admin' });
+  //
+  // `mode: 'full'` is named now because the default stopped discarding. A deal document
+  // holds the fixture AND the record, so replacing it to refresh a policy flag destroyed
+  // twenty-one findings that were never in the fixture. Discarding is still available and
+  // still logged; it is no longer what you get by asking for a refresh.
+  resyncSeededDeals({ persona: 'admin', mode: 'full' });
   const d = getDealRaw('atlas-coldchain');
   const top = d.activity[0];
   assert.match(top.actor, /Administrator/, 'the overwrite names no operator');
@@ -58,7 +63,7 @@ test('resync discards state recorded against a showcase deal — that is the poi
   const moved = getDealRaw(id).activity.length;
   assert.ok(moved > before, 'setup failed: the advance recorded nothing');
 
-  resyncSeededDeals({ persona: 'admin' });
+  resyncSeededDeals({ persona: 'admin', mode: 'full' });
   const after = getDealRaw(id);
   assert.match(after.activity[0].action, /discarded/i,
     'the log must state that prior state was discarded, not just that a resync happened');

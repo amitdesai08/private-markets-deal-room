@@ -707,26 +707,59 @@ export function dealForCandidate(candidateId) {
 //   3. It writes an activity entry naming the operator. This release was spent making the
 //      log say who did what; an operator replacing a deal record with fixture content is
 //      exactly the event that must leave a trace.
-export function resyncSeededDeals({ persona = null } = {}) {
+// WHAT THE FIXTURE OWNS. Everything else on a deal belongs to the record.
+//
+// A deal is one document holding two things with different owners and different
+// lifecycles: the fixture describes the company, and the record is what the firm has
+// since done about it. They were stored in the same object, so `replace the fixture` and
+// `destroy the work` were the same operation — twenty-one findings and nineteen sets of
+// IC conditions on prod, none of it in the fixture, all of it discarded to correct a flag.
+//
+// Naming the boundary makes the destructive case impossible rather than merely discouraged.
+const RECORD_OWNED = new Set([
+  // recorded work
+  'issues', 'conditions', 'activity', 'assumptionSnapshots', 'icOverrides', 'artifacts',
+  'accessRequests', 'onelakeFilings', 'workstreams', 'workspace', 'threads', 'contributions',
+  // state the firm has moved on
+  'stage', 'stageName', 'status', 'team', 'tags', 'region', 'groupIds', 'teamsChannel',
+  'icReadinessMark', 'canonicalId',
+]);
+
+// Apply the fixture to a live deal without touching anything the record owns.
+function applyFixture(live, demo) {
+  const next = clone(demo);
+  for (const k of RECORD_OWNED) {
+    if (k in live) next[k] = live[k]; else delete next[k];
+  }
+  return next;
+}
+
+export function resyncSeededDeals({ persona = null, mode = 'rules' } = {}) {
   const when = new Date().toISOString();
   const who = persona ? `Administrator (${persona})` : 'Administrator';
   const applied = [];
+  // 'rules' refreshes what the fixture owns and leaves the record alone. 'full' is the old
+  // behaviour and is what the confirmation on the route is for.
+  const wipe = mode === 'full';
   for (const demo of seededDeals) {
     const i = deals.findIndex((d) => d.id === demo.id);
-    const dd = clone(demo);
+    const live = i >= 0 ? deals[i] : null;
+    const dd = live && !wipe ? applyFixture(live, demo) : clone(demo);
     attachWorkspaces([dd]);
-    dd.activity = [
-      // The audit trail is the one surface whose whole value is being defensible to a
-      // compliance reader. A repo path in it says the record is a developer artefact.
-      { actor: who, action: 'Deal reset to its starting state. Anything recorded against this deal before now was discarded.', when },
-      ...(Array.isArray(dd.activity) ? dd.activity : []),
-    ];
+    if (wipe) {
+      dd.activity = [
+        // The audit trail is the one surface whose whole value is being defensible to a
+        // compliance reader. A repo path in it says the record is a developer artefact.
+        { actor: who, action: 'Deal reset to its starting state. Anything recorded against this deal before now was discarded.', when },
+        ...(Array.isArray(dd.activity) ? dd.activity : []),
+      ];
+    }
     if (i >= 0) deals[i] = dd; else deals.push(dd);
     persistDeal(dd);
     applied.push(dd.id);
   }
   reseedSequences();
-  return { applied: applied.length, ids: applied, mode: repoMode() };
+  return { applied: applied.length, ids: applied, mode: repoMode(), wiped: wipe };
 }
 
 export function getDeal(id) {

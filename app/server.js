@@ -2397,13 +2397,17 @@ api.post('/admin/reseed-demo-deals', (req, res) => {
   const access = requireAdmin(req, res);
   if (!access) return;
   if (!demoProfilesEnabled) return res.status(409).json({ error: 'this deployment is not a demo (DEMO_PROFILES is off) — refusing to overwrite deal records with fixture content' });
-  if (req.body?.confirm !== 'replace-demo-deals') {
+  // Two instruments, because there were two jobs and only the destructive one existed.
+  // Refreshing what the fixture describes is routine and safe; discarding what the firm has
+  // recorded is neither, and only that one needs the confirmation.
+  const wipe = req.body?.mode === 'full';
+  if (wipe && req.body?.confirm !== 'replace-demo-deals') {
     return res.status(400).json({
       error: 'confirmation required',
-      detail: 'This replaces every showcase deal record with the demo fixture and discards anything recorded against them. Re-send with { "confirm": "replace-demo-deals" }.',
+      detail: 'Mode "full" replaces every showcase deal record with the demo fixture and discards anything recorded against them. Re-send with { "mode": "full", "confirm": "replace-demo-deals" }, or omit the mode to refresh the fixture and keep the record.',
     });
   }
-  const out = resyncSeededDeals({ persona: access.role || null });
+  const out = resyncSeededDeals({ persona: access.role || null, mode: wipe ? 'full' : 'rules' });
   res.json(out);
 });
 // Document templates / white-label branding (persisted). The generators (officeRich.js)
