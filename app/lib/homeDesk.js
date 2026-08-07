@@ -1185,7 +1185,11 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
     suggestions.push(`Summarise my ${lane} findings across every deal`);
   } else if (seat.kind === 'committee') {
     if (icReady) suggestions.push('What is ready for the next IC?');
-    if (openObligations) suggestions.push('Which IC conditions are still open, and who owns them?');
+    // A suggested question the product then asks you to clarify is a dead end. Offered
+    // from the home page with no deal in focus, this came back as "Which deal do you
+    // mean (company name or deal id)?" after nearly seven seconds. Ask across the book,
+    // which is answerable from the summaries the assistant already holds.
+    if (openObligations) suggestions.push(`Which of my ${openObligations === 1 ? 'deals has' : 'deals have'} IC conditions still open, and who owns them?`);
     if (notReadyDeal) suggestions.push(`Why is ${notReadyDeal.company} not ready?`);
     suggestions.push('What changed across my deals this week?');
   } else if (seat.kind === 'deal-lead') {

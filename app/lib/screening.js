@@ -381,9 +381,17 @@ const UNDERWRITTEN_GROWTH_CAP = 0.15;
 // with a number.
 const DEFAULT_GROWTH = 6;
 
-function paperLbo(c, { entryMult, leverageMult, ebitdaCagr, exitMult, evCap }) {
+function paperLbo(c, { entryMult, leverageMult, ebitdaCagr, exitDelta = 0, evCap, entryEV: recordedEV }) {
   const entryEbitda = Math.max(1, c.ebitda || 1);
-  const entryEV = entryEbitda * entryMult;
+  // The enterprise value on the record is a FACT; the multiple is a rounded display of it
+  // over EBITDA. Multiplying the rounded multiple back out bought the deal at a different
+  // price than the card showed — $814M against the $820M on Nordic's own header, $413M
+  // against $410M on Great Lakes — and Nordic is the second card on the attention list.
+  const entryEV = recordedEV > 0 ? recordedEV : entryEbitda * entryMult;
+  // The multiple the model is actually struck on, unrounded, so the value bridge can
+  // decompose the equity gain without a residue.
+  const entryMultEff = entryEV / entryEbitda;
+  const exitMult = entryMultEff + exitDelta;
   // The sector's own ceiling, not one number for the whole book.
   const cap = Math.min(evCap ?? MAX_DEBT_TO_EV, MAX_DEBT_TO_EV);
   const debt = Math.min(entryEbitda * leverageMult, entryEV * cap);
@@ -406,7 +414,7 @@ function paperLbo(c, { entryMult, leverageMult, ebitdaCagr, exitMult, evCap }) {
     // waterfall disagreed by up to $39M on the same deal, on adjacent screens.
     debtAtExit: Math.round(debtAtExit), debtRepaid: Math.round(debt - debtAtExit),
     exitEbitda: Math.round(exitEbitda), exitEV: Math.round(exitEV), equityOut: Math.round(equityOut),
-    entryMult, exitMult,
+    entryMult: entryMultEff, exitMult,
     moic: +moic.toFixed(2), irr: +(irr * 100).toFixed(1)
   };
 }
@@ -444,10 +452,13 @@ export function buildReturns(c) {
   // The quantum this business can carry, decided from what it is rather than from a
   // constant. The scenarios move around it: a lender offers less in the downside.
   const credit = creditProfile(c);
+  // All three scenarios buy the same company at the same price; what differs is the debt
+  // offered and where it exits.
+  const boughtAt = c.dealSize > 0 ? c.dealSize : null;
   const scenarios = {
-    downside: paperLbo(c, { entryMult: baseMult, leverageMult: Math.max(2, credit.turns - 0.5), ebitdaCagr: Math.max(0, g - 0.04), exitMult: baseMult - 1, evCap: credit.evCap }),
-    base: paperLbo(c, { entryMult: baseMult, leverageMult: credit.turns, ebitdaCagr: g, exitMult: baseMult, evCap: credit.evCap }),
-    upside: paperLbo(c, { entryMult: baseMult, leverageMult: credit.turns + 0.5, ebitdaCagr: g + 0.04, exitMult: baseMult + 1, evCap: credit.evCap })
+    downside: paperLbo(c, { entryMult: baseMult, entryEV: boughtAt, leverageMult: Math.max(2, credit.turns - 0.5), ebitdaCagr: Math.max(0, g - 0.04), exitDelta: -1, evCap: credit.evCap }),
+    base: paperLbo(c, { entryMult: baseMult, entryEV: boughtAt, leverageMult: credit.turns, ebitdaCagr: g, exitDelta: 0, evCap: credit.evCap }),
+    upside: paperLbo(c, { entryMult: baseMult, entryEV: boughtAt, leverageMult: credit.turns + 0.5, ebitdaCagr: g + 0.04, exitDelta: 1, evCap: credit.evCap })
   };
   const meetsHurdle = !entryAboveCeiling && scenarios.base.irr >= 20 && scenarios.base.moic >= 2.0;
   const entryEbitda = Math.max(1, c.ebitda || 1);

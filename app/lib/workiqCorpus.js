@@ -231,7 +231,15 @@ function laneReport(rand, deal, w) {
 function commitmentMessage(rand, deal, w) {
   const v = voiceFor(w.lane);
   const who = speaker(w.owner, w.lane);
-  const when = pick(rand, ['by Thursday', 'by Friday', 'by end of Monday', 'in 3 days', 'next week']);
+  // A promise is dated against the thing that is chasing it. Where a committee is close
+  // the date is tight; where it is far off people say next week. Drawn from the deal, so
+  // the spread across the book looks like a book rather than like one dice roll.
+  const toIc = icPending(deal) ? daysUntil(deal.targetICDate) : null;
+  const when = toIc != null && toIc >= 0 && toIc <= 7
+    ? pick(rand, ['tomorrow', 'by Wednesday', 'in the next 48 hours', 'before the pack closes'])
+    : toIc != null && toIc >= 0 && toIc <= 21
+      ? pick(rand, ['by Thursday', 'by Friday', 'in 3 days', 'by end of Monday', 'early next week'])
+      : pick(rand, ['next week', 'by the end of the month', 'in the next fortnight', 'once the data room lands', 'by end of Monday']);
   // There were three phrasings here. Four follow-ups on the home page — three different
   // companies, three different teams — opened with the same eleven words, because the
   // lane furthest behind is so often the financial one that they all drew the same
@@ -249,7 +257,10 @@ function commitmentMessage(rand, deal, w) {
     `That one's mine \u2014 I'll send the ${v.artefact} ${when}, and I'm flagging now that ${v.risk} is what could move the date.`,
     `I'll own ${laneLabel(w.lane)} through to sign-off and confirm the date in here ${when}.`,
   ]);
-  return { from: who.name, personaId: who.id, created: at(1, 9, 25), preview: text };
+  // Spread over the last three working days and across the working day, from the same
+  // seeded generator, so the same deal always renders the same time.
+  const daysAgo = 1 + Math.floor(rand() * 3);
+  return { from: who.name, personaId: who.id, created: at(daysAgo, 8 + Math.floor(rand() * 9), Math.floor(rand() * 60)), preview: text };
 }
 
 function decisionMessage(rand, deal) {

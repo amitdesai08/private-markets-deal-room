@@ -13,7 +13,7 @@
 //   D4 Approval    -> Execution Pack (IC decision, SPA terms, conditions precedent, funds flow)
 //   D5 Archive     -> Close-out & 100-Day Plan (value creation, governance, records)
 
-import { buildReturns, paperLbo, screeningMultiple } from './screening.js';
+import { buildReturns, paperLbo, screeningMultiple, creditProfile } from './screening.js';
 import { money as fmtMoney, symbolFor } from './money.js';
 import { ownerLabel } from './cockpit.js';
 
@@ -893,13 +893,19 @@ export function buildReturnsModel(deal) {
   const shownMult = canon?.entryMultiple ?? r.entryMultiple;
   const entryMult = r.entryMultiple;
   const cagrRows = [g - 0.03, g, g + 0.03];
-  const exitCols = [entryMult - 1, entryMult, entryMult + 1];
+  // The grid has to contain the deal, so it is struck on the same purchase price and the
+  // same credit terms as the base case, and its columns are turns either side of the
+  // multiple the model is ACTUALLY entered at rather than a rounded display of it.
+  const boughtAt = cand.dealSize > 0 ? cand.dealSize : null;
+  const credit = creditProfile(cand);
+  const effMult = boughtAt && cand.ebitda > 0 ? boughtAt / cand.ebitda : entryMult;
+  const exitDeltas = [-1, 0, 1];
   const sensitivity = {
     rowLabel: 'EBITDA CAGR', colLabel: 'Exit EV/EBITDA',
-    cols: exitCols.map((m) => `${m.toFixed(1)}x`),
+    cols: exitDeltas.map((d) => `${(effMult + d).toFixed(1)}x`),
     rows: cagrRows.map((cg) => ({
       cagr: `${(cg * 100).toFixed(0)}%`,
-      irr: exitCols.map((xm) => paperLbo(cand, { entryMult, leverageMult: lev, ebitdaCagr: cg, exitMult: xm }).irr),
+      irr: exitDeltas.map((d) => paperLbo(cand, { entryMult, entryEV: boughtAt, leverageMult: lev, ebitdaCagr: cg, exitDelta: d, evCap: credit.evCap }).irr),
     })),
   };
   return {

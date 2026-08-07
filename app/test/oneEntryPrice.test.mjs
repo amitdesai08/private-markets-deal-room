@@ -103,3 +103,44 @@ test('the committee case quotes the deal\'s own entry price', () => {
   }
   assert.ok(checked > 0, 'the case never exposed an entry multiple, so this asserted nothing');
 });
+
+// The model bought at EBITDA times the ROUNDED multiple, so it paid a different price
+// than the card showed: $814M against the $820M on Nordic's own header, $413M against
+// $410M on Great Lakes. The enterprise value on the record is a fact; the multiple is a
+// rounded display of it over EBITDA, and it is the display that has to give way.
+import { buildReturnsModel } from '../lib/diligence.js';
+
+test('the model buys at the enterprise value on the record', () => {
+  let checked = 0;
+  for (const d of priced) {
+    if (!(d.dealSize > 0)) continue;
+    const r = buildReturnsModel(d);
+    const base = (r.scenarios || []).find((s) => /base/i.test(s.name));
+    if (!base) continue;
+    checked += 1;
+    assert.ok(
+      Math.abs(base.entryEV - d.dealSize) <= 1,
+      `${d.company}: the card says ${d.dealSize} and the model funds ${base.entryEV}`,
+    );
+  }
+  assert.ok(checked >= 10, `only ${checked} deals were checked`);
+});
+
+// A sensitivity grid whose nine cells do not include the deal is nine wrong answers: one
+// grid was struck on a different growth rate and a different leverage than the base case,
+// so its LOWEST cell read 38.6% against a base of 33.3%.
+test('the sensitivity grid contains the deal it is sensitising', () => {
+  let checked = 0;
+  for (const d of priced) {
+    const r = buildReturnsModel(d);
+    const base = (r.scenarios || []).find((s) => /base/i.test(s.name));
+    const mid = r.sensitivity?.rows?.[1]?.irr?.[1];
+    if (!base || mid == null) continue;
+    checked += 1;
+    assert.ok(
+      Math.abs(mid - base.irr) <= 0.2,
+      `${d.company}: the grid's centre cell is ${mid}% and the base case is ${base.irr}%`,
+    );
+  }
+  assert.ok(checked >= 10, `only ${checked} grids were checked`);
+});
