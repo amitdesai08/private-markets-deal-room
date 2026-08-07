@@ -205,7 +205,71 @@ function persistCand(c) { durableWrite(`cand ${c.id}`, () => coRepo.upsert({ ...
 function persistSignal(c) { durableWrite(`signal ${c.id}`, () => sigRepo.upsert({ ...c, kind: 'signal' })); }
 // Deal transition functions with external side effects (launchDeal / runStep) use
 // this durable in-place persist; all pure deal mutations go through mutateDeal.
-function persistDeal(d) { durableWrite(`deal ${d.id}`, () => dealRepo.upsert(d)); }
+// THE RECORD IS ITS OWN DOCUMENT.
+//
+// A deal held the fixture and the work in one object, so replacing the fixture destroyed
+// the work — twenty-one findings on production that were never in the fixture. Naming the
+// boundary in a list fixed the symptom; this makes it structural. The fixture path writes
+// the deal document and physically cannot reach the record.
+//
+// Only work PRODUCTS move. `stage`, `team` and `tags` are properties of the deal that
+// happen to change, and they stay on it.
+const RECORD_FIELDS = ['issues', 'conditions', 'activity', 'assumptionSnapshots', 'icOverrides'];
+const recordIdFor = (dealId) => `deal-record:${dealId}`;
+export const isDealRecord = (doc) => doc?.kind === 'deal-record';
+
+function splitDeal(d) {
+  const deal = { ...d };
+  const record = { id: recordIdFor(d.id), kind: 'deal-record', dealId: d.id };
+  for (const f of RECORD_FIELDS) {
+    if (f in deal) { record[f] = deal[f]; delete deal[f]; }
+  }
+  return { deal, record };
+}
+
+// A deal doc written before the split still carries its work inline, so a missing record
+// leaves those fields alone rather than blanking them. Migration is the first write.
+function joinDeal(deal, record) {
+  if (!record) return deal;
+  const out = { ...deal };
+  for (const f of RECORD_FIELDS) if (f in record) out[f] = record[f];
+  return out;
+}
+
+// Records first: a deal doc that has been stripped is only safe once its record exists.
+function persistDeal(d) {
+  const { deal, record } = splitDeal(d);
+  durableWrite(`record ${d.id}`, () => dealRepo.upsert(record));
+  durableWrite(`deal ${d.id}`, () => dealRepo.upsert(deal));
+}
+
+// The deal as the rest of the code expects it — fixture and record composed.
+function composeDeals(docs) {
+  const records = new Map();
+  const plain = [];
+  for (const doc of docs) {
+    if (isDealRecord(doc)) records.set(doc.dealId, doc); else plain.push(doc);
+  }
+  return plain.map((d) => joinDeal(d, records.get(d.id)));
+}
+
+// The two documents as they are actually stored, so a test can look rather than infer.
+export function dealDocFor(id) {
+  const live = getDealRaw(id);
+  return live ? splitDeal(live).deal : null;
+}
+export function recordDocFor(id) {
+  const live = getDealRaw(id);
+  return live ? splitDeal(live).record : null;
+}
+
+async function loadDeal(id) {
+  const [deal, record] = await Promise.all([
+    dealRepo.get(id),
+    dealRepo.get(recordIdFor(id)).catch(() => null),
+  ]);
+  return deal ? joinDeal(deal, record) : null;
+}
 function logEvent(companyId, type, detail) { durableWrite(`event ${type}`, () => recordEvent({ companyId, type, detail })); }
 
 function upsertDealCache(doc) {
@@ -223,14 +287,18 @@ function upsertDealCache(doc) {
 async function mutateDeal(id, reducer) {
   const ATTEMPTS = 5;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-    let fresh = repoReady() ? await dealRepo.get(id).catch(() => null) : null;
+    let fresh = repoReady() ? await loadDeal(id).catch(() => null) : null;
     if (!fresh) fresh = getDealRaw(id) || null;
     if (!fresh) return { error: 'not-found' };
     ensureFirstClassLanes(fresh);
     const meta = reducer(fresh);
     if (meta && meta.error) return meta;
     try {
-      const written = await dealRepo.saveConcurrent(fresh);
+      // The record rides alongside, so a concurrent write cannot silently drop it.
+      const { deal: bare, record } = splitDeal(fresh);
+      bare._etag = fresh._etag;
+      durableWrite(`record ${id}`, () => dealRepo.upsert(record));
+      const written = joinDeal(await dealRepo.saveConcurrent(bare), record);
       upsertDealCache(written);
       if (meta && meta.event) logEvent(written.id, meta.event, meta.detail);
       return { ...(meta || {}), ok: true, deal: derive(written) };
@@ -255,7 +323,7 @@ function startBackgroundSync() {
       const [cos, ds, sig] = await Promise.all([coRepo.list(), dealRepo.list(), sigRepo.list()]);
       desk = cos.filter((c) => c.kind === 'desk');
       candidates = cos.filter((c) => c.kind === 'candidate');
-      deals = attachWorkspaces(ds);
+      deals = attachWorkspaces(composeDeals(ds));
       signalCompanies = sig;
     } catch { /* transient; the next tick retries */ }
   }, TTL);
@@ -289,7 +357,7 @@ export async function hydrate() {
     desk = cos.filter((c) => c.kind === 'desk');
     candidates = cos.filter((c) => c.kind === 'candidate');
     const ds = await dealRepo.list();
-    deals = attachWorkspaces(ds);
+    deals = attachWorkspaces(composeDeals(ds));
     // Overlay of demo governance (deal team + confidential) is applied inside
     // attachWorkspaces above, so it survives the periodic Cosmos background sync.
     // Seed any missing showcase deals (insert by id, never clobbering progress). A deal

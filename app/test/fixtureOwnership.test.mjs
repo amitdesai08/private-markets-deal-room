@@ -68,3 +68,36 @@ test('a fixture refresh never changes how many deals there are', () => {
   assert.equal(listDeals(null, 'partner').length, before,
     'a fixture refresh added or removed deals — promoted candidates are not the fixture\'s to delete');
 });
+
+// THE BOUNDARY IS THE DOCUMENT NOW, NOT A LIST I HAVE TO MAINTAIN.
+//
+// RECORD_OWNED made the destructive case impossible as long as somebody kept the list
+// current. Work products live in their own document instead: the fixture path writes the
+// deal and cannot reach the record, whatever anybody forgets to add to a list.
+test('a deal document carries no work products once it has been written', async () => {
+  const { recordDocFor, dealDocFor } = await import('../lib/store.js');
+  const id = seededDeals[0].id;
+  await recordIssue(id, { lane: 'commercial', title: 'lives in the record', severity: 'caution' });
+
+  const deal = dealDocFor(id);
+  const record = recordDocFor(id);
+  assert.ok(record, 'no record document was written for the deal');
+  assert.equal(record.kind, 'deal-record', 'the record is not marked as one');
+  assert.equal(record.dealId, id, 'the record does not name its deal');
+
+  for (const field of ['issues', 'conditions', 'activity', 'assumptionSnapshots', 'icOverrides']) {
+    assert.ok(!(field in deal), `${field} is still on the deal document`);
+  }
+  assert.ok((record.issues || []).some((i) => i.title === 'lives in the record'),
+    'the finding did not reach the record document');
+});
+
+test('the composed deal still looks exactly as the rest of the code expects', async () => {
+  const id = seededDeals[0].id;
+  await recordIssue(id, { lane: 'legal', title: 'still readable through getDealRaw', severity: 'caution' });
+  const d = getDealRaw(id);
+  assert.ok(Array.isArray(d.issues), 'issues are no longer readable on the deal');
+  assert.ok(d.issues.some((i) => i.title === 'still readable through getDealRaw'),
+    'a finding written after the split is not visible where every caller reads it');
+  assert.ok(Array.isArray(d.activity), 'the activity trail is no longer readable on the deal');
+});
