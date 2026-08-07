@@ -167,3 +167,31 @@ test('previewing a seat shows what that seat would be shown', async () => {
       `${id} reads ${under} to someone previewing a member and ${real} to a member`);
   }
 });
+
+// SIGNING IN AND CHOOSING WHO TO BE ARE DIFFERENT ACTS, AND BOTH HAVE TO TRAVEL.
+//
+// Forwarding the SSO token was right and it silently ended the showcase: the verified token
+// is the SIGNED-IN person, so it won every time and switching persona in Teams changed
+// nothing on screen. The seat had been riding in x-dr-user, which stopped counting the day
+// assertions stopped counting — so the fix for one thing removed the other, and the symptom
+// was reported as 'the personas do not switch' rather than as an access change.
+test('the tab sends both who you are and who you are looking through', () => {
+  const src = readFileSync(new URL('../../teams-app/server/index.js', import.meta.url), 'utf8');
+  const bearer = (src.match(/headers\.authorization = `Bearer \$\{ssoToken\}`/g) || []).length;
+  const seat = (src.match(/headers\['x-dr-demo-as'\] = asOverride/g) || []).length;
+  assert.ok(bearer >= 2, `only ${bearer} proxies forward the verified token`);
+  assert.ok(seat >= bearer, `${bearer} proxies forward the token and only ${seat} forward the chosen persona`);
+});
+
+// And the orchestrator has to honour it, for a caller that has proved BOTH.
+test('a verified person may look through a roster persona, and a browser may not', async () => {
+  const { describeDemoProfiles } = await import('../lib/userPolicy.js');
+  if (!describeDemoProfiles().length) { assert.ok(true, 'no roster in this run'); return; }
+  const srv = readFileSync(new URL('../server.js', import.meta.url), 'utf8');
+  // Gated on the app's proof, on demo mode, and on a real identity already being present —
+  // so it is not something a browser can ask for on its own.
+  assert.match(srv, /if \(actAs && provenApp && demoProfilesEnabled && req\.drVerified && !req\.drVerified\.walkthrough\)/,
+    'the acting-as seat is no longer gated on a verified identity and the app’s proof');
+  assert.match(srv, /req\.drActual = req\.drVerified;/,
+    'the real person is no longer kept alongside the persona they are viewing as');
+});

@@ -270,8 +270,11 @@ async function forwardChat(path, req, res) {
     ? { oid: asOverride, upn: asOverride, name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : null);
   const headers = { 'content-type': 'application/json' };
-  // Same rule as forwardWithIdentity: no identity, no key, no seat.
+  // Same rule as forwardWithIdentity: no identity, no key, no seat — and the same two
+  // facts, or the assistant answers as a different person than the screen beside it.
   if (config.backend.botKey && requestingUser) headers['x-bot-key'] = config.backend.botKey;
+  if (identity && ssoToken) headers.authorization = `Bearer ${ssoToken}`;
+  if (identity && asOverride) headers['x-dr-demo-as'] = asOverride;
   const body = { ...(req.body || {}) };
   delete body.ssoToken; delete body.as;
   body.requestingUser = requestingUser;
@@ -464,6 +467,11 @@ async function forwardWithIdentity(req, res) {
   //
   // The token is the identity. The orchestrator checks the same signature we did.
   if (identity && ssoToken) headers.authorization = `Bearer ${ssoToken}`;
+  // ...and the persona the signed-in person has chosen to look through, which is a separate
+  // act. Forwarding the token alone meant the verified user won every time and a switch in
+  // Teams changed nothing — the seat used to ride in x-dr-user, which stopped counting when
+  // assertions did. Roster-checked at both ends.
+  if (identity && asOverride) headers['x-dr-demo-as'] = asOverride;
   // A walkthrough visitor has no directory account, so there is nothing to forward that the
   // orchestrator should believe. Present the credential the DEPLOYMENT holds instead: the
   // backend reads it from its own secret store and answers a named, read-only seat. An

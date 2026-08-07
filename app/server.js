@@ -413,6 +413,26 @@ api.use(async (req, _res, next) => {
     const profile = describeDemoProfiles().find((x) => x.id === who);
     if (profile) req.drVerified = { oid: profile.id, upn: profile.id, name: profile.name, roles: [], groups: [], verified: true, walkthrough: true };
   }
+  // SIGNING IN AND CHOOSING WHO TO BE ARE DIFFERENT ACTS.
+  //
+  // Forwarding the SSO token was right, and it silently ended the showcase: the verified
+  // token is the SIGNED-IN person, so it won every time and a persona switch in Teams
+  // changed nothing. The seat had been carried in `x-dr-user`, which stopped counting the
+  // day assertions stopped counting.
+  //
+  // A demo deployment lets a signed-in person look through a roster persona's eyes. It
+  // needs the app's proof AND a real identity behind it, so it is not something a browser
+  // can ask for on its own — and because a real person is present and accountable, this
+  // seat may write, unlike the credential-only walkthrough above.
+  const provenApp = !BOT_BACKEND_KEY || req.headers['x-bot-key'] === BOT_BACKEND_KEY;
+  const actAs = String(req.headers['x-dr-demo-as'] || '').trim();
+  if (actAs && provenApp && demoProfilesEnabled && req.drVerified && !req.drVerified.walkthrough) {
+    const profile = describeDemoProfiles().find((x) => x.id === actAs);
+    if (profile) {
+      req.drActual = req.drVerified;
+      req.drVerified = { oid: profile.id, upn: profile.id, name: profile.name, roles: [], groups: [], verified: true, actingAs: profile.id };
+    }
+  }
   next();
 });
 
