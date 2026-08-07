@@ -16,7 +16,7 @@
 // at all until someone timed it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { needsSpecialists } from '../lib/purposeAgent.js';
+import { needsSpecialists, pickSpecialists } from '../lib/purposeAgent.js';
 
 // The questions the product itself puts on screen as suggestion chips, plus the ones a
 // partner actually asks. None of these needs a specialist.
@@ -68,5 +68,36 @@ test('the router actually discriminates', () => {
 test('an empty or absent message never buys a hosted-agent turn', () => {
   for (const q of ['', '   ', null, undefined]) {
     assert.equal(needsSpecialists(q), false, `"${q}" escalated`);
+  }
+});
+
+// WHICH specialist, decided here too. The routing turn was a model call costing 23-28
+// seconds to emit one line naming slugs — the largest single phase of the deep path, and
+// the only one that produced no analysis.
+test('the question picks its own specialists', () => {
+  const cases = [
+    ['Analyse the LBO sensitivity on Atlas.', 'modeling'],
+    ['Draft the IC memo for Nordic Grocery Group.', 'ic-memo'],
+    ['Build the 100-day value-creation plan for Helvetia.', 'value-creation'],
+    ['Produce a red-flag diligence summary for Baltic.', 'diligence'],
+    ['Compare the precedent comps for Cascadia and recommend a price.', 'screening'],
+  ];
+  for (const [q, want] of cases) {
+    const got = pickSpecialists(q);
+    assert.ok(got.includes(want), `"${q}" routed to [${got}] and not to ${want}`);
+  }
+});
+
+test('a question that stays on the fast path consults nobody', () => {
+  for (const q of FAST) assert.deepEqual(pickSpecialists(q), [], `"${q}" summoned a specialist`);
+});
+
+// The cap exists for latency: specialists run in parallel but the slowest one sets the
+// floor, and each is 24-30 seconds.
+test('no question fans out beyond the cap, and none that earns the path gets nobody', () => {
+  for (const q of SLOW) {
+    const got = pickSpecialists(q);
+    assert.ok(got.length >= 1, `"${q}" earned the slow path and was sent to nobody`);
+    assert.ok(got.length <= 2, `"${q}" fans out to ${got.length} specialists`);
   }
 });

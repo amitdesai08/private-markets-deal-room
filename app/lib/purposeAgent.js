@@ -202,42 +202,6 @@ function baseContext({ scope, focusId, focusCompany, lens, identity, viewAsRole 
   ];
 }
 
-// ---- routing: one orchestrator call decides delegate-vs-answer ---------------
-function buildRouteInput(ctx, message) {
-  return [
-    ...baseContext(ctx),
-    '',
-    'You are the Deal Room orchestrator. Decide whether you can answer this request directly, or',
-    'whether it needs one or more STAGE SPECIALISTS. The specialists are:',
-    '  sourcing (Stage 1 · find/qualify targets) · screening (Stage 1-2 · mandate fit, comps, unit economics)',
-    '  diligence (Stage 2 · workstreams, red-flag risks) · modeling (Stage 2-3 · LBO/DCF/returns & sensitivity)',
-    '  ic-memo (Stage 3 · IC memo/deck, citation audit) · value-creation (Stage 4 · 100-day plan, portfolio monitoring).',
-    '',
-    'Your FIRST line MUST be exactly one of:',
-    '  ROUTE: none            (you will answer directly — put the full grounded answer AFTER this line)',
-    `  ROUTE: <slug[,slug]>   (delegate; pick 1-${MAX_SPECIALISTS} of: ${SPECIALIST_KEYS.join(', ')})`,
-    'Prefer answering directly for simple lookups, status and "what can you do" questions. Delegate only when a',
-    "specialist's depth clearly helps. Do not invent data.",
-    '',
-    `USER REQUEST: ${message}`,
-  ].join('\n');
-}
-
-function parseRoute(text) {
-  const firstLine = (text || '').split('\n', 1)[0] || '';
-  const m = firstLine.match(/^\s*ROUTE:\s*(.+?)\s*$/i);
-  if (!m) return { specialists: [], answer: text }; // no control line — treat whole thing as the answer
-  const rest = text.slice(firstLine.length).replace(/^\n/, '');
-  const raw = m[1].toLowerCase();
-  if (/\bnone\b/.test(raw)) return { specialists: [], answer: rest || text };
-  const specialists = raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => SPECIALIST_KEYS.includes(s));
-  if (!specialists.length) return { specialists: [], answer: rest || text };
-  return { specialists: specialists.slice(0, MAX_SPECIALISTS), answer: '' };
-}
-
 // The orchestrator sometimes echoes the `ROUTE: ...` convention on the compose turn
 // (it inherits the routing turn's context) — strip a stray leading control line so it
 // never leaks into the user-facing answer.
@@ -340,6 +304,37 @@ const NAMES_A_DISCIPLINE = /\b(lbo|returns?|sensitivit|irr|moic|leverage|memo|de
 // The stems here are deliberately open-ended (`analys` catches analyse/analysis/analyst),
 // so there is no trailing word boundary — one would stop `analys` matching "Analyse".
 const ASKS_FOR_DEPTH = /\b(walk me through|deep[- ]?dive|analys|analyz|assess|build|draft|produce|write|compare|evaluat|recommend|explain why|make the case)/i;
+// WE WERE PAYING A TWENTY-FIVE SECOND MODEL CALL TO CHOOSE FROM SIX SLUGS.
+//
+// Measured phase breakdown of the deep path, two runs:
+//   route  23.3s / 28.2s   <- produces one line: "ROUTE: modeling,diligence"
+//   specialists (parallel) 30.2s / 23.8s
+//   compose 10.8s / 13.7s
+//
+// The routing turn was the largest single phase and the only one that produced no
+// analysis. The same choice is made here from the words in the question, in under a
+// millisecond, and a keyword match is at least as good at picking between six fixed
+// slugs as a language model is.
+const SPECIALIST_SIGNALS = [
+  ['modeling', /\b(lbo|returns?|irr|moic|sensitivit|leverage|debt|equity cheque|waterfall|model|entry multiple|valuation|price)\b/i],
+  ['diligence', /\b(diligence|dd\b|workstream|red[- ]?flag|risk|finding|qoe|quality of earnings|kill|issue|lane)\b/i],
+  ['ic-memo', /\b(memo|deck|paper|pack|citation|audit|committee submission|write[- ]?up|recommendation)\b/i],
+  ['value-creation', /\b(value[- ]creation|100[- ]?day|lever|post[- ]close|operating plan|synerg|bolt[- ]?on|ebitda uplift)\b/i],
+  ['screening', /\b(screen|mandate|fit|comps?|precedent|unit economics|triage|gate)\b/i],
+  ['sourcing', /\b(sourcing|origination|target|pipeline of|find (me )?(new )?(deals|companies)|funnel)\b/i],
+];
+
+// Which specialists a question actually calls for. Empty means nobody: the caller then
+// stays on the fast path.
+export function pickSpecialists(text) {
+  const s = String(text || '');
+  if (!needsSpecialists(s)) return [];
+  const hits = SPECIALIST_SIGNALS.filter(([, re]) => re.test(s)).map(([slug]) => slug);
+  // Ordered by how specific the signal is, so a question mentioning both a model and a
+  // risk gets the modeller first. Capped for the same reason the cap existed before.
+  return (hits.length ? hits : ['diligence']).slice(0, MAX_SPECIALISTS);
+}
+
 export function needsSpecialists(text) {
   const s = String(text || '');
   // Depth in a named discipline is the only thing a specialist gives that the fast path
@@ -405,32 +400,26 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
     return fast && fast.reply ? { ...fast, reply: withoutPlumbing(fast.reply), orchestration: 'direct' } : fast;
   }
 
+  const phase = {};
+  const clock = async (name, fn) => { const t0 = Date.now(); try { return await fn(); } finally { phase[name] = Date.now() - t0; } };
   try {
-    // 1) Route.
-    const routed = await invokeAgent(ORCHESTRATOR_AGENT, buildRouteInput(ctx, text), previousResponseId);
-    const { specialists, answer } = parseRoute(routed.text);
-
-    // Direct answer — no delegation needed.
-    if (!specialists.length) {
-      const reply = grounded(withoutPlumbing(stripControlLine(answer || routed.text)), focusId);
-      if (!reply) throw new Error('empty orchestrator reply');
-      return {
-        reply,
-        citations: [],
-        source: 'live',
-        scope: effScope,
-        dealId: focusId,
-        responseId: routed.responseId,
-        orchestration: 'purpose',
-        agentsUsed: [ORCHESTRATOR_AGENT],
-      };
-    }
+    // 1) Route — locally. This was a model call costing a quarter of a minute to emit
+    // one line naming which specialists to use.
+    const t0 = Date.now();
+    const specialists = pickSpecialists(text);
+    phase.route = Date.now() - t0;
 
     // 2) Consult the chosen specialists in parallel.
-    const findings = await Promise.all(specialists.map((slug) => consultSpecialist(slug, ctx, text)));
+    const findings = await clock('specialists', () => Promise.all(specialists.map((slug) => clock(`specialist:${slug}`, () => consultSpecialist(slug, ctx, text)))));
 
-    // 3) Compose the final answer.
-    const composed = await composeAnswer(ctx, text, findings, routed.responseId);
+    // 3) Compose — only when there is something to compose. With one specialist the
+    // "synthesis" was a pass-through that cost 13.7 seconds to restate a single finding.
+    const usable = findings.filter((f) => f && f.text && f.text.trim());
+    const single = usable.length === 1;
+    const composed = single
+      ? { text: usable[0].text, responseId: usable[0].responseId }
+      : await clock('compose', () => composeAnswer(ctx, text, findings, previousResponseId));
+    if (single) phase.compose = 0;
     const reply = grounded(withoutPlumbing(stripControlLine(composed.text)), focusId);
     if (!reply) throw new Error('empty composed reply');
     return {
@@ -441,7 +430,8 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
       dealId: focusId,
       responseId: composed.responseId,
       orchestration: 'purpose',
-      agentsUsed: [ORCHESTRATOR_AGENT, ...specialists.map((s) => SPECIALISTS[s])],
+      timings: phase,
+      agentsUsed: specialists.map((s) => SPECIALISTS[s]),
     };
   } catch (err) {
     // Any hard failure degrades to the proven single-agent analyst chat.
