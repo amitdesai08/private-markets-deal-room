@@ -2283,9 +2283,16 @@ api.all('/capabilities', (req, res) => {
 // boundary performs, published next to the lock. A stranger gets the names to choose from.
 api.get('/demo-profiles', (req, res) => {
   const profiles = describeDemoProfiles();
-  if ((requestingFloor(req) || requestingViewAs(req)) !== 'anonymous') return res.json(profiles);
-  // The label still read "Michael Realman — The Architect — Administrator", so the seat
-  // ladder was published to the open internet next to the check that validates it.
+  // Proving you are the APP and proving who you are are different things, and the trim
+  // conflated them: once asserted identities stopped counting, the tab's own bootstrap call
+  // resolved as anonymous and the switcher rendered fourteen blank rows. To the reader the
+  // personas had simply gone.
+  //
+  // The app gets the whole roster because it has to draw the list before anyone has signed
+  // in. What is withheld from a caller that has proved nothing is the seat ladder — and
+  // that matters far less now that naming a seat grants nothing anyway.
+  const provenApp = !BOT_BACKEND_KEY || req.headers['x-bot-key'] === BOT_BACKEND_KEY;
+  if (provenApp || (requestingFloor(req) || requestingViewAs(req)) !== 'anonymous') return res.json(profiles);
   res.json(profiles.map((p) => ({ id: p.id, name: p.name })));
 });
 

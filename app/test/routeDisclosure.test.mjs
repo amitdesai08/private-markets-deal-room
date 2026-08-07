@@ -1042,3 +1042,28 @@ test('the fixture governs who may know a deal exists, on an environment that alr
   const missing = aware.map((d) => d.id).filter((id) => !seen.has(id));
   assert.deepEqual(missing, [], `marked visible to the firm and not listed to a member: ${missing.join(', ')}`);
 });
+
+// THE SWITCHER RENDERED FOURTEEN BLANK ROWS AND THE PERSONAS LOOKED GONE.
+//
+// Proving you are the APP and proving who you are are different things, and the trim on
+// this route conflated them. Once asserted identities stopped counting, the tab's own
+// bootstrap call resolved as anonymous, so it got {id, name} with no label — and the demo
+// switcher, which renders the label, showed fourteen empty entries.
+//
+// The app has to be able to draw the sign-in list before anyone has signed in. That is the
+// whole reason this route is reachable at all, and it is worth a test, because it broke in
+// a way that looked like data loss rather than like a permissions change.
+test('the app can always draw a usable sign-in list', async () => {
+  const { describeDemoProfiles } = await import('../lib/userPolicy.js');
+  if (!describeDemoProfiles().length) { assert.ok(true, 'no roster in this run'); return; }
+
+  const r = await fetch(`${base}/api/demo-profiles`, { headers: { 'x-bot-key': process.env.BOT_BACKEND_KEY } });
+  assert.equal(r.status, 200, `the app was refused the sign-in list (${r.status})`);
+  const rows = await r.json();
+  assert.ok(rows.length, 'the sign-in list is empty');
+  for (const p of rows) {
+    assert.ok(p.id, 'a profile has no id to sign in as');
+    // Whatever the switcher shows, it must have SOMETHING to show.
+    assert.ok(p.name || p.label, `${p.id} would render as a blank row`);
+  }
+});
