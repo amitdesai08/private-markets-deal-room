@@ -38,6 +38,7 @@ type HomeSeat = {
 type HomeDesk = {
   generatedAt: string;
   roleLabel?: string | null;
+  seatLabel?: string | null;
   seat?: HomeSeat | null;
   briefing: { generatedAt: string; paragraphs: Para[]; sources: string[]; suggestions: string[] };
   attention: HomeAttention[];
@@ -482,7 +483,7 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
                           see" and then, one line below, described the seat properly —
                           two answers to one question, the weaker one first. */}
                       {seatLine ? null
-                        : (home.roleLabel || roleLabel) ? ` · scoped to what a ${home.roleLabel || roleLabel} can see`
+                        : (home.seatLabel || home.roleLabel || roleLabel) ? ` · scoped to what a ${home.seatLabel || home.roleLabel || roleLabel} can see`
                         : ' · scoped to the deals you can see'}
                     </div>
                     {seatLine ? <div className="seatline">{seatLine}</div> : null}

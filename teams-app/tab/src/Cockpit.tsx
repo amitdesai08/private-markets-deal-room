@@ -27,7 +27,7 @@ type Milestone = {
 };
 type CockpitData = {
   company: string; stageName?: string | null; currentStep?: string | null;
-  confidential?: boolean; icInDays?: number | null; canWrite?: boolean; roleLabel?: string | null;
+  confidential?: boolean; icInDays?: number | null; canWrite?: boolean; roleLabel?: string | null; seatLabel?: string | null;
   briefing: { generatedAt: string; paragraphs: Para[]; sources: string[]; suggestions: string[] };
   attention: AttentionItem[];
   milestones: Milestone[];
@@ -180,7 +180,7 @@ export default function Cockpit({
                 {/* An administrator and an observer see every deal ranked the same way --
                     nothing weights the queue for them. The Home equivalent was corrected
                     for exactly this reason; the deal-level line still made the claim. */}
-                Ranked by urgency{data.roleLabel && !/administrator|observer/i.test(data.roleLabel) ? <> · weighted for <b>{data.roleLabel}</b></> : null}
+                Ranked by urgency{(data.seatLabel || data.roleLabel) && !/administrator|observer/i.test((data.seatLabel || data.roleLabel)) ? <> · weighted for <b>{(data.seatLabel || data.roleLabel)}</b></> : null}
                 {canWrite ? ' · AI-detected items are labelled' : <> · <b>read-only access</b> — actions hidden</>}
               </span>
             </div>
@@ -326,7 +326,7 @@ export default function Cockpit({
           <div className="card">
             <div className="hd"><h3>Your access</h3><Tag kind="live" /></div>
             <div className="bd sub">
-              {data.roleLabel || 'Deal team'} · {canWrite ? 'can act (writes attributed to you)' : 'read-only — actions withheld'}
+              {data.seatLabel || data.roleLabel || 'Deal team'} · {canWrite ? 'can act (writes attributed to you)' : 'read-only — actions withheld'}
               {data.confidential ? ' · 🔒 confidential deal, deal team only' : ''}
             </div>
           </div>
