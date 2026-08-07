@@ -448,6 +448,13 @@ async function forwardWithIdentity(req, res) {
   // what it is. This is the browser's request; the tab's own bootstrap calls still carry it.
   if (config.backend.botKey && requestingUser) headers['x-bot-key'] = config.backend.botKey;
   if (requestingUser) headers['x-dr-user'] = JSON.stringify(requestingUser);
+  // Forward the PROOF, not our reading of it. This verified the SSO token and then sent the
+  // orchestrator a JSON assertion, so a genuinely signed-in person arrived as somebody's
+  // word for it — and the moment the orchestrator stopped taking anybody's word, real users
+  // would have been the ones locked out while the walkthrough kept working.
+  //
+  // The token is the identity. The orchestrator checks the same signature we did.
+  if (identity && ssoToken) headers.authorization = `Bearer ${ssoToken}`;
   // A walkthrough visitor has no directory account, so there is nothing to forward that the
   // orchestrator should believe. Present the credential the DEPLOYMENT holds instead: the
   // backend reads it from its own secret store and answers a named, read-only seat. An
