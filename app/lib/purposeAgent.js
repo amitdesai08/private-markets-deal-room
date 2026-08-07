@@ -222,6 +222,8 @@ async function consultSpecialist(slug, ctx, message) {
     'Answer in this shape and nothing else:',
     '  Recommendation: <one line>',
     '  Why: at most THREE bullets, each carrying a figure from the record above.',
+    '        Say the figure in words a partner could forward. Never print a field name:',
+    '        write "the memo is 28% written", not "memoProgress: 28".',
     '  What would change it: one line.',
     'Hard limit 900 characters. Do not restate the question, do not summarise your own',
     'answer at the end, and do not describe your process. Quote the figures above exactly;',

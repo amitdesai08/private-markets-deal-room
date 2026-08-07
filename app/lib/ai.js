@@ -213,6 +213,33 @@ export function houseStyle(md) {
   s = s.replace(/(?<=\breturns |\bis |\bshows |=\s?)READY\b/g, 'ready for committee');
   // Raw field names in a sentence: "readiness 65, daysToIC = 9".
   s = s.replace(/\bdaysToIC\s*=?\s*(\d+)/g, 'IC is $1 days away');
+  // ...and the same fault for every other field, rather than one at a time. Asking the
+  // specialists for "a figure from the record" in each bullet pushed them into quoting the
+  // JSON keys back: "dealSize: $820M", "memoProgress: 28", "DiligenceProgress 54 /
+  // MemoProgress 68". A partner cannot forward that. Any camelCase identifier carrying a
+  // number is a field name, so it is said in words instead.
+  const FIELD_WORDS = {
+    dealsize: 'enterprise value', ebitdamargin: 'EBITDA margin', entrymultiple: 'entry multiple',
+    diligenceprogress: 'diligence is', memoprogress: 'the memo is', flowprogress: 'the workflow is',
+    memoapproved: 'memo sections approved', memototal: 'memo sections in total',
+    compliancecleared: 'compliance checks cleared', compliancetotal: 'compliance checks in total',
+    icreadiness: 'IC readiness', targeticdate: 'the target IC date', baselinedays: 'the baseline',
+    hourssaved: 'hours saved', projecteddayssaved: 'days saved',
+  };
+  const PERCENTAGE_FIELDS = /^(diligenceprogress|memoprogress|flowprogress)$/;
+  // Only where it is unmistakably a field: a colon or equals after it, or a name we know.
+  // Requiring one of those keeps `PitchBook 360ms` and `OneLake 12` out of it.
+  s = s.replace(/\b([A-Za-z]+(?:[A-Z][a-z]+)+|readiness)\b(\s*[:=]\s*|\s+)(?=[$£€]?\d)/g, (m, field, sep) => {
+    const key = field.toLowerCase();
+    const known = Object.prototype.hasOwnProperty.call(FIELD_WORDS, key) || key === 'readiness';
+    if (!known && !/[:=]/.test(sep)) return m;
+    const words = key === 'readiness' ? 'readiness is' : (FIELD_WORDS[key] || field.replace(/([A-Z])/g, ' $1').trim().toLowerCase());
+    return `${words} `;
+  });
+  // The percentage fields are shares, and the model prints them bare: "diligence is 54".
+  s = s.replace(/\b(diligence is|the memo is|the workflow is)\s+(\d{1,3})(?!\s*%)\b/gi, '$1 $2%');
+  // The percentage fields are shares, and the model prints them bare: "diligence is 54".
+  s = s.replace(/\b(diligence is|the memo is|the workflow is)\s+(\d{1,3})(?!\s*%)\b/gi, '$1 $2%');
   s = s.replace(/\bin_diligence\b/g, 'in diligence');
   s = s.replace(/\bIC IC\b/g, 'IC');
   // "swing the base-case toward >10x" -- a spreadsheet operator dropped into a
