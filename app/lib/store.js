@@ -303,6 +303,27 @@ export async function hydrate() {
       deals.push(dd);
       persistDeal(dd);
     }
+    // WHO MAY KNOW A DEAL EXISTS IS POLICY, NOT WORK IN PROGRESS.
+    //
+    // Insert-if-missing is right for the record and wrong for the rules: on any
+    // environment that has booted once, a change to these flags in the fixture was
+    // invisible forever. Four origination deals were marked visible to the firm and
+    // neither deployment ever showed them, because both already had the ids.
+    //
+    // The alternative was the full reseed, which replaces the whole record — and every
+    // diligence finding on those deals was recorded at runtime, none of it in the
+    // fixture, so that would have discarded the substance to correct a flag. These two
+    // fields carry no work: nothing writes them at runtime, so the fixture is their only
+    // source and reconciling them can lose nothing.
+    for (const demo of seededDeals) {
+      const live = deals.find((d) => d.id === demo.id);
+      if (!live) continue;
+      const wanted = { pipelineVisible: !!demo.pipelineVisible, confidential: !!demo.confidential };
+      if (!!live.pipelineVisible === wanted.pipelineVisible && !!live.confidential === wanted.confidential) continue;
+      live.pipelineVisible = wanted.pipelineVisible;
+      live.confidential = wanted.confidential;
+      persistDeal(live);
+    }
     signalCompanies = await sigRepo.list();
     reseedSequences();
   } catch {

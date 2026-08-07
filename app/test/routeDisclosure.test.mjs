@@ -1012,3 +1012,33 @@ test('the walkthrough credential opens a seat and cannot write', async () => {
     assert.ok(r.status >= 400, `a walkthrough wrote to a deal (${r.status})`);
   }
 });
+
+// Awareness is policy, and policy has to be able to reach a deployment that already exists.
+//
+// hydrate() inserts a seeded deal only when its id is missing, which is right for the
+// record and wrong for the rules: four origination deals were marked visible to the firm
+// and neither deployment ever showed them, because both already had the ids. The full
+// reseed would have fixed it by replacing the whole record — and every diligence finding
+// on prod was recorded at runtime with none of it in the fixture, so that would have
+// discarded the substance to correct a flag.
+test('the fixture governs who may know a deal exists, on an environment that already booted', async () => {
+  const { listDeals, getDealRaw } = await import('../lib/store.js');
+  const aware = seededDeals.filter((d) => d.pipelineVisible && !d.confidential);
+  assert.ok(aware.length > 4, `only ${aware.length} deals are marked visible — this test would be weak`);
+
+  for (const d of aware) {
+    const live = getDealRaw(d.id);
+    if (!live) continue;
+    assert.equal(!!live.pipelineVisible, true, `${d.id} is marked visible in the fixture and is not in the store`);
+  }
+  for (const d of seededDeals.filter((x) => x.confidential)) {
+    const live = getDealRaw(d.id);
+    if (!live) continue;
+    assert.equal(!!live.confidential, true, `${d.id} is confidential in the fixture and is not in the store`);
+  }
+
+  // And a member is shown every one of them, which is the observable half.
+  const seen = new Set(listDeals(null, 'member').map((x) => x.id));
+  const missing = aware.map((d) => d.id).filter((id) => !seen.has(id));
+  assert.deepEqual(missing, [], `marked visible to the firm and not listed to a member: ${missing.join(', ')}`);
+});
