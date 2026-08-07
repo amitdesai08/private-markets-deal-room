@@ -105,3 +105,42 @@ test('a malformed call never produces an answer', () => {
   assert.equal(answerFromRecord({ message: 'What is ready for the next IC?', deals: null, rawFor: () => null }), null);
   assert.equal(answerFromRecord({ message: 'What is ready for the next IC?', deals: [], rawFor: null }), null);
 });
+
+// The activity trail is a dated log, so "what changed this week" is a query and not a
+// judgement. It was costing 37 seconds to have a model read it back.
+test('what changed this week is counted off the activity trail', () => {
+  const now = Date.now();
+  const list = [
+    deal({ activity: [{ actor: 'Priya Raman', action: 'Opened Legal DD', when: new Date(now - 2 * 86400000).toISOString() }] }),
+    deal({ id: 'd2', company: 'Secondco', activity: [{ actor: 'David Osei', action: 'Filed the QoE', when: new Date(now - 40 * 86400000).toISOString() }] }),
+  ];
+  const a = answerFromRecord({ message: 'What changed across my deals this week?', deals: list, rawFor: rawOf(list) });
+  assert.ok(a, 'the activity trail already holds this answer');
+  assert.match(a.reply, /Testco/, 'the deal with recent activity is missing');
+  assert.ok(!/Secondco/.test(a.reply), 'a 40-day-old entry was reported as this week');
+});
+
+test('a quiet week is reported as quiet, not as an empty list', () => {
+  const list = [deal({ activity: [{ actor: 'X', action: 'Y', when: new Date(Date.now() - 40 * 86400000).toISOString() }] })];
+  const a = answerFromRecord({ message: 'What changed across my deals this week?', deals: list, rawFor: rawOf(list) });
+  assert.ok(a && /nothing has been recorded/i.test(a.reply), `got: ${a && a.reply}`);
+});
+
+// The division of labour, stated as a test: arithmetic and lookups are computed; anything
+// asking for a view on what the numbers MEAN goes to the assistant.
+test('interpretation is never answered from a lookup', () => {
+  const list = [deal()];
+  for (const q of [
+    'Is this a good price?',
+    'Should we take Testco to committee?',
+    'What would you push back on in the QoE?',
+    'How does this compare with the last three deals we did?',
+    'What is the strongest argument against this deal?',
+  ]) {
+    assert.equal(
+      answerFromRecord({ message: q, deals: list, rawFor: rawOf(list) }),
+      null,
+      `"${q}" asks for a view and was answered by a lookup table`,
+    );
+  }
+});

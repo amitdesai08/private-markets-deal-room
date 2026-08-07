@@ -132,6 +132,42 @@ const ANSWERS = [
       };
     },
   },
+
+  // "What changed across my deals this week?" — the activity trail is a dated log, so this
+  // is a query, not a judgement. It was costing 37 seconds to have a model read it back.
+  {
+    match: (m) => /(what|anything).*(chang|happen|moved|new)/.test(m) && /(week|recently|lately|since)/.test(m),
+    answer: ({ deals, rawFor }) => {
+      const since = Date.now() - 7 * 86400000;
+      const rows = [];
+      for (const d of deals) {
+        if (!openable(d)) continue;
+        const raw = rawFor(d.id);
+        const recent = (raw?.activity || [])
+          .filter((a) => a && a.when && new Date(a.when).getTime() >= since)
+          .sort((a, b) => new Date(b.when) - new Date(a.when));
+        if (recent.length) rows.push({ company: d.company, recent });
+      }
+      if (!rows.length) {
+        return {
+          reply: `Nothing has been recorded against the deals you can see in the last seven days.${withheldNote(deals)}`,
+          citations: ['Deal record — activity'],
+        };
+      }
+      rows.sort((a, b) => b.recent.length - a.recent.length);
+      const total = rows.reduce((s, r) => s + r.recent.length, 0);
+      const lines = rows.slice(0, 8).map((r) => `- ${r.company}: ${plural(r.recent.length, 'entry', 'entries')} — most recently ${r.recent[0].action} (${r.recent[0].actor})`);
+      return {
+        reply: [
+          `${plural(total, 'thing was', 'things were')} recorded across ${plural(rows.length, 'deal', 'deals')} in the last seven days.`,
+          lines.join('\n'),
+          rows.length > 8 ? `${rows.length - 8} further deals also had activity.` : null,
+          withheldNote(deals).trim() || null,
+        ].filter(Boolean).join('\n\n'),
+        citations: ['Deal record — activity'],
+      };
+    },
+  },
 ];
 
 // Which deal a question is about, matched against the names this caller can actually

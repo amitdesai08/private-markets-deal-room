@@ -27,7 +27,7 @@ import { lensBlock } from './personaLens.js';
 import { workiqNotesContext } from './workiqMemory.js';
 import { houseStyle } from './ai.js';
 import { answerFromRecord } from './knownAnswers.js';
-import { figuresBlock } from './diligence.js';
+import { figuresBlock, enforceFigures } from './diligence.js';
 
 const PROJECT_ENDPOINT = config.foundry.projectEndpoint;
 const AGENT_MODEL = config.foundry.dealAgentModel;
@@ -261,6 +261,15 @@ async function consultSpecialist(slug, ctx, message) {
 }
 
 // ---- compose: orchestrator synthesizes the specialists' findings -------------
+// The figures are ours. An agent is handed them and asked to interpret them, and this
+// checks the prose against the record on the way out — the deal-scoped chat and the memo
+// writer both did this already and the orchestrator did not, so a specialist that worked
+// out its own multiple could still publish it.
+function grounded(text, focusId) {
+  if (!text || !focusId) return text;
+  try { return enforceFigures(text, getDealRaw(focusId)) || text; } catch { return text; }
+}
+
 // A specialist's inability to reach a shared tool surface is our plumbing, and it was
 // being reported to a partner as a finding about her own deal: "Both specialists tried to
 // fetch the LBO/returns model and the citation audit and received access-denied errors."
@@ -403,7 +412,7 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
 
     // Direct answer — no delegation needed.
     if (!specialists.length) {
-      const reply = withoutPlumbing(stripControlLine(answer || routed.text));
+      const reply = grounded(withoutPlumbing(stripControlLine(answer || routed.text)), focusId);
       if (!reply) throw new Error('empty orchestrator reply');
       return {
         reply,
@@ -422,7 +431,7 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
 
     // 3) Compose the final answer.
     const composed = await composeAnswer(ctx, text, findings, routed.responseId);
-    const reply = withoutPlumbing(stripControlLine(composed.text));
+    const reply = grounded(withoutPlumbing(stripControlLine(composed.text)), focusId);
     if (!reply) throw new Error('empty composed reply');
     return {
       reply,
