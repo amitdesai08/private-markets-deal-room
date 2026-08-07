@@ -5,6 +5,7 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import { sseFrame } from './lib/sse.js';
+import { dealDocumentIndex, documentAffordances } from './lib/dealDocuments.js';
 
 import {
   listDeals,
@@ -988,12 +989,12 @@ api.get('/deals/:id/documents', async (req, res) => {
   // asked to open Documents on a deal whose readiness board ticks "Findings report" and
   // "Diligence plan" as complete, and got `{provisioning:true}` and an empty panel.
   // Whatever the shared data room is doing, the record's own documents can be listed.
-  const onRecord = (deal.documents || []).map((d) => ({
-    id: d.id || d.name,
-    name: d.name,
-    status: d.status || null,
-    owner: d.owner || null,
-    updated: d.updatedAt || d.date || null,
+  // Every paper on the deal, from either set, each carrying the URLs that actually work
+  // for it. These rows previously went out with no URL at all and the tab rendered them as
+  // links, so every one of them was dead on click.
+  const onRecord = dealDocumentIndex(deal).map((d) => ({
+    ...d,
+    ...documentAffordances(deal.id, d.name),
     onRecord: true,
   }));
   if (!deal.teamsChannel?.teamId) {
@@ -1365,7 +1366,7 @@ api.get('/deals/:id/doc-desk', async (req, res) => {
 function listedDocument(raw, name) {
   const wanted = String(name || '').trim().toLowerCase();
   if (!wanted) return null;
-  return (corpusForDeal(raw).files || []).find((f) => String(f.name).toLowerCase() === wanted) || null;
+  return dealDocumentIndex(raw).find((f) => String(f.name).toLowerCase() === wanted) || null;
 }
 
 // Deal document names are full of em dashes and ampersands, and an HTTP header may

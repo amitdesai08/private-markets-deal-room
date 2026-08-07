@@ -391,6 +391,8 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   const [note, setNote] = useState<string>('');
   const [cfg, setCfg] = useState<any>(null);
   const [docs, setDocs] = useState<{ folderUrl?: string; folders?: any[]; documents?: any[]; canWrite?: boolean; error?: string; notConnected?: boolean; provisioning?: boolean } | null>(null);
+  // The document being read. A paper that belongs to a deal should open inside the deal.
+  const [preview, setPreview] = useState<any | null>(null);
   const [docsBusy, setDocsBusy] = useState<string>('');
   const [dealGroups, setDealGroups] = useState<any[]>([]);
   const [newTag, setNewTag] = useState('');
@@ -1049,7 +1051,24 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
 
               {tab === 'artifacts' && <DealArtifacts dealId={dealId} />}
 
-              {tab === 'documents' && (
+              {preview ? (
+              <div className="doc-reader" role="dialog" aria-label={`Reading ${preview.name}`}>
+                <div className="doc-reader-bar">
+                  <span className="doc-reader-name">{preview.name}</span>
+                  {preview.webUrl ? <a className="btn ghost xs" href={preview.webUrl} target="_blank" rel="noopener">Open on the web ↗</a> : null}
+                  {preview.webUrl && preview.office ? <a className="btn ghost xs" href={`ms-${preview.office}:ofe|u|${preview.webUrl}`}>Open in the app</a> : null}
+                  <a className="btn ghost xs" href={preview.previewUrl} target="_blank" rel="noopener">Open in a new tab ↗</a>
+                  <button className="btn ghost xs" onClick={() => setPreview(null)}>Close</button>
+                </div>
+                {/* A PDF renders where it stands in both the browser and the Teams client.
+                    An Office file cannot be rendered here, so what is shown is the deal's
+                    own record of what the paper says — and the buttons above open the real
+                    file in Word or Excel. */}
+                <iframe className="doc-frame" src={preview.previewUrl} title={preview.name} />
+                {preview.office ? <div className="muted doc-reader-note">This is what the deal record holds for this paper. Open it on the web or in {preview.office === 'word' ? 'Word' : preview.office === 'excel' ? 'Excel' : 'PowerPoint'} to work on the file itself.</div> : null}
+              </div>
+            ) : null}
+            {tab === 'documents' && (
                 <div className="dd-panel">
                   {/* This panel produces new deliverables. It used to be headed "Deal
                       documents", which is what the OTHER document tab holds, so the two
@@ -1116,11 +1135,22 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                       ) : null}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {(docs.documents || []).length ? (docs.documents || []).map((f: any) => (
-                          <a key={f.id} href={f.webUrl} target="_blank" rel="noopener" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8, textDecoration: 'none', color: 'inherit' }}>
-                            <span style={{ fontSize: 18 }}>{/\.docx?$/i.test(f.name) ? '📝' : /\.xlsx?$/i.test(f.name) ? '📊' : '📄'}</span>
-                            <span style={{ fontWeight: 600, flex: 1 }}>{f.name}</span>
-                            <span className="muted">{f.modified ? new Date(f.modified).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</span>
-                          </a>
+                          // These were anchors to `f.webUrl`, which the record's own papers never had — so
+                          // every document in this list was a dead link. A paper can now be read where it
+                          // stands, opened in Word or Excel on the web, or opened on this machine.
+                          <div key={f.id || f.name} className="doc-row">
+                            <button className="doc-open" onClick={() => setPreview(f)} title="Read it here">
+                              <span className="doc-ico">{/\.docx?$/i.test(f.name) ? '📝' : /\.xlsx?$/i.test(f.name) ? '📊' : /\.pptx?$/i.test(f.name) ? '📑' : '📄'}</span>
+                              <span className="doc-name">{f.name}</span>
+                              {f.pages ? <span className="muted doc-meta">{f.pages} pp</span> : null}
+                              <span className="muted doc-meta">{f.modified || f.updated ? new Date(f.modified || f.updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</span>
+                            </button>
+                            <span className="doc-acts">
+                              {f.webUrl ? <a className="btn ghost xs" href={f.webUrl} target="_blank" rel="noopener">Open on the web ↗</a> : null}
+                              {f.webUrl && f.office ? <a className="btn ghost xs" href={`ms-${f.office}:ofe|u|${f.webUrl}`} title={`Open in ${f.office === 'word' ? 'Word' : f.office === 'excel' ? 'Excel' : 'PowerPoint'} on this machine`}>Open in the app</a> : null}
+                              <a className="btn ghost xs" href={f.briefUrl || f.previewUrl} target="_blank" rel="noopener">Download</a>
+                            </span>
+                          </div>
                         )) : (
                           // This list is documents generated here. The folder grid above counts
                           // everything in the data room, so "No documents generated yet" sat

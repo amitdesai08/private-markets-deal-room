@@ -44,6 +44,9 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
   const [threads, setThreads] = useState<Record<string, Msg[]>>({});
   const [prevId, setPrevId] = useState<Record<string, string | undefined>>({});
   const [input, setInput] = useState('');
+  // A long answer deserves the room to be read in. Remembered, because someone who widens
+  // it once wants it wide.
+  const [wide, setWide] = useState(() => { try { return localStorage.getItem('dr.chatWide') === '1'; } catch { return false; } });
   const [sending, setSending] = useState(false);
   const [applying, setApplying] = useState('');
   const [saving, setSaving] = useState('');
@@ -53,13 +56,15 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { if (focusDealId) setDealId(focusDealId); }, [focusDealId]);
-  // A corpus item (file / mail / channel) seeds a question into the composer and focuses it —
-  // the presenter reviews and hits Enter (no accidental auto-send).
+  // Clicking a question IS asking it. This used to paste the words into the composer and
+  // wait for Enter, on the reasoning that a presenter should review before sending — but
+  // the reader has just clicked a button that says what it will ask, and being handed
+  // their own sentence back to confirm reads as the product not having worked.
   const seedRef = useRef(0);
   useEffect(() => {
     if (!seedNonce || seedNonce === seedRef.current) return;
     seedRef.current = seedNonce;
-    if (seed && seed.trim()) { setInput(seed); setTimeout(() => { const el = taRef.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); }
+    if (seed && seed.trim()) send(seed.trim());
   }, [seed, seedNonce]);
 
   const agent = agents.find((a) => a.key === agentKey) || agents[0];
@@ -226,10 +231,11 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
     setSending(false);
   }
   return (
-    <aside className="chatpanel">
+    <aside className={`chatpanel${wide ? ' wide' : ''}`}>
       <style>{CHAT_EXTRA_CSS}</style>
       <div className="chat-head">
         <div className="chat-title">{agents.length > 1 ? 'Ask an assistant' : agent.label}</div>
+        <button className="iconbtn" onClick={() => setWide((w) => { const n = !w; try { localStorage.setItem('dr.chatWide', n ? '1' : '0'); } catch { /* storage blocked */ } return n; })} aria-label={wide ? 'Narrow the assistant' : 'Widen the assistant'} title={wide ? 'Narrow the assistant' : 'Widen the assistant'}>{wide ? '⇥⇤' : '⇤⇥'}</button>
         <button className="iconbtn" onClick={onClose} aria-label="Close chat">✕</button>
       </div>
 

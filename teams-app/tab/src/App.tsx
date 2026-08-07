@@ -1087,7 +1087,14 @@ details[open] > summary:before { content: "\\25BE "; }
 /* min-width:0 matters: without it this flex child refuses to shrink below the
    intrinsic width of its widest content, which is how a single long token ends up
    widening the whole panel instead of wrapping inside it. */
-.chatpanel { flex: 0 0 380px; max-width: 380px; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--surface); min-height: 0; }
+/* 380px was a sidebar, and the assistant now writes decision-grade answers into it —
+   a thousand characters of analysis in a column that narrow is a ribbon of text nobody
+   reads. It scales with the window, and the reader can widen it further for a long one. */
+.chatpanel { flex: 0 0 clamp(420px, 38vw, 760px); max-width: 760px; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--surface); min-height: 0; }
+.chatpanel.wide { flex: 0 0 min(1180px, 82vw); max-width: min(1180px, 82vw); }
+/* Long words — a URL, a long company name — must wrap rather than force a scrollbar and
+   truncate everything beside them. */
+.chatpanel .md { overflow-wrap: anywhere; }
 .chat-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); }
 .chat-title { font-weight: 700; }
 .iconbtn { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 15px; }
@@ -1151,6 +1158,19 @@ details[open] > summary:before { content: "\\25BE "; }
 .md th { background: var(--chip); font-weight: 700; }
 .typing { display: inline-flex; gap: 4px; }
 .typing-wrap { display:inline-flex; align-items:center; gap:8px; }
+.doc-row { display:flex; align-items:center; gap:8px; padding:6px 8px; border:1px solid var(--border); border-radius:8px; }
+.doc-open { flex:1; display:flex; align-items:center; gap:10px; background:none; border:0; padding:4px; text-align:left; cursor:pointer; color:inherit; font:inherit; border-radius:6px; }
+.doc-open:hover { background: var(--chip); }
+.doc-ico { font-size:18px; }
+.doc-name { font-weight:600; flex:1; }
+.doc-meta { font-size:12px; white-space:nowrap; }
+.doc-acts { display:flex; gap:6px; flex:none; }
+.btn.xs { font-size:11px; padding:2px 8px; }
+.doc-reader { border:1px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:12px; background:var(--card); }
+.doc-reader-bar { display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid var(--border); }
+.doc-reader-name { font-weight:700; flex:1; }
+.doc-frame { width:100%; height:min(70vh, 720px); border:0; display:block; background:#fff; }
+.doc-reader-note { padding:8px 10px; font-size:12px; border-top:1px solid var(--border); }
 .typing-status { font-size:12px; color:var(--muted); }
 .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: b 1.2s infinite ease-in-out; }
 .typing span:nth-child(2) { animation-delay: .2s; } .typing span:nth-child(3) { animation-delay: .4s; }
