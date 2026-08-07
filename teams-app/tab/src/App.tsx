@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { initTeams, getSsoToken, toggleTheme, type TeamsInfo } from './teams';
 import { af, setAuthContext } from './authFetch';
+import Notifications from './Notifications';
 import Dashboard from './Dashboard';
 import AgentGuide from './AgentGuide';
 import ChatPanel from './ChatPanel';
@@ -560,6 +561,7 @@ export default function App() {
               rendering over a deal it would have been a button that visibly does
               nothing. One assistant, one button, per screen. */}
           {!openDealId ? <button className={`asktoggle${chatOpen ? ' on' : ''}`} onClick={() => setChatOpen((v) => !v)}>{chatOpen ? 'Hide the assistant' : '💬 Ask the assistant'}</button> : null}
+          <Notifications af={af} viewAs={viewAs} onOpenDeal={(id) => { setSettingsOpen(false); setOpenDealId(id); }} />
           <button className="gearbtn" onClick={() => setTheme(toggleTheme())} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label="Toggle light or dark theme">{theme === 'dark' ? '☀' : '🌙'}</button>
           {/* Closing the deal on the way in. Settings renders in the branch this
               ternary takes when no deal is open, so with a deal open the gear used to
@@ -1171,6 +1173,23 @@ details[open] > summary:before { content: "\\25BE "; }
 .doc-reader-name { font-weight:700; flex:1; }
 .doc-frame { width:100%; height:min(70vh, 720px); border:0; display:block; background:#fff; }
 .doc-reader-note { padding:8px 10px; font-size:12px; border-top:1px solid var(--border); }
+.notif { position: relative; display: inline-flex; }
+.notif-dot { position:absolute; top:-2px; right:-2px; min-width:15px; height:15px; padding:0 3px; border-radius:999px; background:var(--bad,#dc2626); color:#fff; font-size:9.5px; font-weight:800; line-height:15px; text-align:center; }
+.notif-panel { position:absolute; top:calc(100% + 8px); right:0; width:min(420px, 92vw); max-height:70vh; overflow:auto; z-index:60; background:var(--card); border:1px solid var(--border); border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,.22); }
+.notif-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border); }
+.notif-title { font-weight:700; }
+.notif-empty { padding:14px 12px; color:var(--muted); font-size:12.5px; line-height:1.5; }
+.notif-list { display:flex; flex-direction:column; }
+.notif-item { display:flex; gap:10px; align-items:flex-start; text-align:left; padding:10px 12px; background:none; border:0; border-bottom:1px solid var(--border); cursor:pointer; color:inherit; font:inherit; }
+.notif-item:hover { background: var(--chip); }
+.notif-item.is-new { background: var(--chip); }
+.notif-kind { flex:none; width:20px; height:20px; border-radius:999px; display:grid; place-items:center; font-size:11px; font-weight:800; border:1px solid var(--border); }
+.notif-kind.k-needs-you { color:var(--warn,#b45309); border-color:var(--warn,#b45309); }
+.notif-kind.k-decision { color:var(--good,#15803d); border-color:var(--good,#15803d); }
+.notif-body { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.notif-line { font-weight:600; }
+.notif-sub { font-size:11.5px; color:var(--muted); }
+.notif-foot { padding:9px 12px; font-size:11.5px; color:var(--muted); border-top:1px solid var(--border); }
 .typing-status { font-size:12px; color:var(--muted); }
 .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: b 1.2s infinite ease-in-out; }
 .typing span:nth-child(2) { animation-delay: .2s; } .typing span:nth-child(3) { animation-delay: .4s; }

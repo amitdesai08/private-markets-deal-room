@@ -6,6 +6,8 @@ import express from 'express';
 import crypto from 'node:crypto';
 import { sseFrame } from './lib/sse.js';
 import { dealDocumentIndex, documentAffordances } from './lib/dealDocuments.js';
+import { notificationsFor, unreadCount } from './lib/notifications.js';
+import { seatFor } from './lib/seat.js';
 
 import {
   listDeals,
@@ -671,6 +673,20 @@ api.get('/deals/facets', (req, res) => {
 // Portfolio cockpit for the home page: the same grounded, cited briefing the deal
 // cockpit gives, one level up. Deliberately scoped to listDeals() for THIS caller so
 // the summary can never describe a deal the reader is not cleared to open.
+// What has arrived at this person's desk. Computed from the record like everything else
+// -- there is no notification table to fall out of step with the deal it describes, and
+// nothing to mark read on the server. Whether an item is NEW is decided against a
+// timestamp the caller's own client holds and sends back.
+api.get('/notifications', (req, res) => {
+  const identity = requestingIdentity(req);
+  const viewAs = (requestingFloor(req) || requestingViewAs(req));
+  const access = accessFor(identity, viewAs);
+  const seat = seatFor({ role: access?.role || null, persona: actingPersona(req) || personaForIdentity(identity) });
+  const out = notificationsFor(listDeals(identity, viewAs), { seat, rawFor: getDealRaw });
+  const since = String(req.query.since || '').trim() || null;
+  res.json({ ...out, unread: unreadCount(out.items, since), seat: seat?.kind || null });
+});
+
 api.get('/home-desk', (req, res) => {
   const identity = requestingIdentity(req);
   const viewAs = (requestingFloor(req) || requestingViewAs(req));
