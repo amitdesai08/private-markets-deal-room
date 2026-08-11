@@ -22,7 +22,7 @@ export function dealDocumentIndex(raw) {
     out.push({ name: String(name).trim(), ...extra });
   };
   for (const d of raw?.documents || []) {
-    add(d.name, { id: d.id || d.name, source: 'record', kind: d.type || null, pages: d.pages || null, status: d.status || null, owner: d.owner || null, updated: d.updatedAt || d.date || null });
+    add(d.name, { id: d.id || d.name, source: 'record', kind: d.type || null, pages: d.pages || null, status: d.status || null, owner: d.owner || null, updated: d.updatedAt || d.date || d.lastModified || null });
   }
   try {
     for (const f of corpusForDeal(raw).files || []) {

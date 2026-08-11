@@ -25,7 +25,7 @@ import { dealAccessLevel } from './userPolicy.js';
 // otherwise looked fine.
 import { money, symbolFor } from './money.js';
 import { ownerLabel } from './cockpit.js';
-import { reconcileFindingText } from './diligence.js';
+import { reconcileFindingText, buildReturnsModel, buildLoi, buildIoi } from './diligence.js';
 import { fundOverview, portfolioMonitoring, executiveValue } from './fund.js';
 import { can, nextActions, PERSONA_LANE } from './personaPolicy.js';
 
@@ -50,8 +50,8 @@ function icDateLabel(d) {
 }
 
 // Sections a caller may request from get_deal (also the MCP tool's enum).
-export const DEAL_SECTIONS = ['summary', 'financials', 'workstreams', 'memo', 'compliance', 'risks', 'activity'];
-const DEFAULT_SECTIONS = ['summary', 'financials', 'workstreams', 'memo', 'compliance', 'risks'];
+export const DEAL_SECTIONS = ['summary', 'financials', 'workstreams', 'memo', 'compliance', 'risks', 'activity', 'papers'];
+const DEFAULT_SECTIONS = ['summary', 'financials', 'workstreams', 'memo', 'compliance', 'risks', 'papers'];
 
 export function dealSummary(s) {
   return {
@@ -97,7 +97,9 @@ const SECTION_ALIAS = {
   overview: 'summary', summary: 'summary', thesis: 'summary',
   diligence: 'workstreams', workstream: 'workstreams', workstreams: 'workstreams', lanes: 'workstreams',
   findings: 'risks', risk: 'risks', risks: 'risks',
-  compliance: 'compliance', memo: 'memo', activity: 'activity'
+  compliance: 'compliance', memo: 'memo', activity: 'activity',
+  papers: 'papers', loi: 'papers', ioi: 'papers', letterofintent: 'papers', indicationofinterest: 'papers',
+  termsheet: 'papers', offer: 'papers', price: 'papers', consideration: 'papers', exclusivity: 'papers', rollover: 'papers'
 };
 function normalizeSections(sections) {
   if (!Array.isArray(sections) || !sections.length) return DEFAULT_SECTIONS;
@@ -144,6 +146,68 @@ export function dealAnalystView(id, sections) {
   }
   if (want.has('financials')) {
     view.keyFigures = (d.keyFigures || []).slice(0, 14).map((f) => ({ label: f.label, value: f.value, source: f.source }));
+    // The returns model was never handed over, so asked what a deal was financed at the
+    // assistant answered "not recorded — no lender or indicative terms on the record"
+    // about a cost of debt, an interest bill and a tax charge the product had computed.
+    // Denying your own arithmetic is worse than not having it.
+    try {
+      const r = buildReturnsModel(getDealRaw(id) || d);
+      const base = (r.scenarios || []).find((s) => /base/i.test(s.name)) || null;
+      const sym = symbolFor(d);
+      const m = (n) => (typeof n === 'number' ? money(Math.round(n), sym) : null);
+      const fin = r.financing || null;
+      const entryMult = r.entry?.evEbitda ?? r.entry?.modelledEvEbitda ?? null;
+      const lev = r.entry?.leverage ?? null;
+      view.returns = {
+        // FIELD NAMES ARE NOT ANSWERS.
+        //
+        // Handing the model `entryMultiple: 14.1` and `leverage: 5.8` produced "Leverage
+        // (modelled): 14.1x EV/EBITDA" — it picked the wrong one of two bare numbers and
+        // said it with confidence. And handed `interestPaid: 38` under a key three levels
+        // down, it answered "the record does not report total interest paid" about a
+        // figure the product had computed and printed on the card two clicks away.
+        // Denying your own arithmetic is the worst answer available.
+        //
+        // So each of these is written as the sentence that answers the question, with the
+        // unit attached, and the label says which multiple is which.
+        entryMultipleLabel: entryMult != null
+          // Written for the model, not for the room. Anything phrased as a claim gets
+          // quoted back with the product's name on it, so this says only what it is.
+          ? `${entryMult}x EV/EBITDA (entry price, not leverage)`
+          : 'No entry multiple has been struck on this deal.',
+        leverageLabel: lev != null
+          ? `${lev} of EBITDA in debt (leverage, not the entry price)`
+          : 'No leverage has been modelled on this deal.',
+        entryMultiple: entryMult,
+        leverage: lev,
+        hurdle: r.hurdle ?? null,
+        meetsHurdle: r.meetsHurdle ?? null,
+        growthBasis: r.growthBasis || null,
+        leverageBasis: r.entry?.leverageBasis || r.leverageBasis || null,
+        scenarioBasis: r.scenarioBasis || null,
+        indicative: r.indicative ?? null,
+        indicativeNote: r.indicativeNote || null,
+        scenarios: (r.scenarios || []).map((s) => ({ name: s.name, irr: s.irr, moic: s.moic, equityIn: s.equityIn, debt: s.debt })),
+        costOfDebt: fin?.costOfDebtPct != null ? `${fin.costOfDebtPct}% all-in cost of debt` : null,
+        financingBasis: fin?.basis || null,
+        // The whole answer to "what does the hold cost", in words, so there is nothing to
+        // assemble and nothing to deny.
+        financingOverHold: base && base.interestPaid != null
+          ? [
+            `Over the modelled hold the base case pays ${m(base.interestPaid)} of interest`,
+            `${m(base.taxPaid)} of cash tax`,
+            `and ${m(base.capexPaid)} of maintenance capex.`,
+            `${m(base.debtRepaid)} of debt is repaid out of cash flow, leaving ${m(base.debtAtExit)} outstanding at exit.`,
+          ].join(', ').replace(', and', ' and')
+          : 'The model does not charge the hold for interest, tax or capex on this deal.',
+        interestPaidOverHold: m(base?.interestPaid),
+        cashTaxOverHold: m(base?.taxPaid),
+        maintenanceCapexOverHold: m(base?.capexPaid),
+        debtRepaidOverHold: m(base?.debtRepaid),
+        debtOutstandingAtExit: m(base?.debtAtExit),
+        assumptions: r.assumptions || [],
+      };
+    } catch { /* the record may not support a model; the key figures still stand */ }
   }
   if (want.has('workstreams')) {
     view.workstreams = (d.workstreams || []).map((w) => ({
@@ -184,6 +248,44 @@ export function dealAnalystView(id, sections) {
       }
     }
     view.risks = risks.slice(0, 8);
+  }
+  // What the firm has actually offered, and on what terms. Asked "does the LOI pay
+  // cash or is there a rollover", the assistant answered "not recorded" while the
+  // letter of intent one tab away named the amount.
+  if (want.has('papers')) {
+    const papers = {};
+    const paperSource = getDealRaw(id) || d;
+    let papersFailed = false;
+    try {
+      const loi = buildLoi(paperSource);
+      if (loi) {
+        papers.letterOfIntent = {
+          headline: loi.headline,
+          priceMechanism: loi.price?.mechanism || null,
+          multiple: loi.price?.multiple || null,
+          exclusivity: loi.exclusivity || null,
+          binding: loi.binding || null,
+          terms: (loi.structure || []).map((s) => `${s.term}: ${s.detail}`),
+        };
+      }
+    } catch { papersFailed = true; }
+    try {
+      const ioi = buildIoi(paperSource);
+      if (ioi) {
+        papers.indicationOfInterest = {
+          headline: ioi.headline,
+          validity: ioi.validity || null,
+          terms: (ioi.structure || []).map((s) => `${s.term}: ${s.detail}`),
+        };
+      }
+    } catch { papersFailed = true; }
+    // Pre-signing documents only. A portfolio company has no live offer on it. A build
+    // that failed is not the same as an offer that does not exist, and saying it is put
+    // "not recorded" against a letter the next tab was printing.
+    const preSigning = /^D/i.test(String(d.stage || ''));
+    if (preSigning && Object.keys(papers).length) view.papers = papers;
+    else if (preSigning && papersFailed) view.papers = { note: 'The letter of intent and indication of interest for this deal are on the Analysis tab. They could not be read into this view.' };
+    else view.papers = { note: 'No indication of interest or letter of intent is live on this deal at its current stage.' };
   }
   if (want.has('activity')) {
     view.activity = (d.activity || []).slice(0, 6).map((a) => ({ actor: a.actor, action: trim(a.action, 160), when: a.when }));
@@ -488,13 +590,22 @@ export function marketIntelView({ sector } = {}) {
     const key = norm(sector);
     comps = comps.slice().sort((a, b) => (norm(b.thesis).includes(key) ? 1 : 0) - (norm(a.thesis).includes(key) ? 1 : 0));
   }
-  return {
+  const out = {
     fabric: mi.info?.mode || 'materialized',
     source: mi.info?.source || null,
     comparableDeals: comps.slice(0, 8).map((c) => ({ company: c.company, ticker: c.ticker, dealType: c.dealType, dealValue: c.dealValue, impliedValuation: c.impliedValuation, stage: c.stage, status: c.status })),
     benchmarkFindings: (mi.benchmarkFindings || []).map((w) => ({ workstream: w.workstream, total: w.total, byRisk: w.byRisk, topSamples: (w.samples || []).slice(0, 2).map((s) => ({ type: s.type, description: s.description, risk: s.risk })) })),
-    icPrecedents: (mi.icPrecedents || []).map((p) => ({ deal: p.deal, decision: p.decision, votes: `${p.votesFor}-${p.votesAgainst}`, conditions: p.conditions }))
+    icPrecedents: (mi.icPrecedents || []).map((p) => ({ deal: p.deal, decision: p.decision, votes: `${p.votesFor}-${p.votesAgainst}`, conditions: p.conditions })),
   };
+  out.counts = {
+    comparableDeals: out.comparableDeals.length,
+    benchmarkFindingWorkstreams: out.benchmarkFindings.length,
+    icPrecedents: out.icPrecedents.length,
+  };
+  if (comps.length > out.comparableDeals.length) {
+    out.countsNote = `Showing the ${out.comparableDeals.length} closest of ${comps.length} comparable transactions on the snapshot.`;
+  }
+  return out;
 }
 
 // ===========================================================================

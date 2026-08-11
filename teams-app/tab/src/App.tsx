@@ -50,6 +50,21 @@ function listParams(filter: DealsFilter, query: string): string {
   return s ? `?${s}` : '';
 }
 
+// WHERE THIS TAB SHOULD OPEN.
+//
+// Teams reloads a tab at its configured content URL, with no fragment, every time you
+// leave it for a channel and come back. So the address bar — which is what everything
+// below reads to restore your place — is empty precisely when you most want your place
+// back, and the deal you were reading became the home screen. The last route is kept
+// alongside it and used only when the address says nothing.
+const ROUTE_KEY = 'dr.route';
+const KNOWN_ROUTE = /^#\/(deal|settings|overview|sourcing|deals|fund|report)\b/;
+const bootHash: string = (() => {
+  const h = window.location.hash || '';
+  if (KNOWN_ROUTE.test(h)) return h;
+  try { return localStorage.getItem(ROUTE_KEY) || ''; } catch { return ''; }
+})();
+
 function hashParam(name: string): string {
   const h = window.location.hash || '';
   const i = h.indexOf('?');
@@ -115,14 +130,13 @@ export default function App() {
     // browser Back, no bookmark, and -- the one a partner cared about -- no link she
     // could paste into an email to say "look at this deal". Everything below keeps the
     // address in step with where you are, and lets an address put you back there.
-    const h = window.location.hash || '';
-    const m = /[#/]deal\/([A-Za-z0-9_-]+)/.exec(h);
+    const m = /[#/]deal\/([A-Za-z0-9_-]+)/.exec(bootHash);
     return m ? m[1] : '';
   });
   // The page WITHIN the open deal, so a link can point at the IC readiness board rather
   // than just at the deal.
   const [dealTab, setDealTab] = useState(() => {
-    const m = /[#/]deal\/[A-Za-z0-9_-]+\/([A-Za-z0-9_-]+)/.exec(window.location.hash || '');
+    const m = /[#/]deal\/[A-Za-z0-9_-]+\/([A-Za-z0-9_-]+)/.exec(bootHash);
     return m ? m[1] : '';
   });
   const [canViewStage2, setCanViewStage2] = useState(true);
@@ -170,11 +184,11 @@ export default function App() {
     return 'overview';
   };
   const [mainTab, setMainTab] = useState<MainTab>(() => {
-    const m = /#\/(overview|sourcing|deals|fund|report)\b/.exec(window.location.hash || '');
+    const m = /#\/(overview|sourcing|deals|fund|report)\b/.exec(bootHash);
     if (m) return m[1] as MainTab;
     return legacyTab(new URLSearchParams(window.location.search).get('view'));
   });
-  const [settingsOpen, setSettingsOpen] = useState(() => /#\/settings\b/.test(window.location.hash || ''));
+  const [settingsOpen, setSettingsOpen] = useState(() => /#\/settings\b/.test(bootHash));
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [adminGroupsOpen, setAdminGroupsOpen] = useState(false);
   // Platform power state (sleep/wake). null until first probe; when control is on and
@@ -230,12 +244,10 @@ export default function App() {
     (async () => {
       setTeams(await initTeams());
       setTheme(document.documentElement.dataset.theme || 'default');
-      // SSO token identifies the caller so /platform/status can report isAdmin (the
-      // "keep online indefinitely" path is admin-only). Absent outside Teams — fine.
-      const tok = await getSsoToken().catch(() => null);
-      if (tok) { setSsoToken(tok); setAuthContext({ ssoToken: tok }); }
-      fetch('/api/platform/status', tok ? { headers: { authorization: `Bearer ${tok}` } } : undefined)
-        .then((r) => r.json()).then(setPlatform).catch(() => setPlatform(null));
+      // These do not depend on the SSO token, and awaiting it first held every one of them
+      // behind the four-second cap — four seconds of an empty screen before anything was
+      // even asked for. Identity still gates what comes BACK: loadScoped/loadDeals go
+      // through af(), which attaches the seat.
       fetch('/api/teams/config').then((r) => r.json()).then(setCfg).catch(() => {});
       // af(), not fetch(): /api/analytics is now scoped to the caller, so it has to be
       // asked as somebody. A bare fetch would carry no identity and the numbers would
@@ -251,6 +263,13 @@ export default function App() {
         // the persona agents as separately selectable chat targets.
         setAgents([ORCHESTRATOR]);
       }).catch(() => {});
+
+      // SSO token identifies the caller so /platform/status can report isAdmin (the
+      // "keep online indefinitely" path is admin-only). Absent outside Teams — fine.
+      const tok = await getSsoToken().catch(() => null);
+      if (tok) { setSsoToken(tok); setAuthContext({ ssoToken: tok }); }
+      fetch('/api/platform/status', tok ? { headers: { authorization: `Bearer ${tok}` } } : undefined)
+        .then((r) => r.json()).then(setPlatform).catch(() => setPlatform(null));
 
       getSsoToken().then((token) =>
         fetch('/api/teams/context', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ssoToken: token }) }).then((r) => r.json())
@@ -342,6 +361,7 @@ export default function App() {
     // started" was a view you could reach and never refer to.
     const listQs = !settingsOpen && !openDealId && mainTab === 'deals' ? listParams(dealsFilter, dealsQuery) : '';
     const want = settingsOpen ? '#/settings' : openDealId ? `#/deal/${openDealId}${dealTab ? `/${dealTab}` : ''}` : `#/${mainTab}${listQs}`;
+    try { localStorage.setItem(ROUTE_KEY, want); } catch { /* storage blocked */ }
     if (window.location.hash !== want) {
       // Typing in the search box must not push a history entry per keystroke, or Back
       // becomes a way to retype what you just typed.
@@ -595,7 +615,7 @@ export default function App() {
               Impersonation is an ordinary administrative capability. State it as one: who
               you are now, and what that person may do. */}
           <div role="note" className={`sbn${accFlash ? ' flash' : ''}`}>
-            <span title="Their role controls what they can open — access rules are still enforced. Their job controls how the assistant frames an answer for them.">Now viewing as <strong>{persona?.name || viewAs}</strong>{seatLabel ? `, ${seatLabel}` : ''}. Access rules are enforced as they are for them.</span>
+            <span title="Their role controls what they can open — access rules are still enforced. Their job controls how the assistant frames an answer for them.">Now viewing as <strong>{persona?.name || 'another seat'}</strong>{seatLabel ? `, ${seatLabel}` : ''}. Access rules are enforced as they are for them.</span>
             <span className="sbn-chips">
               {/* This fell back to the literal string "role", which is a variable name
                   printed at a reader. If we cannot say what their access is, say nothing. */}
@@ -611,7 +631,7 @@ export default function App() {
             <button
               className="sbn-x"
               title="Got it — hide this. It comes back if you switch to someone else."
-              aria-label="Hide the borrowed-identity note"
+              aria-label="Hide the access-review note"
               onClick={() => {
                 const key = persona?.id || viewAs;
                 setSbnAck(key);
@@ -992,6 +1012,14 @@ details[open] > summary:before { content: "\\25BE "; }
 .cand:last-child { border-bottom: none; }
 .cand-main { flex: 1; min-width: 0; }
 .cand-top { display: flex; align-items: center; gap: 8px; }
+.cand-score { position: relative; }
+.cand-score > summary { list-style: none; cursor: pointer; }
+.cand-score > summary::-webkit-details-marker { display: none; }
+.cand-score[open] > summary { outline: 1px solid var(--border); }
+.cand-score-body { position: absolute; z-index: 40; top: calc(100% + 5px); left: 0; min-width: 290px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; box-shadow: 0 6px 20px rgba(0,0,0,.22); display: flex; flex-direction: column; gap: 3px; }
+.cand-score-basis { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-bottom: 4px; }
+.cand-score-row { display: flex; justify-content: space-between; gap: 14px; font-size: 12px; }
+.cand-score-row .pos { color: var(--good); } .cand-score-row .warn { color: var(--warn); } .cand-score-row .neg { color: var(--muted); }
 .cand-co { font-weight: 700; }
 .cand-meta { color: var(--muted); font-size: 12px; margin: 2px 0 6px; }
 .cand-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
@@ -1314,6 +1342,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .dd-fig .fig-v { font-size: 18px; font-weight: 700; }
 .dd-fig .fig-l { font-size: 12px; }
 .dd-fig .fig-src { color: var(--muted); font-size: 11px; margin-top: 3px; }
+.dd-fig .fig-src-none { color: var(--warn); }
 .dd-note { color: var(--muted); font-size: 11px; padding: 0 14px 12px; }
 .dd-lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 14px; }
 .dd-lane { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--surface); }

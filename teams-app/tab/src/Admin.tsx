@@ -61,10 +61,14 @@ export default function Admin({ ssoToken, viewAs }: { ssoToken?: string; viewAs?
       {data.demoModeConfigurable ? (
         <div className="adm-demo">
           <div className="adm-demo-txt">
-            <div className="adm-demo-t">Demo mode {data.demoMode ? <span className="adm-demo-on">On</span> : <span className="adm-demo-off">Off</span>}</div>
-            <div className="adm-demo-s">Shows the “View as” switcher so you can review the access model from any job type. Turn this off for a production-style experience — every user then sees only their own role and identity.</div>
+            {/* "Demo mode … turn this off for a production-style experience" says, in the
+                product's own admin console, that what the room is looking at is not the
+                production experience. Viewing as a colleague to check what their seat can
+                open is an ordinary governance capability. Name it as one. */}
+            <div className="adm-demo-t">Access review {data.demoMode ? <span className="adm-demo-on">On</span> : <span className="adm-demo-off">Off</span>}</div>
+            <div className="adm-demo-s">Shows the “View as” switcher, so an administrator can check the access model from any job type without borrowing credentials. Turn it off to restrict every user to their own role and identity.</div>
           </div>
-          <label className="adm-toggle" title={data.demoMode ? 'Disable demo mode' : 'Enable demo mode'}>
+          <label className="adm-toggle" title={data.demoMode ? 'Disable access review' : 'Enable access review'}>
             <input
               type="checkbox"
               checked={!!data.demoMode}

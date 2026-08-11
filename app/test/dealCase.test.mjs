@@ -7,6 +7,7 @@
 // guards that keep the two apart.
 
 import test from 'node:test';
+import { computeICReadiness } from '../lib/icReadiness.js';
 import assert from 'node:assert/strict';
 import { buildDealCase } from '../lib/dealCase.js';
 import { seededDeals } from '../data/deals.js';
@@ -44,18 +45,20 @@ test('no figure is published without saying where it came from', () => {
 // implying a 50% EBITDA margin on a 41%-growth software asset. Two lines of one page
 // that cannot both be true is the thing that makes a reader stop and ask who checked it.
 test('an estimated revenue is never printed beside a recorded recurring-revenue figure', () => {
-  let checked = 0;
-  for (const [id, c] of CASES) {
-    const d = seededDeals.find((x) => x.id === id);
-    const arr = (d.keyFigures || []).find((k) => /\barr\b|recurring revenue/i.test(k.label));
-    const revRecorded = (d.keyFigures || []).some((k) => /revenue/i.test(k.label) && !/\barr\b|recurring/i.test(k.label));
-    if (!arr || revRecorded) continue;
-    checked += 1;
-    const row = c.figures.find((f) => /revenue/i.test(f.label));
-    assert.match(row.label, /Recurring revenue/i, `${id}: an estimated revenue is shown where only ARR is on the record`);
-    assert.match(row.basis, /No total revenue figure is on the record/i, `${id}: the missing total revenue is not stated`);
-  }
-  assert.ok(checked > 0, 'no deal exercised the ARR-only path — the guard would be inert');
+  // Every seeded deal that records a top line now also records a revenue — which is the
+  // right answer, but it leaves the rule untested. Strip a record back to the shape that
+  // produced the fault and assert the page still behaves.
+  const donor = seededDeals.find((d) => (d.keyFigures || []).some((k) => /\barr\b|recurring revenue/i.test(k.label)));
+  assert.ok(donor, 'no deal records a recurring-revenue top line at all');
+  const stripped = {
+    ...donor,
+    keyFigures: (donor.keyFigures || []).filter((k) => !/revenue|ebitda/i.test(k.label) || /\barr\b|recurring/i.test(k.label)),
+  };
+  const c = buildDealCase(stripped);
+  const row = c.figures.find((f) => /revenue/i.test(f.label));
+  assert.ok(row, 'no revenue row at all on an ARR-only record');
+  assert.match(row.label, /Recurring revenue/i, 'an estimated revenue is shown where only ARR is on the record');
+  assert.match(row.basis, /No total revenue figure is on the record/i, 'the missing total revenue is not stated');
 });
 
 // The sharpest thing this page does. A committee voting on an entry multiple is
@@ -156,7 +159,10 @@ test('a deal past the committee decision is not asked for authorisation', () => 
   for (const [id, c] of CASES) {
     if (!c.decided) continue;
     decided += 1;
-    assert.equal(c.recommendation.call, 'ALREADY DECIDED', `${id}: past the decision but the call is ${c.recommendation.call}`);
+    assert.equal(String(c.recommendation.call).split('—')[0].trim(), 'ALREADY DECIDED', `${id}: past the decision but the call is ${c.recommendation.call}`);
+    // Seven deals shared this headline verbatim. The stage is what a reader wants from
+    // it: exit preparation and two weeks past signing are not the same position.
+    assert.match(c.recommendation.call, /ALREADY DECIDED — \S/, `${id}: the decided headline does not say where the deal now is`);
     assert.doesNotMatch(c.ask.headline, /Authorise up to/i, `${id}: asks a committee to authorise a deal that has signed`);
     assert.match(c.ask.headline, /Committed:/, `${id}: does not state the commitment as a commitment`);
   }
@@ -211,7 +217,7 @@ test('the ask names an amount, so nobody votes on an unstated number', () => {  
     if (!c.ask) continue;
     assert.ok(Number.isFinite(c.ask.enterpriseValue), `${id}: ask has no enterprise value`);
     assert.ok(Number.isFinite(c.ask.equityCheque), `${id}: ask has no equity cheque`);
-    assert.match(c.ask.headline, c.decided ? /Committed:/ : /Authorise up to/, `${id}: the ask does not read as ${c.decided ? 'a commitment' : 'an authorisation'}`);
+    assert.match(c.ask.headline, c.decided ? /Committed:/ : /Authorise up to|The ask on the table is up to/, `${id}: the ask does not read as ${c.decided ? 'a commitment' : 'an authorisation'}`);
   }
 });
 
@@ -245,24 +251,27 @@ test('a written recommendation that claims nothing is outstanding is checked aga
 // false on four of six deals read, where downside and base equity were equal to the
 // dollar. One click from a page that had just been corrected to say so.
 test('the scenario explanation matches the scenarios it explains', () => {
-  let same = 0;
-  let differ = 0;
+  // The three cases used to be financed at different leverage, so the downside arrived with
+  // a bigger cheque as well as worse trading — punished twice, and explained as though the
+  // lender had re-cut the paper afterwards. One credit agreement is signed at close, so the
+  // equity is now identical across all three and the explanation has to say what does move.
+  let checked = 0;
   for (const [id] of CASES) {
     const d = seededDeals.find((x) => x.id === id);
     const r = buildReturnsModel(d);
     const base = r.scenarios.find((s) => /base/i.test(s.name));
     const down = r.scenarios.find((s) => /down/i.test(s.name));
     if (!base || !down || !r.scenarioBasis) continue;
-    if (Math.round(base.equityIn) === Math.round(down.equityIn)) {
-      same += 1;
-      assert.doesNotMatch(r.scenarioBasis, /puts in more equity/i, `${id}: claims the downside puts in more equity where the two are equal`);
-      assert.match(r.scenarioBasis, /the same equity/i, `${id}: equal equity cheques not stated as equal`);
-    } else {
-      differ += 1;
-      assert.match(r.scenarioBasis, /puts in more equity/i, `${id}: a larger downside cheque is not explained`);
-    }
+    checked += 1;
+    assert.equal(
+      Math.round(base.equityIn),
+      Math.round(down.equityIn),
+      `${id}: the downside is financed differently from the base — that is two credit agreements`,
+    );
+    assert.doesNotMatch(r.scenarioBasis, /puts in more equity/i, `${id}: still explains a difference in the equity cheque`);
+    assert.match(r.scenarioBasis, /same terms|same enterprise value|same price|structure does not move|one credit agreement/i, `${id}: does not state that the structure is common to all three`);
   }
-  assert.ok(same > 0 && differ > 0, 'both scenario paths must be exercised or the guard is half inert');
+  assert.ok(checked > 10, `only ${checked} deals compared — this test has gone inert`);
 });
 
 // Growth was emitted under "the case for it" unconditionally, so on a deal recommended
@@ -309,10 +318,27 @@ test('everything outstanding is on one list, and each row says which record it c
     // to "what is outstanding" on one deal, each computed elsewhere off something
     // slightly different.
     assert.equal(c.outstandingCount, c.outstanding.length, `${id}: the outstanding count is not the length of the outstanding list`);
-    // And no other line on the page may quote a different one. The readiness headline is
-    // computed elsewhere, quoted its own number, and is the line a reader hits first.
-    const stray = /\d+ items?\s+(?:remain open on|on)\s+the risk register/i.exec(String(c.readiness.headline || ''));
-    assert.equal(stray, null, `${id}: the readiness headline quotes its own count of what is open`);
+    // And no other line on the page may quote a DIFFERENT one. The readiness headline is
+    // computed elsewhere and is the line a reader hits first. It used to be stripped of
+    // its count altogether, which took a whole clause with it and left the sentence
+    // ungrammatical and missing a fact the Analysis tab still showed. It may state a
+    // register count; it may not state a register count that disagrees with the register.
+    const stray = /(\d+) items?\s+(?:remain open on|on)\s+the risk register/i.exec(String(c.readiness.headline || ''));
+    if (stray) {
+      // The board counts the register rows that are still an obligation, not every row
+      // that is not cleared. Asserting against the wider population made the page rewrite
+      // the board's number, and one identical clause then carried two different integers
+      // a click apart on every decided deal. The board's number is the board's; what has
+      // to hold is that the page repeats it unchanged.
+      const d = seededDeals.find((x) => x.id === id);
+      const board = computeICReadiness(d).verdict;
+      const boardSays = (String(board.headline || '').match(/(\d+) items? remain open on the risk register/) || [])[1];
+      assert.equal(stray[1], boardSays, `${id}: the case page says ${stray[1]} register rows are open and the readiness board says ${boardSays}`);
+    }
+    // Whatever it says, it has to be a sentence.
+    if (c.readiness.headline) {
+      assert.match(String(c.readiness.headline), /[.!?]$/, `${id}: the readiness headline is left without a full stop`);
+    }
   }
 });
 
@@ -359,14 +385,15 @@ test('a recorded finding is never pushed off the page by boilerplate', () => {
     const written = (d.workstreams || []).flatMap((w) => (w.findings || []).filter((f) => f && f.text));
     if (!written.length) {
       assert.ok(
-        c.notOnRecord.some((n) => /Nobody has written a finding/i.test(n)),
+        c.notOnRecord.some((n) => /no workstream on this deal has produced a finding/i.test(n)),
         `${id}: a deal nobody has written on does not say so`,
       );
       continue;
     }
     withWritten += 1;
     for (const f of written) {
-      assert.ok(c.recordedFindings.some((x) => x.finding === String(f.text).trim()), `${id}: a written finding is absent from the case`);
+      const shown = reconcileFindingText(String(f.text).trim(), d);
+      assert.ok(c.recordedFindings.some((x) => x.finding === shown), `${id}: a written finding is absent from the case`);
     }
   }
   assert.ok(withWritten > 0, 'no deal carried a written finding — the guard would be inert');
@@ -439,7 +466,7 @@ test('the no-author claim is made about the whole deal, not about the register',
   for (const [id, c] of CASES) {
     const d = seededDeals.find((x) => x.id === id);
     const authored = (d.workstreams || []).some((w) => (w.findings || []).some((f) => f && f.text));
-    const claims = c.notOnRecord.some((n) => /Nobody has written a finding/i.test(n));
+    const claims = c.notOnRecord.some((n) => /no workstream on this deal has produced a finding/i.test(n));
     assert.equal(claims, !authored, `${id}: the no-author claim disagrees with the workstreams`);
   }
 });
@@ -540,20 +567,24 @@ test('a recorded EBITDA is used however its label is worded', () => {
 // the page read the presence of a source and reported diligence.
 const NOT_DILIGENCE = /^(screen|screening|teaser|cim|broker model|desk|desk research|derived|estimate)$/i;
 test('a figure sourced at screening is never described as diligenced', () => {
-  let checked = 0;
-  for (const [id, c] of CASES) {
-    const d = seededDeals.find((x) => x.id === id);
-    const kf = (d.keyFigures || []).find((k) => /ebitda/i.test(k.label) && !/margin|vs|growth/i.test(k.label));
-    if (!kf || !NOT_DILIGENCE.test(String(kf.source || ''))) continue;
-    checked += 1;
+  // No seeded deal is priced off a teaser any more — the two that were are assets the
+  // fund already owns, and pricing those off the seller's teaser was itself the fault.
+  // The rule still has to hold, so shape a record that way and assert the page behaves.
+  const donor = seededDeals.find((d) => (d.keyFigures || []).some((k) => /ebitda/i.test(k.label) && !/margin|vs|growth/i.test(k.label)));
+  assert.ok(donor, 'no deal records an EBITDA at all');
+  for (const source of ['Teaser', 'Screen', 'Broker model']) {
+    const screened = {
+      ...donor,
+      keyFigures: (donor.keyFigures || []).map((k) => (/ebitda/i.test(k.label) && !/margin|vs|growth/i.test(k.label)
+        ? { ...k, source, confidence: 'medium' } : k)),
+    };
+    const c = buildDealCase(screened);
     const row = c.figures.find((f) => /EBITDA/.test(f.label));
-    assert.doesNotMatch(row.basis, /from diligence/i, `\screened-3-cand-new-5: "\" reported as diligence`);
-    // Either it names the source and calls it undiligenced, or \u2014 where the figure is the
-    // screening default \u2014 it does not print the figure at all.
-    assert.match(row.basis, /not a diligenced figure|No workstream has produced an EBITDA/i, `\screened-3-cand-new-5: does not say the figure was never diligenced`);
-    assert.equal(c.citations.clean, false, `${id}: scored clean on a price that rests on a screening figure`);
+    assert.ok(row, `${source}: no EBITDA row`);
+    assert.doesNotMatch(row.basis, /from diligence/i, `${source}: "${row.basis}" reported as diligence`);
+    assert.match(row.basis, /not a diligenced figure|No workstream has produced an EBITDA/i, `${source}: does not say the figure was never diligenced`);
+    assert.equal(c.citations.clean, false, `${source}: scored clean on a price that rests on a screening figure`);
   }
-  assert.ok(checked > 0, 'no deal exercised the screening-source path — the guard would be inert');
 });
 
 // "PROCEED, SUBJECT TO CONDITIONS — Returns clear the hurdle" on a deal with all seven
@@ -570,7 +601,7 @@ test('no deal is recommended on returns computed from a figure nobody diligenced
     const unevidenced = /screening default|not a diligenced figure/i.test(ebitda.basis);
     if (c.decided || !unevidenced || !lanes2.length || opened * 2 >= lanes2.length) continue;
     early += 1;
-    assert.equal(c.recommendation.call, 'NOT ON THIS PRICE — THE EBITDA IS NOT ON THE RECORD',
+    assert.equal(String(c.recommendation.call).split('—')[0].trim(), 'NOT ON THIS PRICE',
       `${id}: nothing diligenced and no evidenced price, but the call is ${c.recommendation.call}`);
   }
   assert.ok(early > 0, 'no deal exercised the nothing-diligenced path — the guard would be inert');
@@ -595,9 +626,15 @@ test('the case handed to the assistant contains no instructions to the assistant
   for (const d of seededDeals) {
     const block = caseBlock(d);
     if (!block) continue;
-    for (const line of block.split('\n')) {
+    // The first three lines are the block's own contract: what this section is, that
+    // the labels are ours, and which half may be quoted. Those are addressed to the
+    // model on purpose. Everything after them is the deal's record and must be clean.
+    for (const line of block.split('\n').slice(3)) {
       assert.doesNotMatch(line, IMPERATIVE, `${d.id}: an instruction is inside the quotable block — "${line.slice(0, 80)}"`);
     }
+    // And nothing anywhere in it may look like a machine token, because the model
+    // pastes back whatever format it is shown.
+    assert.doesNotMatch(block, /^[a-z][a-z0-9_]*=/m, `${d.id}: a machine token is being handed to the model`);
   }
 });
 
@@ -615,7 +652,7 @@ test('the not-enough-on-the-record call is decided on evidence, not on a typed s
     // Half the lanes, not one of them. A deal with six unopened workstreams and an
     // undiligenced price is not decidable because one analyst opened one tab.
     if (!unevidenced || !lanes.length || worked * 2 >= lanes.length) continue;
-    assert.equal(c.recommendation.call, 'NOT ON THIS PRICE — THE EBITDA IS NOT ON THE RECORD',
+    assert.equal(String(c.recommendation.call).split('—')[0].trim(), 'NOT ON THIS PRICE',
       `${id}: no lane has produced evidence and the price is unevidenced, but the call is ${c.recommendation.call}`);
     assert.equal(c.forIt.some((p) => /Base case|Downside/i.test(p.point)), false,
       `${id}: a return computed off an undiligenced denominator is offered as a point in favour`);
@@ -725,7 +762,12 @@ test('an indicative return says on the case that it is indicative', () => {
   };
   assert.equal(buildReturnsModel(bare).indicative, true, 'the fixture does not exercise the indicative path');
   const c = buildDealCase(bare);
-  assert.ok(c.notOnRecord.some((n) => /Indicative only/i.test(n)), 'indicative returns are not declared as such');
+  const r = buildReturnsModel(bare);
+  assert.match(String(r.headline), /Indicative only/i, 'the headline a partner repeats does not say the returns are indicative');
+  assert.ok(
+    c.notOnRecord.some((n) => /they move once a diligenced figure reaches the record/i.test(n)),
+    'indicative returns are not explained anywhere on the case',
+  );
 });
 // On the deal four days from committee the paper reported no blocking workstreams and an
 // empty killers list, while its own register said nobody had spoken to a customer,
@@ -830,7 +872,7 @@ test('the downside states what it assumes EBITDA does', () => {
       `${id}: the downside does not say what it assumes about EBITDA`);
     // And why it needs more equity when the price has not changed -- the returns model
     // writes that sentence and it was never carried onto the page a committee reads.
-    assert.match(c.downside.basis, /same enterprise value|financed at/i,
+    assert.match(c.downside.basis, /same enterprise value|financed at|same price|structure does not move|one credit agreement|borrows the same/i,
       `${id}: the downside does not explain its own capital structure`);
   }
 });
@@ -856,8 +898,13 @@ test('an approval is attributed, or the page says it is not', () => {
 // silent. "Who is closing it by when" was answered halfway on every deal in the book.
 test('every outstanding row carries a date or says there is none', () => {
   for (const [id, c] of CASES) {
+    const undated = c.outstanding.filter((r) => r.undated).length;
+    if (undated) {
+      assert.ok(c.outstandingDateNote, `${id}: ${undated} rows carry no date and the page never says so`);
+      assert.match(c.outstandingDateNote, /date/i, `${id}: the list-level note does not mention dates`);
+    }
     for (const row of c.outstanding) {
-      assert.ok(row.dueDate || row.dueNote, `${id}: an outstanding row with neither a date nor a note about its absence`);
+      assert.ok(row.dueDate || row.undated, `${id}: an outstanding row with neither a date nor a flag for its absence`);
     }
   }
 });
@@ -897,8 +944,13 @@ test('a draft price and an unproduced price are described differently', () => {
   let drafts = 0;
   let unproduced = 0;
   for (const [id, c] of CASES) {
+    // A deal past the committee has nothing left that could kill it, so it carries no
+    // killers to inspect — the unproduced branch below already excluded those and the
+    // draft branch did not, which crashed the moment better data left the list empty.
+    if (c.decided) continue;
     const basis = c.figures.find((f) => /EBITDA/.test(f.label)).basis;
     const first = c.againstIt[0];
+    if (!first) continue;
     if (/not a completed result/i.test(basis)) {
       drafts += 1;
       assert.match(first.risk, /rests on a draft/i, `${id}: a draft-sourced price is not described as a draft`);
@@ -948,7 +1000,15 @@ test('one state, one verdict word', () => {
   // read. A draft price and an unproduced price are DIFFERENT states -- "the EBITDA is
   // not on the record" is false where a QoE draft produced it -- so they are counted
   // apart, and each must have exactly one word.
+  //
+  // The word is what precedes the dash. What follows it names what THIS deal's price
+  // rests on, because nine deals sharing two headlines in 17px bold read as a template
+  // to a room, and "the EBITDA is not on the record" was itself false on a deal whose
+  // own next line said it came from the teaser.
+  const verdictWord = (call) => String(call).split('\u2014')[0].trim();
   const groups = new Map();
+  const qualifiers = new Set();
+  let qualified = 0;
   for (const [id, c] of CASES) {
     if (c.decided) continue;
     const d = seededDeals.find((x) => x.id === id);
@@ -957,14 +1017,26 @@ test('one state, one verdict word', () => {
     const draft = /not a completed result/i.test(basis);
     const unproduced = /screening default|not a diligenced figure/i.test(basis);
     if (!draft && !unproduced) continue;
+    qualified += 1;
     const key = draft ? 'draft' : 'unproduced';
     if (!groups.has(key)) groups.set(key, new Set());
-    groups.get(key).add(c.recommendation.call);
+    groups.get(key).add(verdictWord(c.recommendation.call));
+    const q = String(c.recommendation.call).split('\u2014')[1];
+    if (q) qualifiers.add(q.trim());
   }
   assert.ok(groups.size > 0, 'no deal exercised an unevidenced-price state — the guard would be inert');
   for (const [state, words] of groups) {
     assert.equal(words.size, 1, `the "${state}" state returned ${words.size} different verdict words: ${[...words].join(' / ')}`);
   }
+  // The fault this guards was NINE deals sharing two headlines. The seed now prices only
+  // a handful off an unevidenced figure — which is the fix, not a regression — so the bar
+  // is a ratio rather than a constant: no headline may cover more than half the deals in
+  // this state, and a constant of three would fail the book precisely for improving.
+  const examined = [...groups.values()].reduce((n, w) => n + w.size, 0);
+  const need = Math.min(3, Math.max(1, Math.ceil(qualified / 2)));
+  assert.ok(qualifiers.size >= need,
+    `${qualified} deals rest on an unevidenced price and share only ${qualifiers.size} headline qualifier(s) — the headline is a template again`);
+  assert.ok(examined > 0, 'no verdict words were collected');
 });
 
 // The returns model restating itself was consuming a killer slot on thirteen deals, and
@@ -1057,9 +1129,11 @@ test('no outstanding row is quoted verbatim inside another', () => {
 
 // Findings are quoted in the currency of the document they came from and the model is
 // struck in the deal's. On one deal that put "EUR 4.1M of ARR" in the register against
-// $29M of EBITDA in the figures, with no rate anywhere.
+// $29M of EBITDA in the figures, with no rate anywhere. That deal was a dollar deal, so
+// the euros were simply wrong and have been corrected at source. The declaration still
+// has to fire when a genuinely cross-currency finding turns up, so it is exercised here
+// against a deal that is made to mix rather than against a defect left in the book.
 test('a finding in another currency is declared as one', () => {
-  let mixed = 0;
   for (const [id, c] of CASES) {
     const d = seededDeals.find((x) => x.id === id);
     const own = d.currency || 'USD';
@@ -1070,13 +1144,24 @@ test('a finding in another currency is declared as one', () => {
     ].join(' ');
     const others = [...texts.matchAll(/\b(EUR|GBP|USD|CHF|SEK|NOK|DKK)\s?[\d.]/g)].map((m) => m[1]).filter((x) => x !== own);
     if (!others.length) continue;
-    mixed += 1;
     assert.ok(
       c.notOnRecord.some((n) => /No exchange rate is on the record/i.test(n)),
       `${id}: quotes ${[...new Set(others)].join('/')} against a ${own} model and does not say so`,
     );
   }
-  assert.ok(mixed > 0, 'no deal mixed currencies — the guard would be inert');
+
+  // The detector itself, so removing the last mixed deal from the seed cannot silently
+  // retire the disclosure.
+  const base = seededDeals.find((x) => (x.workstreams || []).some((w) => (w.findings || []).length));
+  const mixed = JSON.parse(JSON.stringify(base));
+  mixed.currency = 'USD';
+  const lane = mixed.workstreams.find((w) => (w.findings || []).length);
+  lane.findings[0].text = 'Deferred revenue of EUR 4.1M sits outside the perimeter.';
+  const built = buildDealCase(mixed);
+  assert.ok(
+    built.notOnRecord.some((n) => /No exchange rate is on the record/i.test(n)),
+    'a EUR finding on a USD deal is not declared — the disclosure has gone inert',
+  );
 });
 
 // ONE VOICE ABOUT THE PRICE.

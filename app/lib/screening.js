@@ -12,6 +12,7 @@
 //   O4 Screening Gate -> paper-LBO returns (entry mult, leverage, MOIC, IRR) + memo
 
 import { gateCompany } from './scoring.js';
+import { sectorEntryMultiple, creditTurnsFor, underwrittenEbitdaCagr, MARGIN_COMPRESSION_BPS, MARGIN_EXPANSION_BPS, sweepDebt, COST_OF_DEBT_PCT, financingBasis, creditSpreadFor, financingBasisFor } from './benchmarks.js';
 import { money, symbolFor } from './money.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -350,7 +351,12 @@ const SCREENING_MULTIPLES = [
 ];
 const DEFAULT_SCREENING_MULTIPLE = 8.5;
 
+// The hand-typed table above is retained only as a fallback. The number now comes from
+// lib/benchmarks.js, which derives it from published sector EV/EBITDA and says so — a
+// screening default that cannot cite a source is an opinion the product is not entitled to.
 export function screeningMultiple(deal) {
+  const b = sectorEntryMultiple(deal);
+  if (b && Number.isFinite(b.multiple)) return b.multiple;
   const hay = `${deal?.subSector || ''} ${deal?.sector || ''}`;
   return (SCREENING_MULTIPLES.find((s) => s.match.test(hay)) || { x: DEFAULT_SCREENING_MULTIPLE }).x;
 }
@@ -358,13 +364,20 @@ export function screeningMultiple(deal) {
 // Turns of EBITDA this business can carry, and the reason in words.
 export function creditProfile(c) {
   const hay = `${c?.subSector || ''} ${c?.sector || ''}`;
-  const p = CREDIT_PROFILES.find((x) => x.match.test(hay)) || DEFAULT_CREDIT;
+  const table = CREDIT_PROFILES.find((x) => x.match.test(hay)) || DEFAULT_CREDIT;
+  // Turns and the debt-to-EV ceiling are sized from the same benchmark set as the price,
+  // so a sector cannot be expensive here and cheap there. The table supplies the words.
+  const bm = creditTurnsFor(c, c?.ebitdaMargin ?? null);
+  const p = { ...table, turns: bm.turns, evCap: bm.maxDebtToEv };
   // Margin is the other half of the credit question: cash conversion decides how much of
   // the quantum is actually serviceable, whatever the sector convention says.
   const margin = c?.ebitdaMargin ?? null;
   const adj = margin == null ? 0 : margin >= 25 ? 0.5 : margin >= 15 ? 0.25 : margin < 8 ? -0.5 : 0;
   const turns = +Math.max(2.5, Math.min(6.5, p.turns + adj)).toFixed(2);
-  const marginNote = margin == null ? null
+  // Only say it out loud when the margin is a recorded figure. Where revenue and EBITDA are
+  // both defaults their quotient is not a fact about the business, and it was being quoted
+  // as the reason for the debt quantum.
+  const marginNote = margin == null || c?.marginRecorded === false ? null
     : adj > 0 ? `${margin}% EBITDA margins convert well, which supports the upper end`
       : adj < 0 ? `${margin}% EBITDA margins leave little headroom, so the quantum is cut back`
         : null;
@@ -381,7 +394,9 @@ const UNDERWRITTEN_GROWTH_CAP = 0.15;
 // with a number.
 const DEFAULT_GROWTH = 6;
 
-function paperLbo(c, { entryMult, leverageMult, ebitdaCagr, exitDelta = 0, evCap, entryEV: recordedEV }) {
+function paperLbo(c, { entryMult, leverageMult, ebitdaCagr, exitDelta = 0, evCap, entryEV: recordedEV, holdYears }) {
+  // The hold this deal is underwritten over. Five is the default, not the rule.
+  const hold = Number.isFinite(holdYears) && holdYears >= 2 && holdYears <= 10 ? Math.round(holdYears) : (Number.isFinite(c?.holdYears) ? Math.round(c.holdYears) : HOLD_YEARS);
   const entryEbitda = Math.max(1, c.ebitda || 1);
   // The enterprise value on the record is a FACT; the multiple is a rounded display of it
   // over EBITDA. Multiplying the rounded multiple back out bought the deal at a different
@@ -390,31 +405,65 @@ function paperLbo(c, { entryMult, leverageMult, ebitdaCagr, exitDelta = 0, evCap
   const entryEV = recordedEV > 0 ? recordedEV : entryEbitda * entryMult;
   // The multiple the model is actually struck on, unrounded, so the value bridge can
   // decompose the equity gain without a residue.
-  const entryMultEff = entryEV / entryEbitda;
+  const entryMultEff = (() => {
+    for (const dp of [1, 2, 3]) {
+      const m = +(entryEV / entryEbitda).toFixed(dp);
+      if (Math.round(m * entryEbitda) === Math.round(entryEV)) return m;
+    }
+    return +(entryEV / entryEbitda).toFixed(3);
+  })();
   const exitMult = entryMultEff + exitDelta;
   // The sector's own ceiling, not one number for the whole book.
   const cap = Math.min(evCap ?? MAX_DEBT_TO_EV, MAX_DEBT_TO_EV);
   const debt = Math.min(entryEbitda * leverageMult, entryEV * cap);
   const equityIn = Math.max(1, entryEV - debt);
-  const exitEbitda = entryEbitda * Math.pow(1 + ebitdaCagr, HOLD_YEARS);
+  const exitEbitda = entryEbitda * Math.pow(1 + ebitdaCagr, hold);
   const exitEV = exitEbitda * exitMult;
-  // Cash available to repay debt tracks margin. A flat 50% had a 7.6%-margin grocer
-  // deleveraging exactly like a 30%-margin software business -- and since the debt cap
-  // makes EBITDA and entry multiple cancel out of the MOIC, that constant plus a
-  // constant growth default was why every deal returned the same IRR.
-  const paydown = clamp(0.5 + ((c.ebitdaMargin ?? 15) - 15) / 100, 0.3, 0.7);
-  const debtAtExit = debt * (1 - paydown);
+  // DEBT IS REPAID OUT OF CASH, NOT OUT OF A CONSTANT.
+  //
+  // `paydown` was a fixed share of the opening balance set only by margin, so the downside
+  // repaid exactly what the base did while EBITDA fell — Atlas retired $75M of debt in a
+  // year its earnings dropped, which needs more than 100% conversion and charges nothing
+  // for the money. The sweep charges interest at the sector cost of debt, cash tax and
+  // maintenance capex, and repays what survives.
+  // The paper is priced to the credit rather than to a constant: every deal was financed
+  // at 9.5% with the same sentence under it, a grocer at 2.8x beside a SaaS asset at 5.8x.
+  // PRICE THE LEVERAGE THE MODEL FUNDS, NOT THE LEVERAGE IT ASKED FOR.
+  //
+  // `leverageMult` is a request; `debt` is what survives the 55% enterprise-value ceiling.
+  // Pricing the request produced "plus 25bps for asking 1.0 turn above the 4.0x pivot"
+  // beside "the model funds 3.9x" on the same tab — a premium charged for leverage the
+  // deal is below.
+  const fundedTurns = +(entryEbitda > 0 ? Math.round(debt) / entryEbitda : leverageMult).toFixed(1);
+  const cod = creditSpreadFor(c, fundedTurns);
+  const sweep = sweepDebt({
+    debt,
+    ebitda0: entryEbitda,
+    ebitdaCagr,
+    years: hold,
+    marginPct: c.ebitdaMargin,
+    costOfDebtPct: cod.pct,
+  });
+  const debtAtExit = sweep.debtAtExit;
   const equityOut = Math.max(0, exitEV - debtAtExit);
   const moic = equityOut / equityIn;
-  const irr = moic > 0 ? Math.pow(moic, 1 / HOLD_YEARS) - 1 : -1;
+  const irr = moic > 0 ? Math.pow(moic, 1 / hold) - 1 : -1;
   return {
-    entryEV: Math.round(entryEV), equityIn: Math.round(equityIn), debt: Math.round(debt),
+    // Rounded independently, these did not add up: $167M of debt and $194M of equity against
+    // a $360M enterprise value, and a sources & uses that footed to 370 against 369. The
+    // equity is the residual of the two figures actually printed, so the structure balances
+    // on screen rather than only in the unrounded arithmetic behind it.
+    entryEV: Math.round(entryEV), equityIn: Math.round(entryEV) - Math.round(debt), debt: Math.round(debt),
     // What is actually repaid over the hold. The value bridge used to re-derive this at a
     // flat 50% while the model repaid a margin-driven share, so the bridge and the returns
     // waterfall disagreed by up to $39M on the same deal, on adjacent screens.
-    debtAtExit: Math.round(debtAtExit), debtRepaid: Math.round(debt - debtAtExit),
-    exitEbitda: Math.round(exitEbitda), exitEV: Math.round(exitEV), equityOut: Math.round(equityOut),
-    entryMult: entryMultEff, exitMult,
+    // Rounded once, then subtracted: rounding each independently printed "$270M senior,
+    // $231M repaid, $38M at exit" on one card.
+    debtAtExit: Math.round(debtAtExit), debtRepaid: Math.round(debt) - Math.round(debtAtExit),
+    interestPaid: Math.round(sweep.interestPaid), taxPaid: Math.round(sweep.taxPaid), capexPaid: Math.round(sweep.capexPaid),
+      costOfDebtPct: cod.pct, financingBasis: financingBasisFor(c, fundedTurns),
+    exitEbitda: Math.round(exitEbitda), exitEbitdaExact: +exitEbitda.toFixed(1), exitEV: Math.round(exitEV), equityOut: Math.round(equityOut),
+    entryMult: entryMultEff, exitMult, holdYears: hold,
     moic: +moic.toFixed(2), irr: +(irr * 100).toFixed(1)
   };
 }
@@ -451,14 +500,44 @@ export function buildReturns(c) {
   const growthCapped = recordedGrowth != null && recordedGrowth / 100 > UNDERWRITTEN_GROWTH_CAP;
   // The quantum this business can carry, decided from what it is rather than from a
   // constant. The scenarios move around it: a lender offers less in the downside.
-  const credit = creditProfile(c);
+  const credit = (() => {
+    const p = creditProfile(c);
+    // Where the record states the leverage — because the debt is actually raised — it is
+    // a fact about this transaction and the sector default is not. Helvetia records 4.2x
+    // and an IC condition of 4.25x, and the model funded 4.5x underneath both.
+    const stated = Number.isFinite(c?.statedLeverage) ? c.statedLeverage : null;
+    return stated ? { ...p, turns: stated, why: 'the leverage recorded on the deal' } : p;
+  })();
   // All three scenarios buy the same company at the same price; what differs is the debt
   // offered and where it exits.
   const boughtAt = c.dealSize > 0 ? c.dealSize : null;
+  // THE DOWNSIDE HAD TO BE ABLE TO GO DOWN.
+  //
+  // `Math.max(0, g - 0.04)` floored the downside at zero growth, so across the whole book
+  // EBITDA never once fell. A case that cannot lose money is not a downside case, and a
+  // committee shown three scenarios where the worst is "grows more slowly" has been shown
+  // one scenario. A recession case contracts EBITDA and sells into a weaker market.
+  //
+  // Exit multiples follow the house policy in lib/benchmarks.js: base exits at entry,
+  // because Bain's 2026 report finds multiple expansion is no longer available, so the
+  // return has to be earned. The upside argues half a turn, not a full one.
+  const downsideCagr = Math.min(g - 0.06, -0.02);
+  // Revenue growth is not EBITDA growth. The base and upside carry the plan's margin
+  // expansion; the downside compresses instead, which is what makes it a downside rather
+  // than a slower base.
+  const marginPct = Number(c?.ebitdaMargin);
+  const baseCagr = underwrittenEbitdaCagr(g, marginPct);
+  const upCagr = underwrittenEbitdaCagr(g + 0.04, marginPct);
+  const downCagr = underwrittenEbitdaCagr(downsideCagr, marginPct, { bps: -MARGIN_COMPRESSION_BPS });
   const scenarios = {
-    downside: paperLbo(c, { entryMult: baseMult, entryEV: boughtAt, leverageMult: Math.max(2, credit.turns - 0.5), ebitdaCagr: Math.max(0, g - 0.04), exitDelta: -1, evCap: credit.evCap }),
-    base: paperLbo(c, { entryMult: baseMult, entryEV: boughtAt, leverageMult: credit.turns, ebitdaCagr: g, exitDelta: 0, evCap: credit.evCap }),
-    upside: paperLbo(c, { entryMult: baseMult, entryEV: boughtAt, leverageMult: credit.turns + 0.5, ebitdaCagr: g + 0.04, exitDelta: 1, evCap: credit.evCap })
+    // ONE CREDIT AGREEMENT. The downside used to be financed at half a turn less and the
+    // upside at half a turn more, so a weaker operating case also arrived with a smaller
+    // cheque — punished twice, and explained on screen as though the lender re-cut the
+    // paper after the fact. You sign one structure at close; what differs afterwards is
+    // how the business trades and where it exits.
+    downside: paperLbo(c, { entryMult: baseMult, entryEV: boughtAt, holdYears: c?.holdYears, leverageMult: credit.turns, ebitdaCagr: downCagr, exitDelta: -Math.max(0.25, Math.round(baseMult * 0.045 * 4) / 4), evCap: credit.evCap }),
+    base: paperLbo(c, { entryMult: baseMult, entryEV: boughtAt, holdYears: c?.holdYears, leverageMult: credit.turns, ebitdaCagr: baseCagr, exitDelta: 0, evCap: credit.evCap }),
+    upside: paperLbo(c, { entryMult: baseMult, entryEV: boughtAt, holdYears: c?.holdYears, leverageMult: credit.turns, ebitdaCagr: upCagr, exitDelta: 0.5, evCap: credit.evCap })
   };
   const meetsHurdle = !entryAboveCeiling && scenarios.base.irr >= 20 && scenarios.base.moic >= 2.0;
   const entryEbitda = Math.max(1, c.ebitda || 1);
@@ -472,21 +551,73 @@ export function buildReturns(c) {
     // "Modelled at the financeable ceiling for the sector" was printed on every deal while
     // there was no sector input anywhere in the calculation. Now there is one, so it can
     // be named.
-    leverageBasis: [`Modelled at ${credit.turns}x EBITDA: ${credit.why}.`, credit.marginNote ? `${credit.marginNote}.` : null,
-      `Capped so debt stays within ${Math.round(credit.evCap * 100)}% of enterprise value.`].filter(Boolean).join(' '),
+    //
+    // The cap sentence is only true when the cap actually bound. It was printed on a deal
+    // sitting at 41.7% of EV against a 55% ceiling, so the page claimed a constraint that
+    // never applied — beside a margin note saying the quantum had been "cut back".
+    leverageBasis: (() => {
+      const debtToEv = scenarios.base.entryEV ? scenarios.base.debt / scenarios.base.entryEV : null;
+      const capBound = debtToEv != null && credit.evCap != null && debtToEv >= credit.evCap - 0.005;
+      // The sentence quoted the SECTOR's turns while the headline quoted the leverage the
+      // model actually struck. Where the cap bites hard — a 3.7x entry against 5.5x turns —
+      // the page showed "2x leverage" beside "Modelled at 5.5x EBITDA" with nothing joining
+      // them, and the first thing a PE reader checks is the leverage.
+      const cut = capBound && Math.abs(effLeverage - credit.turns) >= 0.1;
+      return [
+        cut
+          ? `The sector supports ${+credit.turns.toFixed(1)}x EBITDA — ${credit.why} — but at this entry price the ${Math.round(credit.evCap * 100)}% debt-to-EV ceiling binds first, so the model funds ${effLeverage}x.`
+          : `Modelled at ${effLeverage}x EBITDA: ${credit.why}.`,
+        credit.marginNote ? `${credit.marginNote}.` : null,
+        cut
+          ? null
+          : capBound
+            ? `Capped so debt stays within ${Math.round(credit.evCap * 100)}% of enterprise value.`
+            : debtToEv != null
+              ? `That lands at ${Math.round(debtToEv * 100)}% of enterprise value, inside the ${Math.round(credit.evCap * 100)}% ceiling.`
+              : null,
+      ].filter(Boolean).join(' ');
+    })(),
     creditTurns: credit.turns,
     debtToEv: scenarios.base.entryEV ? +(scenarios.base.debt / scenarios.base.entryEV).toFixed(3) : null,
     // The inputs the base case was actually struck on. Without these a sensitivity grid
     // has to guess them, and the one on the Returns page guessed a different growth rate
     // and a different leverage -- so none of its nine cells contained the deal.
-    ebitdaCagr: g,
+    ebitdaCagr: baseCagr,
+    revenueCagr: g,
     baseLeverageMult: credit.turns,
     growthCapped,
-    growthBasis: growthCapped
-      ? `Underwritten at ${Math.round(g * 100)}% EBITDA growth, not the ${recordedGrowth}% on the record: this is the ceiling the fund will put in a model at screening, and the rest of the case is argued in the IC paper rather than compounded into the headline return.`
-      : recordedGrowth != null
-        ? `Underwritten at the ${recordedGrowth}% growth recorded for this company.`
-        : `No growth rate is recorded for this company, so the model runs at the ${DEFAULT_GROWTH}% fund default.`,
+    // THE HEADLINE HAS TO NAME THE RATE THE MODEL COMPOUNDED.
+    //
+    // This said "underwritten at the 7% growth recorded for this company" while the base
+    // case took EBITDA from $37M to $59M — a 9.8% CAGR — and the sensitivity grid beside
+    // it showed 7% returning 16.2% against a headline claiming the deal clears at 20.8%.
+    // The gap is the plan's margin expansion, which was nowhere on the page.
+    growthBasis: (() => {
+      const revPct = Math.round(g * 100);
+      const topLine = (c.topLineLabel || 'the top line on file');
+      const marginBasisClause = c.marginRecorded !== false
+        ? ` That ${marginPct.toFixed(1)}% is the margin recorded on this deal.`
+        : c.revenueRecorded
+          ? ` That ${marginPct.toFixed(1)}% is struck on the revenue on file.`
+          : c.topLineRecorded
+            ? ` That ${marginPct.toFixed(1)}% is the sector's margin: the only top line on this record is ${topLine}, which is not the base an EBITDA margin is struck on.`
+            : ` That ${marginPct.toFixed(1)}% is the sector's margin: this company records neither a margin nor a top line to strike one on.`;
+      const ebPct = Math.round(baseCagr * 100);
+      const bridge = Number.isFinite(marginPct) && marginPct > 0 && ebPct !== revPct
+        // The margin quoted here was the SECTOR's where the company records none, and it
+        // was stated flatly — "taking the margin from 36.2% to 38.2%" on a deal whose own
+        // assistant says total revenue is not on the record.
+        //
+        // The first attempt gated on `marginRecorded`, which disowned margins the product
+        // had struck off its OWN recorded revenue: Mojave prints Revenue $102M and EBITDA
+        // $37M, and the page then said "no revenue to strike one on" about 36.3%. Say the
+        // margin is the sector's ONLY when there is genuinely nothing to compute it from.
+        ? ` EBITDA compounds at ${ebPct}% because the plan carries ${MARGIN_EXPANSION_BPS}bps of margin expansion over the hold, taking the margin from ${marginPct.toFixed(1)}% to ${(marginPct + MARGIN_EXPANSION_BPS / 100).toFixed(1)}%.${marginBasisClause}`
+        : '';
+      if (growthCapped) return `Revenue is underwritten at ${revPct}%, not the ${recordedGrowth}% on the record: this is the ceiling the fund will put in a model at screening, and the rest of the case is argued in the IC paper rather than compounded into the headline return.${bridge}`;
+      if (recordedGrowth != null) return `Revenue is underwritten at the ${recordedGrowth}% recorded for this company.${bridge}`;
+      return `No growth rate is recorded for this company, so revenue runs at the ${DEFAULT_GROWTH}% fund default.${bridge}`;
+    })(),
     // The downside needs MORE equity than the base, which reads backwards until you know
     // why. Asked, the assistant invented a story about enterprise value falling. It does
     // not: the entry is the same in all three and only the debt changes.
@@ -498,26 +629,49 @@ export function buildReturns(c) {
     // on four deals where the two numbers were equal, one click from a page that had just
     // been corrected to say so. Say what these three scenarios actually did.
     scenarioBasis: (() => {
-      const same = Math.round(scenarios.downside.equityIn) === Math.round(scenarios.base.equityIn);
-      const dLev = +(scenarios.downside.debt / entryEbitdaForBasis).toFixed(1);
       const bLev = +(scenarios.base.debt / entryEbitdaForBasis).toFixed(1);
-      return same
-        ? `All three scenarios buy at the same enterprise value and put in the same equity: the debt is capped below the level the model would otherwise request, so the downside is financed identically to the base at ${bLev}x. Only the exit differs.`
-        : `All three scenarios buy at the same enterprise value. The downside puts in more equity because it is financed at ${dLev}x rather than ${bLev}x, not because the price is different.`;
+      const variant = (...options) => {
+        let h = 0;
+        for (const ch of String(c?.company || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+        return options[h % options.length];
+      };
+      return variant(`All three scenarios buy at the same enterprise value and are financed on the same terms — ${bLev}x of debt at ${scenarios.base.costOfDebtPct.toFixed(2)}%, one credit agreement signed at close. What differs is how the business trades and where it exits, and therefore how much debt the cash flow retires.`, `One credit agreement, three trading cases: every one of them buys at the same enterprise value and borrows the same ${bLev}x at ${scenarios.base.costOfDebtPct.toFixed(2)}%. The difference is trading and exit — and, through the cash flow, how much of the debt is gone by then.`, `The structure does not move between these cases. All three are bought at the same price and funded with ${bLev}x of debt at ${scenarios.base.costOfDebtPct.toFixed(2)}%; what moves is how the business performs, where it exits, and how much borrowing the cash flow has retired by the time it does.`, `Same price, same ${bLev}x of debt at ${scenarios.base.costOfDebtPct.toFixed(2)}%, one credit agreement — the cases differ only in how the business trades, where it exits, and how much of the borrowing is repaid on the way.`);
     })(),
-    holdYears: HOLD_YEARS,
+    holdYears: Number.isFinite(c?.holdYears) && c.holdYears >= 2 && c.holdYears <= 10 ? Math.round(c.holdYears) : HOLD_YEARS,
     scenarios,
     hurdle: { irr: 20, moic: 2.0 },
     meetsHurdle,
     grade: 'screening',
     assumptions: [
-      'Screening-grade paper LBO — an indicative heuristic, not an IC model.',
-      'Debt repaid from cumulative free cash flow over the hold, at a rate that tracks EBITDA margin.',
+      (c?.decided
+      ? 'Paper LBO carried forward from the approved case — the committee\u2019s own model is the IC pack, not this.'
+      : (c?.ebitdaRecorded && c?.revenueRecorded
+        // A deal four days from committee with revenue, EBITDA and a growth rate on the
+        // record was being told its own numbers were screening-grade, on the one screen
+        // the room reads before voting.
+        ? 'Paper LBO struck on the figures the record holds — it is the fund\u2019s standard structure, not a bespoke model.'
+        : 'Screening-grade paper LBO — an indicative heuristic, not an IC model.')),
+      scenarios.base.financingBasis,
       c.growth == null
-        ? `No growth rate is recorded for this company, so EBITDA is grown at the ${DEFAULT_GROWTH}% screening default.`
-        : `EBITDA growth underwritten at the recorded ${c.growth}% a year, capped at ${Math.round(UNDERWRITTEN_GROWTH_CAP * 100)}%.`,
-      'No explicit cash interest, cash taxes, capex or working-capital drag.',
-      'Deterministic EBITDA CAGR to a fixed-multiple exit — no multiple expansion is underwritten.'
+        ? `No growth rate is recorded for this company, so revenue is grown at the ${DEFAULT_GROWTH}% screening default.`
+        : c.growth > UNDERWRITTEN_GROWTH_CAP * 100
+          // The cap tail printed on every deal and binds on one, so a page could say
+          // "underwritten at the recorded 41%, capped at 15%" beside "underwritten at 15%,
+          // not the 41% on the record". Say which of the two actually happened.
+          ? `Revenue growth is underwritten at ${Math.round(UNDERWRITTEN_GROWTH_CAP * 100)}%, the screening ceiling, rather than the ${c.growth}% on the record.`
+          : `Revenue growth underwritten at the recorded ${c.growth}% a year, which is inside the ${Math.round(UNDERWRITTEN_GROWTH_CAP * 100)}% screening ceiling.`,
+      `EBITDA is underwritten to grow faster than revenue: ${MARGIN_EXPANSION_BPS}bps of margin expansion over the hold in the base and upside, ${MARGIN_COMPRESSION_BPS}bps of compression in the downside.`,
+      (() => {
+        // The base exit multiple IS the published entry multiple where the exit is flat,
+        // and restating it at one decimal put two roundings of one number on one page.
+        const statedEntry = Number.isFinite(c.statedMultiple) ? c.statedMultiple : null;
+        const moved = ['downside', 'upside']
+          .map((k) => ({ key: k, s: scenarios[k] }))
+          .filter(({ s }) => s && Number.isFinite(s.exitMult) && Math.abs(s.exitMult - scenarios.base.exitMult) >= 0.05);
+        return moved.length
+          ? `Deterministic EBITDA CAGR to a fixed-multiple exit in the base case. The other scenarios do not hold the multiple flat: ${moved.map(({ key, s }) => `${key} exits at ${+s.exitMult.toFixed(1)}x`).join(' and ')}, against ${statedEntry ?? +scenarios.base.exitMult.toFixed(1)}x in the base.`
+          : 'Deterministic EBITDA CAGR to a fixed-multiple exit — no scenario underwrites multiple expansion.';
+      })()
     ]
   };
 }

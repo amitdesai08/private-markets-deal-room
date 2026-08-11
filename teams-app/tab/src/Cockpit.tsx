@@ -257,7 +257,10 @@ export default function Cockpit({
             </div>
             <div className="legend">
               <span><i style={{ background: 'var(--accent)' }} />Authoritative — deal record</span>
-              <span><i style={{ background: 'var(--ai)' }} />✦ AI risk overlay — never auto-updates status</span>
+              {/* The badge said ✦ AI, and a room reading it stops reading the deal and starts
+                  asking about the model. What matters here is that the flag is an opinion
+                  laid over the record and never changes it. Say that. */}
+              <span><i style={{ background: 'var(--ai)' }} />Risk flagged against a step — an overlay, never a status change</span>
             </div>
             <div>
               {data.milestones.map((m) => (
@@ -266,13 +269,13 @@ export default function Cockpit({
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div className="k">
                       {m.key} · {m.title}
-                      {m.aiRisk ? <span className="aibadge" style={{ marginLeft: 6 }}>✦ AI</span> : null}
+                      {m.aiRisk ? <span className="aibadge" style={{ marginLeft: 6 }} title="Flagged by the assistant against the record. It does not change the step's status.">Flagged</span> : null}
                     </div>
                     {m.owner ? <div className="m">{m.owner}</div> : null}
                     {m.waitingOn ? <div className="m">Waiting on: {m.waitingOn}</div> : null}
                     {m.aiRisk ? (
                       <details>
-                        <summary>Show AI risk detail</summary>
+                        <summary>Why this step is flagged</summary>
                         <div className="riskdetail">
                           <b>{m.aiRisk.headline}</b>
                           <div style={{ marginTop: 4 }}>{m.aiRisk.detail}</div>
@@ -287,7 +290,7 @@ export default function Cockpit({
                   <span className={`chip ${m.state === 'done' ? 'good' : ''}`}>
                     {m.state === 'done' ? 'Completed' : m.state === 'current' ? 'In progress' : 'Pending'}
                   </span>
-                  {m.aiRisk ? <span className="chip ai">✦ AI · at risk</span> : null}
+                  {m.aiRisk ? <span className="chip ai">At risk</span> : null}
                 </div>
               ))}
             </div>

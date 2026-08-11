@@ -50,7 +50,7 @@ export async function hydrateWorkiqNotes() {
 // Add a shared note. `author` is the human display name (e.g. "Janet"); `personaLabel`
 // is their seat (e.g. "AI Partner — Tech & Digital Value"); `sharedWith` is a list of
 // persona ids/labels the author is handing this off to.
-export function addWorkiqNote({ dealId, author, personaId, personaLabel, role, text, sharedWith = [] }) {
+export function addWorkiqNote({ dealId, author, personaId, personaLabel, role, text, sharedWith = [], channelPost = false, postedToTeams = false, ephemeral = false }) {
   const id = String(dealId || '').trim();
   const body = String(text || '').trim();
   if (!id || !body) return null;
@@ -63,13 +63,23 @@ export function addWorkiqNote({ dealId, author, personaId, personaLabel, role, t
     role: role || null,
     text: body.slice(0, 2000),
     sharedWith: Array.isArray(sharedWith) ? sharedWith.filter(Boolean).map(String).slice(0, 12) : [],
+    // Said in the deal's conversation rather than filed against a workstream, and whether
+    // it also reached the Teams channel. A reader has to be able to tell the difference:
+    // a message that stayed in the Deal Room was not seen by anyone watching Teams.
+    channelPost: !!channelPost,
+    postedToTeams: !!postedToTeams,
+    ephemeral: !!ephemeral,
     createdAt: new Date().toISOString(),
   };
   pushNote(note);
   // Durable persistence (survives restart on Cosmos/blob; best-effort — never blocks).
-  Promise.resolve()
-    .then(() => upsert('events', { id: note.id, companyId: note.dealId, type: EVENT_TYPE, note }))
-    .catch(() => {});
+  // An ephemeral note is deliberately skipped: a walkthrough is allowed to demonstrate the
+  // conversation, not to leave anything behind on the deal.
+  if (!note.ephemeral) {
+    Promise.resolve()
+      .then(() => upsert('events', { id: note.id, companyId: note.dealId, type: EVENT_TYPE, note }))
+      .catch(() => {});
+  }
   return note;
 }
 

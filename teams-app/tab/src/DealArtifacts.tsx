@@ -6,11 +6,27 @@
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
 
-const money = (n?: number) => (n == null ? '—' : n >= 1000 ? `$${(n / 1000).toFixed(1)}B` : `$${Math.round(n)}M`);
+const money = (n?: number) => (n == null ? '—' : n >= 1000 ? `${(n / 1000).toFixed(1)}B` : `${Math.round(n)}M`);
+// THE CASE prints the exit EBITDA to one decimal and this tab rounded the same field to
+// whole millions, so two tabs of one deal said $170.8M and $171M. Where a figure is not
+// a whole number, show the decimal — it is the same number or it is two numbers.
+const moneyExact = (n?: number) => (n == null ? '—'
+  : n >= 1000 ? `${(n / 1000).toFixed(1)}B`
+    : `${Math.abs(n - Math.round(n)) < 0.05 ? Math.round(n) : n.toFixed(1)}M`);
 
 type Any = Record<string, any>;
 
 export default function DealArtifacts({ dealId }: { dealId: string }) {
+  // An IOI and an LOI are pre-signing documents. They were rendered on portfolio
+  // companies and on deals nobody had launched, offering exclusivity on a deal that
+  // has none.
+  const [stage, setStage] = useState<string>('');
+  useEffect(() => {
+    let off = false;
+    af(`/api/deals/${dealId}`).then((r) => r.json()).then((d) => { if (!off) setStage(String(d?.stage || '')); }).catch(() => {});
+    return () => { off = true; };
+  }, [dealId]);
+  const preSigning = /^D/i.test(stage);
   const [returns, setReturns] = useState<Any | null>(null);
   const [vcp, setVcp] = useState<Any | null>(null);
   const [risk, setRisk] = useState<Any | null>(null);
@@ -46,6 +62,11 @@ export default function DealArtifacts({ dealId }: { dealId: string }) {
         <section className="da-card">
           <div className="da-h">💰 LBO / Returns<span className="da-owner">Fund CFO</span></div>
           <div className="da-headline">{returns.headline}</div>
+          {/* Computed on every deal and shown on none: a reader was quoting an IRR off a
+              model the payload itself calls a screening heuristic. */}
+          {(returns.assumptions || [])[0] ? (
+            <div className="da-caveat">{(returns.assumptions || [])[0]}</div>
+          ) : null}
           <div className="da-scen">
             {(returns.scenarios || []).map((s: Any) => (
               <div key={s.name} className={`da-scenrow${s.name === 'Base' ? ' base' : ''}`}>
@@ -64,6 +85,33 @@ export default function DealArtifacts({ dealId }: { dealId: string }) {
             ) : null}
             </>
           )}
+          {/* "What did you finance this at?" is the first question in the room, and the
+              model had the answer while every screen said "not recorded". */}
+          {returns.financing?.base ? (
+            <div className="da-fin">
+              <div className="da-finrow">
+                <span>Cost of debt</span><span>{returns.financing.costOfDebtPct}%</span>
+              </div>
+              <div className="da-finrow">
+                <span>Interest over the hold</span><span>{money(returns.financing.base.interestPaid)}</span>
+              </div>
+              <div className="da-finrow">
+                <span>Cash tax</span><span>{money(returns.financing.base.taxPaid)}</span>
+              </div>
+              <div className="da-finrow">
+                <span>Maintenance capex</span><span>{money(returns.financing.base.capexPaid)}</span>
+              </div>
+              <div className="da-finrow">
+                <span>Debt repaid · outstanding at exit</span><span>{money(returns.financing.base.debtRepaid)} · {money(returns.financing.base.debtAtExit)}</span>
+              </div>
+              {returns.financing.basis ? (
+                <div className="muted" style={{ fontSize: 11.5, padding: '6px 0 0' }}>{returns.financing.basis}</div>
+              ) : null}
+            </div>
+          ) : null}
+          {returns.growthBasis ? (
+            <div className="muted" style={{ fontSize: 11.5, padding: '6px 0 0' }}>{returns.growthBasis}</div>
+          ) : null}
         </section>
       )}
 
@@ -71,8 +119,13 @@ export default function DealArtifacts({ dealId }: { dealId: string }) {
         <section className="da-card">
           <div className="da-h">🚀 Value creation & 100-day<span className="da-owner">Operating Partner</span></div>
           <div className="da-headline">{vcp.headline}</div>
+          {/* The plan multiplies the same EBITDA the case page calls unusable out over five
+              years. The returns card carries this caveat; this one did not. */}
+          {vcp.indicative && vcp.indicativeNote ? (
+            <div className="da-caveat">{vcp.indicativeNote}</div>
+          ) : null}
           {vcp.ebitdaBridge && (
-            <div className="da-bridge">EBITDA bridge: {money(vcp.ebitdaBridge.entry)} → {money(vcp.ebitdaBridge.exit)} <b>(+{money(vcp.ebitdaBridge.delta)})</b></div>
+            <div className="da-bridge">EBITDA bridge: {moneyExact(vcp.ebitdaBridge.entry)} → {moneyExact(vcp.ebitdaBridge.exit)} <b>(+{moneyExact(vcp.ebitdaBridge.delta)})</b></div>
           )}
           <div className="da-levers">
             {(vcp.levers || []).map((l: Any) => (
@@ -97,14 +150,17 @@ export default function DealArtifacts({ dealId }: { dealId: string }) {
               <div key={r.id} className={`da-risk sev-${r.severity}`}>
                 <span className="ws">{r.workstream}</span>
                 <span className="rk">{r.risk}</span>
-                <span className="mt"><b>{r.severityLabel}</b> · {r.likelihood} likelihood · {r.mitigation}</span>
+                <span className="mt"><b>{r.severityLabel}</b> · {r.mitigation}</span>
               </div>
             ))}
+          {(risk.risks || []).length > 8 ? (
+            <div className="da-caveat">Showing the 8 most serious of {(risk.risks || []).length} rows on the register. The rest are watch items.</div>
+          ) : null}
           </div>
         </section>
       )}
 
-      {ioi && (
+      {ioi && preSigning && (
         <section className="da-card">
           <div className="da-h">📨 IOI — Indication of Interest<span className="da-owner">Principal</span></div>
           <div className="da-headline">{ioi.headline}</div>
@@ -116,19 +172,22 @@ export default function DealArtifacts({ dealId }: { dealId: string }) {
         </section>
       )}
 
-      {loi && (
+      {loi && preSigning && (
         <section className="da-card">
           <div className="da-h">📝 LOI — Letter of Intent<span className="da-owner">Partner</span></div>
           <div className="da-headline">{loi.headline}</div>
           <div className="da-terms">
             <div><b>Price</b> {money(loi.price?.enterpriseValue)} EV · {loi.price?.multiple}</div>
+            {loi.price?.mechanism ? <div><b>Price mechanism</b> {loi.price.mechanism}</div> : null}
+            {(loi.structure || []).map((s: Any) => <div key={s.term}><b>{s.term}</b> {s.detail}</div>)}
             <div><b>Exclusivity</b> {loi.exclusivity}</div>
             {(loi.keyTerms || []).map((t: Any) => <div key={t.term}><b>{t.term}</b> {t.detail}</div>)}
+            {loi.binding ? <div><b>Binding</b> {loi.binding}</div> : null}
           </div>
         </section>
       )}
 
-      {!returns && !vcp && !risk && !ioi && !loi ? (
+      {!returns && !vcp && !risk && !(ioi && preSigning) && !(loi && preSigning) ? (
         settled ? (
           <p className="muted">
             Nothing here yet. The returns case, value-creation plan and risk register appear once the deal
@@ -149,11 +208,15 @@ const CSS = `
 .da-status { margin-left: auto; font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; border: 1px solid; }
 .da-status.green { background: var(--good-bg); color: var(--good); border-color: var(--good-br); } .da-status.amber { background: var(--warn-bg); color: var(--warn); border-color: var(--warn-br); } .da-status.red { background: var(--bad-bg); color: var(--bad); border-color: var(--bad-br); }
 .da-headline { font-size: 12.5px; color: var(--fg); opacity: .9; margin: 6px 0 10px; line-height: 1.5; }
+.da-caveat { font-size: 11.5px; color: var(--warn); line-height: 1.5; margin: -4px 0 10px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; }
 .da-scen { display: grid; gap: 4px; }
 .da-scenrow { display: grid; grid-template-columns: 90px 90px 90px 1fr; gap: 8px; font-size: 12px; padding: 5px 8px; border-radius: 7px; background: var(--chip); }
 .da-scenrow.base { outline: 2px solid var(--accent); font-weight: 700; }
 .da-scenrow .n { font-weight: 700; } .da-scenrow .m { color: var(--muted); text-align: right; }
 .da-su { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; font-size: 12px; }
+.da-fin { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; }
+.da-finrow { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; padding: 2px 0; }
+.da-finrow span:last-child { font-weight: 600; }
 .da-su > div > div { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 3px 0; }
 .da-su b { display: block; margin-bottom: 4px; color: var(--muted); font-size: 11px; text-transform: uppercase; }
 .da-su span { font-weight: 600; }

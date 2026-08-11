@@ -59,35 +59,130 @@ function bandScore(value, lo, hi, weight) {
   return dist <= 0.2 ? Math.round(weight * 0.5) : 0;
 }
 
+// POINTS WERE AWARDED FOR TESTS THE SCREEN NEVER SET.
+//
+// `minScore` returned full weight when the screen carried no threshold, and the ownership
+// and region tests did the same. On a screen that sets few criteria that produced a row
+// showing six green ticks — "Revenue above the floor 10/10 met", "EBITDA above the floor
+// 10/10 met" — against six blank fields on the same payload. Nothing had been tested and
+// the score said everything had passed.
+//
+// A test the screen does not set is NOT TESTED: it earns nothing and is taken out of the
+// denominator, so the score is a percentage of the criteria that actually ran. A test the
+// screen does set but the company has no figure for earns nothing and says so.
+const NOT_TESTED = { applies: false, points: 0, hasInput: true };
+
 function minScore(value, min, weight) {
-  if (min == null) return weight;
-  if (value >= min) return weight;
-  if (value >= min * 0.8) return Math.round(weight * 0.5);
-  return 0;
+  if (min == null) return NOT_TESTED;
+  if (value == null) return { applies: true, points: 0, hasInput: false };
+  if (value >= min) return { applies: true, points: weight, hasInput: true };
+  if (value >= min * 0.8) return { applies: true, points: Math.round(weight * 0.5), hasInput: true };
+  return { applies: true, points: 0, hasInput: true };
 }
+
+const flat = (applies, points, hasInput = true) => ({ applies, points, hasInput });
 
 export function scoreScreen(company, screen) {
   const parts = {};
-  parts.sector = !screen.sector || screen.sector === company.sector ? WEIGHTS.sector : 0;
-  parts.region = !screen.regions?.length || screen.regions.includes(company.region) ? WEIGHTS.region : 0;
-  parts.ev = bandScore(company.dealSize, screen.evMin, screen.evMax, WEIGHTS.ev);
-  parts.ownership = !screen.ownership?.length || screen.ownership.includes(company.ownership) ? WEIGHTS.ownership : 0;
+  parts.sector = !screen.sector
+    ? NOT_TESTED
+    : company.sector == null
+      ? flat(true, 0, false)
+      : flat(true, screen.sector === company.sector ? WEIGHTS.sector : 0);
+  parts.region = !screen.regions?.length
+    ? NOT_TESTED
+    : company.region == null
+      ? flat(true, 0, false)
+      : flat(true, screen.regions.includes(company.region) ? WEIGHTS.region : 0);
+  parts.ev = screen.evMin == null && screen.evMax == null
+    ? NOT_TESTED
+    : company.dealSize == null
+      ? flat(true, 0, false)
+      : flat(true, bandScore(company.dealSize, screen.evMin, screen.evMax, WEIGHTS.ev));
+  parts.ownership = !screen.ownership?.length
+    ? NOT_TESTED
+    : company.ownership == null
+      ? flat(true, 0, false)
+      : flat(true, screen.ownership.includes(company.ownership) ? WEIGHTS.ownership : 0);
 
   if (screen.keywords?.length) {
     const overlap = screen.keywords.filter((k) => (company.keywords || []).includes(k)).length;
     const denom = Math.min(screen.keywords.length, 3);
-    parts.keywords = Math.round(WEIGHTS.keywords * Math.min(1, overlap / denom));
+    parts.keywords = flat(true, Math.round(WEIGHTS.keywords * Math.min(1, overlap / denom)));
   } else {
-    parts.keywords = 0;
+    parts.keywords = NOT_TESTED;
   }
 
-  parts.revenue = minScore(company.revenue ?? 0, screen.revenueMin, WEIGHTS.revenue);
-  parts.ebitda = minScore(company.ebitda ?? 0, screen.ebitdaMin, WEIGHTS.ebitda);
-  parts.margin = minScore(company.ebitdaMargin ?? 0, screen.ebitdaMarginMin, WEIGHTS.margin);
-  parts.growth = minScore(company.growth ?? -999, screen.growthMin, WEIGHTS.growth);
+  parts.revenue = minScore(company.revenue, screen.revenueMin, WEIGHTS.revenue);
+  parts.ebitda = minScore(company.ebitda, screen.ebitdaMin, WEIGHTS.ebitda);
+  parts.margin = minScore(company.ebitdaMargin, screen.ebitdaMarginMin, WEIGHTS.margin);
+  parts.growth = minScore(company.growth, screen.growthMin, WEIGHTS.growth);
 
-  const score = Object.values(parts).reduce((a, b) => a + b, 0);
-  return { score, parts };
+  let earned = 0;
+  let available = 0;
+  for (const [key, p] of Object.entries(parts)) {
+    if (!p.applies) continue;
+    earned += p.points;
+    available += WEIGHTS[key] ?? 0;
+  }
+  // Scored out of the criteria that ran, so a sparse screen cannot flatter a candidate
+  // and a thorough one cannot punish it. No applicable test at all means nothing has
+  // been assessed — which is a zero, not a pass.
+  const score = available ? Math.round((earned / available) * 100) : 0;
+  return { score, parts, earned, available };
+}
+
+// The score was printed as a bare number beside a band pill, and nothing on the page or
+// behind it said what produced it — so "91" and "87" looked like judgement rather than
+// arithmetic. The weights and the tests were always there; only the explanation was
+// missing. These rows add to the score shown.
+const PART_LABELS = {
+  sector: 'Sector in the screen',
+  region: 'Region in the screen',
+  ev: 'Enterprise value inside the band',
+  ownership: 'Ownership type wanted',
+  keywords: 'Thesis keywords matched',
+  revenue: 'Revenue above the floor',
+  ebitda: 'EBITDA above the floor',
+  margin: 'Margin above the floor',
+  growth: 'Growth above the floor',
+};
+
+export function explainScreenScore(company, screen) {
+  const { score, parts, earned, available } = scoreScreen(company, screen);
+  const components = Object.entries(parts).map(([key, p]) => {
+    const outOf = WEIGHTS[key] ?? 0;
+    return {
+      key,
+      label: PART_LABELS[key] || key,
+      points: p.points,
+      outOf,
+      applies: p.applies,
+      hasInput: p.hasInput,
+      met: p.applies && p.hasInput && p.points >= outOf,
+      partial: p.applies && p.hasInput && p.points > 0 && p.points < outOf,
+      // What the row says instead of a fraction when there is no fraction to show.
+      note: !p.applies
+        ? 'This screen sets no criterion here, so nothing was tested and nothing was awarded.'
+        : !p.hasInput
+          ? 'The figure this test needs is not recorded for this company, so the test could not be run and scores nothing.'
+          : null,
+    };
+  });
+  const notTested = components.filter((c) => !c.applies).length;
+  const noInput = components.filter((c) => c.applies && !c.hasInput).length;
+  return {
+    score,
+    earned,
+    available,
+    components,
+    basis: [
+      `Scored against the "${screen.name}" screen. It sets ${9 - notTested} of the 9 criteria, worth ${available} points between them; this company earned ${earned}, which is ${score}%.`,
+      notTested ? `${notTested} criteri${notTested === 1 ? 'on is' : 'a are'} not set by this screen and were not scored either way.` : null,
+      noInput ? `${noInput} criteri${noInput === 1 ? 'on' : 'a'} could not be tested because the figure is not on this company's record, and scored nothing.` : null,
+      'Region is one weighted test here, not a gate — a company outside the screen\'s preferred regions still scores on everything else. Geography outside the FUND\'s mandate is a different thing and stops a candidate before it is scored at all.',
+    ].filter(Boolean).join(' '),
+  };
 }
 
 export function scoreTargets(companies, selectedScreens, fund) {
@@ -116,8 +211,9 @@ export function scoreTargets(companies, selectedScreens, fund) {
       let best = { score: 0, screen: null, parts: null };
       for (const s of selectedScreens) {
         const { score, parts } = scoreScreen(company, s);
-        if (score > best.score) best = { score, screen: { id: s.id, name: s.name }, parts };
+        if (score > best.score) best = { score, screen: { id: s.id, name: s.name }, parts, screenObj: s };
       }
+      const explained = best.screenObj ? explainScreenScore(company, best.screenObj) : null;
       return {
         id: company.id,
         name: company.name,
@@ -133,7 +229,14 @@ export function scoreTargets(companies, selectedScreens, fund) {
         score: best.score,
         band: best.score >= 75 ? 'strong' : best.score >= 45 ? 'moderate' : 'weak',
         matchedScreen: best.screen,
+        // `parts` used to be a plain {test: points} map. It now carries whether the test
+        // ran at all, so anything reading it as a number would silently read an object;
+        // keep the numeric map here and put the full explanation alongside it.
         parts: best.parts
+          ? Object.fromEntries(Object.entries(best.parts).map(([k, p]) => [k, p.points]))
+          : null,
+        scoreComponents: explained?.components || [],
+        scoreBasis: explained?.basis || null
       };
     })
     .sort((a, b) => {

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.19",
+  "version": "0.2.2",
+  "id": "f7216d99-a7d5-5d2d-bbe9-8c1e5956b878",
+  "developer": {
+    "name": "Private Markets Deal Room",
+    "websiteUrl": "https://ca-dealhub-teams-beta.ambitiousforest-08192d93.swedencentral.azurecontainerapps.io",
+    "privacyUrl": "https://ca-dealhub-teams-beta.ambitiousforest-08192d93.swedencentral.azurecontainerapps.io/privacy",
+    "termsOfUseUrl": "https://ca-dealhub-teams-beta.ambitiousforest-08192d93.swedencentral.azurecontainerapps.io/terms"
+  },
+  "name": {
+    "short": "Deal Room - Beta",
+    "full": "Deal Room - Beta"
+  },
+  "description": {
+    "short": "AI-native private-equity deal flow in Teams.",
+    "full": "Deal Dashboard brings your fund's live deal flow into Teams: a channel dashboard and personal tab (Entra SSO) over the shared Deal Room backend (single data source), proactive Adaptive Card alerts as deals advance, and an M365 Copilot agent that answers deal questions through the Entra-secured MCP. The deal chat is grounded in live data and screened by Azure AI Content Safety; a Bing-grounded news scout surfaces fresh M&A catalysts."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#B23B7A",
+  "configurableTabs": [
+    {
+      "configurationUrl": "https://ca-dealhub-teams-beta.ambitiousforest-08192d93.swedencentral.azurecontainerapps.io/config",
+      "canUpdateConfiguration": true,
+      "scopes": [
+        "team",
+        "groupChat"
+      ],
+      "context": [
+        "channelTab"
+      ]
+    }
+  ],
+  "staticTabs": [
+    {
+      "entityId": "dealroom-home",
+      "name": "Deal Room - Beta",
+      "contentUrl": "https://ca-dealhub-teams-beta.ambitiousforest-08192d93.swedencentral.azurecontainerapps.io/",
+      "scopes": [
+        "personal"
+      ]
+    }
+  ],
+  "permissions": [
+    "identity"
+  ],
+  "validDomains": [
+    "ca-dealhub-teams-beta.ambitiousforest-08192d93.swedencentral.azurecontainerapps.io",
+    "app.powerbi.com"
+  ]
+}

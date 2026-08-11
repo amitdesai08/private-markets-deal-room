@@ -212,6 +212,10 @@ app.post('/api/deals/:id/documents/:kind', async (req, res) => {
   if (!isBackendLive()) return res.status(502).json({ error: 'shared-backend-not-configured' });
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const identity = await identityFromSsoToken(ssoToken);
+  // The fourth proxy that assembled its own credentials, and it drifted the same way the
+  // other three did: it forwarded only an SSO-derived user, so every walkthrough seat
+  // reached the backend as nobody and the deal it was standing on came back "not found".
+  const asOverride = await resolveDemoOverride(req, identity);
   const dest = String(req.query.dest || req.body?.dest || 'download').toLowerCase();
 
   let userToken = null;
@@ -220,10 +224,12 @@ app.post('/api/deals/:id/documents/:kind', async (req, res) => {
     if (!userToken) return res.status(409).json({ notConnected: true, reason: 'Sign in to Microsoft 365 in Teams to publish to the shared data room.' });
   }
 
-  const headers = { 'content-type': 'application/json' };
-  if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
+  const requestingUser = asOverride
+    ? { oid: asOverride, upn: asOverride, name: asOverride }
+    : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
+  const headers = backendAuth({ identity, ssoToken, asOverride, requestingUser });
   if (userToken) headers['x-user-graph-token'] = userToken;
-  const body = JSON.stringify({ dest, requestingUser: identity ? { oid: identity.oid, upn: identity.upn, name: identity.name } : undefined });
+  const body = JSON.stringify({ dest, requestingUser: requestingUser || undefined });
 
   try {
     const live = req.query.live ? `&live=${encodeURIComponent(req.query.live)}` : '';

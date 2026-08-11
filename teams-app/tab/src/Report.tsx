@@ -81,8 +81,16 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
 
   // LP-grade lineage: every headline metric traces to a source system + as-of date +
   // method.
-  const srcLabel = fabric?.source || (fabric?.mode === 'live' ? 'Market data (live)' : 'Deal Room record');
-  const asOf = (fabric as any)?.freshness?.label || TODAY;
+  // THE LINEAGE TABLE MUST NOT NAME A FEED THAT IS NOT CONNECTED.
+  //
+  // `fabric.source` and `fabric.freshness.label` come back populated whatever the mode, so
+  // rows headed "Every figure above traces to a source system and as-of date" attributed
+  // themselves to "Fund market data · 19d ago" two inches under a badge reading "Market
+  // data: not connected". Three statements on one page, two of them wrong, on the document
+  // that goes to an LP. Only trust those fields when the feed is actually live.
+  const marketLive = fabric?.mode === 'live';
+  const srcLabel = marketLive ? (fabric?.source || 'Market data (live)') : 'Deal Room record';
+  const asOf = marketLive ? ((fabric as any)?.freshness?.label || TODAY) : TODAY;
   // "LP-ready" used to be granted by a live market-data feed, bypassing the approver,
   // the frozen snapshot and the audit row sitting directly above it. A report could
   // reach an LP's inbox stamped LP-ready that nobody had signed. Certification is now
@@ -93,7 +101,7 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
     : { label: 'Draft — not certified', cls: 'warn' };
   const dataMode = fabric?.mode === 'live'
     ? { label: 'Market data: live', cls: 'ok' }
-    : { label: 'Market data: seeded', cls: 'warn' };
+    : { label: 'Market data: not connected', cls: 'warn' };
   // "Pipeline value" sat above the words "pipeline, not portfolio holdings" and then
   // counted three companies the fund already owns -- $1.7B, a fifth of the total,
   // double-counted against the portfolio NAV on the next tab. This screen carries a
@@ -263,11 +271,11 @@ export default function Report({ pipeline, deals, market, config, dealId, canCer
             ))}
           </tbody>
         </table>
-        <p className="rpt-note">Every figure above traces to a source system and as-of date. {currentCert ? `Certified for LP distribution on ${new Date(currentCert.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} by ${currentCert.by}.` : 'This package has not been certified — certify it above before sending it to an LP.'} {fabric?.mode === 'live' ? 'External market sources are live and within SLA.' : 'External market sources are seeded, not live.'}</p>
+        <p className="rpt-note">Every figure above traces to a source system and as-of date. {currentCert ? `Certified for LP distribution on ${new Date(currentCert.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} by ${currentCert.by}.` : 'This package has not been certified — certify it above before sending it to an LP.'} {fabric?.mode === 'live' ? 'External market sources are live and within SLA.' : 'No external market-data feed is connected on this deployment; every figure above comes from the firm’s own record.'}</p>
       </section>
 
       <footer className="rpt-foot">
-        Generated from the live Deal Room · {fabric?.mode === 'live' ? 'market intel: live' : 'market intel: sample data'} · CONFIDENTIAL
+        Generated from the live Deal Room · {fabric?.mode === 'live' ? 'market intel: live' : 'market intel: no external feed connected'} · CONFIDENTIAL
       </footer>
     </div>
   );

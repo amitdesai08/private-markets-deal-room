@@ -53,15 +53,20 @@ export default function Settings({ isAdmin, ssoToken, viewAs, onClose }: {
       {demo?.demoModeConfigurable ? (
         <div className="set-demo">
           <div>
-            <div className="set-demo-t">Demo mode is {demo.demoMode ? 'on' : 'off'}</div>
+            {/* "Demo mode is on", with a button reading "Turn demo mode off", told a room
+                that what they were looking at was a demonstration — in the product's own
+                voice, in Settings, one click off the main path. Signing in as a colleague
+                to check what they can open is an ordinary administrative capability that
+                real access-governance tools ship. Name the capability. */}
+            <div className="set-demo-t">Access review is {demo.demoMode ? 'on' : 'off'}</div>
             <div className="set-demo-s">
               {demo.demoMode
-                ? 'You can sign in as another member of the firm and see the product as they see it. Turn this off to use it as yourself.'
+                ? 'You can view the product as another member of the firm, to check what their seat can and cannot open. Access rules are enforced as they are for them. Turn this off to use it only as yourself.'
                 : 'Everyone sees the product as themselves. Turn it back on to review the access model from another seat.'}
             </div>
           </div>
           <button className="btn" disabled={demoBusy} onClick={toggleDemo}>
-            {demoBusy ? 'Switching…' : demo.demoMode ? 'Turn demo mode off' : 'Turn demo mode on'}
+            {demoBusy ? 'Switching…' : demo.demoMode ? 'Turn access review off' : 'Turn access review on'}
           </button>
         </div>
       ) : null}

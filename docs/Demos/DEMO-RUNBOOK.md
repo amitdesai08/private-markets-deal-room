@@ -29,13 +29,14 @@ Five tabs across the top. That is the whole product; there is nothing else to fi
 |---|---|
 | **Home** | What needs you today. |
 | **Sourcing & screening** | Companies you are looking at but have not committed to. |
-| **Deals in flight** | The deals you are actually running. |
+| **All deals** | The deals you are actually running. |
 | **Fund & Portfolio** | The fund's money, and the companies it already owns. |
-| **Report** | The numbers you would send to an investor — issued as a draft until somebody certifies it. |
+| **Firm reporting** | The numbers you would send to an investor — issued as a draft until somebody certifies it. |
 
-Open a deal and you get nine tabs, in the same order on every deal: **Deal brief ·
-Thesis & key figures · IC readiness · Returns, plan & risk · Progress & follow-ups ·
-Work the deal · Diligence workstreams · Documents · More ▾**.
+Open a deal and the sections are the same on every deal: **Brief · The case · The work ·
+Analysis · Papers**, with **Deal channel** and **Audit trail** on their own row underneath
+(“On this deal”). The header carries **# Deal channel**, **📁 Data room**, **💬 Ask the
+assistant** and **🔗 Copy link**.
 
 If you get lost at any point, press a main tab. There are only five and they always
 work.
@@ -70,11 +71,13 @@ so you never mix “feature order” with “act order” mid-demo:
 3. **Diligence** — Diligence workstreams: red/amber/green workstreams, findings, **Apply ▸**.
 4. **IC pack & decision** — Decision artifacts + the **pre-populated, firm-branded IC pack** +
    the **IC-readiness verdict** *(this is the wow — the blank page is gone)*.
-5. **Own & monitor** — Fund & Portfolio: marks, watchlist, LPA limits.
-6. **Safe & real** — one line each: access enforced server-side, Files, chats & email over M365, keyless real data.
-7. **Close & ask** — the source-to-own loop, then *“let's run this on your tenant next.”*
+5. **Work it together** — the **notification bell**, the **Deal channel** you can post into
+   without leaving, and **documents that actually open**. *(See §4a — this is the newest work.)*
+6. **Own & monitor** — Fund & Portfolio: marks, watchlist, LPA limits.
+7. **Safe & real** — one line each: access enforced server-side, Files, chats & email over M365, keyless real data.
+8. **Close & ask** — the source-to-own loop, then *“let's run this on your tenant next.”*
 
-> **Safe fallback (~7 min):** beats **1 → 2 → 4 → 5 → 7** — skip live diligence *Apply* and the
+> **Safe fallback (~7 min):** beats **1 → 2 → 4 → 5 → 8** — skip live diligence *Apply* and the
 > integrations. If a beat is fragile, narrate it rather than clicking it.
 
 > **Data note — say this once:** everything is the fund's **seeded demo record** (realistic,
@@ -106,7 +109,7 @@ dropdown (it shows **Name — Role**, no clutter):
 2. **Tahani Al-Jamil — Deal Team.** Deal-team agents; **Stage-2 diligence unlocked**; writes
    findings and the value-creation plan.
 3. **Chidi Anagonye — Analyst.** The rail collapses to **his own agent** (read-only), the
-   **"Deals in flight" total drops to 3** — the two **confidential** deals vanish — and Stage-2 locks.
+   **"All deals" total drops to 3** — the two **confidential** deals vanish — and Stage-2 locks.
 4. **Jason Mendoza — Member.** The **guardrail floor**: view-only, **zero persona agents**,
    dashboard only.
 
@@ -118,7 +121,7 @@ dropdown (it shows **Name — Role**, no clutter):
 
 ## 3 · The full deal lifecycle (2 min)
 
-1. Open the **Work the deal** tab.
+1. Open **The work** section (its **Plan** view).
 2. Walk the **four phases / sixteen steps**, calling out the **six decision points (⛔)**:
    PURSUE → **IOI** → **LOI** → **IC** → **Signing** → **Exit**.
 3. Note each stage's **owner persona** and the artifacts it produces.
@@ -136,28 +139,77 @@ dropdown (it shows **Name — Role**, no clutter):
 1. From **Home**, open a deal (e.g. the top consumer deal). Each stage names its
    **👤 owner persona** — the senior expertise stays in the background, so the
    surface reads like a deal team's own workspace, not a chatbot.
-2. On the deal's **Deal brief** tab, call out the **Deal brief**:
-   - **IC readiness breakdown** — the **READY / CONDITIONAL / NOT-READY** verdict, the
+2. On the deal's **Brief** section, call out:
+   - **IC readiness breakdown** — the **Ready / Conditional / Not ready** verdict, the
      readiness %, days-to-IC, and the **top 3 blockers**, each with a one-click **Resolve ▸**.
    - **“What changed since last check?”** — a the what-changed line showing readiness/verdict moves
      and newly-blocking vs resolved items since the last review (no history table — a lean
      single mark that only rewrites on real change).
-   - **Next best action** — a deterministic strip that jumps to the exact tab to act.
-3. **Diligence workstreams** tab — the **diligence workbench**: every workstream as a **red/amber/green** row
+   - **Next best action** — a deterministic strip that jumps to the exact place to act.
+3. **The work** section — the **diligence workbench**: every workstream as a **red/amber/green** row
     with owner, progress and the blocking reason, plus a persistent
    **“N at risk”** count.
-4. **Documents** tab — show the four cards:
+4. **Papers** — show the four cards:
    - **LBO / Returns** — entry multiple, sources & uses, base/upside/downside **IRR & MOIC** vs the hurdle. Click **Returns model (Excel)** to download the real workbook (Summary · Sources & Uses · Scenarios · Sensitivity).
    - **Value creation** — the EBITDA bridge + quantified levers + 100-day plan.
    - **Risk register** — open risks by severity × likelihood, red/amber/green.
    - **IOI / LOI** — the non-binding indication and letter of intent.
-5. **IC readiness** tab — the full decision-grade board + verdict.
-6. **Compare** — back on Home, tick **2–4 deals** and open the side-by-side
+5. **The case** — the full decision-grade readiness board + verdict.
+6. **Compare** — back on **All deals**, tick **2–4 deals** and open the side-by-side
    grid (stage, IC readiness, days-to-IC, size, priority, recommended action); hit
    **⧉ Copy table** to paste it straight into a note.
 
 > "Every number is the deal's real number — change the deal and the returns, the
 > risks, the IC verdict and the delta all move with it. Nothing is static or hand-typed."
+
+## 4a · Work the deal together (3 min) — *the newest work*
+
+Three things a deal team does all day that used to send you somewhere else. Run this beat
+as a **partner** (`?dr_as=partner` on the web console) so the seat can write.
+
+**1. What landed on me — the notification bell (top right).**
+The badge counts what has reached *your* stage: a deal advancing into the phase you own, a
+workstream you lead that is blocking, a go/no-go recorded. Switch seats and the list
+changes with the person — the General Counsel sees their legal lanes, the analyst sees
+three items, an observer sees none. Click one and it opens that deal.
+
+> "Nobody is told about work that isn't theirs. This is the same need-to-know model as the
+> deal list, applied to alerts."
+
+**2. The deal channel — collaboration without leaving.**
+Press **# Deal channel** in the deal header. The conversation is *inside* the deal, not a
+link out to Teams:
+- Read the thread, the **AI catch-up** ("what happened since yesterday"), and the
+  **detected decisions and commitments** the product proposes but will not record on its own.
+- **Type a message and post it.** Each message says where it lives: a post that reached the
+  Teams channel is attributed to you in Teams; one that stayed here is tagged
+  **"Deal Room only"**, so nobody assumes the channel has seen it.
+- **Open in Teams ↗** is still there for the full client.
+
+> "It posts **as you**, never as the app — your name, your audit trail, your retention. And
+> when it cannot post as you, it says so rather than posting anyway."
+
+*If asked why a message says "Deal Room only":* the walkthrough credential deliberately
+cannot write into a real Teams channel. Signed in inside Teams, the same box posts to the
+channel under your own Microsoft 365 identity.
+
+**3. Papers that open.**
+Go to **Papers**. Every document has **Open** (previews in place), **Open on the web ↗**
+(Microsoft 365 in the browser) and **Open in the app** (the desktop Word/Excel/PowerPoint).
+Nothing is a dead link.
+
+**4. The assistant answers while you watch.**
+Open **💬 Ask the assistant**. Two things to point out:
+- The **suggested prompts send on one click** — no copy-paste, no second Enter.
+- It **starts answering immediately**: a status line names who is being consulted
+  ("Consulting the modelling and diligence specialists…"), then the answer streams in.
+  Questions the record can answer outright — *how many deals are in flight*, *what's ready
+  for the next IC*, *what changed this week* — come back in **about a second**, because
+  they are computed from the record rather than asked of a model.
+- Use the **widen** control if the room is reading over your shoulder.
+
+> "The arithmetic is the product's own. The model is used to interpret and explain it —
+> not to do the sums."
 
 ## 5 · Fund & portfolio — monitor what you own (2 min)
 
@@ -208,20 +260,20 @@ Ask:
 > answer — it **proposes concrete next steps** grounded in the deal's state (e.g. *“Log
 > this blocking workstream as an issue”*, *“Mark this issue resolved”*). It **never acts
 > on its own**: each proposal is a chip you **Apply ▸**. Applying writes the change to the
-> live record and a **fully-attributed audit entry** — open the deal's **Audit trail** (under **More ▾**) to
+> live record and a **fully-attributed audit entry** — open the deal's **Audit trail** (on the “On this deal” row, beside **Deal channel**) to
 > show *who did what, when*, with a **“via assistant · you approved”** badge on every
 > assistant-applied change. That's the governance answer to “can the AI change things?” —
 > yes, but only when a human approves, and always on the record.
 
 ## 7 · The Deal Room Report — Power BI, integrated in the app (1 min)
 
-Open the **Report** tab inside the app (top nav). Reporting is now a **first-class
+Open the **Firm reporting** tab inside the app (top nav). Reporting is now a **first-class
 function of the console itself** — not a separate pinned tab. The app serves the fund's
 **real Power BI report** — Portfolio Overview · Sector & Industry · Pipeline by Stage ·
 Deal Value & Valuation · Time-based metrics — **embedded** for signed-in users
 (user-owns-data), with an **Open in Power BI** deep link and a live native summary as a
 fallback. (A channel tab pinned to the old `?view=report` link still opens straight to
-this in-app Report tab.)
+this in-app Firm reporting tab.)
 
 ## 8 · Files, chats & email — agents over SharePoint / Teams / mail (1 min)
 
@@ -243,7 +295,7 @@ your confidential estate is enforced and logged, so nothing leaks across it.
 - Every deal's data room **arrives pre-populated**: a full **IC pack** — memo (Word), deck
   (PowerPoint) and deal & returns models (Excel) — plus a plain-English **data-room guide** are
   drafted from the live record and dropped straight into the room, so the team opens to a finished
-  first draft, not a blank page. Open a deal's **Documents** tab and the seeded **IC Materials** folder.
+  first draft, not a blank page. Open a deal's **Papers** section and the seeded **IC Materials** folder.
 - The memo is a real committee paper — thesis, merits, risks, valuation & returns, value creation,
   diligence findings and the IC ask — so a partner starts from something to polish, not to write.
 - Open **Settings → Document templates**: set the **fund name, brand colours, confidentiality
@@ -277,9 +329,9 @@ your confidential estate is enforced and logged, so nothing leaks across it.
 | Deal brief (verdict + top blockers + “what changed” delta + next best action) | deal → **Deal brief** |
 | Diligence workbench (red/amber/green workstreams) | deal → **Diligence workstreams** tab |
 | Side-by-side compare (2–4 deals + Copy table) | **Home** → tick **+ Compare** |
-| Assistant approve-to-apply + audit trail | in-deal **💬 Ask** → **Apply ▸** · deal **Audit trail** (under **More ▾**) · `POST /api/deals/:id/assistant-actions` · `GET /api/deals/:id/activity` |
+| Assistant approve-to-apply + audit trail | in-deal **💬 Ask** → **Apply ▸** · deal **Audit trail** (on the "On this deal" row) · `POST /api/deals/:id/assistant-actions` · `GET /api/deals/:id/activity` |
 | Lifecycle (sixteen steps, 6 gates) | **Work the deal** tab · `GET /api/lifecycle` |
-| Decision artifacts | deal → **Documents** tab · `/api/deals/:id/{returns,value-creation,risk-register,ioi,loi}` |
+| Decision artifacts | deal → **Papers** · `/api/deals/:id/{returns,value-creation,risk-register,ioi,loi}` |
 | Returns Excel | deal → **Documents** → *Returns model (Excel)* |
 | Fund & portfolio (post-IC) | **Fund & Portfolio** tab · `/api/fund/{overview,portfolio,value}` |
 | Specialist agents | assistant + in-deal **💬 Ask the assistant** · `GET /api/persona-agents` |

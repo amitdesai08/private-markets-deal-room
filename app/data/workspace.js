@@ -75,7 +75,7 @@ const TEMPLATES = [
   { id: 'issues', name: 'Issues Log', type: 'Excel', ext: 'xlsx', desc: 'Open items by workstream, severity and resolution owner.' },
   { id: 'contracts', name: 'Contract Review Tracker', type: 'Excel', ext: 'xlsx', desc: 'Material contracts — change-of-control, assignment, expiry.' },
   { id: 'lbo', name: 'LBO Model', type: 'Excel', ext: 'xlsx', desc: 'Leveraged-buyout model; QoE feeds the assumptions.' },
-  { id: 'icmemo', name: 'IC Memo Template', type: 'Word', ext: 'docx', desc: 'Fund-standard IC memo skeleton (thesis → recommendation).' },
+  { id: 'icmemo', name: 'IC Memo Template', type: 'Word', ext: 'docx', desc: 'Fund-standard IC memo template, thesis through to recommendation.' },
   { id: 'icdeck', name: 'IC Deck Template', type: 'PowerPoint', ext: 'pptx', desc: 'Committee presentation, ~15–25 slides.' }
 ];
 

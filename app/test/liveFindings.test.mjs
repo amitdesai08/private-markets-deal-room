@@ -14,18 +14,32 @@ test('a revenue nobody recorded is never presented as the deal\u2019s own number
   // Lumen records ARR and no revenue. The model was handed 1.2x enterprise value under
   // the words "AUTHORITATIVE FIGURES - these are the deal's own numbers", and told a
   // partner "Revenue: $288M", then produced a verbatim quotation to support it.
-  const lumen = byId('lumen-analytics');
+  //
+  // The first fix said "NO REVENUE FIGURE IS RECORDED for this company", which the model
+  // then quoted back in quotation marks and attributed to the Returns page — a page that
+  // has never carried that sentence — and which was refuted one tab away by the ARR the
+  // Brief prints at high confidence. The rule is now: never state a derived revenue, name
+  // the top line that IS recorded, and forbid the attribution.
+  // Lumen has since had a diligenced revenue and EBITDA put on its record, which is the
+  // right answer to the underlying problem. The rule it exposed still has to hold, so the
+  // fixture is now a record shaped the way Lumen's was: a top line and nothing else.
+  const lumen = { ...byId('lumen-analytics'), keyFigures: (byId('lumen-analytics').keyFigures || []).filter((k) => /\barr\b|growth|nrr/i.test(k.label)) };
   const c = canonicalFigures(lumen);
   assert.equal(c.revenueRecorded, false, 'fixture assumption: Lumen records no revenue line');
   const block = figuresBlock(lumen);
-  assert.match(block, /NO REVENUE FIGURE IS RECORDED/);
-  assert.doesNotMatch(block, /Revenue: /, 'a derived revenue reached the model as authoritative');
+  assert.match(block, /No total revenue is on this company's record/, 'the missing revenue is not declared');
+  assert.doesNotMatch(block, /(?<!TOTAL )Revenue: /, 'a derived revenue reached the model as authoritative');
+  // The record's own top line has to be named rather than denied along with the rest.
+  assert.match(block, /ARR of \$42M/, 'the recorded top line is not named, so the denial is refuted by the Brief tab');
+  // And the directive must not be quotable as though it were page text.
+  assert.match(block, /Never present one as a quotation/i, 'the directive does not forbid being quoted back as a citation');
+  assert.doesNotMatch(block, /^[a-z][a-z0-9_]*=/m, 'a machine token is still being handed to the model');
 });
 
 test('a recorded revenue is still stated', () => {
   const nordic = byId('nordic-grocery');
   assert.equal(canonicalFigures(nordic).revenueRecorded, true);
-  assert.match(figuresBlock(nordic), /Revenue: /);
+  assert.match(figuresBlock(nordic), /revenue \$[\d.]+/);
 });
 
 test('the sensitivity grid contains the case it is sensitising', () => {
@@ -92,7 +106,7 @@ test('the risk register is not the same register on every deal', () => {
     const reg = buildRiskRegister(d);
     const rows = reg.risks || [];
     const row = rows.find((x) => /concentration/i.test(x.risk || ''));
-    return (String(row?.risk || '').match(/~(\d+)% of revenue/) || [])[1];
+    return (String(row?.risk || '').match(/~([\d.]+)% of revenue/) || [])[1];
   }).filter(Boolean);
   assert.ok(concs.length >= 3, 'expected a concentration row on most deals');
   assert.ok(new Set(concs).size > 1, `every deal reports the same concentration: ${concs.join(', ')}`);
@@ -127,7 +141,10 @@ test('the register never reports an opinion on a lane nobody has started', () =>
       for (const r of rows.filter((x) => x.workstream === reportLane)) {
         assert.doesNotMatch(String(r.risk), ASSERTS_WORK,
           `${deal.company}: ${reportLane} lane is not started, but the register says "${r.risk}"`);
-        assert.match(String(r.risk), /has not started|not been commissioned/i,
+        // The register now says this in several phrasings, because one sentence on
+        // nineteen deals is what makes a room decide the record is generated. The rule is
+        // that it says the work has not happened, not that it says so in one way.
+        assert.match(String(r.risk), /has not started|not been commissioned|has not been (?:done|scoped|instructed)|nobody has (?:opened|scoped|looked|spoken)|is unstarted|is unscoped|no \w+ work has been|no basis on the record|is outstanding/i,
           `${deal.company}: ${reportLane} lane is not started and the register does not say so`);
       }
     }
@@ -224,15 +241,23 @@ test('returns that run on a default say so', () => {
   // Five deals returned byte-identical IRR and MOIC — a cinema-advertising business and a
   // clinical-stage biotech among them — because none carried a growth rate. Nothing on the
   // page said the figures were a placeholder.
+  //
+  // A defaulted EBITDA is the same failure and was not covered: with none recorded the model
+  // infers one from enterprise value at the sector screening multiple, so the entry multiple
+  // it reports is that default restated. Both count as indicative.
   for (const deal of seededDeals) {
     let r;
     try { r = buildReturnsModel(deal); } catch { continue; }
     if (!r) continue;
-    if (dealGrowth(deal) === null) {
-      assert.equal(r.indicative, true, `${deal.company}: no growth on the record and the returns do not say they are indicative`);
+    const preLaunch = /^O/i.test(String(deal.stage || ''));
+    const ebitdaKf = (deal.keyFigures || []).find((k) => /\bebitda\b/i.test(String(k.label || '')) && !/margin|growth|cagr/i.test(String(k.label || '')));
+    const untested = !ebitdaKf?.source || /draft|preliminary|teaser|\bcim\b|information memorandum|broker|analyst|research|management accounts?/i.test(String(ebitdaKf.source));
+    const defaulted = preLaunch || untested || dealGrowth(deal) === null || canonicalFigures(deal)?.ebitdaSource === 'derived';
+    if (defaulted) {
+      assert.equal(r.indicative, true, `${deal.company}: runs on a default and the returns do not say they are indicative`);
       assert.match(String(r.indicativeNote || ''), /placeholder|indicative/i);
     } else {
-      assert.notEqual(r.indicative, true, `${deal.company}: growth IS recorded but the returns claim to be indicative`);
+      assert.notEqual(r.indicative, true, `${deal.company}: every input is on the record but the returns claim to be indicative`);
     }
   }
 });

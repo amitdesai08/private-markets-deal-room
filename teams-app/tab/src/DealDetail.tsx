@@ -105,6 +105,14 @@ const VERDICT_CLASS: Record<string, string> = { READY: 'ok', CONDITIONAL: 'warn'
 // badge reading "NOT-READY", in capitals with a hyphen, on the most-read screen in
 // the product. Nobody says that out loud in a committee.
 const VERDICT_TEXT: Record<string, string> = { READY: 'Ready for committee', CONDITIONAL: 'Ready with conditions', 'NOT-READY': 'Not ready for committee' };
+const POST_IC_TEXT: Record<string, string> = { READY: 'In execution', CONDITIONAL: 'In execution, with conditions', 'NOT-READY': 'In execution, items open' };
+const ORIGINATION_TEXT: Record<string, string> = { READY: 'Screened', CONDITIONAL: 'Screened', 'NOT-READY': 'Not launched' };
+const verdictLabel = (v: Any) => {
+  const s = String(v?.state || '');
+  if (v?.phase === 'post-committee') return POST_IC_TEXT[s] || s;
+  if (v?.phase === 'origination') return ORIGINATION_TEXT[s] || s;
+  return VERDICT_TEXT[s] || s;
+};
 
 function relTime(iso?: string | null): string | null {
   if (!iso) return null;
@@ -510,7 +518,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
       // ago. And the demo reseed sat at the top of it, telling anyone doing operational
       // diligence that the most recent governance event on the deal was somebody
       // discarding its history. Sort it, and keep the reseed out of the record.
-      const rows = (d?.activity || []).filter((a: ActivityEntry) => !/reset to its starting state|demo fixture/i.test(String(a.action || '')));
+      const rows = (d?.activity || []).filter((a: ActivityEntry) => !/reset to its starting state|restored to the firm’s baseline|demo fixture/i.test(String(a.action || '')));
       rows.sort((a: ActivityEntry, b: ActivityEntry) => new Date(b.when || 0).getTime() - new Date(a.when || 0).getTime());
       setActivity(rows);
     }).catch(() => setActivity([]));
@@ -529,7 +537,10 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
         .then(async (r) => {
           if (cancelled) return;
           const d = await r.json().catch(() => ({}));
-          if (r.ok && d?.provisioning) { setDocs({ provisioning: true, canWrite: d.canWrite }); timer = setTimeout(loadDocs, 8000); return; }
+          // The mirror to Microsoft 365 may still be provisioning, but the documents
+          // themselves are in the record and are what the reader came for. Show them,
+          // and say the mirror is still catching up rather than hiding the list.
+          if (r.ok && d?.provisioning) { setDocs({ ...d, provisioning: true }); return; }
           setDocs(r.ok ? d : { error: d?.error || 'The document list could not be loaded. Try again.', notConnected: !!d?.notConnected });
         })
         .catch((e) => { if (!cancelled) setDocs({ error: String(e?.message || e) }); });
@@ -801,7 +812,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
               doors they are locked out of, directly above that sentence, meant one of
               the two was lying. They pressed it, got a server rejection, and stopped
               believing the access message. */}
-          {deal && !statusOnly ? <button className="chbtn" onClick={dealChannel} disabled={busy === 'channel'} title="Create or open a Teams channel to converse about this deal">{deal.workspace?.teamsProvisioned ? '# Open channel ↗' : busy === 'channel' ? 'Creating…' : '# Deal channel'}</button> : null}
+          {/* COLLABORATION LIVES INSIDE THE PRODUCT. This button used to leave for Teams the
+              moment a channel existed, so the deal's conversation was the one part of the
+              deal you could not do here. It now opens the in-app channel view; that view
+              carries its own "Open in Teams" link for anyone who wants the full client. */}
+          {deal && !statusOnly ? <button className="chbtn" onClick={() => (deal.workspace?.teamsProvisioned ? setTab('threads') : dealChannel())} disabled={busy === 'channel'} title={deal.workspace?.teamsProvisioned ? "Open this deal's channel here in the Deal Room" : 'Create a Teams channel to converse about this deal'}>{deal.workspace?.teamsProvisioned ? '# Deal channel' : busy === 'channel' ? 'Creating…' : '# Deal channel'}</button> : null}
           {/* Labelled "📁 Data room", which is not the name of anywhere you can get to from
             here -- the tab is called Documents, and this button leaves the product for
             SharePoint. Two names for one place is how people conclude they have missed a
@@ -1103,7 +1118,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                       concluded the product contradicts itself. It does not: the deal has
                       a data room, it is simply not mirrored into a Microsoft 365 site.
                       Name which one we mean, every time. */}
-                  {docs?.provisioning ? (
+                  {docs?.provisioning && !(docs.documents || []).length ? (
                     <div className="muted">This deal's data room lives inside the product — you can open it on Diligence workstreams. It is not mirrored into a Microsoft 365 site or Teams channel, so nothing generated here can be filed there. Generating and downloading any document above works as normal.</div>
                   ) : docs?.notConnected ? (
                     <div className="muted">This deal's data room lives inside the product — you can open it on Diligence workstreams. Microsoft 365 is not connected, so documents cannot be saved to a SharePoint site. Generating and downloading documents above works as normal.</div>
@@ -1113,12 +1128,19 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                     <div className="muted">Loading data room…</div>
                   ) : (
                     <>
+                      {docs.provisioning ? (
+                        <div className="muted" style={{ marginBottom: 8 }}>These papers live inside the product and are listed below. The Microsoft 365 mirror for this deal is still being set up, so nothing generated here can be filed to a SharePoint site yet — generating and downloading works as normal.</div>
+                      ) : null}
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
-                        <button className="btn" disabled={!docs.canWrite || !!docsBusy} onClick={() => genDoc('ic-deck', 'sharepoint')}>{docsBusy === 'ic-deck:sharepoint' ? 'Saving…' : '📤 Save IC deck to data room'}</button>
-                        <button className="btn" disabled={!docs.canWrite || !!docsBusy} onClick={() => genDoc('ic-memo', 'sharepoint')}>{docsBusy === 'ic-memo:sharepoint' ? 'Saving…' : '📤 Save IC memo to data room'}</button>
-                        <button className="btn" disabled={!docs.canWrite || !!docsBusy} onClick={() => genDoc('model', 'sharepoint', true)}>{docsBusy === 'model:sharepoint:live' ? 'Saving…' : '📤 Save deal model to data room'}</button>
+                        <button className="btn" disabled={!docs.canWrite || !!docsBusy || !!docs.provisioning} onClick={() => genDoc('ic-deck', 'sharepoint')}>{docsBusy === 'ic-deck:sharepoint' ? 'Saving…' : '📤 Save IC deck to data room'}</button>
+                        <button className="btn" disabled={!docs.canWrite || !!docsBusy || !!docs.provisioning} onClick={() => genDoc('ic-memo', 'sharepoint')}>{docsBusy === 'ic-memo:sharepoint' ? 'Saving…' : '📤 Save IC memo to data room'}</button>
+                        <button className="btn" disabled={!docs.canWrite || !!docsBusy || !!docs.provisioning} onClick={() => genDoc('model', 'sharepoint', true)}>{docsBusy === 'model:sharepoint:live' ? 'Saving…' : '📤 Save deal model to data room'}</button>
                       </div>
                       {!docs.canWrite ? <div className="muted" style={{ marginBottom: 6 }}>Read-only — publishing to the shared data room needs deal-team or partner access. You can still download your own copy.</div> : null}
+                      {/* The folder counts come from the mirrored SharePoint tree, which is not where
+                          the record's own papers live; showing both side by side had the tree saying
+                          a folder was empty while the list underneath carried its contents. The
+                          structure is worth showing; its counts are not. */}
                       {(docs.folders || []).length ? (
                         <div style={{ margin: '4px 0 10px' }}>
                           <div className="muted" style={{ fontWeight: 600, marginBottom: 6 }}>Data room structure</div>
@@ -1127,10 +1149,11 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                               <a key={fd.name} href={fd.url} target="_blank" rel="noopener" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8, textDecoration: 'none', color: 'inherit' }}>
                                 <span style={{ fontSize: 16 }}>📁</span>
                                 <span style={{ fontWeight: 600, flex: 1, fontSize: 13 }}>{fd.name.replace(/^\d+_/, '')}</span>
-                                {fd.childCount ? <span className="muted" style={{ fontSize: 11 }}>{fd.childCount}</span> : null}
+
                               </a>
                             ))}
                           </div>
+                          <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>{(docs as Any).foldersNote || 'The standard structure this firm opens on every deal. The papers themselves are listed below.'}</div>
                         </div>
                       ) : null}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1148,7 +1171,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                             <span className="doc-acts">
                               {f.webUrl ? <a className="btn ghost xs" href={f.webUrl} target="_blank" rel="noopener">Open on the web ↗</a> : null}
                               {f.webUrl && f.office ? <a className="btn ghost xs" href={`ms-${f.office}:ofe|u|${f.webUrl}`} title={`Open in ${f.office === 'word' ? 'Word' : f.office === 'excel' ? 'Excel' : 'PowerPoint'} on this machine`}>Open in the app</a> : null}
-                              <a className="btn ghost xs" href={f.briefUrl || f.previewUrl} target="_blank" rel="noopener">Download</a>
+                              <a className="btn ghost xs" href={f.briefUrl || f.previewUrl} target="_blank" rel="noopener" title="The deal's own brief on this paper, as a Word document. The paper itself sits in the data room.">Download brief (Word)</a>
                             </span>
                           </div>
                         )) : (
@@ -1156,9 +1179,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           // everything in the data room, so "No documents generated yet" sat
                           // directly under "IC Materials 4" and read as a contradiction. When
                           // the folders hold files, say where they are.
-                          <div className="muted">{(docs.folders || []).some((fd: any) => fd.childCount)
-                            ? 'Nothing generated here yet. The files already in the data room are in the folders above.'
-                            : 'No documents generated yet — use the buttons above, or drop files into the data-room folders.'}</div>
+                          <div className="muted">Nothing generated here yet — use the buttons above, or drop files into the data-room folders.</div>
                         )}
                       </div>
                     </>
@@ -1303,7 +1324,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                     </div>
                     <div style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        {verdict?.state ? <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: verdict.state === 'READY' ? 'var(--good)' : verdict.state === 'NOT-READY' ? 'var(--bad)' : 'var(--warn)', background: verdict.state === 'READY' ? 'var(--good-bg)' : verdict.state === 'NOT-READY' ? 'var(--bad-bg)' : 'var(--warn-bg)' }}>{VERDICT_TEXT[verdict.state] || verdict.state}</span> : null}
+                        {verdict?.state ? <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 999, color: verdict.state === 'READY' ? 'var(--good)' : verdict.state === 'NOT-READY' ? 'var(--bad)' : 'var(--warn)', background: verdict.state === 'READY' ? 'var(--good-bg)' : verdict.state === 'NOT-READY' ? 'var(--bad-bg)' : 'var(--warn-bg)' }}>{verdictLabel(verdict)}</span> : null}
                         {/* The header pill two inches above says "Approved at IC" and this
                             said "68% ready" on the same deal. Readiness measures whether the
                             papers are fit to put in front of committee; once committee has
@@ -1387,7 +1408,16 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                           <div className="dd-fig" key={i} title={sourceHint(f.source)}>
                             <div className="fig-v">{f.value}</div>
                             <div className="fig-l">{f.label}</div>
-                            {f.source ? <div className="fig-src">source: {f.source}{f.confidence ? ` · ${f.confidence} confidence` : ''}</div> : null}
+                            {/* The line only rendered when a source was recorded, so the
+                                same table had a provenance row on one deal and not on the
+                                next — and a figure with no source silently looked the same
+                                as one that had been checked. An absent source is the more
+                                important of the two things to say. */}
+                            <div className="fig-src">
+                              {f.source
+                                ? <>source: {f.source}{f.confidence ? ` · ${f.confidence} confidence` : ''}</>
+                                : <span className="fig-src-none">no source recorded</span>}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1599,7 +1629,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                         {(market.comparableDeals || []).slice(0, 8).map((c, i) => (
                           <div className="mr-row" key={i}>
                             <span className="mr-name">{c.company}{c.ticker ? <span className="chip">{c.ticker}</span> : null}</span>
-                            <span className="mr-val">{c.dealType || '—'} · {bigMoney(c.impliedValuation)}</span>
+                            <span className="mr-val">{c.dealType || '—'} · {bigMoney(c.impliedValuation)}{typeof (c as Any).evEbitda === 'number' ? ` · ${(c as Any).evEbitda}x EV/EBITDA` : ''}</span>
                             {c.status ? <span className={`chip ${String(c.status).toLowerCase().replace(/\s+/g, '-')}`}>{c.status}</span> : null}
                           </div>
                         ))}
@@ -1614,7 +1644,8 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                         {(market!.icPrecedents || []).slice(0, 8).map((p, i) => (
                           <div className="mr-row" key={i}>
                             <span className="mr-name">{p.deal}</span>
-                            <span className="mr-val">{p.decision} · {(p.votesFor ?? 0)}–{(p.votesAgainst ?? 0)}{typeof p.votesAbstain === 'number' ? `–${p.votesAbstain}` : ''}</span>
+                            <span className="mr-val">{p.decision} · {(p.votesFor ?? 0)}–{(p.votesAgainst ?? 0)}{typeof p.votesAbstain === 'number' ? `–${p.votesAbstain}` : ''}{typeof (p as Any).entryMultiple === 'number' ? ` · ${(p as Any).entryMultiple}x` : ''}</span>
+                            {(p as Any).note ? <div className="dd-note">{(p as Any).note}</div> : null}
                           </div>
                         ))}
                       </div>
@@ -1639,7 +1670,10 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                       source tag, not figures anyone has checked. An LP who tests one
                       unsourced number stops trusting the other ninety-nine. Say what is
                       actually on offer -- you can see where each figure came from. */}
-                  <div className="dd-panel-h">Where these figures come from<span className={`chip ${citations?.clean ? 'ok' : 'warn'}`}>{citations ? `${citations.score ?? 0}% carry a source` : citationsFailed ? 'unavailable' : '…'}</span></div>
+                  {/* `score ?? 0` printed "0% carry a source" wherever the audit WITHHELD a
+                      score, over five rows each naming their source. A withheld score is
+                      not a zero; say which it is. */}
+                  <div className="dd-panel-h">Where these figures come from<span className={`chip ${citations?.clean ? 'ok' : 'warn'}`}>{citations ? (citations.score == null ? 'No score — see below' : `${citations.score}% carry a source`) : citationsFailed ? 'unavailable' : '…'}</span></div>
                     {!citations ? (
                       citationsFailed
                         ? <div className="dd-empty-p">The source audit could not be run just now. <button className="askbtn" onClick={() => { setCitationsFailed(false); af(`/api/deals/${dealId}/citations`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).then(setCitations).catch(() => setCitationsFailed(true)); }}>Try again</button></div>
@@ -1677,7 +1711,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
                   <div className="dd-panel-h">IC readiness<span className="muted">the board below is the record — the percentage on the deal header weighs papers, workstreams and open risks together</span></div>
                   {verdict ? (
                     <div className={`verdict ${VERDICT_CLASS[verdict.state || ''] || ''}`}>
-                      <span className="verdict-state">{VERDICT_TEXT[String(verdict.state || '')] || verdict.state}</span>
+                      <span className="verdict-state">{verdictLabel(verdict)}</span>
                       <span className="verdict-head">{verdict.headline}</span>
                     </div>
                   ) : <div className="dd-empty-p">IC readiness available once diligence is underway.</div>}

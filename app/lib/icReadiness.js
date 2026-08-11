@@ -20,7 +20,7 @@
 // deal's documents/filings — so the board is defensible, not decorative.
 
 import { buildReturns, fmtMoney as money } from './screening.js';
-import { canonicalFigures, dealGrowth, buildRiskRegister , statedMultipleOf, reconcileFindingText } from './diligence.js';
+import { canonicalFigures, dealGrowth, buildRiskRegister , statedMultipleOf, reconcileFindingText, buildReturnsModel, priceMechanism } from './diligence.js';
 import { ownerLabel } from './cockpit.js';
 
 const LANE_LABEL = {
@@ -87,7 +87,7 @@ function requiredArtifacts(deal) {
     { key: 'D1', label: 'Diligence plan', complete: onRecord('D1'), detail: onRecord('D1') ? 'Plan on record.' : 'Not yet on record.' },
     { key: 'D2', label: 'Findings / red-flag report', complete: onRecord('D2'), detail: onRecord('D2') ? 'Findings synthesised.' : 'Not yet on record.' },
     { key: 'D3', label: 'Final IC memo', complete: onRecord('D3'), detail: onRecord('D3') ? 'Memo drafted.' : 'Not yet on record.' },
-    { key: 'memo', label: 'IC memo sections approved', complete: memo.length > 0 && memoApproved === memo.length, detail: `${memoApproved}/${memo.length} sections approved.` },
+    { key: 'memo', label: 'IC memo sections approved', complete: memo.length > 0 && memoApproved === memo.length, detail: `${memoApproved} of ${memo.length} section${memo.length === 1 ? '' : 's'} approved.` },
     // "Status: empty." and "Status: approved." were the stored enum printed straight
     // onto a committee-readiness board. Say what the state means for the paper.
     { key: 'recommendation', label: 'Recommendation drafted', complete: !!recSection && recSection.status !== 'empty', detail: !recSection ? 'No recommendation section on the memo.' : REC_STATUS_TEXT[recSection.status] || `Recommendation is ${String(recSection.status).replace(/_/g, ' ')}.` },
@@ -125,9 +125,20 @@ function blockingWorkstreams(deal, openIssues) {
     const notOpened = w.status === 'not_started' || noEvidence;
     const halted = w.status === 'blocked' || w.status === 'on_hold';
     const reasons = [];
-    if (notOpened) reasons.push(w.status === 'not_started' ? 'not started' : 'no work recorded against it');
-    else if (halted) reasons.push(`workstream ${w.status.replace('_', ' ')}`);
-    if (blockingIssues.length) reasons.push(`${blockingIssues.length} open high-severity issue(s)`);
+    // "No work recorded against it" on a lane the diligence tab shows at 100% is read as
+    // the product being wrong, not as the record being thin — and the data room now holds
+    // that lane's document, which makes the denial louder. The guard is right: a typed
+    // status is not evidence. The sentence has to say the true thing, which is that the
+    // lane claims progress and has nothing written against it to review.
+    if (notOpened) {
+      const claimsProgress = w.status !== 'not_started' && (w.status === 'complete' || (w.progress ?? 0) > 0);
+      reasons.push(
+        w.status === 'not_started' || !claimsProgress
+          ? 'not started'
+          : `recorded ${w.status === 'complete' ? 'complete' : `at ${w.progress}%`} with nothing written against it`,
+      );
+    } else if (halted) reasons.push(`workstream ${w.status.replace('_', ' ')}`);
+    if (blockingIssues.length) reasons.push(`${blockingIssues.length} open high-severity issue${blockingIssues.length === 1 ? '' : 's'}`);
     // A lane enters this list on high-severity issues alone, and the reason list was then
     // written as though it had also never been opened. Heliopack shipped "Financial /
     // QoE: complete, progress 100" and "Financial / QoE: no work recorded against it" in
@@ -139,7 +150,7 @@ function blockingWorkstreams(deal, openIssues) {
       reasons[reasons.length - 1] = `${blockingIssues.length} open high-severity finding${blockingIssues.length === 1 ? '' : 's'} on a lane otherwise recorded ${w.status === 'complete' ? 'complete' : `at ${w.progress || 0}%`}`;
     }
     if (reasons.length) {
-      out.push({ lane: w.lane, label: laneLabel(w.lane), owner: w.owner ? ownerLabel(w.owner, w.lane) : null, progress: w.progress || 0, status: w.status || 'not_started', openIssues: laneIssues.length, blockingIssues: blockingIssues.length, reasons,
+      out.push({ lane: w.lane, label: laneLabel(w.lane), owner: w.owner ? ownerLabel(w.owner, w.lane, deal.id) : null, progress: w.progress || 0, status: w.status || 'not_started', openIssues: laneIssues.length, blockingIssues: blockingIssues.length, reasons,
         // Nothing on this board carried a date, so "Legal DD, not started, General Counsel"
         // nine days out told a partner it was late and not whether anyone had committed to
         // finishing it. The record holds no completion dates; saying so is the answer.
@@ -239,16 +250,30 @@ function icAsk(deal) {
   let r = null;
   try { r = buildReturns({ ebitda: ebitdaForAsk, dealSize: deal.dealSize ?? 0, growth: dealGrowth(deal) ?? undefined, revenue: c?.revenue ?? kf.revenue ?? 0, ebitdaMargin: c?.ebitda && c?.revenue ? +((c.ebitda / c.revenue) * 100).toFixed(1) : undefined }); } catch { /* best effort */ }
   const ev = deal.dealSize ?? null;
-  const equity = r?.scenarios?.base?.equityIn ?? (ev != null ? Math.round(ev * 0.45) : null);
-  const irr = c?.irr ?? r?.scenarios?.base?.irr ?? null;
-  const moic = c?.moic ?? r?.scenarios?.base?.moic ?? null;
+  // ONE MODEL, OR THE PAGE ARGUES WITH ITSELF.
+  //
+  // This built its own `buildReturns` from a different set of inputs, so the committee ask
+  // said $160M while the returns page two clicks away said $140M equity in and $135M of
+  // sponsor equity in sources & uses. Three cheques for one deal, and only two of them were
+  // ever explained. The ask now quotes the same model the Papers page renders.
+  let model = null;
+  try { model = buildReturnsModel(deal); } catch { /* fall back to the local build */ }
+  const modelBase = (model?.scenarios || []).find((s) => /base/i.test(s.name)) || null;
+  const equity = modelBase?.equityIn ?? r?.scenarios?.base?.equityIn ?? (ev != null ? Math.round(ev * 0.45) : null);
+  const irr = modelBase?.irr ?? c?.irr ?? r?.scenarios?.base?.irr ?? null;
+  const moic = modelBase?.moic ?? c?.moic ?? r?.scenarios?.base?.moic ?? null;
   return {
     enterpriseValue: ev != null ? money(ev) : '—',
     entryMultiple: c?.entryMultiple != null ? `${c.entryMultiple}x LTM EBITDA` : r ? `${r.entryMultiple}x LTM EBITDA` : '—',
     equityCheck: equity != null ? money(equity) : '—',
-    structure: 'Control buyout · completion accounts with NWC true-up',
+    // The structure is a property of the transaction, not of the product. A scheme, a
+    // carve-out and a founder secondary are not the same deal, and printing one line on
+    // all nineteen put completion accounts on a take-private that cannot have them.
+    structure: priceMechanism(deal).structure,
     hurdle: r ? `${r.hurdle.irr}% IRR / ${r.hurdle.moic}x MOIC` : '20% IRR / 2.0x MOIC',
     baseCase: irr != null && moic != null ? `${irr}% IRR · ${moic}x MOIC` : '—',
+    indicative: !!model?.indicative,
+    caveat: model?.indicative ? model.indicativeNote : null,
     source: 'derived'
   };
 }
@@ -312,7 +337,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
       (c) => !conditionText.some((t) => sameObligation(t, `${c.check} ${c.framework || ''}`))
     );
     // `blocking` is read here too. It was not, and the result was one payload contradicting
-    // itself: `demo-peachtree` shipped `blockingWorkstreams: ['Tech / AI DD']` — reason,
+    // itself: `peachtree` shipped `blockingWorkstreams: ['Tech / AI DD']` — reason,
     // no work recorded against it — under the headline "nothing outstanding on the record".
     // A lane nobody has evidenced is outstanding whatever stage the deal is at.
     //
@@ -338,16 +363,23 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
     // an open register row is not an obligation the committee attached. The fault was
     // never the state; it was a headline claiming an absence while the payload beside it
     // held the thing.
-    const registerOpen = unresolvedRisks
+    // Every row the register prints, so the sentence below can say which slice of it the
+  // number is rather than leaving a reader to reconcile two against seven.
+  let regRows = 0;
+  try { regRows = (buildRiskRegister(deal).risks || []).filter((r) => r.severity !== 'clear').length; } catch { regRows = 0; }
+  const registerOpen = unresolvedRisks
       .filter((r) => r.from === 'risk register' && !/monitor/i.test(String(r.severityLabel || '')))
       .length;
     const registerPhrase = registerOpen
-      ? ` ${registerOpen} item${registerOpen === 1 ? '' : 's'} remain open on the risk register.`
+      // "2 items remain open on the risk register" printed beside a register card showing
+      // seven rows, and the assistant then produced "two, seven, four" trying to
+      // reconcile it. The two are the closing conditions; the seven are every row.
+      ? ` ${registerOpen} of the ${(regRows || registerOpen)} rows on the risk register ${registerOpen === 1 ? 'is a closing condition' : 'are closing conditions'} still to evidence.`
       : '';
     const outstanding = [...obligations, ...unevidenced];
     if (outstanding.length) {
       const parts = [];
-      if (obligations.length) parts.push(`${obligations.length} obligation${obligations.length === 1 ? '' : 's'} still outstanding`);
+      if (obligations.length) parts.push(`${obligations.length} ${/^(exiting|exited)$/i.test(String(deal.status || '')) ? `exit-preparation item${obligations.length === 1 ? '' : 's'} still outstanding` : `obligation${obligations.length === 1 ? '' : 's'} still outstanding`}`);
       if (unevidenced.length) parts.push(`${unevidenced.length} diligence workstream${unevidenced.length === 1 ? '' : 's'} with no work recorded`);
       return {
         state: 'CONDITIONAL',
@@ -362,14 +394,22 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
         registerOpen,
         conditionsTotal: openConditions.length + registerConditions,
         phase,
-        basis: 'Stage on the deal record. No committee decision record exists to confirm the approval terms.',
+        basis: 'Stage, conditions and compliance clearances on the deal record. The committee minute itself is not held here.',
       };
     }
     return {
       state: 'READY',
+      // "No obligation or unopened workstream outstanding" is true of the two lists this
+      // branch reads, and it was printed four rows above "Tax diligence is open" and
+      // "ESG diligence is open" on the same page. Say which lists it is talking about,
+      // and point at the one it is not.
       headline: registerOpen
-        ? `Past the IC decision — no obligation or unopened workstream outstanding.${registerPhrase}`
-        : 'Past the IC decision — nothing outstanding on the record.',
+        // "No closing obligation is outstanding" was printed over a list naming one,
+        // because this branch counts the committee's own obligations and the register's
+        // conditions are counted somewhere else. Where the register carries a condition,
+        // say what is true of both.
+        ? `Past the IC decision — the committee attached no obligation that is still open, and every diligence workstream has recorded something.${registerPhrase} What no workstream has reported on is listed under what is not yet known.`
+        : 'Past the IC decision — the committee attached no obligation that is still open, and every diligence workstream has recorded something. What no workstream has reported on is listed under what is not yet known.',
       gating: [],
       openConditions: 0,
       openComplianceChecks: 0,
@@ -377,7 +417,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
       registerOpen,
       conditionsTotal: registerConditions,
       phase,
-      basis: 'Stage on the deal record. No committee decision record exists to confirm the approval terms.',
+      basis: 'Stage, conditions and compliance clearances on the deal record. The committee minute itself is not held here.',
     };
   }
 
@@ -391,18 +431,50 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
     // chase, while the owner sat on the workstream two fields away. An outstanding item
     // with nobody's name on it is outstanding on nobody.
     const named = blocking.map((b) => {
-      const who = b.owner ? ownerLabel(b.owner, b.lane) : null;
-      return who ? `${b.label} (${who})` : b.label;
+      const who = b.owner || null;
+      // WHY IT IS BLOCKING, NOT JUST THAT IT IS.
+      //
+      // This named the lane and the owner and dropped the reason, so the home desk said
+      // "6 workstreams blocking: … Financial / QoE (David Osei)" while the deal's own Work
+      // tab showed that lane complete at 100%. Both were true — the lane is recorded
+      // complete with nothing written against it — but only one of them was on screen, so
+      // the two pages read as a contradiction. The reason is already computed here.
+      const why = (b.reasons || [])[0] || null;
+      const head = who ? `${b.label} (${who})` : b.label;
+      return why ? `${head} — ${why}` : head;
     });
     gating.push(`${blocking.length} workstream${blocking.length === 1 ? '' : 's'} blocking: ${named.join(', ')}`);
   }
-  const hardRisks = unresolvedRisks.filter((i) => i.severity === 'risk');
-  if (hardRisks.length) gating.push(`${hardRisks.length} unresolved risk-level issue${hardRisks.length === 1 ? '' : 's'}`);
+  // A BARE COUNT WITH NOTHING BEHIND IT, AND ON MOST DEALS IT COUNTED A BLOCKER TWICE.
+  //
+  // "1 unresolved risk-level issue" travelled to the readiness board, the brief and the
+  // case's outstanding list — and the one issue behind it was "Legal DD workstream
+  // blocking IC", which is already inside "2 workstreams blocking: Legal DD (Anjali
+  // Raman) — not started, ESG..." in the same sentence. One fact, counted twice, and the
+  // register it points at grades zero rows at that severity, so a reader who goes looking
+  // finds nothing. Name the issues, and drop any that a blocking-workstream line already
+  // names.
+  const blockingLabels = new Set(blocking.map((b) => String(b.label || '').toLowerCase().trim()).filter(Boolean));
+  const hardRisks = unresolvedRisks.filter((i) => {
+    if (i.severity !== 'risk') return false;
+    const title = String(i.title || '').toLowerCase();
+    return ![...blockingLabels].some((l) => l && title.includes(l));
+  });
+  for (const r of hardRisks) {
+    const title = String(r.title || '').trim();
+    if (title) gating.push(title);
+  }
 
   let state, headline;
-  if (gating.length) {
+  if (phase === 'origination' && gating.length) {
     state = 'NOT-READY';
-    headline = `Not IC-ready — ${gating.join('; ')}.`;
+    const lanes = (deal.workstreams || []).length;
+    headline = `Not launched into diligence — ${lanes ? `${lanes} workstream${lanes === 1 ? '' : 's'} scoped and none opened` : 'no workstream has been scoped'}, and the committee papers are not started because nobody has been asked to write them yet. ${deal.company} is at ${deal.stageName || 'screening'}.`;
+  } else if (gating.length) {
+    state = 'NOT-READY';
+    // Some gating lines are lists and some are whole sentences that end in a stop, so
+    // joining them and adding one produced "...are the critical path.." on screen.
+    headline = `Not IC-ready — ${gating.map((g) => String(g).replace(/\.\s*$/, '')).join('; ')}.`;
   } else if (openConditions.length) {
     state = 'CONDITIONAL';
     headline = `IC-ready, subject to ${openConditions.length} condition(s) to close.`;
@@ -412,9 +484,12 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
     // means nothing is GATING the committee, which is not the same as nothing being open,
     // and a partner who finds that out in the room does not use the product again.
     const open = unresolvedRisks.length;
-    headline = open
-      ? `IC-ready — required papers complete and no blocking workstreams. ${open} item${open === 1 ? '' : 's'} on the risk register ${open === 1 ? 'is' : 'are'} still open and ${open === 1 ? 'does' : 'do'} not gate the committee.`
-      : 'IC-ready — required papers complete, no blocking workstreams or unresolved risks.';
+    const carried = unresolvedRisks.filter((x) => x.severity === 'caution' || x.severity === 'condition').length;
+    headline = !open
+      ? 'IC-ready — required papers complete, no blocking workstreams or unresolved risks.'
+      : carried === open
+        ? `IC-ready — required papers complete and no blocking workstreams. ${open} item${open === 1 ? '' : 's'} on the register ${open === 1 ? 'is' : 'are'} carried as ${open === 1 ? 'a condition' : 'conditions'} to evidence at signing; none gates the committee.`
+        : `IC-ready — required papers complete and no blocking workstreams. ${open} item${open === 1 ? '' : 's'} on the risk register ${open === 1 ? 'is' : 'are'} still open and ${open === 1 ? 'does' : 'do'} not gate the committee.`;
   }
   return { state, headline, gating, openConditions: openConditions.length, registerConditions, conditionsTotal: openConditions.length + registerConditions, phase };
 }

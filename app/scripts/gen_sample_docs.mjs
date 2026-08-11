@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 const base = 'https://ca-dealhub-orch-green.niceisland-36753373.swedencentral.azurecontainerapps.io';
-const id = process.argv[2] || 'demo-sterling';
+const id = process.argv[2] || 'sterling';
 const TEMP = os.tmpdir();
 const j = async (p) => { const r = await fetch(base + p); if (!r.ok) throw new Error(`${p} -> ${r.status}`); return r.json(); };
 

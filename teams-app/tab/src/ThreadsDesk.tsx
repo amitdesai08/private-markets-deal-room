@@ -19,7 +19,7 @@ import { Tag, ago } from './deskUi';
 // arrives in Teams from you — your name, your audit trail, your retention. The app is
 // the surface, not the author: it never posts on its own and never posts as itself.
 
-type Msg = { id: string; graphId?: string | null; from: string; initials?: string; role?: string | null; at?: string | null; text: string; webUrl?: string | null; mine?: boolean };
+type Msg = { id: string; graphId?: string | null; from: string; initials?: string; role?: string | null; at?: string | null; text: string; webUrl?: string | null; mine?: boolean; via?: 'teams' | 'deal-room'; };
 type Thread = {
   id: string; group: string; title: string; ref?: string; state?: string;
   anchorKind: string; anchor: string; preview: string; updated?: string | null;
@@ -33,9 +33,10 @@ type Desk = {
   // authored demo content from content derived from the deal record.
   asUser?: boolean; obo?: boolean;
   origin?: { channel?: string; files?: string; mail?: string };
-  // Whether this person can actually post into this channel, and if not, why not.
-  // Resolved server-side so the composer is never offered when it could not work.
-  compose?: { canSend: boolean; reason: string | null };
+  // Whether this person may speak on this deal at all, and separately whether the message
+  // would also reach Teams. Resolved server-side so the composer is never offered when it
+  // could not work, and never promises the channel when it cannot deliver it.
+  compose?: { canSend: boolean; toTeams?: boolean; reason: string | null };
   threads: Thread[];
   catchUp: { count: number; window: string; keyPoint?: string | null; openQuestion?: string | null; decision: string; basis: string } | null;
   commitments: { id: string; author: string; headline: string; quote: string; owner?: string | null; due?: string | null; dueText?: string | null; laneLabel?: string | null; basis: string }[];
@@ -68,10 +69,12 @@ export default function ThreadsDesk({
 
   useEffect(() => { setNote(''); setDismissed(new Set()); setActive(''); setReplyTo(null); setDraft(''); load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [dealId]);
 
-  // Speak in the deal's Teams channel. The orchestrator posts with the signed-in
-  // person's own delegated token, so this is them talking, not the app talking for
-  // them. A failure is reported plainly and the draft is kept — there is no local
-  // echo, because showing an unsent message as sent is worse than showing an error.
+  // Speak in the deal's conversation. It is always recorded on the deal; it ALSO reaches
+  // the Teams channel when the app can send it as the signed-in person, using their own
+  // delegated token, so that is them talking rather than the app talking for them. The
+  // confirmation repeats whichever of those actually happened — never a generic "sent" —
+  // and a failure keeps the draft, because showing an unsent message as sent is worse
+  // than showing an error.
   async function send() {
     const text = draft.trim();
     if (!text || sending) return;
@@ -81,13 +84,13 @@ export default function ThreadsDesk({
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ text, replyTo: replyTo?.id || null }),
       });
+      const d = await r.json().catch(() => ({} as any));
       if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        setNote(d?.detail || d?.reason || 'Microsoft 365 did not accept that message.');
+        setNote(d?.detail || d?.reason || 'That message could not be posted.');
         return;
       }
       setDraft(''); setReplyTo(null);
-      setNote('Sent to Teams as you.');
+      setNote(d?.where || 'Recorded on the deal.');
       await load();
     } catch (e: any) {
       setNote(`Could not send that (${String(e?.message || e)}).`);
@@ -125,11 +128,19 @@ export default function ThreadsDesk({
 
   const canWrite = !!data.canWrite;
   const thread = data.threads.find((t) => t.id === active) || data.threads[0];
-  // Posting is only offered on the thread that IS the Teams channel, and only when the
-  // server has confirmed this person could actually post — channel linked, write seat,
-  // their own M365 sign-in present. The issue log and shared-memory threads are
-  // constructions of the deal record; there is no channel behind them to speak into.
-  const canSend = !!data.compose?.canSend && thread.id === 'war-room' && !!thread.live;
+  // Two different questions, and conflating them was the bug. Whether this person can
+  // SPEAK on the deal is a matter of their access, and the answer is usually yes. Whether
+  // the message will also REACH TEAMS depends on the channel being linked and their own
+  // M365 sign-in being present, which is often not the case. The composer is offered on
+  // the first question; the button and the note answer the second, so nobody believes a
+  // message went to the channel when it stayed here.
+  const composeAllowed = !!data.compose?.canSend;
+  const canSend = composeAllowed && thread.id === 'war-room';
+  const toTeams = canSend && !!data.compose?.toTeams;
+  // You may post, but not into THIS thread — a workstream or issue thread is a view of the
+  // deal record, not somewhere to speak. Saying only "you cannot post here" reads as the
+  // product having no composer at all, so it points at the one place that does.
+  const elsewhere = composeAllowed && thread.id !== 'war-room' && data.threads.some((t) => t.id === 'war-room');
   const sendBlockedReason = thread.id === 'war-room' ? data.compose?.reason || null : null;
   const decisions = data.decisions.filter((d) => !dismissed.has(d.id));
   const commitments = data.commitments.filter((c) => !dismissed.has(c.id));
@@ -172,14 +183,18 @@ export default function ThreadsDesk({
                 ? `Live Microsoft Teams messages, read as you — you are seeing exactly what your own Microsoft 365 permissions allow, nothing more.${data.compose?.canSend ? ' You can reply from here, and it posts under your name.' : ''}`
                 : data.connected
                   ? 'Live Microsoft Teams messages, read with the permission your organisation granted the app rather than your own — you are seeing only the channels this deal team can see.'
-                  : data.origin?.channel === 'derived'
-                    ? 'No Teams channel is linked to this deal yet, so this conversation is composed from the deal record — the workstreams, owners and dates it already holds.'
-                    : data.channelUrl
-                      // The deal HAS a channel — saying otherwise was flatly wrong once every
-                      // deal was linked to one, and it sent people looking for a channel they
-                      // already had. The honest gap is that we are not reading it yet.
-                      ? 'This deal has a Teams channel, but its messages are not being read here yet — what you see below is sample conversation. Open the channel to read the real one.'
-                      : 'Showing sample conversations — no Teams channel is linked to this deal yet.'}
+                  // A LINKED CHANNEL IS TESTED FIRST. This sat below the 'derived' test, which
+                  // is true whenever we have not read Teams — so a deal with a real channel was
+                  // told it had none, directly beside a button that opens it.
+                  : data.channelUrl
+                    ? 'This deal has a Teams channel — "Open in Teams" beside the conversation opens it. Its messages are not read into the app yet, so the conversation below is composed from the deal record: the workstreams, owners and dates it already holds.'
+                    // "Showing sample conversations" printed on two deals, because their
+                    // origin is 'seed+derived' rather than 'derived' and the exact-match
+                    // test fell through to a fallback with the word "sample" in it. There is
+                    // no state in which telling a room it is looking at samples is right.
+                    : /derived/.test(String(data.origin?.channel || ''))
+                      ? 'No Teams channel is linked to this deal yet, so this conversation is composed from the deal record — the workstreams, owners and dates it already holds.'
+                      : 'No Teams channel is linked to this deal yet. The conversation below is composed from the deal record — the workstreams, owners and dates it already holds.'}
             </div>
           </div>
         </div>
@@ -218,11 +233,15 @@ export default function ThreadsDesk({
                     <div>{m.text}</div>
                     <div className="t">
                       {ago(m.at)}
+                      {/* Where this message actually lives. A reader deciding whether the
+                          deal team has seen something needs to know that a Deal Room post
+                          is not in front of anyone watching Teams. */}
+                      {m.via === 'deal-room' ? <> · <span className="chip">Deal Room only</span></> : null}
                       {m.webUrl ? <> · <a className="dashlink" href={m.webUrl} target="_blank" rel="noreferrer">open ↗</a></> : null}
                       {/* Replying needs the real Teams message id, which only exists on
                           messages actually read from Graph. Seeded corpus messages have
                           nothing to reply to, so they correctly offer nothing. */}
-                      {canSend && m.graphId ? (
+                      {toTeams && m.graphId ? (
                         <> · <button className="linkish" type="button" onClick={() => setReplyTo({ id: m.graphId as string, from: m.from })}>reply</button></>
                       ) : null}
                     </div>
@@ -257,12 +276,12 @@ export default function ThreadsDesk({
                 <input
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
-              placeholder={canSend ? `Message the ${data.company} channel…` : 'Ask the assistant about this thread…'}
-              aria-label={canSend ? 'Message the deal channel or ask the assistant' : 'Ask about this thread'}
+              placeholder={canSend ? `Message the ${data.company} deal team…` : 'Ask the assistant about this thread…'}
+              aria-label={canSend ? 'Message the deal team or ask the assistant' : 'Ask about this thread'}
                 />
                 {canSend ? (
                   <button className="btn primary" type="button" disabled={!draft.trim() || sending} onClick={send}>
-                    {sending ? 'Sending…' : replyTo ? 'Reply in Teams' : 'Send to Teams'}
+                    {sending ? 'Sending…' : replyTo ? 'Reply in Teams' : toTeams ? 'Send to Teams' : 'Post on the deal'}
                   </button>
                 ) : null}
                 <button
@@ -275,8 +294,12 @@ export default function ThreadsDesk({
                 </button>
               </form>
               <div className="sub" style={{ marginTop: 6 }}>
-                {canSend
+                {toTeams
                     ? 'Send to Teams posts as you — it lands in the channel under your name, with the same audit trail, retention and eDiscovery treatment as if you had typed it in Teams. The Deal Room never posts as itself. Ask the assistant keeps the question here.'
+                  : canSend
+                      ? `Your message is recorded on the deal and the deal team sees it here. ${sendBlockedReason || ''} Ask the assistant keeps the question in the Deal Room.`
+                  : elsewhere
+                      ? <>This thread is a view of the deal record, so there is nothing to post into. <button className="linkish" type="button" onClick={() => setActive('war-room')}>Go to the deal conversation</button> to say something to the deal team.</>
                   : sendBlockedReason
                       ? `You can read this thread but not post to it: ${sendBlockedReason} Ask the assistant keeps the question in the Deal Room.`
                       : 'You can read this thread but not post to it. Ask the assistant keeps the question in the Deal Room.'}

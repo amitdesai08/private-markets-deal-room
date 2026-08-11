@@ -23,6 +23,8 @@ type Assessment = { action?: string; rationale?: string; confidence?: number; ag
 type Candidate = {
   id: string; company: string; sector?: string; subSector?: string; region?: string; country?: string;
   dealSize?: number; ownership?: string; score?: number; band?: string;
+  scoreComponents?: { key: string; label: string; points: number; outOf: number; met: boolean; partial: boolean; applies?: boolean; hasInput?: boolean; note?: string | null }[];
+  scoreBasis?: string; statusOnly?: boolean;
   stage?: string; disposition?: string; passReasonLabel?: string | null; passStage?: string | null;
   matchedScreen?: { id: string; name: string } | null; keywords?: string[]; sources?: string[];
   assessment?: Assessment | null;
@@ -266,7 +268,27 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
               // a button that could not do anything, which is the exact thing we spent
               // the last pass removing. Say which of the two it is.
               all.length ? (
-                <div className="empty-panel">Nothing at this step. <button className="askbtn" onClick={() => setStageFilter('all')}>Show every candidate</button></div>
+                // A COUNT WITH NOTHING UNDER IT READS AS A FAILURE TO LOAD.
+                //
+                // The O1 tile said "Sourced 16" over this panel saying "Nothing at this
+                // step", because the tile counts everything that REACHED the step and
+                // this list holds only what is still sitting at it. Every candidate has
+                // been screened, so nothing waits at sourcing — a good state, not a
+                // broken one. Say which of the two it is.
+                (() => {
+                  const ORDER = ['O1', 'O2', 'O3', 'O4', 'pursued'];
+                  const idx = (s?: string) => ORDER.indexOf(String(s || ''));
+                  const here = idx(stageFilter);
+                  const passedThrough = here < 0 ? 0 : all.filter((c) => idx(c.stage) >= here).length;
+                  return passedThrough ? (
+                    <div className="empty-panel">
+                      Nothing is waiting at this step. All {passedThrough} {passedThrough === 1 ? 'candidate that has' : 'candidates that have'} reached it {passedThrough === 1 ? 'has' : 'have'} already been actioned and moved on — the count above is how many passed through, not how many are queued.{' '}
+                      <button className="askbtn" onClick={() => setStageFilter('all')}>Show every candidate</button>
+                    </div>
+                  ) : (
+                    <div className="empty-panel">Nothing at this step. <button className="askbtn" onClick={() => setStageFilter('all')}>Show every candidate</button></div>
+                  );
+                })()
               ) : (
                 <div className="empty-panel">No targets in the pipeline yet. They arrive from the sourcing steps, or add one from Emails &amp; news. <button className="askbtn" style={{ marginLeft: 8 }} onClick={() => setSub('signals')}>Open Emails &amp; news →</button></div>
               )
@@ -281,7 +303,33 @@ export default function Stage1({ deals, onChanged, onOpenDeal }: { deals?: Deal[
                       <div className="cand-main">
                         <div className="cand-top">
                           <span className="cand-co">{c.company}</span>
-                          <span className={`pill ${BAND_CLASS[c.band || ''] || ''}`}>{c.score ?? 0} · {c.band || '—'}</span>
+                          {/* The score was a bare number beside a band, so it read as judgement.
+                              The nine weighted tests behind it are one click away now.
+                              A withheld score is NOT a zero: a seat without stage-2 clearance
+                              was shown "0 · —", which is what a genuinely excluded candidate
+                              looks like. A reduction must never render as a verdict. */}
+                          {c.score == null ? (
+                            <span className="pill" title="Your seat does not carry stage-2 clearance, so the screening figures for this candidate are withheld">Score withheld at your access level</span>
+                          ) : (
+                            <details className="cand-score">
+                              <summary className={`pill ${BAND_CLASS[c.band || ''] || ''}`} title="How this score was reached">{c.score} · {c.band || '\u2014'}</summary>
+                              <div className="cand-score-body">
+                                {c.scoreBasis ? <div className="cand-score-basis">{c.scoreBasis}</div> : null}
+                                {(c.scoreComponents || []).map((p) => (
+                                  <div className="cand-score-row" key={p.key} title={p.note || undefined}>
+                                    <span>{p.label}</span>
+                                    {p.applies === false ? (
+                                      <span className="neg">not set by this screen</span>
+                                    ) : p.hasInput === false ? (
+                                      <span className="neg">no figure recorded</span>
+                                    ) : (
+                                      <span className={p.met ? 'pos' : p.partial ? 'warn' : 'neg'}>{p.points} / {p.outOf}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          )}
                         </div>
                         <div className="cand-meta">{[c.sector, c.region, c.country].filter(Boolean).join(' · ')} · {money(c.dealSize)}{c.ownership ? ` · ${c.ownership}` : ''}</div>
                         <div className="cand-tags">

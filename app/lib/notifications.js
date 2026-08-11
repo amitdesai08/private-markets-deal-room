@@ -29,7 +29,22 @@ const DECISION = /\b(pursue|pass(ed)?|approved|declin|go\s*\/?\s*no[- ]go|commit
 const SEAT_STAGE = {
   screening: { phases: ['origination'], what: 'is ready to screen' },
   'deal-lead': { phases: ['diligence'], what: 'has come into diligence' },
-  committee: { phases: ['diligence', 'execution'], what: 'is heading for committee', needsIc: true },
+  committee: {
+    phases: ['diligence', 'execution'],
+    what: 'is heading for committee',
+    // Four identical headlines on one screen. The days-to-IC and the readiness state are
+    // already known here, so the headline can say which of them this is.
+    whatFor: (deal) => {
+      const days = typeof deal?.daysToIC === 'number' ? deal.daysToIC : null;
+      const ready = Number(deal?.icReadiness ?? deal?.readiness ?? 0);
+      if (days != null && days < 0) return 'sat past its committee date';
+      if (days != null && days <= 3) return `goes to committee in ${days === 0 ? 'today\u2019s meeting' : `${days} day${days === 1 ? '' : 's'}`}`;
+      if (ready >= 80) return 'is ready for committee and waiting on a date';
+      if (days != null && days <= 14) return `is booked for committee in ${days} days and is not ready`;
+      return 'is heading for committee';
+    },
+    needsIc: true,
+  },
   value: { phases: ['value'], what: 'has closed and is yours now' },
   lp: { phases: ['value'], what: 'has completed' },
 };
@@ -84,7 +99,7 @@ export function notificationsFor(deals = [], { seat = null, rawFor = () => null,
           dealId: d.id,
           company: d.company,
           kind: 'stage',
-          headline: `${d.company} ${stage.what}`,
+          headline: `${d.company} ${(stage.whatFor && stage.whatFor(d)) || stage.what}`,
           detail: d.stageName || null,
           when: new Date(when).toISOString(),
           basis: 'Deal record — current stage',

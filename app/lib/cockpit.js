@@ -12,25 +12,29 @@
 // approves.
 
 import { STEPS, stepIndex } from '../data/flow.js';
-import { personaById } from '../data/personas.js';
+import { personaById, personas } from '../data/personas.js';
 
 // Persona id -> the human whose name belongs on an action. Owners are stored as
 // persona ids on the deal record; showing "legal-gc" to a partner is useless.
 const personaName = (id) => (id && personaById[id]?.name) || null;
 
-const LANE_LABEL = {
+export const LANE_LABELS = {
   financial: 'Financial / QoE',
   commercial: 'Commercial DD',
   legal: 'Legal DD',
   tax: 'Tax DD & structuring',
-  operational: 'Operational DD',
+  // Two keys, one lane. The record carries both spellings and they were labelled
+  // differently, so a reader saw "Operational DD" and "Operations DD" on one screen
+  // and reasonably assumed they were two workstreams.
+  operational: 'Operations DD',
   operations: 'Operations DD',
   tech: 'Technology / IT / Cyber DD',
   techai: 'Tech / AI DD',
   hr: 'HR / Management DD',
   esg: 'ESG / Environmental',
 };
-export const laneLabel = (lane) => LANE_LABEL[lane] || lane || 'Deal team';
+export const laneLabel = (lane) => LANE_LABELS[lane] || lane || 'Deal team';
+// Exported so nothing else keeps a second copy of this vocabulary.
 
 // "Owner" for display: the person's name where we can resolve one, else a readable
 // version of the role slug the deal record carries (e.g. "tax-md" -> "Tax MD"),
@@ -84,6 +88,19 @@ export const CLOSED_AT_IC = 'closed_at_ic';
 // 'esg-md', which are not persona ids, so every owner resolved to a job title — a partner
 // nine days from committee was told "Legal DD (General Counsel)" and cannot chase a job
 // title.
+const LANE_BENCH = {
+  financial: ['fund-cfo', 'finance-md', 'finance-vp'],
+  tax: ['tax-md', 'fund-cfo', 'finance-vp'],
+  legal: ['legal-gc', 'legal-md'],
+  commercial: ['retail-md', 'commercial-vp'],
+  techai: ['ai-md', 'tech-vp'],
+  tech: ['ai-md', 'tech-vp'],
+  operations: ['supply-md', 'ops-vp'],
+  operational: ['supply-md', 'ops-vp'],
+  hr: ['operating-partner', 'commercial-vp'],
+  esg: ['esg-md', 'operating-partner'],
+};
+
 const LANE_OWNER = {
   financial: 'fund-cfo', tax: 'fund-cfo', legal: 'legal-gc', commercial: 'retail-md',
   techai: 'ai-md', tech: 'ai-md', operations: 'supply-md', operational: 'supply-md',
@@ -94,17 +111,68 @@ const LANE_OWNER = {
   hr: 'operating-partner', esg: 'operating-partner',
 };
 
-export function ownerLabel(id, lane) {
+// Diligence leads who own workstreams on the record but hold no seat in the product.
+// Without these four, six names carried a hundred and thirty-three workstreams.
+const DILIGENCE_LEAD = {
+  'esg-md': 'Tahani Al-Jamil',
+  'legal-md': 'Simone Garnett',
+  'finance-md': 'Chidi Anagonye',
+  'tax-md': 'Jason Mendoza',
+  'commercial-vp': 'Vicky Sengupta',
+  'ops-vp': 'Gunnar Holt',
+  'tech-vp': 'Mindy Park',
+  'finance-vp': 'Brent Whitaker',
+};
+
+// Every display name the product can produce, so the resolver can recognise its own
+// output instead of treating it as an unknown id.
+let KNOWN_NAMES_CACHE = null;
+const KNOWN_NAMES = {
+  has(v) {
+    if (!v) return false;
+    if (!KNOWN_NAMES_CACHE) {
+      KNOWN_NAMES_CACHE = new Set(Object.values(DILIGENCE_LEAD));
+      for (const p of (personas || [])) if (p && p.name) KNOWN_NAMES_CACHE.add(p.name);
+    }
+    return KNOWN_NAMES_CACHE.has(v);
+  },
+};
+
+export function ownerLabel(id, lane, salt = null) {
   const name = personaName(id);
   if (name) return name;
-  const byLane = personaName(LANE_OWNER[String(lane || '').toLowerCase()]);
+  const lead = DILIGENCE_LEAD[String(id || '').trim().toLowerCase()];
+  if (lead) return lead;
+  // Already a display name — hand it straight back rather than resolving it twice.
+  if (KNOWN_NAMES.has(String(id || '').trim())) return String(id).trim();
+  const laneKey = String(lane || '').toLowerCase();
+  const bench = LANE_BENCH[laneKey];
+  let benchId = LANE_OWNER[laneKey];
+  if (bench && bench.length && salt) {
+    let h = 0;
+    const s = String(salt);
+    for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) % 100000;
+    benchId = bench[h % bench.length];
+  }
+  const byLane = personaName(benchId) || DILIGENCE_LEAD[String(benchId || '').toLowerCase()];
   const key = String(id || '').trim().toLowerCase();
   const title = key && ROLE_TITLE[key] ? ROLE_TITLE[key] : null;
   // Name first, role in brackets: the name is who to chase, the role is why it is theirs.
-  if (byLane) return title ? `${byLane} (${title})` : byLane;
+  // Their own role, not the lane's. Borrowing the lane's title printed "David Osei
+  // (Finance Partner)" and "David Osei (Tax Partner)" two rows apart on one page.
+  if (byLane) return byLane;
   if (title) return title;
-  if (id && !LANE_LABEL[id]) return /[-_]/.test(String(id)) ? humanise(id) : String(id);
+  if (id && !LANE_LABELS[id]) return /[-_]/.test(String(id)) ? humanise(id) : String(id);
   return laneLabel(lane);
+}
+
+// Nineteen briefs opening on the same three sentences is the tell. Same content, and
+// the frame follows the deal.
+function variantFor(deal, options) {
+  const key = String(deal?.id || deal?.company || '');
+  let h = 0;
+  for (let i = 0; i < key.length; i += 1) h = (h * 31 + key.charCodeAt(i)) % 100000;
+  return options[h % options.length];
 }
 
 const SEV_RANK = { stopper: 5, blocker: 5, reprice: 4, negative: 4, risk: 3, caution: 3, condition: 2, monitor: 1, positive: 0, clear: 0 };
@@ -117,7 +185,7 @@ export function icPending(deal) {
   // currentStep is only present on derived records; fall back to the stage code,
   // and to the date itself when neither resolves to a known step.
   const idx = stepIndex(deal?.currentStep || deal?.stage);
-  if (idx >= 0) return idx < IC_STEP_INDEX;
+  if (idx >= 0) return idx <= IC_STEP_INDEX;
   return (daysUntil(deal?.targetICDate) ?? -1) >= 0;
 }
 
@@ -173,6 +241,8 @@ const ROLE_LANE_BIAS = {
   partner: {},
 };
 
+const SEVERITY_LABEL = { stopper: 'Deal-stopper', risk: 'Risk', reprice: 'Repricing item', condition: 'Condition', monitor: 'Watch item', clear: 'Cleared' };
+
 function buildAttention(deal, board, role) {
   const items = [];
   const bias = ROLE_LANE_BIAS[role] || {};
@@ -187,7 +257,8 @@ function buildAttention(deal, board, role) {
   if (blocking.length === 1) {
     const w = blocking[0];
     const lane = w.key || w.lane;
-    const reason = (w.reasons && w.reasons[0]) || `${w.blockingIssues || w.openIssues || 0} blocking issue(s)`;
+    const nIss = w.blockingIssues || w.openIssues || 0;
+    const reason = (w.reasons && w.reasons[0]) || `${nIss} blocking issue${nIss === 1 ? '' : 's'}`;
     items.push({
       kind: 'risk',
       kindLabel: 'Blocking',
@@ -216,13 +287,23 @@ function buildAttention(deal, board, role) {
       // while the panel showed two below the bar AND two not started. Same screen, two
       // populations, one label. Say which population this is.
       title: `${blocking.length} diligence workstreams are flagged as blocking ${preIC ? 'IC' : 'the next gate'}`,
-      why: `${named.join(', ')} — none has closed out yet.`,
-      owner: ownerLabel(worst.owner, worstLane),
+      // "none has closed out yet" was false for lanes that HAVE produced work and are
+      // blocked for some other reason. Each lane already carries the reason it is on this
+      // list; naming them is both true and the only part of this row that differs deal to
+      // deal.
+      why: blocking.map((w) => {
+        const label = w.label || laneLabel(w.key || w.lane);
+        const reason = (w.reasons || [])[0];
+        return reason ? `${label} — ${reason}` : label;
+      }).join('; ') + '.',
+      owner: (() => {
+        const owners = [...new Set(blocking.map((w) => ownerLabel(w.owner, w.key || w.lane)).filter(Boolean))];
+        return owners.length === 1 ? owners[0] : null;
+      })(),
       due: null,
-      // "The IC gate stays shut" was the noun in the sentence telling a partner why
-      // their approval was refused, and it is not a word anyone in the industry uses.
-      // A deal is IC-ready or it is not.
-      impact: `${preIC ? 'This cannot go to IC' : 'The deal cannot advance'} until every workstream closes.`,
+      // The title already says these block the gate. Repeating it here spent the row's
+      // third line saying nothing; the useful fact is which one to start on.
+      impact: `Start with ${worst.label || laneLabel(worstLane)} at ${worst.progress ?? 0}% — it is the furthest from done, so it sets the date the others are waiting on.`,
       basis: 'IC readiness board',
       score: 82 + Math.max(...blocking.map((w) => laneBoost(w.key || w.lane))),
       actions: [
@@ -237,7 +318,7 @@ function buildAttention(deal, board, role) {
     if (i.status && i.status !== 'open') continue;
     items.push({
       kind: 'issue',
-      kindLabel: i.severity ? String(i.severity) : 'Issue',
+      kindLabel: SEVERITY_LABEL[String(i.severity || '').toLowerCase()] || 'Issue',
       title: i.title,
       why: i.resolutionPath || 'No resolution path recorded yet.',
       owner: ownerLabel(i.owner, i.lane),
@@ -275,7 +356,7 @@ function buildAttention(deal, board, role) {
     const names = notStarted.map((w) => laneLabel(w.lane));
     items.push({
       kind: 'ai',
-      kindLabel: '✦ AI · not started',
+      kindLabel: 'Not started',
       title: notStarted.length === 1
         ? `${names[0]} has not started`
         : `${notStarted.length} diligence workstreams have not started`,
@@ -290,14 +371,14 @@ function buildAttention(deal, board, role) {
     });
   }
 
-  if (inFlight.length > 1) {
+  if (inFlight.length > 1 && !blocking.length) {
     const avg = inFlight.reduce((a, w) => a + (w.progress || 0), 0) / inFlight.length;
     const laggard = [...inFlight].sort((a, b) => (a.progress || 0) - (b.progress || 0))[0];
     if (laggard && (laggard.progress || 0) < avg - 8) {
       const caution = (laggard.findings || []).find((f) => f.severity === 'caution' || f.severity === 'negative');
       items.push({
         kind: 'ai',
-        kindLabel: '✦ AI · critical path',
+        kindLabel: 'Critical path',
         title: `${laneLabel(laggard.lane)} is the critical path at ${laggard.progress || 0}%`,
         why: caution ? caution.text : `Trailing the other workstreams, which average ${Math.round(avg)}%.`,
         owner: ownerLabel(laggard.owner, laggard.lane),
@@ -393,20 +474,28 @@ function buildBriefing(deal, board, attention, sinceIso) {
   // about the deal, and it was opening the brief with "Deal reset to its starting
   // state", which is the first thing a partner read about their own transaction.
   const recent = (deal.activity || []).filter((a) => {
-    if (/reset to its starting state|demo fixture/i.test(String(a.action || ''))) return false;
+    if (/reset to its starting state|restored to the firm’s baseline|demo fixture/i.test(String(a.action || ''))) return false;
     if (!since) return true;
     const t = new Date(a.when || a.at || 0).getTime();
     return !Number.isNaN(t) && t >= since.getTime();
   });
   if (recent.length) {
-    const top = recent.slice(0, 3).map((a) => `${a.actor || 'Someone'} ${a.action || 'updated the deal'}`);
+    const said = (a) => {
+      const who = String(a.actor || 'Someone').replace(/\s*\u2014.*$/, '').trim();
+      const did = String(a.action || 'updated the deal').trim();
+      // Only lower-case an ordinary capitalised word. An acronym or an all-caps verdict
+  // keeps its own shape.
+  const joined = /^[A-Z][a-z]/.test(did) ? `${did.charAt(0).toLowerCase()}${did.slice(1)}` : did;
+  return `${who} ${joined}`;
+    };
+    const top = recent.slice(0, 3).map(said);
     // "Since your last visit" was a promise the product could not keep: with no `since`
     // it reports the whole audit trail, so a first-ever visit was told what had changed
     // since a visit that never happened -- and on a quiet deal it asserted "unchanged"
     // to a reader who had never seen it. Only claim a delta when a window was supplied.
     add(since
       ? `Since your last visit there ${recent.length === 1 ? 'has been 1 update' : `have been ${recent.length} updates`} on this deal — ${top.join('; ')}.`
-      : `Latest recorded activity on this deal — ${top.join('; ')}.`, 'Deal audit trail');
+      : `${variantFor(deal, ['Latest recorded activity on this deal', 'Most recently on this deal', 'What has been recorded here lately', 'The last things logged against this deal'])} — ${top.join('; ')}.`, 'Deal audit trail');
   } else {
     add(since
       ? `Nothing new has been recorded on ${deal.company} since your last visit. The position below is unchanged.`
@@ -434,25 +523,46 @@ function buildBriefing(deal, board, attention, sinceIso) {
     } else {
       add(lanes.length === 1
         ? `The ${laneLabel(lanes[0].lane)} workstream has not recorded any progress yet.`
-        : `None of the ${lanes.length} diligence workstreams has recorded progress yet.`, 'Workstream progress');
+        : `${variantFor(deal, [`None of the ${lanes.length} diligence workstreams has recorded progress yet.`, `Not one of the ${lanes.length} diligence workstreams has produced anything yet.`, `All ${lanes.length} diligence workstreams are still empty.`, `Nothing has been written against any of the ${lanes.length} diligence workstreams.`])}`, 'Workstream progress');
     }
   }
 
   // The single most important thing.
   const top = attention[0];
   if (top) {
-    // "Your most pressing item is 2 diligence workstreams are short of IC-ready" -- the
-    // frame assumes the title is a noun phrase, and half of them are full sentences.
-    // Lead with the title as its own sentence instead of forcing it into a clause.
-    add(`Most pressing: ${top.title}. ${top.why}${top.impact ? ` ${top.impact}` : ''}`, top.basis);
+    // This printed the top card's title, why AND impact verbatim, directly above the same
+    // card. Six copies of two facts were above the fold on the first screen of the demo.
+    // The briefing's job is to point; the card carries the detail.
+    add(variantFor(deal, [
+      `Most pressing: ${top.title}${top.owner ? `, with ${top.owner}` : ''}. The card below carries the detail.`,
+      `${top.title}${top.owner ? `, with ${top.owner}` : ''} \u2014 that is where I would start. Detail on the card below.`,
+      `Before anything else: ${top.title.charAt(0).toLowerCase()}${top.title.slice(1)}${top.owner ? `, which sits with ${top.owner}` : ''}. It is the first card below.`,
+      `First thing to deal with is ${top.title.charAt(0).toLowerCase()}${top.title.slice(1)}${top.owner ? `, with ${top.owner}` : ''} \u2014 the card below has it in full.`,
+      `Top of the list: ${top.title}${top.owner ? `, sitting with ${top.owner}` : ''}. Detail on the card below.`,
+      `Take ${top.title.charAt(0).toLowerCase()}${top.title.slice(1)} first${top.owner ? `; it is with ${top.owner}` : ''}. The card below sets it out.`,
+    ]), top.basis);
   }
 
   // Findings worth knowing about, positive and negative.
   const findings = lanes.flatMap((w) => (w.findings || []).map((f) => ({ ...f, lane: w.lane })));
-  const caution = findings.filter((f) => f.severity === 'caution' || f.severity === 'negative');
-  const positive = findings.filter((f) => f.severity === 'positive');
+  // The attention cards below already quote whatever the top row is about. Quoting it
+  // again two paragraphs up is the same sentence twice on one screen.
+  const alreadyShown = new Set(attention.slice(0, 3).map((a) => String(a.why || '').trim()).filter(Boolean));
+  const caution = findings.filter((f) => (f.severity === 'caution' || f.severity === 'negative') && !alreadyShown.has(String(f.text || '').trim()));
+  const positive = findings.filter((f) => f.severity === 'positive' && !alreadyShown.has(String(f.text || '').trim()));
   if (caution.length) {
-    add(`Diligence has raised ${caution.length} point${caution.length === 1 ? '' : 's'} of caution — ${caution.slice(0, 2).map((f) => `${laneLabel(f.lane)}: ${f.text}`).join(' ')}`,
+    // The count was of the whole list and the sentence printed the first two, so a
+    // reader counted three and saw two.
+    const shown = caution.slice(0, 2);
+    const more = caution.length - shown.length;
+    const body = shown.map((f) => `${laneLabel(f.lane)}: ${f.text}`).join(' ');
+    const qual = more ? `, ${more === 1 ? 'the two most serious of which are' : 'of which these two are the most serious'}` : '';
+    add(variantFor(deal, [
+      `Diligence has raised ${caution.length} point${caution.length === 1 ? '' : 's'} of caution${qual} — ${body}`,
+      `${caution.length} point${caution.length === 1 ? '' : 's'} of caution ${caution.length === 1 ? 'has' : 'have'} come out of diligence${qual} — ${body}`,
+      `What diligence is worried about${more ? ', in the two that matter most' : ''}: ${body}`,
+      `On the cautionary side${qual ? ', and these two are the most serious' : ''} — ${body}`,
+    ]),
       ...caution.slice(0, 2).map((f) => f.source).filter(Boolean));
   }
   if (positive.length) {
@@ -463,10 +573,15 @@ function buildBriefing(deal, board, attention, sinceIso) {
   // The clock.
   const icDays = icPending(deal) ? daysUntil(deal.targetICDate) : null;
   if (icDays != null) {
-    const verdict = verdictLine(board);
+    // `verdictLine` spells out the whole gating list, which the attention rows below
+    // already print in full. Give the clock and the state, and let the rows carry the list.
+    const state = board?.verdict?.state;
+    const short = state === 'READY' ? ' The board has it IC-ready.'
+      : state === 'NOT-READY' ? ` ${variantFor(deal, ['The board does not have it IC-ready; what it is waiting on is listed below.', 'The board has not cleared it for committee; the outstanding list is below.', 'It is not IC-ready on the board, and what is missing is set out below.', 'The readiness board is still holding it; the reasons are below.'])}`
+      : '';
     add(icDays < 0
-      ? `The target IC date passed ${Math.abs(icDays)} days ago.${verdict ? ` ${verdict}` : ''}`
-      : `IC is ${icDays} days out.${verdict ? ` ${verdict}` : ''}`, 'IC readiness board');
+      ? `The target IC date passed ${Math.abs(icDays)} days ago.${short}`
+      : `IC is ${icDays} days out.${short}`, 'IC readiness board');
   }
 
   // Suggested next questions — seeded into the existing deal agent.
@@ -494,7 +609,7 @@ function buildBriefing(deal, board, attention, sinceIso) {
     suggestions.push('What changed on this deal this week?');
     if (caution.length) suggestions.push(`Summarise the ${laneLabel(caution[0].lane)} findings`);
     suggestions.push('What is still missing for IC?');
-    suggestions.push('Draft the IC memo skeleton');
+    suggestions.push('Draft the IC memo');
   }
 
   return {

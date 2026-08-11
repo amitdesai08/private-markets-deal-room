@@ -75,7 +75,30 @@ export async function listCertifications() {
     const arch = archives.get(id);
     out.push(meta({ ...rec, state: arch ? 'archived' : 'certified', archivedBy: arch?.by || null, archivedAt: arch?.at || null }));
   }
-  return out.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  out.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  // ONLY ONE CERTIFICATE CAN BE THE CURRENT ONE.
+  //
+  // Certifying again did not retire what it replaced, so the registry showed seven live
+  // certificates by the same signer, five of them within nine seconds, every one reading
+  // "certified" with `archivedBy: null`. An LP asking which report is in force had seven
+  // answers. A later certificate supersedes every earlier one by construction — that is
+  // what certifying again means — so say so here rather than relying on somebody
+  // remembering to archive the last one first.
+  let current = true;
+  for (const c of out) {
+    if (c.state === 'archived') continue;
+    if (current) {
+      c.state = 'certified';
+      c.current = true;
+      current = false;
+    } else {
+      c.state = 'superseded';
+      c.current = false;
+      c.supersededBy = out.find((x) => x.current)?.snapshotId || null;
+      c.supersededAt = out.find((x) => x.current)?.at || null;
+    }
+  }
+  return out;
 }
 
 // The full immutable snapshot for one certification (LP export reads from here).

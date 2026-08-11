@@ -13,7 +13,7 @@
 //
 // The rule for adding to this file: only answer where the record gives a complete answer.
 // A half-answer with a confident tone is worse than the twenty-one seconds.
-import { computeICReadiness } from './icReadiness.js';
+import { computeICReadiness, dealPhase } from './icReadiness.js';
 import { ownerLabel } from './cockpit.js';
 
 const norm = (s) => String(s || '').toLowerCase().trim();
@@ -41,9 +41,12 @@ function boardsFor(deals, rawFor) {
 }
 
 const ANSWERS = [
-  // "How many deals do I have in view?"
+  // "How many deals do I have in view?" — and the half-dozen ways people actually ask it.
+  // The narrow phrasing sent "how many deals are in flight" to the model, which took
+  // nineteen seconds to answer 9 while every other surface on screen said 19.
   {
-    match: (m) => /how many deals/.test(m) && /(in |my )?view|do i have|are there/.test(m),
+    match: (m) => /how many deals|number of deals|deal count/.test(m)
+      && !/ready|committee|\bic\b|blocking|condition|sector|stage/.test(m),
     answer: ({ deals }) => ({
       reply: deals.length
         ? `You have ${plural(deals.length, 'deal', 'deals')} in view.${withheldNote(deals)}`
@@ -56,7 +59,10 @@ const ANSWERS = [
   {
     match: (m) => /(ready|readiness)/.test(m) && /\bic\b|committee/.test(m) && !/why|not ready/.test(m),
     answer: ({ deals, rawFor }) => {
-      const boards = boardsFor(deals, rawFor);
+      // Home counts a deal ready only while it is still IN DILIGENCE. Leaving that out here
+      // put deals that had already been to committee on the list of things awaiting it — two
+      // clicks apart, one saying 1 and the other 3.
+      const boards = boardsFor(deals, rawFor).filter((b) => dealPhase(b.deal) === 'diligence');
       if (!boards.length) return null;
       const ready = boards.filter((b) => b.board.verdict?.state === 'READY');
       const notReady = boards.filter((b) => b.board.verdict?.state === 'NOT-READY');
@@ -71,10 +77,14 @@ const ANSWERS = [
           citations: ['IC readiness board'],
         };
       }
+      const named = notReady.slice(0, 4);
       return {
         reply: [
           `${plural(ready.length, 'deal is', 'deals are')} ready for committee: ${ready.map((b) => b.deal.company).join(', ')}.`,
-          notReady.length ? `${plural(notReady.length, 'other is', 'others are')} not: ${notReady.slice(0, 4).map((b) => b.deal.company).join(', ')}.` : null,
+          // Said "11 others are not" and then named four of them.
+          notReady.length
+            ? `${plural(notReady.length, 'other is', 'others are')} not${named.length < notReady.length ? `, including` : ''}: ${named.map((b) => b.deal.company).join(', ')}.`
+            : null,
           withheldNote(deals).trim() || null,
         ].filter(Boolean).join('\n\n'),
         citations: ['IC readiness board'],
@@ -207,9 +217,13 @@ function whyNotReady({ message, deals, rawFor }) {
 }
 
 // Returns a grounded answer, or null when the record does not give a complete one.
-export function answerFromRecord({ message, deals, rawFor }) {
+export function answerFromRecord({ message, deals, rawFor, focusId = null }) {
   const m = norm(message);
   if (!m || !Array.isArray(deals) || typeof rawFor !== 'function') return null;
+  // A question asked while a deal is open is about that deal. The book-wide answers
+  // below are right for the portfolio page and wrong here — asked "is Atlas ready?" on
+  // Atlas, the product replied by naming four other companies.
+  if (focusId) return null;
   const why = whyNotReady({ message, deals, rawFor });
   if (why) return { ...why, source: 'record', orchestration: 'record' };
   for (const a of ANSWERS) {

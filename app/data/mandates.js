@@ -103,7 +103,12 @@ export const seedScreens = [
     id: 'screen-conv-dach',
     tier: 3,
     kind: 'screen',
-    name: 'Consumer & Retail · US',
+    // The screen was called "Consumer & Retail · US" while its regions were Northeast and
+    // West / California, so a board showed Oslo, Zürich and Cologne scoring against "US"
+    // and Leeds excluded outright — two facts that look contradictory until you know the
+    // screen tests region as ONE weighted criterion while the fund mandate gates on
+    // geography before scoring. Name the regions the screen actually prefers.
+    name: 'Consumer & Retail · US Northeast & West',
     themeId: 'theme-convenience',
     author: 'Maya Olsen (Analyst)',
     sector: 'Consumer & Retail',

@@ -787,7 +787,7 @@ test('an uncleared seat is told a target exists, not what it is worth', async ()
 // THE THREE WAYS AN IDENTITY CAN BE FAKED, EACH PINNED ON A CONFIDENTIAL DEAL.
 //
 // Counting rows was how all three of these survived a review: a smaller list looks like a
-// working boundary. Each assertion below names demo-onyx specifically, because that is the
+// working boundary. Each assertion below names onyx specifically, because that is the
 // record the fault actually reached.
 //   - view-as with NO identity returned the roster's partner, who is on Onyx's team, so a
 //     request naming nobody was answered as somebody. Omit the person, get 24 rows and a 200.
@@ -923,7 +923,7 @@ test('no MCP tool answers about a deal the shared surface may not discuss', asyn
 });
 
 // The signed model link is a capability for ONE workbook, and it was honoured in the
-// boundary middleware — so a token for demo-onyx satisfied the guard for the deal record
+// boundary middleware — so a token for onyx satisfied the guard for the deal record
 // itself and all ten of its sub-routes: the returns model, the risk register, the
 // citations, the documents. A capability to read a spreadsheet opened the whole deal.
 test('a model link buys the two routes it is for and nothing else', async () => {

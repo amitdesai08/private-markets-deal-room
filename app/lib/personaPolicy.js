@@ -33,10 +33,8 @@ export const PERSONA_LANE = {
   'legal-gc': 'legal'
 };
 
-const LANE_LABEL = {
-  commercial: 'Commercial DD', financial: 'Financial / QoE', legal: 'Legal DD',
-  tax: 'Tax DD', techai: 'Tech / AI DD', operations: 'Operations DD', esg: 'ESG / Environmental'
-};
+// The lane vocabulary lives in cockpit.js; a second copy here drifted on `tax`.
+import { LANE_LABELS as LANE_LABEL } from './cockpit.js';
 
 // Human labels for the persona (for tool responses / next-action prompts).
 export const PERSONA_LABEL = {

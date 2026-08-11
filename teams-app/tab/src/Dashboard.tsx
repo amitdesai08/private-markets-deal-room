@@ -49,6 +49,12 @@ type HomeDesk = {
   counts: { deals: number; attention: number; icReady: number; commitments: number };
 };
 
+function shownAs(n: number): number {
+  if (n >= 1e9) return Math.round(n / 1e8) * 1e8;
+  if (n >= 1e6) return Math.round(n / 1e6) * 1e6;
+  return Math.round(n);
+}
+
 function money(n?: number): string {
   if (n == null) return '—';
   if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
@@ -307,7 +313,7 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
   //   no seat at all -> say so; do not let the generic view pass as a tailored one
   const seatLine = !seat ? null
     : seat.kind === 'oversight'
-      ? <>Administrator view — every deal in the platform, ranked by deal health rather than weighted to one role</>
+      ? <>Administrator view — every deal you are cleared for, ranked by deal health rather than weighted to one role</>
       : seat.kind === 'observer'
         ? <>Observer access — deal status only, without the workstream detail underneath</>
         : seat.tailored
@@ -368,7 +374,7 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
             <div className="panel-h">Loading your deals…</div>
             <div className="empty-panel" style={{ display: 'grid', gap: 10, textAlign: 'left', padding: '16px 18px' }}>
               <div style={{ fontSize: 14, fontWeight: 600 }}>Fetching the pipeline and building this morning's briefing.</div>
-              <div className="muted">This takes about fifteen seconds the first time you open the window. Nothing is wrong.</div>
+              <div className="muted"></div>
             </div>
           </section>
         </div>
@@ -575,6 +581,9 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
                 </button>
               </div>
             ) : null}
+            {(home as any)?.attentionQuietNote ? (
+              <div className="bd"><div className="muted">{(home as any).attentionQuietNote}</div></div>
+            ) : null}
             <div className="note">
               Opening a deal takes you to that deal's own page. Nothing here changes a deal — it only tells you where to look first.
             </div>
@@ -751,11 +760,16 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
             "and deals you cannot open" read as an addition too — they are already in
             the count, with their size withheld. */}
         {(() => {
-          const shownValue = byPhase.reduce((s, p) => s + p.capital, 0);
+          // A tile whose deals are all restricted prints an em dash, so its capital is not
+          // on the screen and must not be in the total either.
+          const visible = byPhase.filter((p) => p.restricted !== p.count);
+          const shownValue = visible.reduce((s, p) => s + shownAs(p.capital), 0);
           const shownCount = byPhase.reduce((s, p) => s + p.count, 0);
           const restricted = byPhase.reduce((s, p) => s + p.restricted, 0);
+          const preShown = visible.filter((p) => p.key !== 'value')
+            .reduce((s, p) => s + shownAs(p.capital), 0);
           return (
-            <div className="panel-h"><span>Deals by stage</span><span className="muted">{money(shownValue)} across {shownCount} deal{shownCount === 1 ? '' : 's'}{excludedHoldings ? ` · ${money(pipelineValue)} of it pre-completion` : ''}{restricted ? ` · includes ${restricted} you cannot open, size withheld` : ''}</span></div>
+            <div className="panel-h"><span>Deals by stage</span><span className="muted">{money(shownValue)} across {shownCount} deal{shownCount === 1 ? '' : 's'}{excludedHoldings ? ` · ${money(preShown)} of it pre-completion` : ''}{restricted ? ` · includes ${restricted} you cannot open, size withheld` : ''}</span></div>
           );
         })()}
         <div className="funnel">

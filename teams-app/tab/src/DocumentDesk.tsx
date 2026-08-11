@@ -14,7 +14,7 @@ import { type DocOpen } from './docOpen';
 
 type Doc = {
   id: string; name: string; kind: string; sensitivity: string; summary: string;
-  lastModified?: string | null; webUrl?: string | null; changed?: boolean; live?: boolean;
+  lastModified?: string | null; webUrl?: string | null; changed?: boolean; live?: boolean; recordName?: string | null;
   delta?: string; deltaTone?: string; author?: string; basis?: string;
   open?: DocOpen;
 };
@@ -24,7 +24,7 @@ type Desk = {
   changed: Doc[]; docs: Doc[];
   comments: { id: string; blocking: boolean; doc: string; ref: string; author: string; text: string; webUrl?: string | null }[];
   counts: { docs: number; models: number; legal: number; icPack: number; openComments: number; blockingComments: number };
-  gaps: { artefact: string; step: string; stepKey: string; owner: string }[];
+  gaps: { artefact: string; step: string; stepKey: string; owner: string ; stepDone?: boolean; note?: string | null }[];
   gapBasis: string;
 };
 
@@ -62,7 +62,7 @@ export default function DocumentDesk({
     const term = q.trim().toLowerCase();
     return data.docs
       .filter((d) => (filter === 'all' ? true : d.kind === filter))
-      .filter((d) => (!term ? true : `${d.name} ${d.summary}`.toLowerCase().includes(term)));
+      .filter((d) => (!term ? true : `${d.name} ${d.recordName || ''} ${d.summary}`.toLowerCase().includes(term)));
   }, [data, filter, q]);
 
   if (loading) return <div className="card"><div className="bd muted">Reading the deal room…</div></div>;
@@ -100,8 +100,9 @@ export default function DocumentDesk({
                 <span className="ic">{ICON[d.kind] || '📄'}</span>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div className="k">{d.name}</div>
-                  <div className="sub">{d.author || 'unknown author'} · {ago(d.lastModified)}</div>
-                  {d.delta ? <div className={`delta ${d.deltaTone || 'warn'}`}>{d.delta}</div> : null}
+                  {d.recordName && d.recordName !== d.name ? <div className="sub">Cited on the record as {d.recordName}</div> : null}
+                  <div className="sub">{d.author || 'unknown author'}{d.lastModified ? ` · ${ago(d.lastModified)}` : ''}</div>
+                  {d.delta && d.delta !== d.summary ? <div className={`delta ${d.deltaTone || 'warn'}`}>{d.delta}</div> : null}
                   {d.basis ? <div className="sub" style={{ marginTop: 4 }}>{d.basis}</div> : null}
                   <div className="acts">
                     <DocOpenButton dealId={dealId} name={d.name} open={d.open} onNote={setNote} dataRoomUrl={data.dataRoomUrl} />
@@ -144,8 +145,8 @@ export default function DocumentDesk({
                       {d.changed ? <span className="chip warn">Changed</span> : <span className="chip good">Current</span>}
                       {d.live ? <span className="chip">SharePoint</span> : null}
                     </div>
-                    <div className="sub" style={{ marginTop: 6 }}>{d.summary}</div>
-                    <div className="sub" style={{ marginTop: 4 }}>Modified {ago(d.lastModified)}</div>
+                    {d.summary ? <div className="sub" style={{ marginTop: 6 }}>{d.summary}</div> : null}
+                    <div className="sub" style={{ marginTop: 4 }}>{d.lastModified ? `Modified ${ago(d.lastModified)}` : 'No modified date on the record'}</div>
                     <div className="acts">
                       <DocOpenButton dealId={dealId} name={d.name} open={d.open} onNote={setNote} dataRoomUrl={data.dataRoomUrl} />
                       <button className="btn compact" onClick={() => onAsk?.(`What does ${d.name} tell us about ${data.company}?`)}>✦ Ask about this</button>
@@ -195,6 +196,9 @@ export default function DocumentDesk({
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div className="k">{g.artefact}</div>
                   <div className="sub">{g.step} · owner {g.owner}</div>
+                  {/* The milestone rail marks the step done and this listed the same output
+                      as never produced. Both are true; the row has to say which. */}
+                  {g.stepDone ? <div className="sub" style={{ opacity: .85 }}>Records gap — the deal has moved past this step.</div> : null}
                 </div>
                 {canWrite ? (
                   <button className="btn compact" onClick={() => onAsk?.(`Draft ${g.artefact} for ${data.company} (${g.step}).`)}>+ Create</button>

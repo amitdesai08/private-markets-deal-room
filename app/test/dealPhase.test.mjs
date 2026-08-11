@@ -32,7 +32,7 @@ test('phase is derived from the stage, and screened deals are origination whatev
 test('a deal past committee is not re-measured against the readiness gate', () => {
   // Great Lakes is E1. Under the diligence gate it would read "1 required item
   // outstanding: KYC / compliance cleared" — a signed deal reported as not ready to table.
-  const gl = byId('demo-greatlakes');
+  const gl = byId('greatlakes');
   assert.equal(dealPhase(gl), 'post-committee');
   const v = computeICReadiness(gl).verdict;
   assert.equal(v.state, 'CONDITIONAL', 'what remains live is whether its obligations are closed');
@@ -46,7 +46,7 @@ test('an uncleared compliance check on a post-committee deal is not reported as 
   // committee, so a signed deal with its EU merger-control filing still running read as
   // "Approved at committee — no conditions outstanding". That switched off the only check
   // on the deals closest to spending money.
-  const onyx = byId('demo-onyx');
+  const onyx = byId('onyx');
   assert.equal(dealPhase(onyx), 'post-committee');
   assert.ok((onyx.compliance || []).some((c) => c.status !== 'passed'), 'fixture must carry an uncleared check');
   const v = computeICReadiness(onyx).verdict;
@@ -77,7 +77,7 @@ test('the board never claims a committee decision it cannot produce', () => {
 
   for (const d of seededDeals.filter((x) => dealPhase(x) === 'post-committee')) {
     const v = computeICReadiness(d).verdict;
-    assert.match(v.basis, /No committee decision record/i);
+    assert.match(v.basis, /minute itself is not held|No committee decision record/i);
     walk(d, 'deal', d.id);
     walk(v, 'verdict', d.id);
   }
@@ -128,7 +128,7 @@ test('a signed or archived deal is never reported as ready to table', () => {
 });
 
 test('a verdict never says nothing is outstanding while the same payload names something', () => {
-  // `demo-peachtree` shipped `blockingWorkstreams: ['Tech / AI DD']` — reason, no work
+  // `peachtree` shipped `blockingWorkstreams: ['Tech / AI DD']` — reason, no work
   // recorded against it — under the headline "nothing outstanding on the record". One
   // payload contradicting itself, and the contradiction was the sentence, not the data.
   for (const d of seededDeals) {

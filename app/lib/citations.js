@@ -1,3 +1,4 @@
+import { buildRiskRegister } from './diligence.js';
 // Source-citation validation for IC materials.
 //
 // An Investment Committee memo is only defensible if every number in it traces to
@@ -54,6 +55,83 @@ function baseFinancialsSourced(deal) {
   return { sourced: missing.length === 0, missing };
 }
 
+const UNDILIGENCED_SOURCE = /^(screen|screening|teaser|cim|broker model|desk|desk research|derived|estimate)$/i
+  || null;
+// Anything the seller or a third party produced, however it is spelled on the record.
+const SELLER_SOURCE = /teaser|information memorandum|\bcim\b|broker|analyst|research|management accounts?|vendor pack/i;
+const DRAFT_SOURCE = /\bdraft\b|\bpreliminary\b|\bindicative\b/i;
+
+// Reasons the sourcing check can pass and the figures still not be relied on.
+export function sourcingCaveats(deal, { entryTies = null, ebitdaDerived = false } = {}) {
+  const out = [];
+  // A diligence document cannot be the source of a figure on a deal where no
+  // workstream has produced anything and the papers desk holds no such document.
+  const anyWorked = (deal?.workstreams || []).some((w) => (w.findings || []).length || (w.contributions || []).length);
+  if (!anyWorked) {
+    const kf = (deal?.keyFigures || []).find((k) => /ebitda(?! margin)/i.test(k.label));
+    const src = String(kf?.source || '').trim();
+    // A paper IS on the record where the record names one, however thin. The caveat
+    // that belongs on it is that nobody has worked on it, not that it does not exist.
+    const named = (deal?.documents || []).some((doc) => /quality of earnings/i.test(String(doc.name || doc.title || '')));
+    const draftNamed = /draft|preliminary/i.test(src);
+    if (src && !named && !draftNamed && /quality of earnings|qoe|diligence|dd\b/i.test(src)) {
+      out.push(`the EBITDA is attributed to ${/qoe|quality of earnings/i.test(src) ? 'a quality-of-earnings report' : src.toLowerCase()} on a deal where no workstream has produced anything and no such paper is on the record`);
+    }
+  }
+  if (entryTies === false) out.push('the stated entry multiple and the funded enterprise value are struck on different numbers');
+  if (ebitdaDerived) out.push('the EBITDA under the multiple is a screening default, not a diligenced figure');
+  else {
+    const kf = (deal?.keyFigures || []).find((k) => /ebitda(?! margin)/i.test(k.label));
+    if (!kf) out.push('the EBITDA under the multiple is a screening default, not a diligenced figure');
+    else {
+      const src = String(kf.source || '').trim();
+      if (src && (UNDILIGENCED_SOURCE.test(src) || SELLER_SOURCE.test(src))) {
+        out.push(`the EBITDA under the multiple is sourced "${src}", which is not diligence`);
+      } else if (src && DRAFT_SOURCE.test(src)) {
+        // The record spells this "QoE draft", and lower-casing a fixture token gave a
+        // partner "comes from qoe draft" in the middle of an English sentence.
+        const named = /qoe|quality of earnings/i.test(src)
+          ? 'a draft quality-of-earnings report'
+          : `a ${src.toLowerCase().replace(/\bqoe\b/g, 'quality-of-earnings')} that is marked ${/preliminary/i.test(src) ? 'preliminary' : /indicative/i.test(src) ? 'indicative' : 'draft'}`;
+        out.push(`the EBITDA under the multiple comes from ${named}, which is not a completed result`);
+      }
+    }
+  }
+  // A SOURCE IS NOT AGREEMENT, AND THE PRODUCT WAS DISPUTING ITS OWN FIGURE.
+  //
+  // Lumen's audit returned 100 out of 100 and "All numeric claims trace to a source fact
+  // or cited document" — in the same card as an LTM EBITDA of $17M, and two cards above
+  // its own open register row reading "on a ratable basis LTM EBITDA is $3.2M lower than
+  // the model carries", graded Price-adjuster. A trust score of 100% on a number the
+  // record itself says is 19% wrong is the one number on the page a partner will test.
+  // Having a citation is necessary; not being contradicted is also necessary.
+  try {
+    const reg = buildRiskRegister(deal);
+    const priced = (reg?.risks || []).filter((r) => r.severity === 'reprice');
+    for (const r of priced) {
+      const text = String(r.risk || '');
+      if (!/ebitda|revenue|margin|multiple|price/i.test(text)) continue;
+      // The row's first sentence keeps its full stop, and the caveat list is joined into
+      // a sentence that supplies its own -- so the flagship deal printed "...than the
+      // model carries.. 9 of 9 claims tested...". Strip the borrowed stop.
+      // The register row can be long, and quoting its first sentence whole produced a
+      // five-hundred-character audit summary with nested em-dashes, set at 11.5px. Take
+      // the row's opening clause, not its opening sentence.
+      const sentence = text.split(/(?<=\.)\s/)[0].replace(/\.\s*$/, '');
+      // Quote it whole where it fits; where it does not, name the row and let the reader
+      // open the register, rather than printing a clause that stops mid-thought.
+      const clause = sentence.split(/\s+—\s+|;\s+/)[0].trim();
+      out.push(sentence.length <= 150
+        ? `an open repricing item on the register disputes a figure the audit has scored — ${sentence}`
+        : clause.length <= 150
+          ? `an open repricing item on the register disputes a figure the audit has scored: ${clause}. The rest of that row is on the risk register`
+          : 'an open repricing item on the register disputes a figure the audit has scored, in the words the workstream recorded it in on the risk register');
+      break;
+    }
+  } catch { /* the register is optional context; its absence is not a caveat */ }
+  return out;
+}
+
 export function validateCitations(deal) {
   const keyFigures = (deal.keyFigures || []).map((f) => ({
     label: f.label, value: f.value, source: f.source || null, confidence: f.confidence || null, sourced: figureSourced(f)
@@ -104,16 +182,20 @@ export function validateCitations(deal) {
     : !base.sourced ? Math.min(40, Math.round((100 * (checks - failed)) / Math.max(1, checks)))
     : Math.min(99, Math.round((100 * (checks - failed)) / Math.max(1, checks)));
 
+  // A source label is not diligence. Where the figures cannot be relied on, this module
+  // must not publish a clean score either -- the case tab already refuses to.
+  const caveats = sourcingCaveats(deal);
   return {
-    score,
+    score: caveats.length || (total + 1 + keyFigures.length) <= 1 ? null : score,
+    caveats,
     assessed,
     scoreNote: assessed ? null : 'Nothing to check yet — no memo sections and no key figures are on the record for this deal.',
     // The base figures are CLAIMS, and leaving them out of the counters produced an object
     // that argued with itself: sourcedClaims 2 of 2, unsourcedClaims 0, unsourcedFigures 0,
     // scored 40 for being unsourced. Whichever number a badge rendered was wrong about the
     // other three.
-    totalClaims: total + 1,
-    sourcedClaims: (total - unsourcedClaims.length) + (base.sourced ? 1 : 0),
+    totalClaims: total + 1 + keyFigures.length,
+    sourcedClaims: (total - unsourcedClaims.length) + (base.sourced ? 1 : 0) + keyFigures.filter((k) => k.sourced).length,
     unsourcedClaims: base.sourced ? unsourcedClaims : [...unsourcedClaims, { figure: base.missing.join(' & '), section: 'IC ask — base financials' }],
     keyFigures,
     unsourcedFigures,
@@ -123,8 +205,33 @@ export function validateCitations(deal) {
       baseSourced: base.sourced,
       missingBase: base.missing
     },
-    clean,
-    summary: buildSummary(total, unsourcedClaims.length, unsourcedFigures.length, base)
+    clean: clean && !caveats.length && (total + 1 + keyFigures.length) > 1,
+    // THE SUMMARY GAVE BOTH ANSWERS AT ONCE.
+    //
+    // "Every claim tested traces to a source, and an open repricing item ... No score."
+    // — a reader asking whether the page is sourced got yes and no in one sentence. A
+    // caveat is not a footnote on a pass; it is the answer. Lead with it.
+    // THE SUMMARY GAVE BOTH ANSWERS AT ONCE.
+    //
+    // "Every claim tested traces to a source, and an open repricing item ... No score."
+    // — a reader asking whether the page is sourced got yes and no in one sentence. A
+    // caveat is not a footnote on a pass; it is the answer, so it leads.
+    summary: (() => {
+      const testable = total + 1 + keyFigures.length;
+      const sourced = (total - unsourcedClaims.length) + (base.sourced ? 1 : 0) + keyFigures.filter((k) => k.sourced).length;
+      const unsourced = testable - sourced;
+      if (caveats.length) {
+        const lead = `No score — ${caveats.join('; and ')}`.replace(/\s+$/, '');
+        // An elided caveat already ends in an ellipsis and a quoted row may already end
+        // in a stop; either way the sentence gets exactly one terminator.
+        const stopped = /[.…?!]$/.test(lead) ? lead : `${lead}.`;
+        return unsourced === 0
+          ? `${stopped} Every claim tested does carry a source; that is not the same as being able to rely on the figure.`
+          : `${stopped} Separately, ${unsourced} of the ${testable} claim${testable === 1 ? '' : 's'} tested ${unsourced === 1 ? 'does not trace' : 'do not trace'} to a source at all.`;
+      }
+      if (testable <= 1) return 'Only one claim was tested — too few to say anything about the page. No score.';
+      return buildSummary(total, unsourcedClaims.length, unsourcedFigures.length, base);
+    })()
   };
 }
 

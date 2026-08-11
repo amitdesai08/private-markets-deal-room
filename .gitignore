@@ -82,3 +82,20 @@ backups/
 # Local Cosmos backup + infra scratch (contains real deal data — never commit)
 _backup/
 app/_export-cosmos.mjs
+
+# Session scratch (probe scripts and API dumps written while reviewing the running app)
+_*.ps1
+_*.mjs
+_*.js
+_*.txt
+_*.json
+_*.html
+_*/
+_c[0-9]*.txt
+s[0-9]*.ps1
+sweep*.ps1
+teams-app/tab/src/_*
+app/`0`].{rev
+
+# Beta-stack clone script: hardcodes a subscription id, and this fork is public.
+scripts/deploy-beta-stack.ps1

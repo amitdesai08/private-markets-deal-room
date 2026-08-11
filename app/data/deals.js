@@ -27,6 +27,7 @@ export const seedDeals = [
     subSector: 'Grocery / Convenience',
     hq: 'Stockholm, Sweden',
     dealSize: 820,
+    holdYears: 6,
     currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'D2',
     stageName: 'Diligence & Approval',
@@ -38,16 +39,18 @@ export const seedDeals = [
     thesis:
       'Buy-and-build of a #2 Nordic convenience grocer with a proven private-label margin engine and an under-monetised loyalty dataset. Thesis: accelerate own-brand penetration and stand up an AI-driven assortment & pricing capability to close a 230 bps EBITDA-margin gap vs. the regional leader.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$1.94B', source: 'CIM p.12', confidence: 'high' },
-      { label: 'EBITDA (LTM)', value: '$148M', source: 'CIM p.14 / QoE draft', confidence: 'high' },
-      { label: 'EBITDA margin', value: '7.6%', source: 'Derived', confidence: 'high' },
-      { label: 'Entry multiple', value: '5.5x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'medium' },
+      { label: 'Growth (YoY)', value: '3%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$1.81B', source: 'Management accounts', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$98M', source: 'Quality of Earnings report', confidence: 'high' },
+      { label: 'EBITDA margin', value: '5.4%', source: 'Derived', confidence: 'high' },
+      { label: 'Entry multiple', value: '8.37x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'medium' },
       { label: 'Private-label mix', value: '21%', source: 'CIM p.31', confidence: 'high' },
       { label: 'Loyalty members', value: '3.1M', source: 'Data room / mgmt', confidence: 'medium' }
     ],
     workstreams: [
       {
         lane: 'commercial',
+        dueDate: daysFromNow(7),
         owner: 'retail-md',
         status: 'in_progress',
         progress: 55,
@@ -58,6 +61,7 @@ export const seedDeals = [
       },
       {
         lane: 'techai',
+        dueDate: daysFromNow(11),
         owner: 'ai-md',
         status: 'in_progress',
         progress: 40,
@@ -67,6 +71,7 @@ export const seedDeals = [
       },
       {
         lane: 'operations',
+        dueDate: daysFromNow(14),
         owner: 'supply-md',
         status: 'not_started',
         progress: 0,
@@ -74,30 +79,32 @@ export const seedDeals = [
       },
       {
         lane: 'financial',
+        dueDate: daysFromNow(6),
         owner: 'fund-cfo',
         status: 'in_progress',
         progress: 45,
         findings: [
-          { text: 'Supplier rebates of EUR 8.4M are recognised on invoice rather than on achievement; roughly EUR 2.9M of LTM EBITDA depends on volumes not yet earned.', severity: 'high', source: 'Financial / QoE' },
+          { text: 'Supplier rebates of $8.4M are recognised on invoice rather than on achievement; roughly $2.9M of LTM EBITDA depends on volumes not yet earned.', severity: 'high', source: 'Financial / QoE' },
           { text: 'Like-for-like growth is 1.8% once the 11 stores opened in the period are stripped out, against 3.1% presented.', severity: 'medium', source: 'Financial / QoE' }
         ]
       },
       {
         lane: 'tax',
-        owner: 'fund-cfo',
+        dueDate: daysFromNow(10),
+        owner: 'finance-vp',
         status: 'not_started',
         progress: 0,
         findings: []
       }
     ],
     documents: [
-      { name: 'Confidential Information Memorandum.pdf', type: 'CIM', pages: 142, status: 'parsed' },
-      { name: 'Audited Financials 2021-2024.xlsx', type: 'Financials', pages: 0, status: 'parsed' },
-      { name: 'Customer Cohort Analysis.pdf', type: 'Commercial', pages: 38, status: 'parsing' },
-      { name: 'Supplier Master & Contracts.zip', type: 'Operations', pages: 0, status: 'uploaded' }
+      { name: 'Confidential Information Memorandum.pdf', type: 'CIM', pages: 142, status: 'parsed', lastModified: hoursAgo(212), summary: 'The seller\u2019s full memorandum: market, position, financials and the growth case.' },
+      { name: 'Audited Financials 2021-2024.xlsx', type: 'Financials', pages: 0, status: 'parsed', lastModified: hoursAgo(18), summary: 'Four years of audited accounts with the schedules behind revenue, margin and working capital.' },
+      { name: 'Customer Cohort Analysis.pdf', type: 'Commercial', pages: 38, status: 'parsing', lastModified: hoursAgo(284), summary: 'Retention and spend by cohort, with the churn that sits behind the growth rate.' },
+      { name: 'Supplier Master & Contracts.zip', type: 'Operations', pages: 0, status: 'uploaded', lastModified: hoursAgo(18), summary: 'The supplier list with terms, rebates and the contracts that carry change-of-control consents.' }
     ],
     memoSections: [
-      { key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Convenience-led consolidation play with a private-label and data-monetisation upside. (Draft — run the screening agent to refresh from the live record.)', citations: ['CIM p.12', 'Deal model v3'] },
+      { key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Convenience-led consolidation play with a private-label and data-monetisation upside.', citations: ['CIM p.12', 'Deal model v3'] },
       { key: 'market', title: 'Market & commercial', status: 'in_progress', content: '', citations: [] },
       { key: 'value-creation', title: 'Value creation plan', status: 'empty', content: '', citations: [] },
       { key: 'risks', title: 'Key risks & mitigants', status: 'empty', content: '', citations: [] },
@@ -111,14 +118,14 @@ export const seedDeals = [
     ],
     activity: [
       { actor: 'Deal team — document review', action: 'Parsed CIM (142 pp) → termsheet + 11 KPIs to Fabric', when: hoursAgo(20) },
-      { actor: 'James Whitfield', action: 'Opened Commercial DD lane', when: hoursAgo(18) },
+      { actor: 'James Whitfield', action: 'Opened the Commercial DD workstream', when: hoursAgo(18) },
       { actor: 'Deal team — diligence planning', action: 'Drafted DD checklist from 3 comparable deals', when: hoursAgo(17) }
     ],
     hoursSaved: 26
   },
   {
     id: 'heliopack',
-    growth: 5,
+    growth: 9,
     team: ['analyst'],
     pipelineVisible: true,
     company: 'HelioPack Sustainable Packaging',
@@ -128,6 +135,7 @@ export const seedDeals = [
     subSector: 'Sustainable Packaging',
     hq: 'Rotterdam, Netherlands',
     dealSize: 410,
+    holdYears: 4,
     currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'D1',
     stageName: 'Diligence & Approval',
@@ -139,24 +147,26 @@ export const seedDeals = [
     thesis:
       'Carve-out of a fibre-based packaging leader riding the plastics-substitution regulatory wave. Thesis: consolidate fragmented EU converters and re-rate on ESG-aligned demand, with tariff-exposed input costs the central diligence question.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$512M', source: 'Teaser', confidence: 'medium' },
-      { label: 'EBITDA (LTM)', value: '$61M', source: 'Teaser', confidence: 'medium' },
-      { label: 'EBITDA margin', value: '11.9%', source: 'Derived', confidence: 'medium' }
+      { label: 'Entry multiple', value: '7.88x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '9%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$341M', source: 'Management accounts', confidence: 'medium' },
+      { label: 'EBITDA (LTM)', value: '$52M', source: 'Quality of Earnings report', confidence: 'high' },
+      { label: 'EBITDA margin', value: '15.2%', source: 'Derived', confidence: 'medium' }
     ],
     workstreams: [
       { lane: 'commercial', owner: 'retail-md', status: 'not_started', progress: 0, findings: [] },
-      { lane: 'financial', owner: 'fund-cfo', status: 'complete', progress: 100, findings: [] },
+      { lane: 'financial', owner: 'finance-vp', status: 'complete', progress: 100, findings: [] },
       { lane: 'techai', owner: 'ai-md', status: 'not_started', progress: 0, findings: [] },
       { lane: 'operations', owner: 'supply-md', status: 'in_progress', progress: 25, findings: [
         { text: 'Pulp inputs 38% sourced from tariff-exposed regions; hedging and dual-sourcing are the swing factor on margin.', severity: 'caution', source: 'Ops DD (prelim)' }
       ] }
     ],
     documents: [
-      { name: 'Teaser & Process Letter.pdf', type: 'Teaser', pages: 18, status: 'parsed' },
-      { name: 'Management Presentation.pdf', type: 'CIM', pages: 76, status: 'parsing' }
+      { name: 'Teaser & Process Letter.pdf', type: 'Teaser', pages: 18, status: 'parsed', lastModified: hoursAgo(144), summary: 'The seller\u2019s one-pager and the process timetable, including the bid deadlines.' },
+      { name: 'Management Presentation.pdf', type: 'CIM', pages: 76, status: 'parsing', lastModified: hoursAgo(150), summary: 'Management\u2019s own account of the business, the plan and the numbers behind it.' }
     ],
     memoSections: [
-      { key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Plastics-substitution consolidation play. (Draft.)', citations: ['Teaser'] },
+      { key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Plastics-substitution consolidation play: buy the regional converters, consolidate the tooling, and sell into the packaging majors already committed to fibre.', citations: ['Teaser'] },
       { key: 'market', title: 'Market & commercial', status: 'empty', content: '', citations: [] },
       { key: 'value-creation', title: 'Value creation plan', status: 'empty', content: '', citations: [] },
       { key: 'risks', title: 'Key risks & mitigants', status: 'empty', content: '', citations: [] },
@@ -183,6 +193,7 @@ export const seedDeals = [
     subSector: 'Vertical SaaS / Data',
     hq: 'Dublin, Ireland',
     dealSize: 240,
+    holdYears: 5,
     currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'D3',
     stageName: 'Diligence & Approval',
@@ -194,34 +205,37 @@ export const seedDeals = [
     thesis:
       'High-growth vertical-SaaS provider with an emerging AI product line. Thesis: a platform asset to anchor a digital value-creation roadmap; diligence confirmed net-revenue retention and proprietary-data defensibility — now synthesising the IC memo.',
     keyFigures: [
-      { label: 'ARR', value: '$58M', source: 'QoE', confidence: 'high' },
-      { label: 'Growth (YoY)', value: '41%', source: 'QoE', confidence: 'high' },
-      { label: 'NRR', value: '118%', source: 'Commercial DD', confidence: 'medium' }
+      { label: 'ARR', value: '$42M', source: 'QoE', confidence: 'high' },
+      { label: 'LTM revenue', value: '$46M', source: 'QoE', confidence: 'high' },
+      { label: 'LTM EBITDA', value: '$17M', source: 'QoE', confidence: 'high' },
+      { label: 'EBITDA margin', value: '37.0%', source: 'QoE', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '22%', source: 'QoE', confidence: 'high' },
+      { label: 'NRR', value: '112%', source: 'Commercial DD', confidence: 'high' }
     ],
     workstreams: [
-      { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [
-        { text: 'NRR of 118% verified against cohort data; land-and-expand motion is durable.', severity: 'positive', source: 'Commercial DD' }
+      { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, dueDate: daysFromNow(5), findings: [
+        { text: 'NRR of 112% verified against cohort data; land-and-expand motion is durable.', severity: 'positive', source: 'Commercial DD' }
       ] },
-      { lane: 'techai', owner: 'ai-md', status: 'in_progress', progress: 80, findings: [
+      { lane: 'techai', owner: 'ai-md', status: 'in_progress', progress: 80, dueDate: daysFromNow(7), findings: [
         { text: 'Proprietary training data (7yr labelled corpus) gives a real moat beyond the GPT layer.', severity: 'positive', source: 'Tech/AI DD' }
       ] },
-      { lane: 'financial', owner: 'fund-cfo', status: 'in_progress', progress: 70, findings: [
-        { text: 'EUR 4.1M of ARR is invoiced annually in advance but recognised on signature; on a ratable basis LTM EBITDA is EUR 3.2M lower than the model carries.', severity: 'high', source: 'Financial / QoE' },
-        { text: 'Capitalised development costs of EUR 2.6M sit above peer practice; expensing them would raise the entry multiple by roughly 0.7x against the figure on the returns page.', severity: 'medium', source: 'Financial / QoE' }
+      { lane: 'financial', owner: 'fund-cfo', status: 'in_progress', progress: 70, dueDate: daysFromNow(4), findings: [
+        { text: '$4.1M of ARR is invoiced annually in advance but recognised on signature; on a ratable basis LTM EBITDA is $3.2M lower than the model carries.', severity: 'high', source: 'Financial / QoE' },
+        { text: 'Capitalised development costs of $2.6M sit above peer practice; expensing them would raise the entry multiple by roughly 2.5x against the figure on the returns page.', severity: 'medium', source: 'Financial / QoE' }
       ] },
-      { lane: 'tax', owner: 'fund-cfo', status: 'in_progress', progress: 30, findings: [
+      { lane: 'tax', owner: 'fund-cfo', status: 'in_progress', progress: 30, dueDate: daysFromNow(9), findings: [
         { text: 'Irish IP box claimed on the data assets since 2021; the ruling has not been produced and the benefit is in the base case.', severity: 'caution', source: 'Tax DD' }
       ] },
-      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [{ text: 'Warehouse automation payback 3.1 years on the vendor quote; no capex gap to the model.', severity: 'positive', source: 'Operations DD' }] }
+      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, dueDate: daysFromNow(11), findings: [{ text: 'Cloud hosting is on a committed-spend agreement expiring 14 months after close; the renewal is not in the model and the vendor has signalled list-price uplift.', severity: 'caution', source: 'Operations DD' }] }
     ],
     documents: [
-      { name: 'Investment Screen.pdf', type: 'Screen', pages: 6, status: 'parsed' },
-      { name: 'Quality of Earnings.pdf', type: 'Financials', pages: 44, status: 'parsed' },
-      { name: 'Tech & Data DD.pdf', type: 'Tech', pages: 52, status: 'parsed' }
+      { name: 'Investment Screen.pdf', type: 'Screen', pages: 6, status: 'parsed', lastModified: hoursAgo(60), summary: 'One-page screen: thesis, size, sector fit and the reason it was taken forward.' },
+      { name: 'Quality of Earnings.pdf', type: 'Financials', pages: 44, status: 'parsed', lastModified: hoursAgo(326), summary: 'Normalised EBITDA, the adjustments taken and the ones rejected, and the working-capital bridge.' },
+      { name: 'Tech & Data DD.pdf', type: 'Tech', pages: 52, status: 'parsed', lastModified: hoursAgo(382), summary: 'Application estate, data lineage, integration debt and the cyber posture.' }
     ],
     memoSections: [
-      { key: 'thesis', title: 'Investment thesis', status: 'approved', content: 'Vertical SaaS platform with a defensible proprietary-data moat and 41% growth.', citations: ['QoE', 'Tech/AI DD'] },
-      { key: 'market', title: 'Market & commercial', status: 'approved', content: 'NRR 118%; durable land-and-expand.', citations: ['Commercial DD'] },
+      { key: 'thesis', title: 'Investment thesis', status: 'approved', content: 'Vertical SaaS platform with a defensible proprietary-data moat and 22% growth.', citations: ['QoE', 'Tech/AI DD'] },
+      { key: 'market', title: 'Market & commercial', status: 'approved', content: 'NRR 112%; durable land-and-expand.', citations: ['Commercial DD'] },
       { key: 'value-creation', title: 'Value creation plan', status: 'in_progress', content: '', citations: [] },
       { key: 'risks', title: 'Key risks & mitigants', status: 'draft', content: 'Model-cost inflation; founder key-person.', citations: [] },
       { key: 'recommendation', title: 'Recommendation', status: 'empty', content: '', citations: [] }
@@ -233,7 +247,7 @@ export const seedDeals = [
     ],
     activity: [
       { actor: 'Deal team — IC memo', action: 'Drafted thesis & market sections from the live record', when: hoursAgo(14) },
-      { actor: 'Priya Nair', action: 'Approved the commercial synthesis', when: hoursAgo(9) }
+      { actor: 'Dr. Priya Nair', action: 'Approved the commercial synthesis', when: hoursAgo(9) }
     ],
     hoursSaved: 19
   },
@@ -249,6 +263,7 @@ export const seedDeals = [
     subSector: 'Temperature-controlled 3PL',
     hq: 'Hamburg, Germany',
     dealSize: 360,
+    holdYears: 5,
     currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'D4',
     stageName: 'Diligence & Approval',
@@ -260,9 +275,11 @@ export const seedDeals = [
     thesis:
       'Temperature-controlled logistics roll-up benefiting from pharma & grocery e-commerce. Thesis: scarce cold-chain capacity with proven pricing power and resilient utilisation — memo complete, routing to IC for approval.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$288M', source: 'QoE', confidence: 'high' },
-      { label: 'EBITDA (LTM)', value: '$46M', source: 'QoE', confidence: 'high' },
-      { label: 'EBITDA margin', value: '16.0%', source: 'QoE', confidence: 'high' }
+      { label: 'Entry multiple', value: '9.73x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '7%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$237M', source: 'Management accounts', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$37M', source: 'Quality of Earnings report', confidence: 'high' },
+      { label: 'EBITDA margin', value: '15.6%', source: 'QoE', confidence: 'high' }
     ],
     workstreams: [
       // All SEVEN lanes, deliberately. `ensureFirstClassLanes` in store.js backfills any
@@ -270,38 +287,38 @@ export const seedDeals = [
       // a seed that lists three lanes is not a deal with three lanes, it is a deal with
       // four silently un-started ones. Atlas is the one deal in the demo that is genuinely
       // ready to table, and it cannot be that with lanes nobody opened.
-      { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [
+      { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, dueDate: daysFromNow(2), findings: [
         { text: 'Utilisation resilient at 87% through the cycle; pricing power validated across pharma contracts.', severity: 'positive', source: 'Commercial DD' }
       ] },
-      { lane: 'financial', owner: 'finance-md', status: 'complete', progress: 100, findings: [
-        { text: 'QoE supports $46M LTM EBITDA; $2.1M of add-backs disallowed, reflected in the 7.8x entry.', severity: 'medium', source: 'Financial / QoE' },
+      { lane: 'financial', owner: 'finance-md', status: 'complete', progress: 100, dueDate: daysFromNow(3), findings: [
+        { text: 'QoE supports $37M LTM EBITDA with $2.1M of add-backs disallowed. The disallowance is in the 9.73x entry but not yet in the completion-accounts definition, so it has to be evidenced at signing.', severity: 'medium', source: 'Financial / QoE' },
         { text: 'Working-capital seasonality is real but self-funding across the year; no incremental facility required.', severity: 'positive', source: 'Financial / QoE' }
       ] },
-      { lane: 'legal', owner: 'legal-md', status: 'complete', progress: 100, findings: [
-        { text: 'Change-of-control consents required on two of the top-five pharma contracts; both counterparties have indicated no objection in writing.', severity: 'medium', source: 'Legal DD' }
+      { lane: 'legal', owner: 'legal-md', status: 'complete', progress: 100, dueDate: daysFromNow(3), findings: [
+        { text: 'Change-of-control consents are required on two of the top-five pharma contracts. Both counterparties have indicated no objection in writing, which is an indication and not a consent.', severity: 'medium', source: 'Legal DD' }
       ] },
-      { lane: 'tax', owner: 'tax-md', status: 'complete', progress: 100, findings: [
+      { lane: 'tax', owner: 'tax-md', status: 'complete', progress: 100, dueDate: daysFromNow(4), findings: [
         { text: 'German/Dutch structure reviewed; no material historical exposure identified. Interest limitation modelled at the target leverage.', severity: 'positive', source: 'Tax DD' }
       ] },
-      { lane: 'techai', owner: 'ai-md', status: 'complete', progress: 100, findings: [{ text: 'Cold-chain telemetry stack is vendor-hosted; no material in-house tech debt found.', severity: 'positive', source: 'Tech / AI DD' }] },
-      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [
+      { lane: 'techai', owner: 'ai-md', status: 'complete', progress: 100, dueDate: daysFromNow(4), findings: [{ text: 'Cold-chain telemetry stack is vendor-hosted; no material in-house tech debt found.', severity: 'positive', source: 'Tech / AI DD' }] },
+      { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, dueDate: daysFromNow(5), findings: [
         { text: 'Energy-cost exposure hedged via long-dated PPAs; margin downside contained.', severity: 'positive', source: 'Ops DD' }
       ] },
-      { lane: 'esg', owner: 'esg-md', status: 'complete', progress: 100, findings: [
-        { text: 'Refrigerant transition to low-GWP units is capex-planned through FY27; costed into the model.', severity: 'medium', source: 'ESG / Environmental' }
+      { lane: 'esg', owner: 'esg-md', status: 'complete', progress: 100, dueDate: daysFromNow(2), findings: [
+        { text: 'Refrigerant transition to low-GWP units is costed into the model through FY27, but no supplier commitment or installation schedule is on the record to hold the date.', severity: 'medium', source: 'ESG / Environmental' }
       ] }
     ],
     documents: [
-      { name: 'Confidential Information Memorandum.pdf', type: 'CIM', pages: 118, status: 'parsed' },
-      { name: 'Quality of Earnings.pdf', type: 'Financials', pages: 51, status: 'parsed' },
-      { name: 'IC Memo v2.docx', type: 'Memo', pages: 22, status: 'parsed' }
+      { name: 'Confidential Information Memorandum.pdf', type: 'CIM', pages: 118, status: 'parsed', lastModified: hoursAgo(44), summary: 'The seller\u2019s full memorandum: market, position, financials and the growth case.' },
+      { name: 'Quality of Earnings.pdf', type: 'Financials', pages: 51, status: 'parsed', lastModified: hoursAgo(375), summary: 'Normalised EBITDA, the adjustments taken and the ones rejected, and the working-capital bridge.' },
+      { name: 'IC Memo v2.docx', type: 'Memo', pages: 22, status: 'parsed', lastModified: hoursAgo(172), summary: 'The committee paper as circulated, with the recommendation and the conditions attached to it.' }
     ],
     memoSections: [
       { key: 'thesis', title: 'Investment thesis', status: 'approved', content: 'Scarce cold-chain capacity with pricing power.', citations: ['CIM', 'QoE'] },
       { key: 'market', title: 'Market & commercial', status: 'approved', content: 'Utilisation 87%; pharma tailwind.', citations: ['Commercial DD'] },
       { key: 'value-creation', title: 'Value creation plan', status: 'approved', content: 'Buy-and-build; energy hedging.', citations: ['Ops DD'] },
       { key: 'risks', title: 'Key risks & mitigants', status: 'approved', content: 'Energy costs hedged via PPAs.', citations: ['Ops DD'] },
-      { key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'Recommend proceed at 7.8x. Diligence complete across all three lanes; no unresolved risk-level findings.', citations: ['Deal model', 'Commercial DD', 'Tech / AI DD'] }
+      { key: 'recommendation', title: 'Recommendation', status: 'approved', content: 'Recommend proceed at 9.73x. Every workstream has reported; four items stay open on the register and are carried as conditions to signing.', citations: ['Deal model', 'Commercial DD', 'Tech / AI DD'] }
     ],
     compliance: [
       { check: 'Sanctions / UBO screening', framework: 'KYC', status: 'passed' },
@@ -316,7 +333,7 @@ export const seedDeals = [
   },
   {
     id: 'baltic-precision',
-    growth: 4,
+    growth: 11,
     team: ['analyst', 'legal-gc'],
     pipelineVisible: true,
     company: 'Baltic Precision Components',
@@ -326,6 +343,7 @@ export const seedDeals = [
     subSector: 'Precision Components',
     hq: 'Tallinn, Estonia',
     dealSize: 195,
+    holdYears: 4,
     currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'E1',
     // Status is 'signing', the row chip said "In execution", and the stage said
@@ -341,9 +359,11 @@ export const seedDeals = [
     thesis:
       'Founder-succession buyout of a precision-components supplier riding reshoring demand. IC approved; deal archived with a full lineage-tracked record.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$162M', source: 'QoE', confidence: 'high' },
-      { label: 'EBITDA (LTM)', value: '$27M', source: 'QoE', confidence: 'high' },
-      { label: 'Entry multiple', value: '7.2x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' }
+      { label: 'EBITDA margin', value: '19.6%', source: 'Derived', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '11%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$92M', source: 'Management accounts', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$18M', source: 'Quality of Earnings report', confidence: 'high' },
+      { label: 'Entry multiple', value: '10.83x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' }
     ],
     workstreams: [
       // Seven lanes, for the same reason as Atlas: this deal has SIGNED. A seed listing
@@ -368,8 +388,8 @@ export const seedDeals = [
       ] }
     ],
     documents: [
-      { name: 'IC Memo (Approved).docx', type: 'Memo', pages: 24, status: 'parsed' },
-      { name: 'Signed SPA.pdf', type: 'Legal', pages: 88, status: 'parsed' }
+      { name: 'IC Memo (Approved).docx', type: 'Memo', pages: 24, status: 'parsed', lastModified: hoursAgo(186) , summary: 'The committee paper as approved, with the conditions attached to the approval.'},
+      { name: 'Signed SPA.pdf', type: 'Legal', pages: 88, status: 'parsed', lastModified: hoursAgo(234), summary: 'The executed sale and purchase agreement, with the warranty package and the conditions.' }
     ],
     memoSections: [
       { key: 'thesis', title: 'Investment thesis', status: 'approved', content: 'Reshoring-led precision components consolidation.', citations: ['QoE'] },
@@ -402,6 +422,16 @@ export const seedSourcing = [
     tags: ['retail-md', 'analyst'],
     rationale: 'Matches convenience-grocery mandate; adjacency to Nordic Grocery thesis.',
     source: 'CxO interview · Sector news',
+    scoreRubric: {
+      total: 91,
+      basis: 'Mandate fit 40, signal strength 25, size fit 20, accessibility 15. The four components add to the score shown; nothing else is weighed.',
+      components: [
+      { label: 'Mandate fit', points: 36, outOf: 40, why: 'Convenience grocery is named in the fund strategy and the DACH bolt-ons match the buy-and-build angle.' },
+      { label: 'Signal strength', points: 23, outOf: 25, why: 'A first-party CxO interview, not an inference from press.' },
+      { label: 'Size fit', points: 18, outOf: 20, why: 'Inside the equity band, at the smaller end.' },
+      { label: 'Accessibility', points: 14, outOf: 15, why: 'Founder-owned, no banker mandate, and the firm has a warm route in.' }
+      ]
+    },
     promoted: false
   },
   {
@@ -413,6 +443,16 @@ export const seedSourcing = [
     tags: ['ai-md', 'analyst'],
     rationale: 'Defensible data moat; strong AI-readiness profile.',
     source: 'Filings · Analyst report',
+    scoreRubric: {
+      total: 87,
+      basis: 'Mandate fit 40, signal strength 25, size fit 20, accessibility 15. The four components add to the score shown; nothing else is weighed.',
+      components: [
+      { label: 'Mandate fit', points: 34, outOf: 40, why: 'Software is in mandate; energy-grid AI is adjacent rather than core.' },
+      { label: 'Signal strength', points: 22, outOf: 25, why: 'Filed round plus a covering analyst note — two independent sources.' },
+      { label: 'Size fit', points: 17, outOf: 20, why: 'At the top of the equity band on the last round\'s price.' },
+      { label: 'Accessibility', points: 14, outOf: 15, why: 'Insider round oversubscribed, so entry likely requires a secondary.' }
+      ]
+    },
     promoted: false
   },
   {
@@ -424,6 +464,16 @@ export const seedSourcing = [
     tags: ['supply-md', 'analyst'],
     rationale: 'Supplier-base consolidation angle; tariff-resilient sourcing.',
     source: 'News · Trade data',
+    scoreRubric: {
+      total: 78,
+      basis: 'Mandate fit 40, signal strength 25, size fit 20, accessibility 15. The four components add to the score shown; nothing else is weighed.',
+      components: [
+      { label: 'Mandate fit', points: 30, outOf: 40, why: 'Industrials is in mandate but supplier consolidation is a newer thesis.' },
+      { label: 'Signal strength', points: 20, outOf: 25, why: 'Trade data and press, no direct contact yet.' },
+      { label: 'Size fit', points: 16, outOf: 20, why: 'Below the band unless bolt-ons are underwritten with it.' },
+      { label: 'Accessibility', points: 12, outOf: 15, why: 'Succession window is real but no relationship with the founder.' }
+      ]
+    },
     promoted: false
   },
   {
@@ -435,6 +485,16 @@ export const seedSourcing = [
     tags: ['retail-md', 'ai-md'],
     rationale: 'Loyalty-data monetisation parallels the Nordic Grocery playbook.',
     source: 'Web grounding · Internal history',
+    scoreRubric: {
+      total: 72,
+      basis: 'Mandate fit 40, signal strength 25, size fit 20, accessibility 15. The four components add to the score shown; nothing else is weighed.',
+      components: [
+      { label: 'Mandate fit', points: 28, outOf: 40, why: 'Consumer is in mandate; DTC is explicitly not the strategy.' },
+      { label: 'Signal strength', points: 18, outOf: 25, why: 'Web grounding plus internal history — weakest evidence of the four.' },
+      { label: 'Size fit', points: 15, outOf: 20, why: 'Small, and shrinking with the valuation reset.' },
+      { label: 'Accessibility', points: 11, outOf: 15, why: 'Sponsor-backed, so entry runs through a process.' }
+      ]
+    },
     promoted: false
   }
 ];
@@ -459,19 +519,23 @@ export const demoStageDeals = [
   // model has a clear spread to demonstrate: an analyst scoped to Northeast sees
   // Beacon Hill; the West Coast MD sees Cascadia (NW) + Mojave (SW); MDs/admins see all.
   {
-    id: 'demo-cascadia',
-    growth: 2, company: 'Cascadia Timber Partners', region: 'northwest', tags: [],
+    id: 'cascadia',
+    growth: 8, company: 'Cascadia Timber Partners', region: 'northwest', tags: [],
     sector: 'Industrials', subSector: 'Forestry / Building Products', hq: 'Portland, Oregon, United States',
-    dealSize: 380, currency: 'USD', stage: 'D2', stageName: 'Diligence & Approval', status: 'in_diligence',
+    dealSize: 380,
+    holdYears: 7, currency: 'USD', stage: 'D2', stageName: 'Diligence & Approval', status: 'in_diligence',
     sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(24), baselineDays: 45,
     thesis: 'Buy-and-build of a Pacific Northwest sustainable-forestry and engineered-wood platform; margin upside from mill automation and FSC-certified premium mix.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$412M', source: 'CIM', confidence: 'high' },
-      { label: 'EBITDA (LTM)', value: '$61M', source: 'QoE draft', confidence: 'medium' },
+      { label: 'EBITDA margin', value: '14.7%', source: 'Derived', confidence: 'high' },
+      { label: 'Entry multiple', value: '7.45x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '8%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$348M', source: 'Management accounts', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$51M', source: 'Quality of Earnings report (draft)', confidence: 'high' },
     ],
     workstreams: [
       { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 55, findings: [{ text: 'Housing-start exposure hedged by repair-&-remodel mix (48%).', severity: 'positive', source: 'Commercial DD' }] },
-      { lane: 'operations', owner: 'supply-md', status: 'in_progress', progress: 40, findings: [] },
+      { lane: 'operations', owner: 'ops-vp', status: 'in_progress', progress: 40, findings: [] },
       { lane: 'financial', owner: 'fund-cfo', status: 'in_progress', progress: 25, findings: [
         { text: 'Standing timber is carried at historical cost; a fair-value reassessment is the single largest swing item in the model and is not yet complete.', severity: 'medium', source: 'Financial / QoE (prelim)' }
       ] },
@@ -483,18 +547,23 @@ export const demoStageDeals = [
     activity: [{ actor: 'Deal Room Assistant', action: 'Assembled the commercial DD summary', when: hoursAgo(18) }], hoursSaved: 12,
   },
   {
-    id: 'demo-beaconhill',
+    id: 'beaconhill',
     growth: 12, company: 'Beacon Hill Biotech', region: 'northeast', tags: [],
     sector: 'Healthcare', subSector: 'Biotech Tools / CRO', hq: 'Boston, Massachusetts, United States',
-    dealSize: 300, currency: 'USD', stage: 'D1', stageName: 'Diligence & Approval', status: 'in_diligence',
+    dealSize: 300,
+    holdYears: 6, currency: 'USD', stage: 'D1', stageName: 'Diligence & Approval', status: 'in_diligence',
     sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(30), baselineDays: 45,
     thesis: 'Carve-out of a Boston-cluster contract-research platform serving early-stage biotech; recurring revenue and a scientific-talent moat.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$286M', source: 'CIM', confidence: 'high' },
-      { label: 'EBITDA (LTM)', value: '$44M', source: 'Screen', confidence: 'medium' },
+      { label: 'EBITDA margin', value: '20.3%', source: 'Derived', confidence: 'high' },
+      { label: 'Entry multiple', value: '12.5x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '12%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$118M', source: 'Management accounts', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$24M', source: 'Quality of Earnings report (draft)', confidence: 'high' },
     ],
     workstreams: [
-      { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 35, findings: [] },
+      { lane: 'commercial', owner: 'commercial-vp', status: 'in_progress', progress: 35, findings: [
+        { text: 'The two lead programmes share one contract research organisation, and its master services agreement terminates on a change of control. No replacement has been scoped.', severity: 'caution', source: 'Commercial DD (interim)' },] },
       // DELIBERATELY BARE, and the only lane in the seed that is. Marked complete at 100%
       // with nothing recorded against it — the exact state the readiness gate exists to
       // catch: a lane the committee cannot check, whatever the status field says. Every
@@ -505,62 +574,76 @@ export const demoStageDeals = [
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Boston CRO carve-out with recurring biotech demand.', citations: ['CIM'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
-    activity: [{ actor: 'Eleanor Shellstrop', action: 'PURSUE recorded at screening', when: hoursAgo(60) }], hoursSaved: 6,
+    activity: [{ actor: 'Eleanor Shellstrop', action: 'Recorded a decision to pursue at screening', when: hoursAgo(60) }], hoursSaved: 6,
   },
   {
-    id: 'demo-lonestar',
-    growth: 6, company: 'Lone Star Energy Services', region: 'southcentral', tags: [],
+    id: 'lonestar',
+    growth: 5, company: 'Lone Star Energy Services', region: 'southcentral', tags: [],
     sector: 'Energy', subSector: 'Energy Services / Electrification', hq: 'Houston, Texas, United States',
-    dealSize: 520, currency: 'USD', stage: 'D3', stageName: 'Diligence & Approval', status: 'in_diligence',
+    dealSize: 520,
+    holdYears: 4, currency: 'USD', stage: 'D3', stageName: 'Diligence & Approval', status: 'in_diligence',
     sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(21), baselineDays: 45,
     thesis: 'Grid-electrification and industrial-services platform in the Texas/Gulf corridor; tailwind from utility capex and reshoring.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$640M', source: 'CIM', confidence: 'high' },
-      { label: 'EBITDA (LTM)', value: '$96M', source: 'QoE draft', confidence: 'medium' },
+      { label: 'EBITDA margin', value: '7.8%', source: 'Derived', confidence: 'high' },
+      { label: 'Entry multiple', value: '8x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '5%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$838M', source: 'Management accounts', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$65M', source: 'Quality of Earnings report', confidence: 'high' },
     ],
     workstreams: [
       { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 70, findings: [{ text: 'Backlog covers 1.8x forward-year revenue; utility framework agreements sticky.', severity: 'positive', source: 'Commercial DD' }] },
       { lane: 'financial', owner: 'fund-cfo', status: 'in_progress', progress: 60, findings: [
-        { text: 'Two acquisitions completed in the LTM are presented pro-forma for a full year of synergies that have not yet been actioned; USD 7M of the USD 96M is unearned.', severity: 'medium', source: 'Financial / QoE draft' }
+        { text: 'Two acquisitions completed in the LTM are presented pro-forma for a full year of synergies that have not yet been actioned; $7M of the $65M is unearned.', severity: 'medium', source: 'Financial / Quality of Earnings (draft)' }
       ] },
       { lane: 'tax', owner: 'fund-cfo', status: 'in_progress', progress: 35, findings: [
         { text: 'Texas franchise-tax treatment of the 2022 reorganisation is unresolved with the state; exposure is capped but not quantified.', severity: 'caution', source: 'Tax DD' }
       ] },
       { lane: 'legal', owner: 'legal-md', status: 'in_progress', progress: 40, findings: [] },
     ],
-    memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'in_progress', content: 'Gulf-corridor electrification services with a sticky utility backlog.', citations: ['CIM', 'QoE draft'] }],
+    memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'in_progress', content: 'Gulf-corridor electrification services with a sticky utility backlog.', citations: ['CIM', 'Quality of Earnings report (draft)'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'passed' }],
     activity: [{ actor: 'Deal Room Assistant', action: 'Drafted the red-flag report', when: hoursAgo(8) }], hoursSaved: 19,
   },
   {
-    id: 'demo-peachtree',
-    growth: 8, company: 'Peachtree Health Partners', region: 'southeast', tags: [],
+    id: 'peachtree',
+    growth: 7, company: 'Peachtree Health Partners', region: 'southeast', tags: [],
     sector: 'Healthcare', subSector: 'Multi-site Care / Services', hq: 'Atlanta, Georgia, United States',
-    dealSize: 460, currency: 'USD', stage: 'V2', stageName: 'Value Creation', status: 'owned',
+    dealSize: 460,
+    holdYears: 5, currency: 'USD', stage: 'V2', stageName: 'Value Creation', status: 'owned',
     sponsorPersona: 'operating-partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(-120), baselineDays: 45,
     thesis: 'Portfolio company: Southeast multi-site specialty-care platform. Value creation via de-novo clinics, payer-contract optimisation and an AI scheduling capability.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$540M', source: 'Board pack', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$57M', source: 'Quality of Earnings report', confidence: 'high' },
+      { label: 'EBITDA margin', value: '15.8%', source: 'Derived', confidence: 'high' },
+      { label: 'Entry multiple', value: '8.07x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '7%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$361M', source: 'Management accounts', confidence: 'high' },
       { label: 'EBITDA vs entry', value: '+11.2%', source: 'VC tracker', confidence: 'high' },
     ],
     workstreams: [
-      { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [{ text: 'De-novo clinic ramp ahead of plan (7 of 10 open).', severity: 'positive', source: 'VC lever 1' }] },
-      { lane: 'techai', owner: 'ai-md', status: 'in_progress', progress: 60, findings: [] },
+      { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [
+        { text: 'Payer contracts covering 41% of revenue renew inside the first year of ownership, and three of the five are on evergreen terms the seller has not renegotiated since 2022.', severity: 'caution', source: 'Commercial DD (final)' },{ text: 'De-novo clinic ramp ahead of plan (7 of 10 open).', severity: 'positive', source: 'VC lever 1' }] },
+      { lane: 'techai', owner: 'tech-vp', status: 'in_progress', progress: 60, findings: [] },
     ],
     memoSections: [{ key: 'value-creation', title: 'Value creation plan', status: 'in_progress', content: 'Three of four levers in flight; EBITDA +11.2% vs entry.', citations: ['VC plan', 'Board pack'] }],
     compliance: [{ check: 'Quarterly LP reporting (ILPA)', framework: 'ILPA', status: 'passed' }],
     activity: [{ actor: 'Deal team — value creation', action: 'Updated the EBITDA-bridge tracker', when: hoursAgo(40) }], hoursSaved: 33,
   },
   {
-    id: 'demo-greatlakes',
-    growth: 3, company: 'Great Lakes Precision', region: 'midwest', tags: [],
+    id: 'greatlakes',
+    growth: 12, company: 'Great Lakes Precision', region: 'midwest', tags: [],
     sector: 'Industrials', subSector: 'Precision Manufacturing', hq: 'Chicago, Illinois, United States',
-    dealSize: 410, currency: 'USD', stage: 'E1', stageName: 'Execution & Closing', status: 'signing',
+    dealSize: 410,
+    holdYears: 3, currency: 'USD', stage: 'E1', stageName: 'Execution & Closing', status: 'signing',
     sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(-7), baselineDays: 45,
     thesis: 'Approved at IC: Midwest precision-components manufacturer with reshoring tailwinds. In execution — debt secured, SPA in signing.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$395M', source: 'QoE final', confidence: 'high' },
-      { label: 'Entry multiple', value: '8.1x EV/EBITDA', source: 'Signed structure', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$36M', source: 'Quality of Earnings report', confidence: 'high' },
+      { label: 'EBITDA margin', value: '19.7%', source: 'Derived', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '12%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$183M', source: 'Management accounts', confidence: 'high' },
+      { label: 'Entry multiple', value: '11.4x EV/EBITDA', source: 'Signed structure', confidence: 'high' },
     ],
     workstreams: [
       { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [{ text: 'Top-10 customers are 47% of revenue and all on rolling 12-month terms.', severity: 'watch', source: 'Commercial DD' }] },
@@ -571,82 +654,99 @@ export const demoStageDeals = [
     activity: [{ actor: 'Deal team — financing & structuring', action: 'Locked the debt package; funds-flow drafted', when: hoursAgo(26) }], hoursSaved: 28,
   },
   {
-    id: 'demo-mojave',
+    id: 'mojave',
     // The firm wants its own targets known internally so two teams do not court the
     // same one. That used to be inferred from the stage prefix, which meant every deal
     // at O1-O4 was open to anyone including an unauthenticated caller, and a target
     // added tomorrow was exposed by default. It is a decision now, made here.
     pipelineVisible: true,
-    growth: 14, company: 'Mojave Renewables', region: 'southwest', tags: [],
+    growth: 9, company: 'Mojave Renewables', region: 'southwest', tags: [],
     sector: 'Energy', subSector: 'Renewables / Storage', hq: 'Phoenix, Arizona, United States',
-    dealSize: 350, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
+    dealSize: 350,
+    holdYears: 7, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
     sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(48), baselineDays: 45,
     thesis: 'Southwest utility-scale solar-plus-storage developer; contracted PPA backlog and IRA-driven economics.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$210M', source: 'Screen', confidence: 'medium' },
-      { label: 'Contracted backlog', value: '2.4 GW', source: 'Screen', confidence: 'medium' },
+      { label: 'Growth (YoY)', value: '9%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$102M', source: 'Teaser', confidence: 'medium' },
+      { label: 'Contracted backlog', value: '2.4 GW', source: 'Screen', confidence: 'medium' }
     ],
     workstreams: [
-      { lane: 'commercial', owner: 'retail-md', status: 'not_started', progress: 0, findings: [] },
+      { lane: 'commercial', owner: 'retail-md', status: 'not_started', progress: 0, findings: [
+        { text: 'The offtake covering 340MW expires in the third year of the hold, and merchant exposure after that is not in the base case.', severity: 'caution', source: 'Commercial DD (interim)' },] },
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Contracted solar-plus-storage backlog with IRA economics.', citations: ['Screen'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
-    activity: [{ actor: 'Eleanor Shellstrop', action: 'PURSUE recorded at screening', when: hoursAgo(72) }], hoursSaved: 4,
+    activity: [{ actor: 'Eleanor Shellstrop', action: 'Recorded a decision to pursue at screening', when: hoursAgo(72) }], hoursSaved: 4,
   },
   // Top-of-funnel spread. Origination is mostly a CANDIDATE activity (see data/
   // candidates.js) — only pursued candidates become deals — but the funnel reads as
   // hollow if the first phase holds a single row, so each territory carries one
   // freshly-screened deal that has not yet been launched into diligence.
   {
-    id: 'demo-riverbend',
+    id: 'riverbend',
     pipelineVisible: true,
-    growth: 4, company: 'Riverbend Specialty Foods', region: 'midwest', tags: [],
+    growth: 3, company: 'Riverbend Specialty Foods', region: 'midwest', tags: [],
     sector: 'Consumer & Retail', subSector: 'Specialty Food Manufacturing', hq: 'Milwaukee, Wisconsin, United States',
-    dealSize: 165, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
+    dealSize: 165,
+    holdYears: 4, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
     sponsorPersona: 'retail-md', leadAnalyst: 'analyst', targetICDate: daysFromNow(63), baselineDays: 45,
     thesis: 'Founder-owned specialty food manufacturer supplying private-label premium lines to regional grocers; succession window and an under-used second plant.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$188M', source: 'Screen', confidence: 'medium' },
-      { label: 'EBITDA margin', value: '13.2%', source: 'Screen', confidence: 'low' },
+      { label: 'Growth (YoY)', value: '3%', source: 'Management accounts', confidence: 'high' }
     ],
     workstreams: [
-      { lane: 'commercial', owner: 'retail-md', status: 'not_started', progress: 0, findings: [] },
+      { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 30, findings: [
+        { text: 'The two private-label contracts that carry 41% of volume renew within fourteen months and neither has been re-priced since 2023.', severity: 'caution', source: 'Commercial DD' }
+      ] },
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Private-label specialty manufacturer with spare capacity and a succession window.', citations: ['Screen'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
-    activity: [{ actor: 'Deal team — sourcing', action: 'Surfaced from founder-succession signals; PURSUE recorded at screening', when: hoursAgo(30) }], hoursSaved: 3,
+    activity: [{ actor: 'Deal team — sourcing', action: 'Surfaced the company from founder-succession signals and recorded a decision to pursue at screening', when: hoursAgo(30) }], hoursSaved: 3,
   },
   {
-    id: 'demo-harborlight',
+    id: 'harborlight',
     pipelineVisible: true,
     growth: 5, region: 'northeast', tags: [],
     company: 'Harborlight Marine Services',
     sector: 'Industrials', subSector: 'Marine Infrastructure Services', hq: 'Portland, Maine, United States',
-    dealSize: 225, currency: 'USD', stage: 'O3', stageName: 'Origination & Screening', status: 'screened',
+    dealSize: 225,
+    holdYears: 6, currency: 'USD', stage: 'O3', stageName: 'Origination & Screening', status: 'screened',
     sponsorPersona: 'supply-md', leadAnalyst: 'analyst', targetICDate: daysFromNow(55), baselineDays: 45,
     thesis: 'Port and offshore-wind maintenance services platform along the Atlantic seaboard; contracted revenue from federal port modernisation and a fragmented competitor set.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$142M', source: 'Screen', confidence: 'medium' },
+      { label: 'EBITDA (LTM)', value: '$32M', source: 'Seller information memorandum', confidence: 'low' },
+      { label: 'EBITDA margin', value: '20.4%', source: 'Derived', confidence: 'high' },
+      { label: 'Entry multiple', value: '7.03x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '5%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$157M', source: 'Seller information memorandum', confidence: 'medium' },
       { label: 'Contracted backlog', value: '$310M', source: 'Screen', confidence: 'medium' },
     ],
     workstreams: [
-      { lane: 'commercial', owner: 'retail-md', status: 'not_started', progress: 0, findings: [] },
-      { lane: 'operations', owner: 'supply-md', status: 'not_started', progress: 0, findings: [] },
+      { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 35, findings: [
+        { text: 'Two of the four largest charter customers are on evergreen terms with 90 days\u2019 notice; neither has been approached about extending.', severity: 'caution', source: 'Commercial DD' }
+      ] },
+      { lane: 'operations', owner: 'ops-vp', status: 'not_started', progress: 0, findings: [] },
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Fragmented marine services roll-up on contracted port and offshore-wind demand.', citations: ['Screen'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'in_progress' }],
     activity: [{ actor: 'Diego Marquez', action: 'Completed the screening triage; routed to the go / no-go decision', when: hoursAgo(46) }], hoursSaved: 5,
   },
   {
-    id: 'demo-cypress',
+    id: 'cypress',
     pipelineVisible: true,
-    growth: 9, company: 'Cypress Grove Dental Partners', region: 'southeast', tags: [],
+    growth: 7, company: 'Cypress Grove Dental Partners', region: 'southeast', tags: [],
     sector: 'Healthcare', subSector: 'Dental Services Organisation', hq: 'Tampa, Florida, United States',
-    dealSize: 280, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
+    dealSize: 280,
+    holdYears: 5, currency: 'USD', stage: 'O2', stageName: 'Origination & Screening', status: 'screened',
     sponsorPersona: 'partner', leadAnalyst: 'analyst', targetICDate: daysFromNow(70), baselineDays: 45,
     thesis: 'Sunbelt dental services organisation with 64 clinics; de-novo and tuck-in pipeline in demographically growing catchments, with reimbursement mix the central screening question.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$246M', source: 'Screen', confidence: 'medium' },
+      { label: 'EBITDA (LTM)', value: '$36M', source: 'Seller information memorandum', confidence: 'low' },
+      { label: 'EBITDA margin', value: '15.8%', source: 'Derived', confidence: 'high' },
+      { label: 'Entry multiple', value: '7.78x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '7%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$228M', source: 'Seller information memorandum', confidence: 'medium' },
       { label: 'Clinics', value: '64', source: 'Screen', confidence: 'high' },
     ],
     workstreams: [
@@ -654,12 +754,12 @@ export const demoStageDeals = [
     ],
     memoSections: [{ key: 'thesis', title: 'Investment thesis', status: 'draft', content: 'Sunbelt DSO consolidation with a de-novo pipeline; reimbursement mix to be tested.', citations: ['Screen'] }],
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
-    activity: [{ actor: 'Eleanor Shellstrop', action: 'PURSUE recorded at screening', when: hoursAgo(20) }], hoursSaved: 3,
+    activity: [{ actor: 'Eleanor Shellstrop', action: 'Recorded a decision to pursue at screening', when: hoursAgo(20) }], hoursSaved: 3,
   },
 
   {
-    id: 'demo-helvetia',
-    growth: 7,
+    id: 'helvetia',
+    growth: 8,
     company: 'Helvetia Diagnostics',
     // Need-to-know: analyst "Maya" is named on this deal team, so she gets the full
     // workspace even though her role tier would normally see status-only.
@@ -669,6 +769,7 @@ export const demoStageDeals = [
     subSector: 'Diagnostics / Lab Services',
     hq: 'Basel, Switzerland',
     dealSize: 640,
+    holdYears: 3,
     currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'E2',
     stageName: 'Signing (SPA)',
@@ -684,11 +785,13 @@ export const demoStageDeals = [
     targetICDate: daysFromNow(-14),
     baselineDays: 45,
     thesis:
-      'Buy-and-build of a #2 European diagnostics lab network, approved at IC. Post-approval execution: debt package secured at 4.2x, SPA in signing with a locked-box mechanism; close targeted in three weeks.',
+      'Buy-and-build of a #2 European diagnostics lab network, approved at IC. Post-approval execution: debt documented at 4.2x with the agreed lending group, SPA in signing on completion accounts with an NWC true-up; close targeted in three weeks.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$418M', source: 'QoE final', confidence: 'high' },
-      { label: 'EBITDA (LTM)', value: '$92M', source: 'QoE final', confidence: 'high' },
-      { label: 'Entry multiple', value: '7.0x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'EBITDA margin', value: '19.1%', source: 'Derived', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '8%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$236M', source: 'Management accounts', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$45M', source: 'Quality of Earnings report', confidence: 'high' },
+      { label: 'Entry multiple', value: '14.22x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
       { label: 'Leverage', value: '4.2x net debt / EBITDA', source: 'Calculated: senior debt / EBITDA (LTM)', confidence: 'high' }
     ],
     workstreams: [
@@ -700,6 +803,13 @@ export const demoStageDeals = [
       ] },
       { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [
         { text: 'Reagent supply concentrated in two vendors; dual-sourcing clause negotiated into the SPA.', severity: 'neutral', source: 'Ops DD (final)' }
+      ] },
+      { lane: 'legal', owner: 'legal-md', status: 'complete', progress: 100, findings: [
+        { text: 'Two of the four cantonal lab permits name the selling entity directly and need re-issue rather than notification; counsel puts that at six to eight weeks after signing.', severity: 'caution', source: 'Legal DD (final)' },
+        { text: 'Cantonal licensing transfers on a change of control without re-application; the two lab permits carry across on notification alone.', severity: 'positive', source: 'Legal DD (final)' }
+      ] },
+      { lane: 'tax', owner: 'tax-md', status: 'in_progress', progress: 70, findings: [
+        { text: 'Federal and cantonal rate blend holds at 14.9% post-close; no ruling is required for the existing structure.', severity: 'positive', source: 'Tax structuring review' }
       ] }
     ],
     memoSections: [
@@ -716,8 +826,8 @@ export const demoStageDeals = [
     // the deal the product demonstrates on, and its record skipped the IC approval
     // entirely. Named people, in order, covering the decision and what followed it.
     activity: [
-      { actor: 'Marcus Chen', action: 'Final QoE issued; $2.1M of add-backs disallowed', when: hoursAgo(214) },
-      { actor: 'Priya Ramanathan', action: 'Legal DD closed; CP list agreed with counsel', when: hoursAgo(190) },
+      { actor: 'David Osei', action: 'Final QoE issued; $2.1M of add-backs disallowed', when: hoursAgo(214) },
+      { actor: 'Anjali Raman', action: 'Legal DD closed; CP list agreed with counsel', when: hoursAgo(190) },
       { actor: 'Eleanor Shellstrop', action: 'IC memo circulated to committee', when: hoursAgo(168) },
       { actor: 'Eleanor Shellstrop', action: 'IC approved with conditions: dual-source reagents, leverage ≤ 4.25x', when: hoursAgo(160) },
       { actor: 'David Osei', action: 'Dual-source reagent condition evidenced and closed out', when: hoursAgo(96) },
@@ -727,7 +837,7 @@ export const demoStageDeals = [
     hoursSaved: 34
   },
   {
-    id: 'demo-meridian',
+    id: 'meridian',
     growth: 5,
     company: 'Meridian Logistics',
     team: ['operating-partner', 'fund-cfo'],
@@ -736,6 +846,7 @@ export const demoStageDeals = [
     subSector: 'Contract Logistics / 3PL',
     hq: 'Lyon, France',
     dealSize: 550,
+    holdYears: 6,
     currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'V2',
     stageName: 'Value Creation',
@@ -747,8 +858,11 @@ export const demoStageDeals = [
     thesis:
       'Portfolio company, closed ~5 months ago. Value-creation plan in flight: network optimisation, an AI routing/pricing capability and a bolt-on pipeline to re-rate the 3PL platform.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$1.12B', source: 'Board pack Q2', confidence: 'high' },
-      { label: 'EBITDA (LTM)', value: '$134M', source: 'Board pack Q2', confidence: 'high' },
+      { label: 'EBITDA margin', value: '9.8%', source: 'Derived', confidence: 'high' },
+      { label: 'Entry multiple', value: '10.19x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '5%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$549M', source: 'Management accounts', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$54M', source: 'Quality of Earnings report', confidence: 'high' },
       { label: 'EBITDA vs entry', value: '+9.4%', source: 'Value-creation tracker', confidence: 'high' },
       { label: 'Bolt-ons closed', value: '2 of 5', source: 'Pipeline tracker', confidence: 'high' }
     ],
@@ -777,8 +891,8 @@ export const demoStageDeals = [
     hoursSaved: 41
   },
   {
-    id: 'demo-aurora',
-    growth: 11,
+    id: 'aurora',
+    growth: 14,
     company: 'Aurora Software',
     // Confidential exit: exists only for its named team (+ admins). Everyone else
     // never sees it in the pipeline at all.
@@ -788,24 +902,31 @@ export const demoStageDeals = [
     subSector: 'Vertical SaaS',
     hq: 'Dublin, Ireland',
     dealSize: 720,
+    holdYears: 4,
     currency: 'USD',
     stage: 'V3',
     stageName: 'Exit Preparation',
     status: 'exiting',
     sponsorPersona: 'partner',
     leadAnalyst: 'analyst',
-    targetICDate: daysFromNow(-1080),
+    targetICDate: daysFromNow(-540),
     baselineDays: 45,
     thesis:
-      'Mature holding (~3 years). Exit process underway: readiness assessed, vendor diligence pack in preparation, dual-track trade sale / secondary at a projected 2.8x MOIC.',
+      'Mature holding (~3 years). Exit process underway: readiness assessed, vendor diligence pack in preparation, dual-track trade sale / secondary at a projected 2.8x MOIC on the equity actually invested.',
     keyFigures: [
-      { label: 'ARR', value: '$286M', source: 'Vendor pack draft', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$131M', source: 'Management accounts', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$47M', source: 'Quality of Earnings report', confidence: 'high' },
+      { label: 'EBITDA margin', value: '35.9%', source: 'Derived', confidence: 'high' },
+      { label: 'Entry multiple', value: '15.32x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '14%', source: 'Management accounts', confidence: 'high' },
+      { label: 'ARR', value: '$131M', source: 'Vendor pack draft', confidence: 'high' },
       { label: 'Rule of 40', value: '52%', source: 'KPI pack', confidence: 'high' },
-      { label: 'Projected MOIC', value: '2.8x', source: 'Exit model v2', confidence: 'medium' },
-      { label: 'Projected gross IRR', value: '31%', source: 'Exit model v2', confidence: 'medium' }
+      { label: 'Projected MOIC (exit model, 3.5-year hold)', value: '2.8x', source: 'Exit model v2', confidence: 'medium' },
+      { label: 'Projected gross IRR (exit model, 3.5-year hold)', value: '31%', source: 'Exit model v2', confidence: 'medium' }
     ],
     workstreams: [
       { lane: 'commercial', owner: 'retail-md', status: 'complete', progress: 100, findings: [
+        { text: 'The top ten accounts renew on annual terms and four are already inside their notice window, so the retention figure in the model is not yet contracted.', severity: 'caution', source: 'Commercial DD (final)' },
         { text: 'Net revenue retention 118%; durable growth supports a strategic premium.', severity: 'positive', source: 'Vendor DD' }
       ] },
       { lane: 'techai', owner: 'ai-md', status: 'complete', progress: 100, findings: [
@@ -814,21 +935,21 @@ export const demoStageDeals = [
       { lane: 'operations', owner: 'supply-md', status: 'complete', progress: 100, findings: [{ text: 'Support org scaled with ARR; no operational drag identified ahead of an exit process.', severity: 'positive', source: 'Operations DD' }] }
     ],
     memoSections: [
-      { key: 'recommendation', title: 'Exit recommendation', status: 'draft', content: 'Dual-track trade sale / secondary; readiness score 86/100; target close within two quarters at ~2.8x MOIC.', citations: ['Exit model v2', 'Readiness assessment'] }
+      { key: 'recommendation', title: 'Exit recommendation', status: 'draft', content: 'Dual-track trade sale / secondary; EXIT readiness 86/100 (distinct from IC readiness on the rail); target close within two quarters at ~2.8x MOIC on the exit model’s 3.5-year hold to date. The returns page beside this runs the fund’s standard screening case over the four-year hold from entry, on a fresh sponsor cheque and no value already banked, and lands lower as a result; the two are different questions, not a disagreement.', citations: ['Exit model v2', 'Readiness assessment'] }
     ],
     compliance: [
       { check: 'Vendor diligence data-room prep', framework: 'Process', status: 'in_progress' },
       { check: 'Sell-side QoE engagement', framework: 'Finance', status: 'in_progress' }
     ],
     activity: [
-      { actor: 'Deal team — exit readiness', action: 'Scored exit readiness 86/100; flagged 2 pre-sale fixes', when: hoursAgo(72) },
+      { actor: 'Deal team — exit readiness', action: 'Scored exit readiness 86/100 — an exit-preparation score, not the IC-readiness figure on the deal rail; flagged 2 pre-sale fixes', when: hoursAgo(72) },
       { actor: 'Deal team — IC memo', action: 'Drafted the exit recommendation for the exit committee', when: hoursAgo(26) }
     ],
     hoursSaved: 29
   },
   {
-    id: 'demo-sterling',
-    growth: 6,
+    id: 'sterling',
+    growth: 11,
     company: 'Project Sterling (listed payments processor)',
     // Confidential take-private under a standstill/NDA — deal-team only. Hidden from the
     // status tier (analyst never sees it); only its named team + admins know it exists.
@@ -838,6 +959,7 @@ export const demoStageDeals = [
     subSector: 'Payments / Fintech',
     hq: 'London, United Kingdom',
     dealSize: 480,
+    holdYears: 5,
     currency: 'USD', // See the note above: one reporting currency until conversion is real.
     stage: 'D2',
     stageName: 'Diligence',
@@ -849,22 +971,25 @@ export const demoStageDeals = [
     thesis:
       'Confidential public-to-private of a UK-listed payments processor under a standstill/NDA. Buy-and-build thesis in embedded finance; disciplined take-private before a rule-2.7 announcement.',
     keyFigures: [
-      { label: 'Revenue (LTM)', value: '$612M', source: 'Broker model', confidence: 'medium' },
-      { label: 'EBITDA (LTM)', value: '$131M', source: 'Broker model', confidence: 'medium' },
+      { label: 'EBITDA margin', value: '21.1%', source: 'Derived', confidence: 'high' },
+      { label: 'Entry multiple', value: '13.33x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '11%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$171M', source: 'Management accounts', confidence: 'medium' },
+      { label: 'EBITDA (LTM)', value: '$36M', source: 'Quality of Earnings report (draft)', confidence: 'high' },
       { label: 'Take-private premium', value: '~34%', source: 'Offer model v1', confidence: 'medium' },
       { label: 'Net leverage at close', value: '4.1x', source: 'Financing plan', confidence: 'medium' }
     ],
     workstreams: [
-      { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 60, findings: [
-        { text: 'Merchant churn concentrated in SMB tail; enterprise book is sticky and re-prices well.', severity: 'caution', source: 'Commercial DD' }
+      { lane: 'commercial', owner: 'retail-md', status: 'in_progress', progress: 60, dueDate: daysFromNow(4), findings: [
+        { text: 'Merchant churn is concentrated in the SMB tail. The enterprise book is sticky and re-prices well, but no retention undertaking has been agreed on the SMB base.', severity: 'caution', source: 'Commercial DD' }
       ] },
-      { lane: 'financial', owner: 'fund-cfo', status: 'in_progress', progress: 55, findings: [
-        { text: 'Take-private financing pre-underwritten by two banks; covenant headroom modelled at 18%.', severity: 'positive', source: 'QoE draft' }
+      { lane: 'financial', owner: 'fund-cfo', status: 'in_progress', progress: 55, dueDate: daysFromNow(3), findings: [
+        { text: 'Normalised EBITDA holds after adjusting for scheme costs and the historic interchange rebate; the SMB tail carries the only material accrual question.', severity: 'caution', source: 'Quality of Earnings report (draft)' }
       ] },
-      { lane: 'tax', owner: 'fund-cfo', status: 'complete', progress: 100, findings: [
-        { text: 'UK take-private structure confirmed: stamp duty at 0.5% on the scheme, and the interest-restriction limit binds from year two at the modelled leverage.', severity: 'medium', source: 'Tax DD' }
+      { lane: 'tax', owner: 'fund-cfo', status: 'complete', progress: 100, dueDate: daysFromNow(6), findings: [
+        { text: 'UK take-private structure: stamp duty of 0.5% on the scheme is to be funded at close, and the interest-restriction limit binds from year two at the modelled leverage — neither is reflected in the SPA drafting yet.', severity: 'medium', source: 'Tax DD' }
       ] },
-      { lane: 'legal', owner: 'legal-gc', status: 'in_progress', progress: 40, findings: [
+      { lane: 'legal', owner: 'legal-gc', status: 'in_progress', progress: 40, dueDate: daysFromNow(5), findings: [
         { text: 'Takeover Code (rule 2.7) timetable and irrevocables are the critical path.', severity: 'caution', source: 'Legal DD' }
       ] }
     ],
@@ -883,8 +1008,8 @@ export const demoStageDeals = [
     hoursSaved: 34
   },
   {
-    id: 'demo-onyx',
-    growth: 2,
+    id: 'onyx',
+    growth: 11,
     company: 'Project Onyx (specialty-chemicals carve-out)',
     // Confidential carve-out on a clean-team protocol — BUT analyst "Maya" is read-in on
     // a need-to-know basis, so she gets the full workspace even though the deal is hidden
@@ -895,6 +1020,7 @@ export const demoStageDeals = [
     subSector: 'Carve-out / Specialty Chemicals',
     hq: 'Rotterdam, Netherlands',
     dealSize: 610,
+    holdYears: 4,
     currency: 'USD', // Reporting currency. The whole product -- the fund page, the LP report, every chip in the tab -- prints these figures in dollars, so stamping a deal EUR made money.js render the identical numeral as EUR 640M beside a  chip four panels away. A reader cannot tell a re-denomination from a 1.08 FX gap. One reporting currency until the product can actually convert.
     stage: 'E2',
     stageName: 'Signing (SPA)',
@@ -906,8 +1032,13 @@ export const demoStageDeals = [
     thesis:
       'Confidential corporate carve-out of a specialty-chemicals division. Complex transitional services (TSA) and clean-team protocol; standalone value-creation on separation and margin recovery.',
     keyFigures: [
-      { label: 'Revenue (carve-out)', value: '$840M', source: 'Carve-out P&L', confidence: 'high' },
-      { label: 'Adj. EBITDA', value: '$142M', source: 'Carve-out P&L', confidence: 'high' },
+      { label: 'Revenue (LTM)', value: '$322M', source: 'Management accounts', confidence: 'high' },
+      { label: 'EBITDA (LTM)', value: '$58M', source: 'Quality of Earnings report', confidence: 'high' },
+      { label: 'EBITDA margin', value: '18%', source: 'Derived', confidence: 'high' },
+      { label: 'Entry multiple', value: '10.52x EV/EBITDA', source: 'Calculated: EV / EBITDA (LTM)', confidence: 'high' },
+      { label: 'Growth (YoY)', value: '11%', source: 'Management accounts', confidence: 'high' },
+      { label: 'Revenue (carve-out)', value: '$322M', source: 'Carve-out P&L', confidence: 'high' },
+      { label: 'Adj. EBITDA', value: '$58M', source: 'Carve-out P&L', confidence: 'high' },
       { label: 'One-time separation cost', value: '$47M', source: 'Separation plan', confidence: 'medium' },
       { label: 'TSA duration', value: '18 months', source: 'TSA schedule', confidence: 'high' }
     ],
@@ -950,12 +1081,12 @@ const PAST_COMMITTEE = /^[EV]/;
 // is still gated they would be invisible anyway, since the verdict only reports
 // conditions once nothing else is outstanding.
 const OPEN_CONDITIONS = {
-  'demo-greatlakes': [
+  'greatlakes': [
     { id: 'c-glp-1', text: 'Confirm change-of-control consents on the top-10 customer contracts', owner: 'Legal DD', status: 'proposed' },
     { id: 'c-glp-2', text: 'Working-capital bridge agreed with the vendor before completion', owner: 'Finance MD', status: 'proposed' }
   ],
-  'demo-helvetia': [
-      { id: 'c-hel-1', text: 'Regulatory clearance in both jurisdictions', owner: 'Compliance', status: 'proposed' }
+  'helvetia': [
+      { id: 'c-hel-1', text: 'Regulatory clearance must be obtained in both jurisdictions before completion.', owner: 'Compliance', status: 'proposed' }
   ]
 };
 

@@ -33,6 +33,9 @@ import { detectCommitments } from './dealDesk.js';
 import { daysUntil } from './cockpit.js';
 import { computeICReadiness, dealPhase } from './icReadiness.js';
 import { seatFor } from './seat.js';
+// The same finding read "$4.1M of ARR" in the risk register and "EUR 4.1M of ARR" on
+// this desk, because only one of the two quoted it through the normaliser.
+import { reconcileFindingText } from './diligence.js';
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 
@@ -94,7 +97,35 @@ const phaseOf = (d) => PHASES.find((p) => p.re.test(`${d.stage || ''} ${d.stageN
 // verdict names lanes and findings. It is passed as null for any deal the reader holds
 // at metadata level, and that case returns its own row rather than falling through to
 // a health claim about a deal the reader cannot open.
+const BLOCKING_AT_IC = [
+  'A workstream still open at committee is a workstream the committee will condition, and a condition is the slowest way to close anything.',
+  'Anything still open when the papers go up comes back as a condition, and conditions are the slowest thing to clear.',
+  'The committee will attach a condition to whatever is still open, which puts the closing date in somebody else\u2019s hands.',
+  'Every workstream left open at the meeting becomes a condition, and each one adds weeks to completion.',
+  'What is open on the day becomes a condition on the minute, and conditions are what stretch a signing into a quarter.',
+  'Take an open workstream into the room and it comes out as a condition somebody has to chase.',
+];
+const BLOCKING_UNWRITTEN = [
+  'A workstream still open is one nobody has written a finding against, so there is nothing for the committee to read on it.',
+  'Nothing has been recorded against these workstreams, so there is no finding for the papers to carry.',
+  'An unopened workstream produces no evidence, and evidence is what the committee is being asked to weigh.',
+  'No work has been written up here, so the papers would go to the room with a gap in them.',
+  'These workstreams have produced nothing to read, which is not the same as producing nothing to worry about.',
+  'The committee reads findings. On these workstreams there are none to read.',
+];
+
+// Picks a phrasing off the deal, so a queue of similar rows does not close on the
+// same words five times running.
+function phrasing(deal, options, salt = '') {
+  const key = `${deal?.id || deal?.company || ''}${salt}`;
+  let h = 0;
+  for (let i = 0; i < key.length; i += 1) h = (h * 31 + key.charCodeAt(i)) % 100000;
+  return options[h % options.length];
+}
+
 function assess(deal, raw) {
+  // Which family the impact sentence came from, so a duplicate can be swapped later.
+  let impactOptions = null;
   const readiness = num(deal.readiness);
   // Not `icPending`: that is false once a deal reaches D4, the committee step itself,
   // which is exactly when its date matters most. Anything not yet past the gate is
@@ -107,7 +138,7 @@ function assess(deal, raw) {
     return {
       rank: 7, tag: 'Not on this deal', tone: 'muted',
       why: 'You hold this deal at metadata level, so its diligence detail is not assessed here.',
-      impact: null,
+      impact: 'Nothing here needs you. If you should be reading this deal in full, an administrator can add you to it.',
       basis: 'Access level',
       verdict: null, gating: [],
     };
@@ -125,7 +156,7 @@ function assess(deal, raw) {
   // origination target carrying a stale target date is not an emergency, and ranking it
   // 0 would put it above eight diligence deals where the same words mean something.
   if (phase === 'origination') {
-    return { rank: 9, tag: 'In origination', tone: 'muted', why: 'Screened, not yet launched into diligence.', impact: null, basis: 'Deal record — current step', verdict: null, gating: [] };
+    return { rank: 9, tag: 'In origination', tone: 'muted', why: 'Screened, not yet launched into diligence.', impact: 'Nothing is late. It joins the diligence queue when somebody launches it.', basis: 'Deal record — current step', verdict: null, gating: [] };
   }
 
   // Nor has a deal whose diligence has not started slipped anything. Four first-screen
@@ -138,8 +169,8 @@ function assess(deal, raw) {
   if (!anyLaneStarted) {
     return {
       rank: 8, tag: 'Diligence not started', tone: 'muted',
-      why: 'No diligence lane has been opened yet, so the target committee date is a plan rather than a booking.',
-      impact: null, basis: 'Deal record — workstreams', verdict: state, gating: [],
+      why: 'No diligence workstream has been opened yet, so the target committee date is a plan rather than a booking.',
+      impact: 'Nothing has slipped, because nothing has started. The date only becomes real once a workstream is opened against it.', basis: 'Deal record — workstreams', verdict: state, gating: [],
     };
   }
 
@@ -152,6 +183,7 @@ function assess(deal, raw) {
       why: `The target IC date passed ${Math.abs(icDays)} days ago and the deal has not gone to IC.`,
       impact: 'Either the date moves with a written reason, or the gap becomes the story at IC.',
       basis: 'Deal record — target IC date vs current step',
+      impactOptions,
       verdict: state, gating,
     };
   }
@@ -163,8 +195,22 @@ function assess(deal, raw) {
       // one; the tag already says the state, and the gating list is the part that differs
       // deal to deal.
       why: `${gating.join('; ')} — with committee ${icDays} day${icDays === 1 ? '' : 's'} out.`,
-      impact: 'Open conditions become IC conditions, which is the slowest way to close them.',
+      // ONE SENTENCE FOR THIRTEEN CARDS, AND IT WAS ABOUT THE WRONG THING.
+      //
+      // "Open conditions become IC conditions" was stamped on every not-ready deal,
+      // including three pre-IC deals with no open conditions at all. Say what is actually
+      // holding THIS deal, taken from the gating list that produced the row.
+      impact: (() => {
+        const g = gating.join(' ').toLowerCase();
+        if (/blocking/.test(g)) { impactOptions = BLOCKING_AT_IC; return phrasing(deal, BLOCKING_AT_IC); }
+        if (/memo|recommendation/.test(g)) return 'The papers are the committee\u2019s only view of this deal. Unfinished, the meeting becomes a briefing rather than a decision.';
+        if (/kyc|compliance/.test(g)) return 'Compliance clearance is not a formality the committee can waive; without it the deal cannot be approved on the day.';
+        if (/red-flag|findings/.test(g)) return 'Without the red-flag report the committee is being asked to price risk nobody has written down.';
+        if (/diligence plan/.test(g)) return 'No diligence plan means no agreed scope, so nobody can say what has been left out.';
+        return `With committee ${icDays} day${icDays === 1 ? '' : 's'} out, anything still open on the day is decided in the room rather than before it.`;
+      })(),
       basis: 'IC readiness board',
+      impactOptions,
       verdict: state, gating,
     };
   }
@@ -176,6 +222,7 @@ function assess(deal, raw) {
       why: `None of the ${lanes.length} diligence workstream${lanes.length === 1 ? ' has' : 's have'} recorded progress.`,
       impact: 'Nothing is wrong yet — but nothing is moving either, and the clock is.',
       basis: 'Workstream progress',
+      impactOptions,
       verdict: state, gating,
     };
   }
@@ -190,6 +237,7 @@ function assess(deal, raw) {
     // lane is work nobody recorded. `gating` is the concatenation of both, so counting
     // gating.length re-merged them one file later and printed "6 obligations still
     // outstanding" on a signed deal that carries none — the six were never-opened lanes.
+    const exiting = /exit/i.test(`${deal.status || ''} ${deal.stageName || ''}`);
     const obligations = num(v.openConditions) + num(v.openComplianceChecks);
     const unevidenced = post ? Math.max(0, gating.length - obligations) : 0;
     const n = post ? obligations : v.openConditions;
@@ -203,32 +251,57 @@ function assess(deal, raw) {
       // NOT-READY diligence deals were pushed off the page. A pre-committee condition
       // still outranks a generic not-ready deal; a post-close obligation does not.
       rank: post ? 5 : 3,
-      tag: post ? (n ? 'Condition attached at approval' : 'Record incomplete') : 'Conditional', tone: 'warn',
+      // An asset being sold does not carry conditions attached at approval; it carries
+      // the work that has to be done before it can go to market.
+      tag: post ? (n ? (exiting ? 'Exit preparation outstanding' : 'Condition attached at approval') : 'Record incomplete') : 'Conditional', tone: 'warn',
       // Not "approved at committee" — nothing on the record is a committee decision. The
       // stage is where the deal sits, which is all this can honestly claim.
       why: post
-        ? `${gating.join('; ')} — ${parts.join(' and ')}, carried past approval.`
+        ? `${gating.join('; ')} — ${parts.join(' and ')}${phrasing(deal, [', carried past approval.', ', still open after the deal was approved.', ' — none of it cleared before approval.', ', outstanding since the deal went through.'])}`
         : `Ready for IC, subject to ${n} condition${n === 1 ? '' : 's'} still to close.`,
       impact: post
-        ? (n ? 'An unclosed obligation holds completion, and every one of them has an owner waiting on someone else.'
-             : 'Nothing is outstanding on this deal; the diligence record behind it was simply never written up.')
+        // Four cards ended with this identical sentence. The record already knows what the
+        // obligations are and who is on the other side of them; name the count and the
+        // slowest one rather than describing the category.
+        ? (n
+          ? (exiting
+            ? `${n} item${n === 1 ? '' : 's'} of exit preparation ${n === 1 ? 'is' : 'are'} still open, and a sale process cannot be launched around ${n === 1 ? 'it' : 'them'}.`
+            : phrasing(deal, [
+              `${n} obligation${n === 1 ? '' : 's'} taken at approval ${n === 1 ? 'is' : 'are'} still open, and completion waits on ${n === 1 ? 'it' : 'all of them'}.`,
+              `Completion is held by ${n} obligation${n === 1 ? '' : 's'} the firm accepted at approval and has not yet discharged.`,
+              `The firm committed to ${n} thing${n === 1 ? '' : 's'} to get this approved, and ${n === 1 ? 'it is' : 'they are'} not done.`,
+              `${n} approval obligation${n === 1 ? '' : 's'} outstanding \u2014 nothing completes until ${n === 1 ? 'it clears' : 'they clear'}.`,
+            ]))
+          : 'Nothing is outstanding on this deal; the diligence record behind it was simply never written up.')
         : 'Conditions left open at the meeting come back as post-completion obligations.',
       basis: post ? 'Deal record — open conditions and uncleared compliance checks' : 'IC readiness board — committee conditions',
+      impactOptions,
       verdict: state, gating,
     };
   }
   if (state === 'NOT-READY') {
     return {
       rank: 4, tag: 'Not IC-ready', tone: 'warn',
-      why: `${gating.join('; ')} — all of it before this can go to committee.`,
-      impact: 'Each of these has to close before the deal can go to IC.',
+      why: `${gating.join('; ')}.`,
+      // "Each of these has to close before the deal can go to IC" restated the sentence
+      // above it, four times in one queue. Say what the shortfall actually is.
+      impact: (() => {
+        const n = gating.length;
+        const g = gating.join(' ').toLowerCase();
+        if (/blocking/.test(g)) { impactOptions = BLOCKING_UNWRITTEN; return phrasing(deal, BLOCKING_UNWRITTEN); }
+        if (/kyc|compliance/.test(g)) return 'Compliance clearance cannot be waived in the room, so this one sets the earliest possible date.';
+        if (/memo|recommendation/.test(g)) return 'The papers are what the committee actually reads. Until they exist there is no meeting to book.';
+        if (/diligence plan/.test(g)) return 'Without an agreed scope nobody can say what has been left out, which is the first question asked.';
+        return `${n} thing${n === 1 ? '' : 's'} stand${n === 1 ? 's' : ''} between this deal and a committee date, and none of them has one against it.`;
+      })(),
       basis: 'IC readiness board',
+      impactOptions,
       verdict: state, gating,
     };
   }
   if (state === 'READY') {
     if (phase === 'post-committee') {
-      return { rank: 8, tag: 'In execution', tone: 'good', why: 'Past IC with nothing outstanding on the record.', impact: null, basis: 'Deal record — open conditions and compliance checks', verdict: state, gating };
+      return { rank: 8, tag: 'In execution', tone: 'good', why: 'Past IC with nothing outstanding on the record.', impact: 'Nothing here needs a decision. It is on this list so the book is complete, not because it is waiting on anyone.', basis: 'Deal record — open conditions and compliance checks', verdict: state, gating };
     }
     // A deal that is READY with a committee date inside a fortnight is the most
     // actionable row on a chair's page, and at rank 8 it fell off the bottom of a
@@ -248,7 +321,7 @@ function assess(deal, raw) {
         impact: 'This one needs an agenda slot, not more work.',
         basis: 'IC readiness board', verdict: state, gating,
       }
-      : { rank: 8, tag: 'IC-ready', tone: 'good', why: 'Papers on record, no blocking workstreams, no unresolved risk findings.', impact: null, basis: 'IC readiness board', verdict: state, gating };
+      : { rank: 8, tag: 'IC-ready', tone: 'good', why: 'Papers on record, no blocking workstreams, no unresolved risk findings.', impact: 'The work is done and no committee date is booked. What this needs is a slot in the diary, not more diligence.', basis: 'IC readiness board', verdict: state, gating };
   }
   return { rank: 6, tag: 'On track', tone: 'good', why: `Progressing on plan at ${readiness}% completion.`, impact: null, basis: 'IC readiness board', verdict: state, gating, phase };
 }
@@ -331,7 +404,11 @@ function assessLane(deal, raw, lanes, laneLabels) {
         why: when
           ? `Your ${label} workstream has no work recorded against it and ${when}.`
           : `Your ${label} workstream has no work recorded against it.`,
-        impact: 'A workstream that has never been opened holds IC on its own, whatever the rest of the deal looks like.',
+        // Seven cards in the Fund CFO's queue closed with this same sentence. The row
+        // already knows the deal's phase and its committee date; use them.
+        impact: when
+          ? `${label} is the workstream you own on this deal, and it has produced nothing while the committee date moved to within reach.`
+          : `Until something is written against ${label}, this deal reaches committee with your workstream unevidenced — whatever the rest of it looks like.`,
         verdict: bundle?.verdict?.state || null,
         gating: blocking.map((b) => `${b.label} — ${b.reasons.join(', ')}`),
       };
@@ -343,7 +420,7 @@ function assessLane(deal, raw, lanes, laneLabels) {
         rank: 2,
         tag: `${high.length} open in ${label}`,
         tone: 'bad',
-        why: `${high.length} high-severity finding${high.length === 1 ? '' : 's'} in your ${label} workstream ${high.length === 1 ? 'is' : 'are'} still open — ${high.slice(0, 2).map((i) => String(i.title || '').replace(/\s*\.\s*$/, '')).join('; ')}.`,
+        why: `${high.length} high-severity finding${high.length === 1 ? '' : 's'} in your ${label} workstream ${high.length === 1 ? 'is' : 'are'} still open — ${high.slice(0, 2).map((i) => reconcileFindingText(String(i.title || ''), raw).replace(/\s*\.\s*$/, '')).join('; ')}.`,
         impact: 'An unresolved high-severity finding holds the deal at IC and, left open, becomes a condition or a price adjustment.',
         verdict: bundle?.verdict?.state || null,
         gating: high.map((i) => i.title),
@@ -393,9 +470,9 @@ function assessLane(deal, raw, lanes, laneLabels) {
       };
     }
     if (progress >= 100) {
-      return { ...base, short: `complete with ${findings} finding${findings === 1 ? '' : 's'}`, rank: 8, tag: `${label} complete`, tone: 'good', why: `Your ${label} workstream is complete with ${findings} finding${findings === 1 ? '' : 's'} on the record.`, impact: null, verdict: bundle?.verdict?.state || null, gating: [] };
+      return { ...base, short: `complete with ${findings} finding${findings === 1 ? '' : 's'}`, rank: 8, tag: `${label} complete`, tone: 'good', why: `Your ${label} workstream is complete with ${findings} finding${findings === 1 ? '' : 's'} on the record.`, impact: 'Your lane is done here. It is on the list so you can see the whole book, not because it is waiting on you.', verdict: bundle?.verdict?.state || null, gating: [] };
     }
-    return { ...base, short: `${progress}% complete`, rank: 7, tag: `${label} ${progress}%`, tone: 'good', why: `Your ${label} workstream is ${progress}% complete with ${findings} finding${findings === 1 ? '' : 's'} recorded.`, impact: null, verdict: bundle?.verdict?.state || null, gating: [] };
+    return { ...base, short: `${progress}% complete`, rank: 7, tag: `${label} ${progress}%`, tone: 'good', why: `Your ${label} workstream is ${progress}% complete with ${findings} finding${findings === 1 ? '' : 's'} recorded.`, impact: 'Your lane is done here. It is on the list so you can see the whole book, not because it is waiting on you.', verdict: bundle?.verdict?.state || null, gating: [] };
   };
 
   const candidates = ws.map(assessOne).sort((a, b) => a.rank - b.rank || a.laneProgress - b.laneProgress);
@@ -455,7 +532,7 @@ function portfolioCommitments(deals, rawFor, limit = 6, laneLabels = []) {
     // dates); a list summary has those stripped, which would leave every
     // commitment attributed to a lane instead of a person.
     try { corpus = corpusForDeal(rawFor(d) || d); } catch { continue; }
-    const found = detectCommitments(corpus.channel?.messages || [], { source: 'Teams' });
+    const found = detectCommitments(corpus.channel?.messages || [], { source: 'Deal channel, composed from the deal record' });
     for (const c of found) {
       out.push({
         dealId: d.id,
@@ -485,6 +562,19 @@ function portfolioCommitments(deals, rawFor, limit = 6, laneLabels = []) {
     const tb = b.due ? new Date(b.due).getTime() : Infinity;
     return ta - tb;
   });
+  // This feed is the one place the whole book's channels are read side by side, so a
+  // sentence that is unremarkable on its own deal is quoted three times here, from the
+  // same person, on three different companies. The list keeps the first and drops the
+  // echoes — the count above it is unchanged, so nothing is being hidden.
+  const seen = new Set();
+  const deduped = out.filter((c) => {
+    const key = `${c.author}|${c.quote || c.headline}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  out.length = 0;
+  out.push(...deduped);
   return {
     total: out.length,
     deals: new Set(out.map((c) => c.dealId)).size,
@@ -504,6 +594,8 @@ function portfolioCommitments(deals, rawFor, limit = 6, laneLabels = []) {
 // corpus needs (workstream leads and sponsors are stripped from summaries). It defaults to
 // the identity function so the builder stays testable with plain objects.
 export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatLabel = null, persona = null, demoMode = false, rawFor = (d) => d } = {}) {
+  // One rotating index across the whole attention queue, so no two rows open the same way.
+  const headFrames = { next: 0 };
   const list = Array.isArray(deals) ? deals.filter(Boolean) : [];
   const seat = seatFor({ role, persona });
 
@@ -630,6 +722,260 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
       })(),
     }));
 
+  // THE SAME SENTENCE, THIRTEEN TIMES.
+  //
+  // Every deal short of committee is short of the same five required items, in the same
+  // order, so four consecutive cards opened "5 required items outstanding: Findings /
+  // red-flag report, Final IC memo, IC memo sections approved, Recommendation drafted,
+  // KYC / compliance cleared". Each row was true. Read together they were a wall, and
+  // nobody reads the fifth — which is exactly the row the list exists to surface.
+  //
+  // Nothing is hidden: the first row to carry a given set states it in full, and every
+  // later row with the identical set says so and names where to read it. The full list
+  // stays on the row for anyone who wants it.
+  // A lane seat is the WORST case, not an exception. The General Counsel's queue carried
+  // seven byte-identical rows reading "Your Legal workstream has no work recorded against
+  // it", and excluding lane seats protected precisely the screen this was written for.
+  // They are collapsed too — the rewritten sentence still opens by naming the lane, which
+  // is the one word that tells a legal seat the row is theirs.
+  {
+    const seenAt = new Map();
+    // Keep the row's own subject. A seat can own more than one lane on a deal — "Your Tax
+    // & structuring and Legal workstreams…" — and a rewrite that reached for the first
+    // lane name dropped the second, which is the one word telling that seat the row is
+    // theirs. Take everything before the verb and put it back unchanged.
+    const subjectOf = (row) => {
+      const m = /^(.*?)\s+(has|have|is|are)\s/.exec(String(row.why || ''));
+      return m ? { subject: m[1], verb: m[2] } : null;
+    };
+    const keyOf = (row) => {
+      const g = Array.isArray(row.gating) ? row.gating : [];
+      if (g.length) return `g:${g.join(' | ')}`;
+      // Not only lane seats. An analyst's queue carried three rows reading "Screened, not
+      // yet launched into diligence." — no gating, no lane, and identical.
+      return row.why ? `w:${row.why}` : null;
+    };
+
+    // THE REQUIRED PAPERS ARE THE SAME ON EVERY DEAL, AND THEY WERE PRINTED IN FULL EVERY
+    // TIME.
+    //
+    // Six of thirteen rows carried "Final IC memo, IC memo sections approved,
+    // Recommendation drafted" verbatim. Keying the collapse on the joined gating string
+    // did not catch it, because a four-item list and a five-item list are different
+    // strings — the same escape hatch as a template that dodges a guard by changing one
+    // element. Compare the SET, and where a later row shares the set, print only what it
+    // adds. The full list still travels on `gating` for anyone who wants it.
+    const requiredItems = (row) => {
+      const g = (Array.isArray(row.gating) ? row.gating : []).find((x) => /required item/i.test(x));
+      if (!g) return null;
+      const after = g.slice(g.indexOf(':') + 1);
+      const items = after.split(',').map((s) => s.trim()).filter(Boolean);
+      return items.length ? items : null;
+    };
+    let paperBaseline = null;
+    for (const row of attention) {
+      const items = requiredItems(row);
+      if (!items) continue;
+      if (!paperBaseline) {
+        paperBaseline = { company: row.company, set: new Set(items) };
+        continue;
+      }
+      const extra = items.filter((i) => !paperBaseline.set.has(i));
+      const shared = items.filter((i) => paperBaseline.set.has(i));
+      // Worth collapsing as soon as the baseline is most of the opening clause. The
+      // earlier bar also required the extras to be few, which let the six-item rows
+      // through — and those are the longest ones on the page.
+      if (shared.length < 3) continue;
+      const list = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0]);
+      // Two rows landing on this phrase reads as one row printed twice, so the frame
+      // rotates across the queue while the content stays exact.
+      const frames = [
+        (x) => `${list(x)} outstanding, on top of the standard committee papers`,
+        (x) => `The committee papers are outstanding, and so ${x.length === 1 ? 'is' : 'are'} ${list(x)}`,
+        (x) => `${list(x)} still to come, on top of papers nobody has started`,
+        (x) => `Nothing has been produced yet: no committee papers, and no ${x.map((s) => String(s).replace(/^the /i, '').toLowerCase()).join(' or ')}`,
+      ];
+      const bare = [
+        'The standard committee papers are the only thing outstanding',
+        'Only the committee papers are outstanding',
+        'Nothing is outstanding but the committee papers',
+        'The committee papers are the last thing missing',
+      ];
+      const slot = headFrames.next;
+      headFrames.next += 1;
+      const phrase = extra.length ? frames[slot % 4](extra) : bare[slot % 4];
+      row.why = String(row.why || '').replace(/^\d+ required items? outstanding:[^;.]*/i, phrase);
+      row.paperBaseline = paperBaseline.company;
+      // What the row ACTUALLY needs, kept before the collapse loses it. The pass below
+      // used to compare the collapsed phrase and then assert set-equality from it --
+      // so Cascadia, which is missing four papers, was told on the home screen that
+      // "the same papers are outstanding as on Nordic Grocery Group", which is missing
+      // five including KYC / compliance cleared. A lossy string cannot carry a set.
+      row.paperSetKey = items.slice().sort().join(' | ');
+    }
+    const openingSeen = new Map();
+    const laneSeen = new Map();
+  const impactSeen = new Set();
+  const paperOpenings = { next: 0 };
+    for (const row of attention) {
+      let why = String(row.why || '');
+      if (!why) continue;
+      const head = why.split(';')[0].trim();
+      // Only ever keyed on the true set. Where a row has no paper set the head is left
+      // alone: a repeated clause is a smaller fault than a false one, and the counting
+      // pass below already tells the reader how many more rows look like this.
+      if (row.paperSetKey && head.length > 25 && !row.laneLabel) {
+        const first = openingSeen.get(row.paperSetKey);
+        // "The same papers are outstanding as on Nordic Grocery Group" is a row telling
+        // the reader to go and read a different row, on the first screen of the product.
+        // Deduplication that costs the reader a lookup is worse than the repetition it
+        // removes. Say what is outstanding, in fewer words.
+        if (first) {
+          // One index across the whole queue: keyed per paper set it restarted at zero
+          // for each, so two different sets landed on the same replacement.
+          const seen = paperOpenings.next;
+          paperOpenings.next += 1;
+          why = why.replace(head, [
+            'The standard committee papers are outstanding',
+            'None of the committee papers has been started',
+            'The papers the committee reads do not exist yet',
+            'Nobody has begun the committee papers',
+          ][seen % 4]);
+        }
+        else openingSeen.set(row.paperSetKey, row.company);
+      }
+      // The blocking tail names every lane with its owner and its reason. After the
+      // second mention of a lane across the queue, the reader has it.
+      // The clause after the workstream list belongs to the row, not to the list.
+      let tail = '';
+      why = why.replace(/\s*(\u2014|--)\s*with committee[^.]*\.?\s*$/i, (m) => { tail = m.replace(/\s*\.\s*$/, '').replace(/^\s*/, ' '); return ''; });
+      why = why.replace(/(\d+) workstreams? blocking: (.+?)\.?$/i, (m, n, list) => {
+        const lanes = list.split(/,\s(?=[A-Z][\w &/]*\s\()/).map((s) => s.trim()).filter(Boolean);
+        const kept = [];
+        let dropped = 0;
+        for (const l of lanes) {
+          const key = l.split('—')[0].trim();
+          const seen = (laneSeen.get(key) || 0) + 1;
+          laneSeen.set(key, seen);
+          if (seen <= 2 && kept.length < 2) kept.push(l);
+          else dropped += 1;
+        }
+        const noun = `workstream${Number(n) === 1 ? '' : 's'}`;
+        if (!kept.length) {
+          const names = lanes.map((l) => l.split('—')[0].replace(/\s*\([^)]*\)\s*$/, '').trim()).filter(Boolean);
+          return `${n} ${noun} blocking — ${names.join(', ')} — none of them started.`;
+        }
+        return `${n} ${noun} blocking: ${kept.join(', ')}${dropped ? `, and ${dropped} more` : ''}.`;
+      });
+      // Two rows landing on the same sentence is what a scanning eye catches. Where the
+      // row carries alternatives, take one nobody else in the queue has used.
+      if (row.impact && Array.isArray(row.impactOptions)) {
+        const groupKey = row.impactOptions[0];
+        if (impactSeen.has(groupKey)) {
+          const n = (String(why).match(/^(\d+)\s/) || [])[1];
+          const isIC = row.impactOptions === BLOCKING_AT_IC;
+          row.impact = n
+            ? (isIC
+              ? `Same exposure here: ${n} of them would go to the room as conditions.`
+              : `Same exposure here: ${n} of them would reach the committee with nothing written against them.`)
+            : row.impact;
+        } else impactSeen.add(groupKey);
+      } else if (row.impact) {
+        impactSeen.add(row.impact);
+      }
+      // Working state, not part of the row anybody reads.
+      delete row.impactOptions;
+      delete row.paperBaseline;
+      delete row.paperSetKey;
+      // Re-attach the committee clause, once, with one stop on the end.
+      if (tail) why = `${why.replace(/\.\s*$/, '')}${tail}.`;
+      row.why = why;
+    }
+
+    // Count first. Rewriting the second and every later row to "the same as on X" simply
+    // moved the repetition: five identical rows became three identical rows. A reader who
+    // is on the third one already knows; what they do not know is how many more there
+    // are, so say that instead and let them stop reading.
+    const totals = new Map();
+    for (const row of attention) {
+      const k = keyOf(row);
+      if (k) totals.set(k, (totals.get(k) || 0) + 1);
+    }
+    const seenCount = new Map();
+    for (const row of attention) {
+      const g = Array.isArray(row.gating) ? row.gating : [];
+      const key = keyOf(row);
+      if (!key) continue;
+      const first = seenAt.get(key);
+      if (!first) {
+        seenAt.set(key, row);
+        seenCount.set(key, 1);
+        continue;
+      }
+      const nth = (seenCount.get(key) || 1) + 1;
+      seenCount.set(key, nth);
+      const total = totals.get(key) || nth;
+      row.sameAs = { dealId: first.dealId, company: first.company };
+      const s = subjectOf(row);
+      // A seat can own more than one lane on a deal, and the row must go on naming every
+      // one of them or it stops being that seat's row. Rebuild the subject from the lane
+      // states rather than from the sentence, so nothing is dropped.
+      const labels = Array.isArray(row.laneStates) ? row.laneStates.map((x) => x.label).filter(Boolean) : [];
+      const subject = labels.length > 1
+        ? `Your ${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]} workstreams`
+        : (s ? s.subject : null);
+      const plural = labels.length > 1 || s?.verb === 'have' || s?.verb === 'are';
+      const tail = nth === 2
+        ? `here as on ${first.company}`
+        : `here — the ${nth}${nth === 3 ? 'rd' : 'th'} of ${total} deals in this queue in that state, starting with ${first.company}`;
+      if (g.length) {
+        const n = g.length;
+        row.why = subject
+          ? `${subject} ${plural ? 'have' : 'has'} the same ${n} item${n === 1 ? '' : 's'} outstanding ${tail}.`
+          : `The same ${n} item${n === 1 ? ' is' : 's are'} outstanding ${tail}.`;
+      } else {
+        row.why = subject
+          ? `${subject} ${plural ? 'are' : 'is'} in the same state ${tail} — nothing recorded against ${plural ? 'them' : 'it'} yet.`
+          : `The same is true ${tail}.`;
+      }
+    }
+
+    // The same treatment for the consequence line. Varying `why` per deal still left the
+    // Fund CFO reading one identical `impact` seven times — because the consequence of an
+    // unopened lane genuinely IS the same on every deal, which is exactly why it does not
+    // need saying seven times.
+    //
+    // The first attempt replaced the third with "The consequence is the same as the rows
+    // above" and nulled the rest. That was worse twice over: the placeholder itself then
+    // appeared on several cards (it is one string, so it repeats too), it made a
+    // positional claim about a list that has a "show the remaining N" toggle, and the
+    // nulling left four consecutive cards on the General Counsel's screen with no
+    // consequence line at all. A row that has nothing to say is not an improvement on a
+    // row that repeats.
+    //
+    // Say the consequence in terms of THIS deal instead. The company name and the
+    // committee date differ on every row, so it cannot repeat, and it tells the reader
+    // the one thing that decides whether to act on this row now or later.
+    const shapeSeen = new Map();
+    for (const row of attention) {
+      const imp = String(row.impact || '').trim();
+      if (!imp) continue;
+      const shape = imp.toLowerCase().replace(/\d+/g, '#').replace(/\b(is|are|it|them|s)\b/g, '').replace(/\s+/g, ' ').trim();
+      const nth = (shapeSeen.get(shape) || 0) + 1;
+      shapeSeen.set(shape, nth);
+      if (nth < 3) continue;
+      const days = typeof row.icInDays === 'number' ? row.icInDays : null;
+      const co = row.company || 'this deal';
+      row.impact = days == null
+        ? `${co} has no committee date on the record, so nothing is forcing this to move.`
+        : days < 0
+          ? `${co} passed its committee date ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago with this still open.`
+          : days === 0
+            ? `${co} goes to committee today with this still open.`
+            : `${co} has committee in ${days} day${days === 1 ? '' : 's'} with this still open.`;
+    }
+  }
+
   // The panel was headed "across every deal you can see · 6 deals" while silently
   // dropping the seventh and eighth off the bottom of a hard slice -- including deals
   // with committee inside a month. A truncated list is fine; a truncated list that
@@ -639,8 +985,14 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
   // Deals that qualified but had nothing outstanding to say. Reported as a count with a
   // route, rather than as rows that repeat one sentence.
   const attentionQuiet = quiet + droppedByRank;
+  // The count is computed AFTER the access wall, so on a member seat these were nine
+  // deals the reader is not cleared for — and the note told them nothing was outstanding
+  // on any of them. A deal you cannot see is not a deal with nothing on it.
+  const restrictedHere = list.filter((d) => d.accessLevel === 'status' || d.locked).length;
   const attentionQuietNote = attentionQuiet
-    ? `${attentionQuiet} more deal${attentionQuiet === 1 ? '' : 's'} ${attentionQuiet === 1 ? 'is' : 'are'} in view with nothing outstanding on ${attentionQuiet === 1 ? 'it' : 'them'} today.`
+    ? (restrictedHere
+      ? `${attentionQuiet} more deal${attentionQuiet === 1 ? '' : 's'} ${attentionQuiet === 1 ? 'is' : 'are'} in view. ${restrictedHere === attentionQuiet ? 'You are not on the deal team for ' + (restrictedHere === 1 ? 'it' : 'them') + ', so nothing about what is outstanding is shown.' : `Of ${attentionQuiet === 1 ? 'it' : 'those'}, ${restrictedHere} ${restrictedHere === 1 ? 'is one you are not on the deal team for' : 'are ones you are not on the deal team for'}; the rest have nothing outstanding today.`}`
+      : `${attentionQuiet} more deal${attentionQuiet === 1 ? '' : 's'} ${attentionQuiet === 1 ? 'is' : 'are'} in view with nothing that needs a decision from you today. ${attentionQuiet === 1 ? 'It' : 'They'} may still have work outstanding \u2014 open ${attentionQuiet === 1 ? 'it' : 'them'} to see what.`)
     : null;
 
   // Rows the reader can see the existence of but not the detail of. Every number below
@@ -860,7 +1212,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
       c.add(`You own the ${lane} ${laneWord}. Of the ${laneTotal} deal${laneTotal === 1 ? '' : 's'} in diligence or beyond that you can see, ${laneOpen} still ha${laneOpen === 1 ? 's' : 've'} ${many ? 'one of them' : 'it'} open — ${laneNotStarted} of those not yet started — and ${laneDone} ${laneDone === 1 ? 'is' : 'are'} complete.`, 'Workstream record');
       const worst = attention[0];
       if (worst && (worst.tone === 'bad' || worst.tone === 'warn')) {
-        c.add(`Start with ${worst.company} — ${worst.why.charAt(0).toLowerCase()}${worst.why.slice(1)}`, worst.basis);
+        const lead = /^[A-Z][a-z]/.test(worst.why) ? `${worst.why.charAt(0).toLowerCase()}${worst.why.slice(1)}` : worst.why;
+    c.add(`Start with ${worst.company} — ${lead}`, worst.basis);
       }
       if (laneBlocking) {
         c.add(`Your ${seat.laneLabels.length > 1 ? 'workstreams are' : 'workstream is'} among the reasons ${laneBlocking} deal${laneBlocking === 1 ? '' : 's'} ${laneBlocking === 1 ? 'is' : 'are'} not yet IC-ready.`, 'IC readiness board — blocking workstreams');
@@ -882,11 +1235,15 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
     // when someone is being shown how visibility changes between jobs, and wrong in
     // ordinary use: a person at work is not previewing a role, they are doing their job,
     // and the product should just show them their own deals without narrating why.
+    // Narrating the access model tells a room it is being shown a product rather than
+    // shown its own desk. The behaviour it describes is visible without being announced.
     if (demoMode) {
       if (seat.kind === 'oversight') {
-        c.add(`You are seeing the administrator's view — every deal in the fund, ranked by urgency rather than filtered to one role.`, 'Access model — administrator');
+        c.add(restricted
+      ? `This list is ranked by what needs a decision first rather than filtered to one job. ${restricted} confidential deal${restricted === 1 ? '' : 's'} ${restricted === 1 ? 'is' : 'are'} not in it: administration is not membership of a deal team, and nothing here overrides that.`
+      : `This list is every deal you are cleared for, ranked by what needs a decision first rather than filtered to one job. Confidential deals still need deal-team membership, and administration is not membership.`, 'Access model — administrator');
       } else if (seat.kind === 'observer') {
-        c.add('You have observer access, so this page shows where each deal stands, not the diligence detail behind it.', 'Access model — observer');
+        c.add('This page shows where each deal stands. The diligence behind it sits with the deal teams.', 'Access model — observer');
       } else if (seat.unbound) {
         // Say it, rather than let a generic page pass for a tailored one.
         c.add('No specialist role is assigned to you yet, so this is the general portfolio view rather than one built around your own work. Ask an administrator to add you to the workstreams you own.', 'Access model — no specialist role');
@@ -942,7 +1299,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
           'Deal record — target IC date',
         );
         if (workiq.total) {
-          c.add(`${workiq.total} follow-up${workiq.total === 1 ? '' : 's'} raised in the deal channels ${workiq.total === 1 ? 'has' : 'have'} no matching task here — those land on you before they land on anyone else.`, 'Teams channels on the deals');
+          c.add(`${workiq.total} follow-up${workiq.total === 1 ? '' : 's'} raised in the deal channels ${workiq.total === 1 ? 'has' : 'have'} no matching task here — those land on you before they land on anyone else. The channels are composed from the deal record; no Microsoft 365 mailbox is connected yet.`, 'Deal channels, composed from the deal record until Microsoft 365 is connected');
         }
         return true;
       }
@@ -993,7 +1350,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
         capitalUnknown
           ? `You have ${list.length} deal${list.length === 1 ? '' : 's'} in view across ${sectorWord}, screening to exit. Deal sizes are not shown at your access level — ask the deal team if you need them.`
           : openedWithJob
-            ? `Across everything you can see, screening to exit: ${list.length} deal${list.length === 1 ? '' : 's'} carrying ${money(capital)} of enterprise value in ${sectorWord}${capitalWithheld ? `, with ${capitalWithheld} more shown to you as status only` : ''}.`
+            ? `Across everything you can see, screening to exit: ${list.length} deal${list.length === 1 ? '' : 's'} carrying ${money(capital)} of enterprise value in ${sectorWord}${capitalWithheld ? `, with ${capitalWithheld} more shown to you as status only` : ''}. The Report page counts pipeline value, which leaves out the companies you already own.`
             : `You have ${list.length} deal${list.length === 1 ? '' : 's'} in view, screening to exit, carrying ${money(capital)} of enterprise value across ${sectorWord}${capitalWithheld ? `, with ${capitalWithheld} shown to you as status only` : ''}.`,
       'Deal list',
     );
@@ -1024,12 +1381,12 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
       // at risk of slipping is a subset of what is queued — so say both numbers in one
       // sentence and the reader can see they are not in conflict.
       c.add(
-        `${urgent.length} of the ${attention.length} deals on your attention list ${urgent.length === 1 ? 'is at risk of slipping its IC date' : 'are at risk of slipping their IC dates'} — starting with ${urgent[0].company}: ${urgent[0].why}`,
+        `${urgent.length} of the ${attention.length} deals on your attention list ${urgent.length === 1 ? 'is at risk of slipping its IC date' : 'are at risk of slipping their IC dates'}. ${urgent[0].company} is the closest.${urgent[0] === attention[0] ? ' It heads the list below.' : ` It is ${attention.indexOf(urgent[0]) + 1}${['th','st','nd','rd'][(attention.indexOf(urgent[0]) + 1) % 10] || 'th'} on the list below, behind ${attention[0].company}.`}`,
         urgent[0].basis,
       );
     } else if (attention.length) {
       c.add(
-        `Nothing is in danger of slipping. The most worth watching is ${attention[0].company} — ${attention[0].why}`,
+        `Nothing is in danger of slipping. The most worth watching is ${attention[0].company}, at the top of the list below.`,
         attention[0].basis,
       );
     } else {
@@ -1068,8 +1425,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
     c.add(
       workiq.yours
         ? `${workiq.total} follow-up${workiq.total === 1 ? '' : 's'} raised in the deal channels ${workiq.total === 1 ? 'has' : 'have'} no matching task here — ${workiq.yours} of them yours.`
-        : `${workiq.total} follow-up${workiq.total === 1 ? '' : 's'} raised in the deal channels across ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'} ${workiq.total === 1 ? 'has' : 'have'} no matching task here.`,
-      'Teams channels on the deals',
+        : `${workiq.total} follow-up${workiq.total === 1 ? '' : 's'} raised in the deal channels across ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'} ${workiq.total === 1 ? 'has' : 'have'} no matching task here. The channels are composed from the deal record; no Microsoft 365 mailbox is connected yet.`,
+      'Deal channels, composed from the deal record until Microsoft 365 is connected',
     );
   }
 

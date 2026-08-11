@@ -71,6 +71,11 @@ export function toggleTheme(): string {
   return next;
 }
 
+// Whether the Teams host actually answered. Outside it there is no SSO token to wait for,
+// and waiting the full cap for one is the difference between a deal link opening at once
+// and appearing to hang.
+let inTeamsHost: boolean | null = null;
+
 export async function initTeams(): Promise<TeamsInfo> {
   const override = storedTheme();
   try {
@@ -81,6 +86,7 @@ export async function initTeams(): Promise<TeamsInfo> {
     // Teams host theme changes apply only when the user hasn't set an explicit override.
     app.registerOnThemeChangeHandler((tHeme) => { if (!storedTheme()) applyTheme(tHeme); });
     app.notifySuccess();
+    inTeamsHost = true;
     return { inTeams: true, theme, context };
   } catch {
     // Outside Teams (web console): honour the saved choice, else the OS color scheme,
@@ -92,6 +98,7 @@ export async function initTeams(): Promise<TeamsInfo> {
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => { if (!storedTheme()) applyTheme(e.matches ? 'dark' : 'default'); });
       }
     } catch { /* ignore */ }
+    inTeamsHost = false;
     return { inTeams: false, theme: initial };
   }
 }
@@ -99,13 +106,19 @@ export async function initTeams(): Promise<TeamsInfo> {
 // Teams SSO token (exchanged server-side via OBO). Null outside Teams / no SSO.
 // Time-boxed: outside the Teams host getAuthToken never resolves, so we cap it
 // so the tab never blocks its data loads on SSO.
-export async function getSsoToken(): Promise<string | null> {
-  try {
-    return await Promise.race([
-      authentication.getAuthToken(),
+//
+// Outside Teams the answer is null and cannot become anything else, so it is answered at
+// once rather than paying the cap. Two callers on mount used to pay it twice — eight
+// seconds of dead air before a deal link would open. A real token is NOT cached: they
+// expire, and a stale one fails at Graph rather than at the door.
+let inFlight: Promise<string | null> | null = null;
+export function getSsoToken(): Promise<string | null> {
+  if (inTeamsHost === false) return Promise.resolve(null);
+  if (!inFlight) {
+    inFlight = Promise.race([
+      Promise.resolve(authentication.getAuthToken()).catch(() => null),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
-    ]);
-  } catch {
-    return null;
+    ]).catch(() => null).finally(() => { inFlight = null; });
   }
+  return inFlight;
 }

@@ -129,7 +129,7 @@ export const personas = [
   },
   {
     id: 'legal-gc',
-    name: 'Priya Raman',
+    name: 'Anjali Raman',
     title: 'General Counsel — Legal & Execution',
     short: 'General Counsel',
     color: '#334155',

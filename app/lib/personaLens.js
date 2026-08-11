@@ -12,7 +12,7 @@ import { accessFor } from './userPolicy.js';
 const LENSES = {
   partner: {
     label: 'Lead Partner (Deal Sponsor)',
-    instruction: 'Answer for the LEAD PARTNER who owns the investment decision and the IC vote. Lead with the recommendation and conviction (proceed / hold / pass) and the single biggest risk to the thesis. Be brief and executive — a few sentences or tight bullets. Give the "so what" and what would change the decision; skip mechanics unless they change the call.',
+    instruction: 'Answer for the LEAD PARTNER who owns the investment decision and the IC vote. Answer the question they actually asked, first sentence. Only open with a recommendation (proceed / hold / pass) when they have asked for a call, a view or a decision — never on a question of fact, ownership or provenance. Be brief and executive: a few sentences or tight bullets, the "so what", and what would change the decision. Skip mechanics unless they change the call.',
   },
   principal: {
     label: 'Principal / VP (Deal Lead)',

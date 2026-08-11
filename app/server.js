@@ -189,7 +189,7 @@ const withReconciledFindings = (deal) => ({
   ...deal,
   workstreams: (deal.workstreams || []).map((w) => ({
     ...w,
-    // The record writes owners as 'legal-md'; the readiness board names Priya Raman. The
+    // The record writes owners as 'legal-md'; the readiness board names Anjali Raman. The
     // deal page served the key, so the same lane had two owners depending on the tab.
     owner: w.owner ? ownerLabel(w.owner, w.lane) : null,
     ownerId: w.owner || null,
@@ -275,7 +275,7 @@ function requestingIdentity(req) {
 //
 //   GET  /api/deals                                → 10 rows
 //   GET  /api/deals  -H 'x-dr-view-as: deal-team'   → 24 rows, confidential included
-//   POST /api/deals/demo-onyx/chat -H '…partner'    → "EV is $610M. Stage: Signing (SPA)."
+//   POST /api/deals/onyx/chat -H '…partner'    → "EV is $610M. Stage: Signing (SPA)."
 //
 // Previewing a seat is a demo affordance for a caller the platform can identify — the
 // Teams app proves itself with a bot key and forwards a real signed-in user — not
@@ -403,7 +403,7 @@ api.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptim
 // ---- Default-deny at the boundary -------------------------------------------
 // Every GET sub-route of a deal was gated and forty routes under the same prefix were
 // not, because each one was written to gate itself and twenty-eight of them forgot.
-// Unauthenticated, no bot key, no seat: POST /deals/demo-onyx/assumption-snapshot
+// Unauthenticated, no bot key, no seat: POST /deals/onyx/assumption-snapshot
 // returned twenty kilobytes of the raw record — name, size, HQ, thesis, the deal team,
 // and `confidential: true` telling the reader they had found the right thing — and wrote
 // a snapshot onto it. /actions/summarize-cim ran the model over the deal and handed back
@@ -478,7 +478,7 @@ api.use((req, res, next) => {
   if (DEAL_ID_RESERVED.has(id)) return next();
   // The signed model link is its own capability — issued per deal, and how an Excel
   // refresh reaches the workbook without a session. It was honoured HERE, in the boundary
-  // middleware, so a token for demo-onyx satisfied the guard for the deal record itself and
+  // middleware, so a token for onyx satisfied the guard for the deal record itself and
   // all ten of its sub-routes: the returns model, the risk register, the citations, the
   // documents. A capability to read one workbook opened the whole deal.
   //
@@ -508,17 +508,24 @@ const READ_ONLY_MAY = [
   /^\/request-access$/, /^\/chat$/, /^\/assistant-actions$/,
   /^\/artifact\//, /^\/steps\/[^/]+\/run$/, /^\/documents\/[^/]+$/,
 ];
+// A walkthrough may join the deal's CONVERSATION, and nothing else. Collaboration is the
+// one capability that cannot be shown by looking at it, and a demo that can only read is
+// indistinguishable from a product that can only read. The post is held in memory, never
+// written to the durable store, and never reaches Teams — so the room is still handed back
+// unchanged, which is the whole point of the credential.
+const WALKTHROUGH_MAY = [/^\/threads\/message$/];
 api.use((req, res, next) => {
   if (req.method === 'GET' || req.method === 'HEAD') return next();
   const m = /^\/deals\/([^/?]+)(\/.*)?$/.exec(req.path);
   if (!m || DEAL_ID_RESERVED.has(decodeURIComponent(m[1]))) return next();
   const tail = m[2] || '';
   if (READ_ONLY_MAY.some((re) => re.test(tail))) return next();
+  const access = accessFor(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
   // A walkthrough credential shows the room and never changes it, whatever seat it names.
   if (requestingIdentity(req)?.walkthrough) {
+    if (access.canWrite && WALKTHROUGH_MAY.some((re) => re.test(tail))) return next();
     return refuse(res, { status: 403, code: 'read-only', reason: 'This is a walkthrough. Sign in to record anything on a deal.' });
   }
-  const access = accessFor(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
   if (access.canWrite) return next();
   return refuse(res, {
     status: 403,
@@ -768,15 +775,27 @@ api.get('/fund/report/certifications/:id', async (req, res) => {
 });
 api.post('/fund/report/certify', async (req, res) => {
   if (!canCertify(req)) return res.status(403).json({ error: 'forbidden', detail: 'Only a Partner or Administrator may certify LP reports.' });
+  // A CONTROL THAT NEVER REFUSES IS NOT A CONTROL — but it must refuse for the right
+  // reason. `certifyReport` blocks on GENUINELY STALE data and deliberately not on sources
+  // that were never connected, because the LP headline stands on the fund's own record.
+  // What was wrong was the notice: it called both cases "outside their freshness SLA", so
+  // the panel declared the report uncertifiable and then certified it in one click.
+  // Whatever caveat applies is now carried on the certificate itself.
+  const reporting = guardReporting(REPORTING_SOURCE_IDS);
   const snapshot = {
     overview: fundOverview(),
     portfolio: portfolioMonitoring(),
     value: executiveValue(portfolioStats()),
     methodology: fundMethodology(),
-    reporting: guardReporting(REPORTING_SOURCE_IDS),
+    reporting,
     at: new Date().toISOString(),
   };
-  const r = await certifyReport({ snapshot, by: approverLabel(req), reason: req.body?.reason });
+  const r = await certifyReport({
+    snapshot,
+    by: approverLabel(req),
+    reason: req.body?.reason,
+    caveat: reporting.ok ? null : reporting.notice,
+  });
   if (r.error) return res.status(409).json(r);
   res.json(r);
 });
@@ -1105,6 +1124,15 @@ api.post('/deals/:id/documents/:kind', async (req, res) => {
 // Live model data sources for an Excel web query / any tool. Public reads (the
 // workbook's Data ▸ Refresh All fetches these unauthenticated) returning the same
 // model rows as the generated workbook.
+// The link token exists so Excel can refresh WITHOUT signing in. A person already inside
+// the product, holding full access to the deal, has proved more than the token does — and
+// requiring it anyway put a raw JSON refusal on screen for the deal team's own model.
+function mayReadModel(req) {
+  if (verifyModelToken(req.params.id, req.query.t)) return true;
+  const raw = getDealRaw(req.params.id);
+  if (!raw) return false;
+  return dealAccessLevel(requestingIdentity(req), raw, (requestingFloor(req) || requestingViewAs(req))) === 'full';
+}
 api.get('/deals/:id/model.html', (req, res) => {
   // Visibility before capability. These answered the token question first, so a hidden
   // deal id came back 403 while every other sub-resource came back 404 — and a refusal
@@ -1115,14 +1143,14 @@ api.get('/deals/:id/model.html', (req, res) => {
   // caller parsing the body got a string where it expected a reason.
   // This described an EXPIRY on what is usually an access refusal, so a reader who may
   // not open the deal was told to go and take a fresh link — retry rather than ask.
-  if (!verifyModelToken(req.params.id, req.query.t)) return refuse(res, { status: 403, dealId: req.params.id, reason: 'This model is open to the deal team. Ask to be added and the link will work.' });
+  if (!mayReadModel(req)) return refuse(res, { status: 403, dealId: req.params.id, reason: 'This model is open to the deal team. Ask to be added and the link will work.' });
   const deal = getDealRaw(req.params.id);
   if (!deal) return res.status(404).type('text/plain').send('not found');
   res.type('text/html; charset=utf-8').send(buildModelHtml(deal));
 });
 api.get('/deals/:id/model.csv', (req, res) => {
   if (!dealVisibleTo(req)) return res.status(404).json({ error: 'not-found' });
-  if (!verifyModelToken(req.params.id, req.query.t)) return refuse(res, { status: 403, dealId: req.params.id, reason: 'This model is open to the deal team. Ask to be added and the link will work.' });
+  if (!mayReadModel(req)) return refuse(res, { status: 403, dealId: req.params.id, reason: 'This model is open to the deal team. Ask to be added and the link will work.' });
   const deal = getDealRaw(req.params.id);
   if (!deal) return res.status(404).type('text/plain').send('not found');
   res.type('text/csv; charset=utf-8').setHeader('Content-Disposition', `attachment; filename="deal-model-${req.params.id}.csv"`);
@@ -1215,7 +1243,7 @@ api.get('/deals/:id/workflow-desk', (req, res) => {
   const g = deskGate(req, res);
   if (!g) return;
   const corpus = corpusForDeal(g.raw);
-  const commitments = detectCommitments(corpus.channel?.messages || [], { source: 'Teams' });
+  const commitments = detectCommitments(corpus.channel?.messages || [], { source: 'deal channel, composed from the deal record' });
   const out = buildWorkflowDesk(g.deal, getICReadiness(req.params.id), {
     role: g.access?.role || g.viewAs || null,
     commitments,
@@ -1235,13 +1263,16 @@ api.get('/deals/:id/threads', async (req, res) => {
   const g = deskGate(req, res);
   if (!g) return;
   const userToken = requestingGraphToken(req);
+  const walkthrough = !!requestingIdentity(req)?.walkthrough;
   let liveChannel = null;
   let asUser = false;
   const link = g.raw.teamsChannel;
   if (link?.teamId && link?.channelId) {
     try {
       const r = await readChannelMessages({ team_id: link.teamId, channel_id: link.channelId, top: 30, userToken });
-      if (r && Array.isArray(r.results) && r.results.length) { liveChannel = r; asUser = !!r.asUser; }
+      // `demo: true` is the seeded fallback, not Teams. Treating it as a live read let it
+      // override the deal's own derived conversation — which is correct and deal-specific.
+      if (r && !r.demo && Array.isArray(r.results) && r.results.length) { liveChannel = r; asUser = !!r.asUser; }
     } catch { /* fall through to the seeded corpus */ }
   }
   const corpus = corpusForDeal(g.raw);
@@ -1255,7 +1286,10 @@ api.get('/deals/:id/threads', async (req, res) => {
     asUser,
     obo: !!userToken,
     origin: corpus.origin,
-    canWrite: !!g.access?.canWrite,
+    // A walkthrough holds a real seat and still cannot write — the write guard refuses it
+    // whatever the seat says. Reporting canWrite here would put a composer on screen that
+    // was always going to be turned away.
+    canWrite: !!g.access?.canWrite && !walkthrough,
     roleLabel: g.access?.roleLabel || null,
     seatLabel: actingTitle(req) || g.access?.roleLabel || null,
     // Whether this person can actually speak in this channel from here, and if not,
@@ -1266,26 +1300,47 @@ api.get('/deals/:id/threads', async (req, res) => {
       liveChannel,
       userToken,
       canWrite: !!g.access?.canWrite,
+      walkthrough,
+      actingAs: actingName(req) || actingTitle(req) || null,
     }),
   });
 });
 
-// What it would take for THIS caller to post into THIS deal's channel. Ordered from
-// the most fundamental blocker outwards so the reason given is the real one.
-function composeState({ link, liveChannel, userToken, canWrite }) {
-  if (!link?.teamId || !link?.channelId) {
-    return { canSend: false, reason: 'No Teams channel is linked to this deal yet, so there is nowhere to post.' };
+// Where a message from THIS caller would land. It is no longer a question of whether they
+// may speak — the deal's own conversation is always answerable by someone who can write on
+// the deal — but of whether it will also reach the Teams channel, which is a different
+// claim and has to be made accurately before they type rather than after they send.
+function composeState({ link, liveChannel, userToken, canWrite, walkthrough, actingAs }) {
+  // The write guard refuses a walkthrough credential on every deal route, so offering the
+  // box here would be a promise the next request breaks.
+  if (walkthrough) {
+    if (!canWrite) return { canSend: false, toTeams: false, reason: 'Your access on this deal is read-only.' };
+    // This is concatenated after "your message is recorded on the deal", so it must not
+    // contradict it, and it is read aloud in front of buyers, so it must not say "demo".
+    // The per-message "Deal Room only" tag already carries the honest part.
+    return { canSend: true, toTeams: false, reason: 'It stays in the Deal Room rather than going to the Teams channel.' };
   }
   if (!canWrite) {
-    return { canSend: false, reason: 'Your access on this deal is read-only.' };
+    // Naming who you are borrowing matters: an administrator who left the view-as picker
+    // on an observer reads 'your access is read-only' as the product being broken.
+    return {
+      canSend: false,
+      toTeams: false,
+      reason: actingAs
+        ? `You are viewing as ${actingAs}, whose access on this deal is read-only. Switch back to yourself to post.`
+        : 'Your access on this deal is read-only.',
+    };
+  }
+  if (!link?.teamId || !link?.channelId) {
+    return { canSend: true, toTeams: false, reason: 'This deal has no Teams channel yet, so your message is recorded on the deal.' };
   }
   if (!userToken) {
-    return { canSend: false, reason: 'Sending posts as you, which needs your own Microsoft 365 sign-in. Open the Deal Room inside Teams and accept the permission prompt.' };
+    return { canSend: true, toTeams: false, reason: 'Recorded on the deal. To post into the Teams channel as well, open the Deal Room inside Teams and accept the permission prompt.' };
   }
   if (!liveChannel) {
-    return { canSend: false, reason: 'The live channel could not be read, so the app will not post into it blind.' };
+    return { canSend: true, toTeams: false, reason: 'The live channel could not be read, so the app will not post into it blind. Your message is recorded on the deal.' };
   }
-  return { canSend: true, reason: null };
+  return { canSend: true, toTeams: true, reason: null };
 }
 
 // Speak in the deal's Teams channel — AS THE SIGNED-IN PERSON, never as the app.
@@ -1302,32 +1357,66 @@ api.post('/deals/:id/threads/message', async (req, res) => {
   if (!g.access?.canWrite) {
     return res.status(403).json({ error: 'read-only', detail: 'Your access on this deal is read-only, so it cannot post to the deal channel.' });
   }
-  const userToken = requestingGraphToken(req);
-  if (!userToken) {
-    return res.status(412).json({
-      error: 'delegated-required',
-      detail: 'Posting requires your own Microsoft 365 sign-in so the message is attributable to you. The Deal Room will not post to a deal channel as the application.',
-    });
-  }
+  // A DEAL'S CONVERSATION SHOULD ALWAYS BE ANSWERABLE.
+  //
+  // Posting used to require a delegated Microsoft 365 token, and refuse outright without
+  // one. That guard is right about Teams — the app must never put words in someone's mouth
+  // in a channel — but it was applied to the whole act of speaking, so on any day M365 was
+  // not connected the deal's own conversation was readable and could not be answered.
+  //
+  // The message is always recorded on the deal, where this product is the system of
+  // record. It ALSO goes to Teams when we can send it as this person. The reply says which
+  // of those happened, and the thread labels every message with where it lives, because a
+  // post that stayed in the Deal Room was not seen by anyone watching Teams.
   const link = g.raw.teamsChannel;
-  if (!link?.teamId || !link?.channelId) {
-    return res.status(409).json({ error: 'no-channel', detail: 'This deal has no provisioned Teams channel to post into.' });
-  }
   const text = String(req.body?.text ?? '').trim();
   if (!text) return res.status(400).json({ error: 'empty-message', detail: 'There is nothing to send.' });
 
-  const r = await wiPostChannelMessage({
-    team_id: link.teamId,
-    channel_id: link.channelId,
-    text,
-    reply_to: String(req.body?.replyTo || '') || null,
-    userToken,
-  });
-  if (r?.error) {
-    const status = r.error === 'forbidden' ? 403 : r.error === 'bad-args' ? 400 : 502;
-    return res.status(status).json(r);
+  const walkthrough = !!requestingIdentity(req)?.walkthrough;
+  const userToken = requestingGraphToken(req);
+  // A walkthrough never speaks in a real channel, whatever token happens to be present.
+  const canReachTeams = !!(userToken && link?.teamId && link?.channelId) && !walkthrough;
+  let teams = null;
+  let teamsError = null;
+  if (canReachTeams) {
+    teams = await wiPostChannelMessage({
+      team_id: link.teamId,
+      channel_id: link.channelId,
+      text,
+      reply_to: String(req.body?.replyTo || '') || null,
+      userToken,
+    });
+    if (teams?.error) { teamsError = teams; teams = null; }
   }
-  res.json(r);
+
+  const profile = demoProfileById[String(req.headers['x-dr-demo-as'] || '').trim()] || null;
+  const note = addWorkiqNote({
+    dealId: req.params.id,
+    author: actingName(req) || g.access?.roleLabel || 'Deal team',
+    personaId: actingPersona(req),
+    personaLabel: actingTitle(req) || profile?.title || g.access?.roleLabel || null,
+    role: g.access?.role || null,
+    text,
+    channelPost: true,
+    postedToTeams: !!teams,
+    ephemeral: walkthrough,
+  });
+
+  res.json({
+    ok: true,
+    note,
+    postedToTeams: !!teams,
+    teams: teams || null,
+    // Never silently. If Teams was reachable and refused us, the reader is told.
+    where: teams ? 'Posted to the Teams channel and recorded on the deal.'
+      : teamsError ? 'Recorded on the deal. Microsoft Teams refused the post, so it is not in the channel.'
+      : walkthrough
+        ? 'Posted in the deal conversation. It stays in the Deal Room and does not go to the Teams channel.'
+      : link?.teamId
+        ? 'Recorded on the deal. It is not in the Teams channel, which needs your own Microsoft 365 sign-in.'
+        : 'Recorded on the deal. This deal has no Teams channel linked to it yet.',
+    teamsError,
+  });
 });
 
 api.get('/deals/:id/doc-desk', async (req, res) => {
@@ -1475,12 +1564,15 @@ api.get('/deals/:id/recent', async (req, res) => {
     userToken && terms ? wiSearchMail({ query: terms, top: 15, userToken }) : Promise.resolve(null),
   ]);
   const ok = (r) => (r.status === 'fulfilled' && r.value && !r.value.error ? r.value : null);
+  // Same rule as the threads route: the seeded fallback is not a live read, and passing it
+  // through as one puts another deal's activity on this deal's timeline.
+  const live = (r) => { const v = ok(r); return v && !v.demo ? v : null; };
 
   const out = buildRecentActivity(g.deal, {
     corpus: corpusForDeal(g.raw),
-    liveChannel: ok(chan),
-    liveFiles: ok(files),
-    liveMail: ok(mail),
+    liveChannel: live(chan),
+    liveFiles: live(files),
+    liveMail: live(mail),
     persona: actingPersona(req) || personaForIdentity(requestingIdentity(req)),
     limit: Math.min(Number(req.query.limit) || 40, 60),
   });
@@ -1738,7 +1830,21 @@ api.get('/market-intel', (req, res) => {
   const mi = marketIntel() || { info: fabricStatus(), companies: [], comparableDeals: [], benchmarkFindings: [], icPrecedents: [], companyFinancials: {} };
   const hidden = hiddenCompanyNames(requestingIdentity(req), (requestingFloor(req) || requestingViewAs(req)));
   const named = (o) => [o?.company, o?.name, o?.companyName].filter(Boolean).map((x) => String(x).toLowerCase());
-  res.json({ ...mi, companies: (mi.companies || []).filter((c) => !named(c).some((n) => hidden.has(n))) });
+  const companies = (mi.companies || []).filter((c) => !named(c).some((n) => hidden.has(n)));
+  // A COUNT MUST COUNT WHAT IS ON THE PAGE.
+  //
+  // The snapshot's own counts travelled with a response that had already had companies
+  // filtered out of it and lists sliced, so the panel claimed 12 comparable transactions
+  // and 12 precedents over 11 rows of each — the kind of arithmetic a reader checks by
+  // accident and then stops trusting the rest of the screen.
+  const counts = {
+    ...(mi.counts || {}),
+    companies: companies.length,
+    comparableDeals: (mi.comparableDeals || []).length,
+    benchmarkFindingWorkstreams: (mi.benchmarkFindings || []).length,
+    icPrecedents: (mi.icPrecedents || []).length,
+  };
+  res.json({ ...mi, companies, counts, info: { ...(mi.info || {}), counts } });
 });
 api.get('/market-intel/comps', (req, res) => res.json(comparableDeals({ sector: req.query.sector })));
 api.get('/market-intel/benchmarks', (req, res) => res.json(benchmarkFindings(req.query.workstream)));
@@ -1971,7 +2077,17 @@ api.post('/news/scan-formd', async (req, res) => {
 });
 
 // O1 · Deal Sourcing — Analyst reports (thesis context per discovered company)
-api.get('/research', (_req, res) => res.json(getAnalystResearch()));
+api.get('/research', (_req, res) => {
+  const r = getAnalystResearch() || {};
+  const companies = r.companies || [];
+  if (companies.length) return res.json({ ...r, companies });
+  return res.json({
+    ...r,
+    companies,
+    note: 'No analyst report has been generated yet. Screening a target ranks it against the mandate; a report is written only when someone opens that target and asks for one, so this list stays empty until then.',
+    basis: 'Analyst reports are generated on demand, not as part of screening.',
+  });
+});
 
 // O1 · Deal Sourcing — Sourcing framework (fund GATE · themes GUIDE · screens RANK)
 api.get('/framework', (_req, res) => res.json(getFramework()));
@@ -2287,7 +2403,17 @@ api.post('/deals/:id/chat', async (req, res) => {
     }
     if (level !== 'full') return res.status(404).json({ error: 'deal not found' });
   }
-  const persona = personaById[req.body?.personaId] || getPersonas()[0];
+  // THE ASSISTANT MUST KNOW WHICH SEAT IT IS SITTING IN.
+  //
+  // This fell back to getPersonas()[0] — the analyst — whenever the client did not send a
+  // personaId. A partner whose chrome read "Partner — Deal Sponsor & IC Chair" opened the
+  // assistant on the same request and was told "You are the Deal Associate (Analyst) on
+  // this file". The seat is on the request already; use it before reaching for a default.
+  const seat = (requestingFloor(req) || requestingViewAs(req) || '').toString();
+  const persona = personaById[req.body?.personaId]
+    || personaById[seat]
+    || getPersonas().find((p) => p.id === seat)
+    || getPersonas()[0];
   const message = (req.body?.message || '').toString().slice(0, 2000);
   if (!message) return res.status(400).json({ error: 'message required' });
   const lens = lensBlock({ identity: requestingIdentity(req), viewAsRole: (requestingFloor(req) || requestingViewAs(req)), persona: req.body?.personaId });

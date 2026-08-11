@@ -21,12 +21,12 @@
 // unit; and asked a committee to authorise money on deals that had already signed.
 // Every one of those is the same fault: a sentence written once and then not checked
 // against the number it was about to sit beside. The guards are in the tests.
-import { buildReturnsModel, buildRiskRegister, canonicalFigures, reconcileFindingText } from './diligence.js';
+import { buildReturnsModel, buildRiskRegister, canonicalFigures, likelihoodOf, reconcileFindingText } from './diligence.js';
 import { screeningMultiple } from './screening.js';
 import { computeICReadiness } from './icReadiness.js';
-import { validateCitations } from './citations.js';
+import {validateCitations, sourcingCaveats } from './citations.js';
 import { compsForDeal } from './fabric.js';
-import { ownerLabel } from './cockpit.js';
+import { ownerLabel, laneLabel } from './cockpit.js';
 import { money as fmtMoney, symbolFor } from './money.js';
 
 const SEVERITY_RANK = { stopper: 0, reprice: 1, condition: 2, monitor: 3 };
@@ -63,7 +63,20 @@ const isDecided = (deal) => DECIDED.has(String(deal.status || '').toLowerCase())
 // scored 100 out of 100 for sourcing. $36M is 12% of the $300M asking price and $375M is
 // 125% of it. The disclosure machinery existed and did not fire, because the figures were
 // on the record: they were just never diligenced.
-const UNDILIGENCED_SOURCE = /^(screen|screening|teaser|cim|broker model|desk|desk research|derived|estimate)$/i;
+const UNDILIGENCED_SOURCE = /^(screen|screening|teaser|cim|broker model|desk|desk research|derived|estimate)$/i
+  // Not anchored, because the seller's paper travels under a dozen names.
+  ;
+const SELLER_DOC = /seller|vendor|information memorandum|confidential information|teaser|management accounts|broker|pitch/i;
+// A figure the record itself grades low or medium confidence cannot carry a comparison
+// the page then describes as a judgement.
+const WEAK_CONFIDENCE = /^(low|medium)$/i;
+function sourceIsUndiligenced(fig) {
+  if (!fig) return false;
+  const src = String(fig.source || '').trim();
+  if (UNDILIGENCED_SOURCE.test(src)) return true;
+  if (SELLER_DOC.test(src)) return true;
+  return WEAK_CONFIDENCE.test(String(fig.confidence || '').trim());
+}
 // A draft is not a result. One deal sourced the whole price -- $148M of EBITDA -- to
 // "CIM p.14 / QoE draft" at high confidence, which is the distinction this page is
 // careful about everywhere else.
@@ -80,6 +93,9 @@ function sourcedBasis(kf, fallback) {
   const conf = String(kf.confidence || '').trim();
   if (UNDILIGENCED_SOURCE.test(src)) {
     return `Recorded at ${/teaser/i.test(src) ? 'the teaser' : /broker/i.test(src) ? 'the broker model' : 'screening'} (${src}${conf ? `, ${conf} confidence` : ''}) — not a diligenced figure. No workstream has confirmed it.`;
+  }
+  if (SELLER_DOC.test(src) || WEAK_CONFIDENCE.test(conf)) {
+    return `Recorded on the deal from ${src}${conf ? ` at ${conf} confidence` : ''} \u2014 the seller\u2019s own figure, and not a diligenced figure. No workstream has tested it.`;
   }
   if (DRAFT_SOURCE.test(src)) {
     return `Recorded from ${src}${conf ? ` at ${conf} confidence` : ''}. That is a draft, not a completed result, and no final figure is on the record.`;
@@ -101,12 +117,23 @@ function figureBasis(kind, canon, deal) {
     if (canon.ebitdaSource === 'implied by the recorded entry multiple') {
       return `Not recorded. Implied by dividing the ${cur}${canon.ev}M enterprise value by the ${canon.entryMultiple}x multiple the record states.`;
     }
-    return `Not recorded. Implied from the ${screeningMultiple(deal)}x screening default for ${deal.subSector || deal.sector || 'this sector'} — the convention the model falls back to when no EBITDA is on file. The multiple below rests on it.`;
+    return `Not recorded. Implied from the ${canon.entryMultiple}x screening default for ${deal.subSector || deal.sector || 'this sector'} — the convention the model falls back to when no EBITDA is on file. The multiple below rests on it.`;
   }
   if (kind === 'multiple') {
+    // A multiple the EBITDA above was implied from cannot also be derived from it.
+    if (canon.ebitdaSource === 'derived') {
+      return `The screening default for ${deal.subSector || deal.sector || 'this sector'}. No diligenced EBITDA is on the record, so the EBITDA above is implied from this multiple rather than the reverse.`;
+    }
     return canon.entryMultipleSource === 'recorded'
-      ? 'Stated on the deal record.'
-      : `Derived: ${cur}${canon.ev}M enterprise value over ${cur}${canon.ebitda}M EBITDA.`;
+      ? `Stated on the deal record, and it is ${cur}${Math.round(canon.ev)}M of enterprise value over ${cur}${+Number(canon.ebitda).toFixed(1)}M of EBITDA.`
+      : (() => {
+        const ev = Math.round(canon.ev);
+        const eb = +Number(canon.ebitda).toFixed(1);
+        const shown = Math.round(canon.ebitda);
+        return eb === shown
+          ? `Derived: ${cur}${ev}M enterprise value over ${cur}${eb}M EBITDA.`
+          : `Derived: ${cur}${ev}M enterprise value over ${cur}${eb}M EBITDA \u2014 the row above rounds that to ${cur}${shown}M.`;
+      })();
   }
   if (kind === 'revenue') {
     return canon.revenueRecorded ? sourcedBasis(recordedFigure(deal, /revenue/i), 'Recorded on the deal from diligence.') : 'Not recorded. Screening estimate at 1.2x enterprise value.';
@@ -173,7 +200,80 @@ function againstIt(register, fix) {
 // The equity line reconciles here rather than a page away: the ask used to read "$96M
 // equity cheque" beside a sources-and-uses showing $94M of sponsor equity, with the
 // explanation on the returns page the reader had not been sent to.
-function theAsk(canon, returns, deal, priceUnproduced) {
+// The EBITDA's provenance in one place, in three registers: a headline qualifier, a
+// short noun phrase, and the long clause the ask and the precedent comparison use.
+// Everything that used to splice the raw source field reads from here.
+const PROVENANCE = [
+  { match: /quality of earnings|qoe/i, draft: /draft|preliminary/i,
+    head: 'THE EBITDA IS A DRAFT', short: 'a draft quality-of-earnings report',
+    long: 'an EBITDA from a draft quality-of-earnings report, which is not a final result' },
+  { match: /teaser/i, head: 'THE EBITDA IS THE SELLER\u2019S', short: 'the seller\u2019s teaser',
+    long: 'an EBITDA taken from the seller\u2019s teaser, which no workstream has verified' },
+  { match: /\bcim\b|information memorandum/i, head: 'THE EBITDA IS THE SELLER\u2019S',
+    short: 'the seller\u2019s information memorandum',
+    long: 'an EBITDA taken from the seller\u2019s information memorandum, which no workstream has verified' },
+  { match: /broker|analyst|research/i, head: 'THE EBITDA IS A BROKER NUMBER', short: 'a broker model',
+    long: 'an EBITDA taken from a broker model, which no workstream has verified' },
+  { match: /management accounts?/i, head: 'THE EBITDA IS UNAUDITED', short: 'unaudited management accounts',
+    long: 'an EBITDA taken from unaudited management accounts, which no workstream has verified' },
+];
+
+// The EBITDA the card publishes. Where the figure is ours rather than the record's it
+// carries a tenth, because the multiple beside it was struck on that tenth.
+function ebitdaShown(canon) {
+  return canon.ebitdaSource === 'recorded'
+    ? fmtMoney(canon.ebitda, canon.currency)
+    : `${canon.currency}${+Number(canon.ebitda).toFixed(1)}M`;
+}
+
+// A date a reader reads, not the instant it was written.
+function shortDate(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function priceCaveat(returns, deal) {
+  const base = (returns?.scenarios || []).find((s) => /base/i.test(s.name)) || null;
+  const irr = base?.irr;
+  if (!returns?.meetsHurdle) {
+    return 'The returns below do not clear the hurdle even on the asking price, so the price is the second problem, not the first.';
+  }
+  if (typeof irr === 'number' && irr >= 30) {
+    return `A ${irr}% base case on a price nobody has tested is a reason to test the price, not a reason to pay it.`;
+  }
+  if (typeof irr === 'number') {
+    return `The ${irr}% base case below is arithmetic on the asking price. It is not yet a view on ${deal.company}.`;
+  }
+  return 'The returns below are arithmetic on the asking price, not a view on the company.';
+}
+
+function ebitdaProvenance(canon, sourceLabel) {
+  if (canon.ebitdaSource === 'derived' || !sourceLabel) {
+    return {
+      headline: 'NO EBITDA HAS BEEN PRODUCED',
+      shortPhrase: 'a screening default',
+      longPhrase: 'a screening-default EBITDA that no workstream has produced',
+    };
+  }
+  const row = PROVENANCE.find((r) => r.match.test(sourceLabel));
+  if (!row) {
+    const clean = sourceLabel.toLowerCase();
+    return {
+      headline: 'THE EBITDA IS NOT DILIGENCED',
+      shortPhrase: `the ${clean}`,
+      longPhrase: `an EBITDA taken from the ${clean}, which no workstream has verified`,
+    };
+  }
+  const isDraft = row.draft && row.draft.test(sourceLabel);
+  return {
+    headline: isDraft ? row.head : (row.head || 'THE EBITDA IS NOT DILIGENCED'),
+    shortPhrase: row.short,
+    longPhrase: row.long,
+  };
+}
+
+function theAsk(canon, returns, deal, priceUnproduced, priceBasisPhrase, priceUnevidenced = priceUnproduced) {
   const m = (v) => fmtMoney(v, symbolFor(deal));
   const base = (returns.scenarios || []).find((s) => /base/i.test(s.name)) || null;
   if (!base) return null;
@@ -195,7 +295,7 @@ function theAsk(canon, returns, deal, priceUnproduced) {
     // Past the decision this is a record of what was authorised, not a request. The
     // verb is the whole difference and it was wrong on eight deals.
     headline: decided
-      ? `Committed: ${m(base.entryEV)} enterprise value at ${mult}x${priceUnproduced ? ' on an EBITDA no workstream has produced' : ''}, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at ${canon.leverage}. This deal is past the committee decision.${multNote}`
+      ? `Committed: ${m(base.entryEV)} enterprise value at ${mult}x${priceUnproduced ? ` on ${priceBasisPhrase}` : ''}, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at ${canon.leverage}. This deal is past the committee decision.${multNote}`
       // "Authorise up to ... $492M of debt at 3.3x" states as a fact a leverage nobody
       // has offered. It is disclosed as modelled two sections down; the sentence a
       // committee votes on should not need the footnote.
@@ -214,7 +314,7 @@ function theAsk(canon, returns, deal, priceUnproduced) {
       // different sentence and the one the returns page already tells properly. Say that,
       // once, everywhere. The verdict may still be NOT ON THIS PRICE -- that is a
       // judgement about whether to pay it, not a claim that the arithmetic cannot be done.
-      : `Authorise up to ${m(base.entryEV)} enterprise value at ${mult}x${priceUnproduced ? ', struck on a screening-default EBITDA that no workstream has produced' : ''}, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at a modelled ${canon.leverage} — no lender or indicative terms are on the record.${multNote}`,
+      : `${priceUnevidenced ? 'The ask on the table is up to' : 'Authorise up to'} ${m(base.entryEV)} enterprise value at ${mult}x${priceUnproduced ? `, struck on ${priceBasisPhrase}` : ''}, funded with a ${m(base.equityIn)} equity cheque and ${m(base.debt)} of debt at a modelled ${canon.leverage}.${priceUnevidenced ? ' That is the price asked, not the price recommended \u2014 the call is below.' : ''}${multNote}`,
     decided,
     entryMultiple: mult,
     entryMultipleUnevidenced: !!priceUnproduced,
@@ -224,7 +324,11 @@ function theAsk(canon, returns, deal, priceUnproduced) {
     leverage: canon.leverage,
     currency: canon.currency,
     equityNote: sponsor && Math.round(sponsor.amount) !== Math.round(base.equityIn)
-      ? (returns.sourcesUses || {}).equityBasisNote || null
+      // The Sources & uses note says "the sponsor line above", and above it on THAT
+      // screen there is one. Here there is not: it lives under Analysis.
+      ? String((returns.sourcesUses || {}).equityBasisNote || '')
+        .replace(/\bsponsor line above\b/, 'sponsor line under Analysis')
+        .replace(/\babove is that figure\b/, 'under Analysis is that figure') || null
       : null,
   };
 }
@@ -288,7 +392,16 @@ function theBaseCase(deal, returns, canon) {
     // which is the one test this section exists to pass.
     exit: Number.isFinite(base.exitEbitda) && Number.isFinite(base.exitEV)
       ? (() => {
-        const mult = (s) => (s && Number.isFinite(s.exitEV) && Number.isFinite(s.exitEbitda) ? +(s.exitEV / Math.max(1, s.exitEbitda)).toFixed(1) : null);
+        // TWO DERIVATIONS OF ONE MULTIPLE.
+        //
+        // This recomputed the exit multiple by dividing the rounded exit EV by the rounded
+        // exit EBITDA, while the scenario table printed the multiple the model actually
+        // exited at. On one deal that gave "downside exits at 14.4x" in the prose and
+        // 14.3x in the table beside it. Take the model's figure where it has one.
+        const mult = (s) => {
+          if (s && Number.isFinite(s.exitMult)) return +Number(s.exitMult).toFixed(1);
+          return (s && Number.isFinite(s.exitEV) && Number.isFinite(s.exitEbitda) ? +(s.exitEV / Math.max(1, s.exitEbitda)).toFixed(1) : null);
+        };
         const xm = mult(base);
         const delta = +(xm - canon.entryMultiple).toFixed(1);
         // "No multiple expansion is assumed" was true of the base case and printed as
@@ -307,11 +420,44 @@ function theBaseCase(deal, returns, canon) {
         // 300/36 is 8.33x and 401/48 is 8.35x. That is a rounding artefact, not an
         // assumption anybody made.
         const note = Math.abs(delta) <= 0.15
-          ? ` The base case assumes no multiple expansion — it is made on EBITDA growth and debt paydown alone.${spread}`
+          ? ` ${saidTwoWays(deal, [
+          'The base case assumes no multiple expansion — it is made on EBITDA growth and debt paydown alone.',
+          'The base case assumes no multiple expansion — nothing in it comes from a higher exit multiple; it is earnings and debt paydown.',
+          'The base case assumes no multiple expansion and takes no credit for re-rating the asset — the return is earnings growth and delevering.',
+          'The base case assumes no multiple expansion: what the equity gains, it gains from EBITDA and from debt coming down.',
+        ])}${spread}`
           : delta > 0
             ? ` The base case assumes ${delta}x of multiple expansion, which it depends on and the record does not evidence.${spread}`
             : ` The base case exits ${Math.abs(delta)}x below entry — it is made without any help from the exit multiple.${spread}`;
-        return `Exit modelled at ${m(base.exitEbitda)} of EBITDA and ${m(base.exitEV)} of enterprise value — ${xm}x, against ${canon.entryMultiple}x at entry.${note}`;
+        // ARITHMETIC THE ROOM CAN DO IN ITS HEAD HAS TO WORK.
+        //
+        // The EV was formatted to "$1.5B" and the EBITDA rounded to whole millions, so a
+        // reader dividing the two printed figures got 15.6x beside a stated 15.3x. The
+        // multiple is right; the inputs to it were not on the page. Print both exactly
+        // enough that the division lands where the sentence says it does.
+        const sym = symbolFor(deal);
+        // Division landed and multiplication did not: "$170.8M of EBITDA and $1,429M of
+        // enterprise value — 8.4x" invites 170.8 x 8.4, which is 1,435. A partner
+        // multiplies. Print the product of the two figures shown, not a third number
+        // rounded from the unrounded model.
+        // The enterprise value is the model's, not something re-derived here. Printing the
+        // product of the two shown figures made the sentence multiply correctly and put
+        // $508M on this page against the $509M every other surface serves. Take the EV and
+        // print the multiple that actually relates the two numbers on the line.
+        const ebShown = Number.isFinite(base.exitEbitdaExact) ? base.exitEbitdaExact : base.exitEbitda;
+        const evShown = Math.round(base.exitEV);
+        // Nothing is derived from a product here any more, so no precision search.
+        const ebExact = `${sym}${ebShown}M`;
+        const evExact = `${sym}${evShown.toLocaleString('en-GB')}M`;
+        // The entry multiple is the published one — 8.4x on every other line of this
+        // card — and the exit is quoted against it. Chasing an exact product between the
+        // three printed figures produced "8.367x at entry" on a page that says 8.4x five
+        // times, which is a claim about price rather than a rounding wobble. The
+        // enterprise value is the model's, and the sentence says whose it is.
+        const flat = base.exitMult != null && base.entryMult != null
+          && Math.abs(base.exitMult - base.entryMult) < 0.05;
+        const exitShown = flat ? canon.entryMultiple : +(base.exitMult ?? xm).toFixed(1);
+        return `Exit modelled at ${exitShown}x on ${ebExact} of EBITDA — ${evExact} of enterprise value in the model, against ${canon.entryMultiple}x at entry.${note}`;
       })()
       : null,
     growth: returns.growthBasis || null,
@@ -374,11 +520,40 @@ function theDownside(deal, returns, canon) {
 // On one deal the approved memo claimed "no unresolved risk-level findings" while the
 // register carried three open conditions and the readiness board agreed with the
 // register. The product held the conflict and buried it.
-function writtenRecommendation(deal, conditionCount) {
+function writtenRecommendation(deal, conditionCount, returns) {
   const sec = (deal.memoSections || []).find((s) => s.key === 'recommendation');
   if (!sec || !sec.content || sec.status === 'empty') return null;
-  const text = String(sec.content).trim();
-  const claimsClean = /no\s+(unresolved|outstanding|open)\b/i.test(text);
+  // The memo is prose somebody wrote, and it goes stale the same way a finding does: Atlas
+  // read "Recommend proceed at 7.8x" a few centimetres from an ask of 9.7x. Findings were
+  // reconciled on the way out and this string was not, so the contradiction simply moved
+  // panels. Same treatment, same reason — the record is what production serves.
+  const text = reconcileFindingText(String(sec.content).trim(), deal);
+  const claimsClean = /no\s+(unresolved|outstanding|open)\b/i.test(text)
+    // A memo that qualifies its claim to risk-level findings is not claiming the register
+    // is empty, and must not be read as though it were.
+    && !/no\s+unresolved\s+risk-level/i.test(text);
+
+  // A RETURN QUOTED IN THE MEMO THAT THE MODEL DOES NOT PRODUCE.
+  //
+  // Aurora's recommendation said "~2.8x MOIC" and the bullet directly beneath it said
+  // "Base case returns 3.01x on 24.7% IRR over 5 years". Both are right — one is the exit
+  // model over the hold to date, the other the fund's standard five-year screening case —
+  // and the page stacked them with nothing between. A reader gets two MOICs and no way to
+  // choose. This hook existed and only ever fired on "claims nothing outstanding".
+  const base = (returns?.scenarios || []).find((s) => /base/i.test(s.name)) || null;
+  const returnsConflict = (() => {
+    if (!base) return null;
+    const claimed = [...text.matchAll(/([\d.]+)\s*x\s*(?:gross\s*)?MOIC/gi)]
+      .map((m) => Number(m[1]))
+      .filter((n) => Number.isFinite(n) && n > 0.2 && n < 20);
+    const off = claimed.find((n) => Math.abs(n - base.moic) >= 0.1);
+    if (off == null) return null;
+    const explained = /hold|horizon|year|exit model/i.test(text);
+    return explained
+      ? `The memo quotes ${off}x and the returns page beside it models ${base.moic}x. The memo says why — the two run different holds — so read them as two questions, not one figure twice.`
+      : `The memo quotes ${off}x MOIC and the returns page beside it models ${base.moic}x on a ${returns?.holdYears || 5}-year hold. Nothing on the record says which horizon the memo used, so the two cannot be reconciled from what is written here.`;
+  })();
+
   return {
     text,
     status: sec.status || null,
@@ -394,7 +569,7 @@ function writtenRecommendation(deal, conditionCount) {
       : 'No name and no date are recorded against this, so the record does not say who approved it or when.',
     conflict: claimsClean && conditionCount > 0
       ? `The written recommendation reports nothing unresolved. The register carries ${conditionCount} open item${conditionCount === 1 ? '' : 's'}, listed below.`
-      : null,
+      : returnsConflict,
   };
 }
 
@@ -415,7 +590,7 @@ function revenueFigure(canon, deal) {
       basis: `Recorded on the deal${arr.source ? ` from ${arr.source}` : ''}. No total revenue figure is on the record, and the screening estimate is not shown beside this because the two cannot be reconciled.`,
     };
   }
-  return { label: 'Revenue', value: `${canon.currency}${canon.revenue}M`, basis: figureBasis('revenue', canon, deal) };
+  return { label: 'Revenue', value: fmtMoney(canon.revenue, canon.currency), basis: figureBasis('revenue', canon, deal) };
 }
 
 // Is this multiple right for this sector? It is the only question that matters on price,
@@ -436,7 +611,7 @@ function entryMultipleFor(returns, canon) {
   return canon.entryMultiple;
 }
 
-function againstPrecedent(deal, canon, entryMultiple, priceUnevidenced) {
+function againstPrecedent(deal, canon, entryMultiple, priceUnevidenced, priceBasisPhrase) {
   const comps = (compsForDeal(deal) || []).filter((c) => Number.isFinite(c.evEbitda) && c.evEbitda > 0);
   if (!comps.length || !Number.isFinite(entryMultiple)) return null;
   const mults = comps.map((c) => c.evEbitda).sort((a, b) => a - b);
@@ -469,8 +644,11 @@ function againstPrecedent(deal, canon, entryMultiple, priceUnevidenced) {
       count: comps.length,
       sector: deal.sector,
       where: 'not comparable',
-      text: `No comparison can be drawn. The EBITDA under the ${entryMultiple}x is the model's screening default rather than a figure produced for this company, so the multiple says nothing about it. The fund has paid ${range} in ${deal.sector}.`,
-      basis: `${comps.length} transaction${comps.length === 1 ? '' : 's'} the fund underwrote in ${deal.sector}. Get an EBITDA onto the record and this comparison becomes worth making.`,
+      // The third place this sentence is composed, and the one the last round missed: it
+      // still said "the model's screening default" on deals whose figure card, ten lines
+      // above, named a broker model. The ask's phrase is passed in so all three agree.
+      text: `No comparison can be drawn. The ${entryMultiple}x rests on ${priceBasisPhrase || "an EBITDA no workstream has produced"}, so the multiple says nothing about how this price compares. The fund has paid ${range} in ${deal.sector}.`,
+      basis: `${comps.length} transaction${comps.length === 1 ? '' : 's'} the fund underwrote in ${deal.sector}. The comparison holds once an EBITDA the fund has tested is on the record.`,
     };
   }
   return {
@@ -480,13 +658,38 @@ function againstPrecedent(deal, canon, entryMultiple, priceUnevidenced) {
     count: comps.length,
     sector: deal.sector,
     where,
-    text: where === 'below'
-      ? `We are buying at ${entryMultiple}x against ${set}. Nothing on the record explains why it is cheaper — the thesis on file argues the business, not the price.`
-      : where === 'above'
-        ? `We are buying at ${entryMultiple}x against ${set}. That is above everything the fund has paid in the sector, and nothing on the record explains what we are paying it for.`
-        : `We are buying at ${entryMultiple}x, inside ${set}.`,
-    basis: `${comps.length} transaction${comps.length === 1 ? '' : 's'} the fund underwrote in ${deal.sector}${comps.length < 3 ? ' — too few to be a distribution, so read them individually rather than as a range' : ''}. Open Comparables & precedents for the committee's reasoning on each.`,
+    text: (() => {
+      const near = where === 'above'
+        ? comps.find((c) => c.evEbitda === hi)
+        : where === 'below' ? comps.find((c) => c.evEbitda === lo) : null;
+      const gap = near ? Math.abs(entryMultiple - near.evEbitda) : 0;
+      const turns = gap >= 0.95
+        ? `${gap.toFixed(1)} turn${gap.toFixed(1) === '1.0' ? '' : 's'}`
+        : gap >= 0.05 ? `${Math.round(gap * 10) / 10} of a turn` : 'a fraction of a turn';
+      if (where === 'above') {
+        return `We are buying at ${entryMultiple}x against ${set}. That is ${turns} above ${near ? `${near.company}, the highest the fund has paid in ${deal.sector}` : `anything the fund has paid in ${deal.sector}`}, and nothing on the record explains what the premium buys.`;
+      }
+      if (where === 'below') {
+        return `We are buying at ${entryMultiple}x against ${set}. That is ${turns} below ${near ? near.company : `anything the fund has paid in ${deal.sector}`}, and the thesis on file argues the business rather than the discount — so the reason it is cheaper is not on the record.`;
+      }
+      return `We are buying at ${entryMultiple}x, inside ${set}.`;
+    })(),
+    basis: (() => {
+      const named = comps.map((c) => `${c.company} at ${c.evEbitda}x`);
+      const list = named.length > 1 ? `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}` : named[0];
+      return comps.length < 3
+        ? `Measured against ${list} — the only ${deal.sector} transaction${comps.length === 1 ? '' : 's'} the fund has underwritten, so read ${comps.length === 1 ? 'it' : 'them'} individually rather than as a range. Open Comparables & precedents for the committee's reasoning on each.`
+        : `Measured against ${comps.length} ${deal.sector} transactions the fund underwrote: ${list}. Open Comparables & precedents for the committee's reasoning on each.`;
+    })(),
   };
+}
+
+// The same true sentence on nineteen deals is what makes a room decide the record is
+// generated. Deterministic per deal, so a deal always reads the same.
+function saidTwoWays(deal, options) {
+  let h = 0;
+  for (const ch of String(deal?.id || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return options[h % options.length];
 }
 
 export function buildDealCase(deal) {
@@ -512,7 +715,20 @@ export function buildDealCase(deal) {
   // sentence with no answer to it in a room, and the screening default that produced the
   // figure is an artefact of this model rather than a fact about the transaction.
   const priceUnproduced = !decided && (canon.ebitdaSource === 'derived'
-    || (canon.ebitdaSource === 'recorded' && ebitdaKf && UNDILIGENCED_SOURCE.test(String(ebitdaKf.source || ''))));
+    || (canon.ebitdaSource === 'recorded' && ebitdaKf && sourceIsUndiligenced(ebitdaKf)));
+  // "A screening-default EBITDA" was printed even where a figure WAS recorded — from a
+  // broker model or a teaser — so the ask contradicted the figure card naming that source
+  // two rows below it. Name what the number actually rests on.
+  const ebitdaSourceLabel = String(ebitdaKf?.source || '').trim();
+  // ONE ENUM, ONE RENDERING.
+  //
+  // The record's source field was spliced raw into four sentences, so one page carried
+  // "rests on Teaser", "taken from the qoe draft" and "comes from QoE draft" — three
+  // casings of one field, two of them without an article. And the headline claimed the
+  // EBITDA was "NOT ON THE RECORD" on a deal whose next line said it came from the
+  // teaser: it is on the record, it is just not diligenced. Name the provenance once.
+  const basis = ebitdaProvenance(canon, ebitdaSourceLabel);
+  const priceBasisPhrase = basis.longPhrase;
   const priceUnevidenced = priceUnproduced || (!decided && priceFromDraft);
   const fix = reconciled(deal);
   const risks = againstIt(register, fix);
@@ -543,7 +759,15 @@ export function buildDealCase(deal) {
       workstream: 'Returns',
       owner: null,
       mitigation: decided
-        ? 'This deal was underwritten below the hurdle. The record does not say what the committee accepted in exchange.'
+        ? (() => {
+          // The conditions the committee attached ARE on the record where a written
+          // recommendation exists. Denying that while the page prints them is worse
+          // than saying nothing; what is genuinely absent is the reasoning.
+          const wrote = (deal.memoSections || []).find((sx) => sx.key === 'recommendation' && sx.content);
+          return wrote
+            ? `This deal was underwritten below the hurdle. What the committee attached is on the record — ${String(wrote.content).replace(/^IC approved with conditions:\s*/i, '').replace(/\.$/, '')} — but not what it weighed to get there.`
+            : 'This deal was underwritten below the hurdle. Nothing on the record says what the committee attached or what it weighed.';
+        })()
         : 'The price or the plan has to change; the hurdle does not.',
       basis: 'the returns model',
       basisNote: null,
@@ -610,15 +834,32 @@ export function buildDealCase(deal) {
       // The register's own grade travels with the row. Regrading it here put the same
       // sentence at two severities inside one object, which is the fault this page was
       // fixed for two rounds ago.
-      severity: REGULATORY.test(cand.text) ? 'stopper' : 'condition',
-      severityLabel: REGULATORY.test(cand.text) ? 'Deal-stopper' : 'Closing condition',
+      severity: 'condition',
+      severityLabel: REGULATORY.test(cand.text) ? 'Closing condition — regulatory' : 'Closing condition',
       promoted: true,
-      likelihood: null,
+      // The grade above is the row's grade; the likelihood has to follow it, or the card
+      // grades one row and leaves the two below it blank. A constant is no better than a
+      // null, so it is read off what the row is actually about.
+      // Decided once, on the register, and read from there. Recomputing it here put
+      // the same sentence at two likelihoods on two tabs of one deal.
+      likelihood: likelihoodOf('condition', cand.text),
       workstream: cand.from,
       owner: cand.owner || null,
       mitigation: REGULATORY.test(cand.text)
         ? 'A clearance that does not come, or a timetable somebody else controls, is not a condition to be waived.'
-        : cand.owner ? `${cand.owner} owns it.` : null,
+        : (() => {
+          // A name on its own is not a mitigation, and the owner is already printed
+          // beside the row. Say what closing it takes, off what the row is about.
+          const t = String(cand.text || '');
+          if (/ebitda|qoe|quality of earnings|add-back|normalis/i.test(t)) return 'Close it with a final quality-of-earnings result, and do not quote the multiple until it is on the record.';
+          if (/concentration|customer|churn|retention/i.test(t)) return 'Get the customer schedule onto the record, then decide whether it is priced or papered.';
+          if (/consent|change of control|counterpart/i.test(t)) return 'Consents are a condition to closing, not a diligence item — they need a name against each counterparty and a date.';
+          if (/tax|vat|transfer pricing|withholding|ip box/i.test(t)) return 'Size it before the pack is finalised; an unquantified exposure cannot be indemnified or priced.';
+          if (/environment|phase i|esg/i.test(t)) return 'Commission the assessment. Nothing on the record supports a clean opinion until it reports.';
+          if (/cyber|platform|scalab|technolog/i.test(t)) return 'Scope the technical review; the 100-day plan depends on the answer.';
+          if (/management|succession|retention terms|senior team/i.test(t)) return 'Put the retention and succession terms on paper before signing, not after.';
+          return cand.owner ? `${cand.owner} owns closing this before the pack is finalised.` : null;
+        })(),
       basis: cand.written ? 'recorded' : 'promoted from the outstanding list',
       basisNote: null,
     });
@@ -630,8 +871,8 @@ export function buildDealCase(deal) {
   if (priceUnevidenced && !decided) {
     risks.unshift({
       risk: priceFromDraft
-        ? `The entry multiple rests on a draft. The ${canon.currency}${canon.ebitda}M of EBITDA under it comes from ${String(ebitdaKf.source).trim()}, and no completed result is on the record.`
-        : `The entry multiple rests on an EBITDA nobody has diligenced. Every return below is arithmetic on ${canon.currency}${canon.ebitda}M that no workstream has produced.`,
+        ? `The entry multiple rests on a draft. The ${fmtMoney(canon.ebitda, canon.currency)} of EBITDA under it comes from ${basis.shortPhrase}, and no completed result is on the record.`
+        : `The entry multiple rests on an EBITDA nobody has diligenced. Every return below is arithmetic on ${ebitdaShown(canon)} that no workstream has produced.`,
       severity: 'stopper',
       severityLabel: 'The price is not evidenced',
       raisedBy: 'this paper',
@@ -686,15 +927,111 @@ export function buildDealCase(deal) {
       // Not one register row on any deal carries a due date, and the disclosure about
       // missing dates covered the blocking workstreams only — so the register's silence
       // was itself silent. "Who is closing it by when" was answered halfway.
-      rows.push({ text: String(text), from, owner: owner || null, basis: basis || null, dueDate: due || null, dueNote: due ? null : 'No date is committed on the record.' });
+      // Whether anybody wrote this row, in words. Sixty-seven of these are standard
+      // rows for a workstream and the list rendered them exactly like a diligenced
+      // finding, because the renderer never read `basis`.
+      const templated = basis === 'templated' || basis === 'the readiness board';
+      rows.push({
+        text: String(text), from, owner: owner || null, basis: basis || null,
+        dueDate: due || null, undated: !due,
+        authored: !templated,
+        basisNote: templated && from === 'risk register'
+          ? 'Standard row for this workstream. No named author has written a finding against it.'
+          : null,
+      });
     };
     // The committee-readiness items are the analyst's own work — the papers, the memo
     // sections, the compliance clearance. They were the only rows with nobody against
     // them, so an analyst read their own list and found four items the product said
     // nobody owned, then copied them into a spreadsheet because there was nowhere else.
-    for (const g of (v.gating || [])) add(g, 'committee readiness', 'The deal team — these are the papers, not the diligence', 'the readiness board');
-    for (const r of conditions) add(fix(r.risk), 'risk register', r.owner || null, r.basis, r.dueDate);
-    for (const r of (register.risks || []).filter((x) => x.severity === 'reprice')) add(fix(r.risk), 'risk register', r.owner || null, r.basis, r.dueDate);
+    // AN AGGREGATE IS NOT AN ITEM, AND THEY WERE IN THE SAME LIST.
+    //
+    // The readiness board summarises: "4 required items outstanding: Final IC memo, IC
+    // memo sections approved, Recommendation drafted, KYC / compliance cleared". That
+    // went into the outstanding list as ONE row, beside individual register rows, under
+    // a note reading "9 items are outstanding". A partner read four in the first row,
+    // five in the second, counted seven more, and the total said nine. Every one of those
+    // numbers was right about a different thing, which is the worst way to be right.
+    //
+    // Split the summaries back into the things they summarise, so the list is one
+    // granularity and its length is the answer.
+    const expandGating = (line) => {
+      const s = String(line).trim();
+      const papers = s.match(/^\d+ required items? outstanding:\s*(.+)$/i);
+      if (papers) {
+        return papers[1].split(',').map((x) => x.trim()).filter(Boolean)
+          .map((label) => ({ text: label, owner: 'The deal team — this is a committee paper' }));
+      }
+      const lanes = s.match(/^\d+ workstreams? blocking:\s*(.+)$/i);
+      if (lanes) {
+        // "Legal DD (Anjali Raman) — not started, Tax DD (David Osei) — recorded at 15%".
+        // Split before a capitalised lane name that opens its own parenthesised owner,
+        // so an em-dash inside a reason does not become a boundary.
+        return lanes[1].split(/,\s(?=[A-Z][\w &/]*\s\()/).map((x) => x.trim()).filter(Boolean)
+          .map((part) => {
+            const who = part.match(/\(([^)]+)\)/);
+            const text = part.replace(/\s*\([^)]*\)/, '').trim();
+            return { text, owner: who ? `${who[1].trim()} — the workstream lead` : 'The workstream leads' };
+          });
+      }
+      return [{ text: s, owner: /risk-level|issue|finding/i.test(s)
+        ? 'The deal team — an open finding to close or carry'
+        : 'The deal team — a committee paper' }];
+    };
+    // The lanes named by the readiness board are also written up as register rows on most
+    // deals -- "Legal DD — not started" beside "Legal diligence has not started, so there
+    // is no basis on the record for an opinion on litigation...". One obligation, two rows.
+    // The lanes the readiness board names are also written up as register rows on most
+    // deals -- "Tax DD — recorded at 15% with nothing written against it" beside "Tax
+    // diligence has not started; no exposure has been quantified". One obligation, two
+    // rows. Keep the register's, which says what is missing and why; the board's row is
+    // the same fact with less in it. Dropping the register row instead would take a
+    // closing condition off the list a committee votes against.
+    const registerLanes = new Set();
+    for (const r of [...conditions, ...(register.risks || []).filter((x) => x.severity === 'reprice')]) {
+      const txt = String(fix(r.risk));
+      // Every way the register says a lane has produced nothing, not just the one.
+      const m = txt.match(/^([A-Za-z][\w /]*?)\s+(?:diligence )?has not (?:started|been (?:started|opened|scoped))/i)
+        || txt.match(/^Nobody has (?:started|opened|scoped) (?:the )?([A-Za-z][\w /]*?)\s/i)
+        || txt.match(/^No ([A-Za-z][\w /]*?) (?:review|work|assessment) has been/i)
+        || txt.match(/^The ([A-Za-z][\w /]*?) workstream is unstarted/i)
+        || txt.match(/^([A-Za-z][\w /]*?) diligence is open\b/i);
+      // The environmental rows never name the lane, so they are matched on their subject.
+      if (/Phase I environmental assessment|environmental position rests on/i.test(txt)) registerLanes.add('environmental');
+      if (m) registerLanes.add(m[1].toLowerCase().replace(/\s*(dd|diligence)\s*$/i, '').trim());
+      if (/^No Phase I environmental assessment/i.test(fix(r.risk))) registerLanes.add('environmental');
+    }
+    const alreadyOnRegister = (text) => {
+      const lane = String(text).match(/^([A-Za-z][\w &/]*?)\s*(?:—|-|$)/);
+      if (!lane) return false;
+      const key = lane[1].toLowerCase().replace(/\s*(dd|diligence)\s*$/i, '').trim();
+      if (!key) return false;
+      if (registerLanes.has(key)) return true;
+      return /esg|environmental/.test(key) && registerLanes.has('environmental');
+    };
+    for (const g of (v.gating || [])) {
+      for (const row of expandGating(g)) {
+        if (alreadyOnRegister(row.text)) continue;
+        // The board knows when a blocking workstream is due; the row it produces has to
+        // carry that date or the page reports the whole list as undated.
+        const dated = (board.blockingWorkstreams || []).find((b) => b.dueDate && String(row.text).toLowerCase().startsWith(String(b.label || '').toLowerCase()));
+        add(row.text, 'committee readiness', row.owner, 'the readiness board', dated?.dueDate || null);
+      }
+    }
+    // A row that reports good news, or one whose own words say the thing is settled, is
+    // not outstanding. "...enterprise book is sticky and re-prices well" and "UK
+    // take-private structure confirmed: stamp duty at 0.5%..." were both rows on a list
+    // headed Everything outstanding, and both were inside the count under it.
+    const stillOpen = (r) => {
+      const text = String(fix(r.risk) || '');
+      if (r.supportive || r.severity === 'positive' || r.severity === 'clear') return false;
+      // Closing conditions stay, whatever their wording: a condition is outstanding until
+      // it is closed, and a guard written for exactly that failure catches any attempt to
+      // filter one out. Only a row that reports GOOD NEWS is not an outstanding item.
+      return true;
+    };
+    for (const r of conditions) { if (stillOpen(r)) add(fix(r.risk), 'risk register', r.owner || null, r.basis, r.dueDate); }
+    for (const r of (register.risks || []).filter((x) => x.severity === 'reprice')) { if (stillOpen(r)) add(fix(r.risk), 'risk register', r.owner || null, r.basis, r.dueDate); }
     // A row whose whole text already appears inside another row is the same obligation
     // twice. One deal listed ten outstanding items where the tenth was a sentence quoted
     // verbatim inside the third.
@@ -708,6 +1045,17 @@ export function buildDealCase(deal) {
     return rows;
   })();
   const openCount = outstanding.length;
+  // TWO NUMBERS, ELEVEN WORDS APART, IN ONE CARD.
+  //
+  // The verdict line said "12 items outstanding before signing" and the readiness
+  // headline directly beneath it said "4 required items outstanding". Both true: the
+  // four are inside the twelve. The sentence that said so was twelve rows down on a
+  // different card, which is nowhere. Say it where the number is.
+  const fromBoard = outstanding.filter((r) => r.from === 'committee readiness').length;
+  const fromRegister = outstanding.length - fromBoard;
+  const outstandingSplit = openCount
+    ? ` — ${fromBoard} the readiness board is waiting on and ${fromRegister} from the risk register`
+    : '';
   // Whether there is enough on the record to strike a view at all. The call read the
   // stopper count and then `meetsHurdle`, and nothing else -- so a deal with all seven
   // workstreams not started and no EBITDA on the record returned "PROCEED, SUBJECT TO
@@ -739,33 +1087,64 @@ export function buildDealCase(deal) {
       // "THE EBITDA IS NOT ON THE RECORD" is false where a QoE draft produced it, and the
       // page said so on a deal whose own figures block reads "Recorded from CIM p.14 /
       // QoE draft at high confidence". One phrase per state; a draft is its own state.
-      ? (priceFromDraft ? 'NOT ON THIS PRICE — THE EBITDA IS A DRAFT' : 'NOT ON THIS PRICE — THE EBITDA IS NOT ON THE RECORD')
+      ? `NOT ON THIS PRICE — ${basis.headline}`
       : decided
-    ? 'ALREADY DECIDED'
+    ? `ALREADY DECIDED — ${String(deal.stageName || deal.stage || '').toUpperCase() || 'PAST COMMITTEE'}`
     : register.counts.stopper ? 'DECLINE'
       : !returns.meetsHurdle ? 'DO NOT PROCEED ON THESE TERMS'
-        : openCount ? 'PROCEED, SUBJECT TO CONDITIONS'
-          : 'PROCEED';
+        // A deal nobody has launched into diligence cannot be recommended to proceed:
+        // there is nothing on it that has been examined to proceed on.
+        : /^O/i.test(String(deal.stage || '')) ? 'NOT YET — NO WORKSTREAM HAS BEEN OPENED'
+          : openCount ? 'PROCEED, SUBJECT TO CONDITIONS'
+            : 'PROCEED';
   const because = register.counts.stopper && !decided
     // DECLINE was firing off a reason word-for-word identical to the price call's, so two
     // deals gave the same explanation and different verdicts with nothing to say why.
     // A decline is about the stopper on the register, and it names it.
-    ? `${register.counts.stopper} deal-stopper on the register: ${(register.risks || []).find((r) => r.severity === 'stopper')?.risk || ''}`
+    ? (() => {
+      // The count and the list have to be the same population. Naming one stopper under
+      // a count of two reads as an error in the count.
+      const stoppers = (register.risks || []).filter((r) => r.severity === 'stopper').map((r) => r.risk).filter(Boolean);
+      const n = register.counts.stopper;
+      return `${n} deal-stopper${n === 1 ? '' : 's'} on the register: ${stoppers.join('; and ')}`;
+    })()
     : tooEarly
-    ? `${lanesWorked ? `${lanesWorked} of ${laneTotal} workstreams have produced anything` : 'No workstream has produced anything'} and the entry multiple rests on a figure nobody has diligenced. The returns below clear the hurdle arithmetically; they are arithmetic on the asking price, not a view on the company.`
+    ? (() => {
+      const worked = (deal.workstreams || []).filter((w) => (w.findings || []).length || (w.contributions || []).length);
+      const idle = (deal.workstreams || []).filter((w) => !((w.findings || []).length || (w.contributions || []).length));
+      const name = (ws) => ws.slice(0, 2).map((w) => laneLabel(w.lane)).join(' and ');
+      const opening = worked.length
+        ? `${name(worked)} ${worked.length === 1 ? 'has' : 'have'} reported; ${idle.length} of the ${laneTotal} ${idle.length === 1 ? 'workstream has' : 'workstreams have'} produced nothing${idle.length ? ` — ${name(idle)}${idle.length > 2 ? ' among them' : ''}` : ''}.`
+        : `None of the ${laneTotal} workstreams has produced anything yet.`;
+      const priceOn = ebitdaKf && ebitdaKf.source
+        ? `The entry multiple rests on ${basis.shortPhrase}, which no workstream has verified.`
+        : 'The entry multiple rests on a screening default, not on a figure anybody has produced.';
+      return `${opening} ${priceOn} ${priceCaveat(returns, deal)}`;
+    })()
     : priceOnly
-      ? `${lanesWorked} of ${laneTotal} workstreams have produced something, but the entry multiple still rests on ${priceFromDraft ? `a draft — ${String(ebitdaKf.source).trim()}` : 'an EBITDA nobody has diligenced'}. The returns cannot carry a recommendation until ${priceFromDraft ? 'the final result is' : 'it is'} on the record.`
+      ? `${lanesWorked} of ${laneTotal} workstreams have produced something, but the entry multiple still rests on ${basis.shortPhrase}. ${priceCaveat(returns, deal)}${openCount ? ` ${openCount} item${openCount === 1 ? ' is' : 's are'} outstanding${outstandingSplit}.` : ''}`
       : decided
-    ? `${deal.stageName || deal.stage} — the committee has ruled on this deal. What follows is the case as the record now stands, not a request for authorisation.`
+    ? (() => {
+      const tail = openCount ? ` ${openCount} item${openCount === 1 ? ' is' : 's are'} still outstanding${outstandingSplit}.` : '';
+      const st = String(deal.stage || '');
+      const said = st.startsWith('E')
+        ? 'The committee approved this deal; what follows is the case as the record stands while the obligations to closing are worked off.'
+        : st.startsWith('V')
+          ? 'This is an owned asset. What follows is the case the committee approved, measured against what the record now says.'
+          : st.startsWith('O')
+            ? 'The fund holds this asset. What follows is the case as the record stands, not a request for authorisation.'
+            : 'The committee has ruled on this deal. What follows is the case as the record now stands, not a request for authorisation.';
+      return `${deal.stageName || deal.stage} — ${said}${tail}`;
+    })()
     : register.counts.stopper
-      ? `${register.counts.stopper} deal-stopper on the register.`
+      ? `${register.counts.stopper} deal-stopper${register.counts.stopper === 1 ? '' : 's'} on the register.${openCount ? ` ${openCount} item${openCount === 1 ? ' is' : 's are'} outstanding${outstandingSplit}.` : ''}`
       : !returns.meetsHurdle
-        ? returns.headline
+        ? `${returns.headline}${openCount ? ` ${openCount} item${openCount === 1 ? ' is' : 's are'} outstanding${outstandingSplit}.` : ''}`
         : openCount
           // "Returns clear the hurdle" was the whole of the reason on deals whose downside
           // breaks it, so a partner would quote the headline and be caught out on their
           // own deal. The headline names both legs.
-          ? `Base case clears the hurdle${downside && !downside.clearsHurdle ? `; the downside does not, at ${downside.moic}x / ${downside.irr}%` : ''}. ${openCount} item${openCount === 1 ? '' : 's'} outstanding before signing.`
+          ? `Base case clears the hurdle${downside && !downside.clearsHurdle ? `; the downside does not, at ${downside.moic}x / ${downside.irr}%` : ''}. ${openCount} item${openCount === 1 ? '' : 's'} outstanding before signing${outstandingSplit}.`
           : `Base case clears the hurdle${downside && !downside.clearsHurdle ? `; the downside does not, at ${downside.moic}x / ${downside.irr}%` : ''}, and nothing is outstanding on the record.`;
 
   // What the committee is NOT being given. A reader who cannot see the gap will assume
@@ -773,7 +1152,7 @@ export function buildDealCase(deal) {
   const written = (deal.memoSections || []).filter((s) => s.status && s.status !== 'empty').length;
   const notOnRecord = [];
   if (!(deal.memoSections || []).length) notOnRecord.push('No IC memo sections have been opened on this deal.');
-  else if (written < (deal.memoSections || []).length) notOnRecord.push(`${(deal.memoSections || []).length - written} of ${(deal.memoSections || []).length} memo sections are unwritten.`);
+  else if (written < (deal.memoSections || []).length) { const gap = (deal.memoSections || []).length - written; notOnRecord.push(`${gap} of ${(deal.memoSections || []).length} memo sections ${gap === 1 ? 'is' : 'are'} unwritten.`); }
   if (canon.ebitdaSource === 'derived') notOnRecord.push('No EBITDA has been recorded from diligence; the entry multiple rests on a screening default.');
   // Five unrelated companies -- consumer audio, cinema advertising, document outsourcing,
   // footwear and gene therapy -- returned 8.3x, 20.3% IRR and 2.51x MOIC to the decimal.
@@ -789,7 +1168,12 @@ export function buildDealCase(deal) {
   const foreign = [...new Set([
     ...(register.risks || []).map((r) => r.risk),
     ...(deal.workstreams || []).flatMap((w) => (w.findings || []).map((f) => String(f?.text || ''))),
-  ].flatMap((t) => [...String(t).matchAll(/\b(EUR|GBP|USD|CHF|SEK|NOK|DKK)\s?[\d.]/g)].map((m) => m[1])))]
+  ]
+    // Scan what the reader is actually shown. A stored finding whose currency has been
+    // reconciled against the seed at render no longer quotes euros, and scanning the raw
+    // record made the page disclose a mismatch that is not on it any more.
+    .map((t) => reconcileFindingText(t, deal))
+    .flatMap((t) => [...String(t).matchAll(/\b(EUR|GBP|USD|CHF|SEK|NOK|DKK)\s?[\d.]/g)].map((m) => m[1])))]
     .filter((c) => c !== (deal.currency || 'USD'));
   if (foreign.length) {
     notOnRecord.push(`Some findings on this deal are quoted in ${foreign.join(' and ')} while the model is struck in ${deal.currency || 'USD'}. No exchange rate is on the record, so those figures cannot be netted against the ones above without one.`);
@@ -799,14 +1183,18 @@ export function buildDealCase(deal) {
   // to notice on their own.
   const undated = (board.blockingWorkstreams || []).filter((b) => !b.dueDate);
   for (const b of (board.blockingWorkstreams || [])) {
-    notOnRecord.push(`${b.label}: ${b.reasons.join('; ')}${b.dueDate ? ` — due ${b.dueDate}` : ''}.`);
+    notOnRecord.push(`${b.label}: ${b.reasons.join('; ')}${shortDate(b.dueDate) ? ` — due ${shortDate(b.dueDate)}` : ''}.`);
   }
-  if (undated.length) notOnRecord.push(`No completion date is committed on the record for any of the ${undated.length} outstanding workstream${undated.length === 1 ? '' : 's'} above.`);
+  if (undated.length) notOnRecord.push(undated.length === 1
+      ? 'No completion date is committed on the record for the one outstanding workstream above.'
+      : undated.length === (board.blockingWorkstreams || []).length
+        ? 'No completion date is committed on the record for any of the workstreams above.'
+        : `No completion date is committed on the record for ${undated.length} of the ${(board.blockingWorkstreams || []).length} workstreams above.`);
   // A deal with seven named authors was told "nothing on this register was written by a
   // named author", because the claim read the register -- where positives never appear.
   const authored = (deal.workstreams || []).some((w) => (w.findings || []).some((f) => f && f.text));
   if (!authored) {
-    notOnRecord.push('Nobody has written a finding on any workstream of this deal. Every row on the register is the standard set for its workstream.');
+    notOnRecord.push('No workstream on this deal has produced a finding. The register is running on the scope each workstream opens with.');
   } else if (risks.length && risks.every((r) => r.basis === 'templated')) {
     notOnRecord.push('The three items above are standard rows for their workstreams. What diligence actually found is listed separately.');
   }
@@ -831,26 +1219,46 @@ export function buildDealCase(deal) {
     // the post-committee wording and the diligence-phase one went straight through.
     readiness: {
       state: v.state || null,
-      headline: String(v.headline || '')
-        .replace(/[.;]?\s*\d+ items?\s+(?:remain open on|on)\s+the risk register(?:\s+are still open)?(?:\s+and do not gate the committee)?\.?/i, '')
-        // "Past the IC decision — no obligation or unopened workstream outstanding",
-        // directly above outstandingCount: 1. The board is answering a narrower question
-        // than the one the sentence appears to answer, and the two sat adjacent.
-        .replace(/\s*—\s*no obligation or unopened workstream outstanding\.?/i, outstanding.length
-          ? ` — no committee obligation and no unopened workstream. ${outstanding.length} item${outstanding.length === 1 ? ' is' : 's are'} still outstanding, listed below.`
-          : ' — nothing outstanding on the record.')
-        .trim() || null,
+      // The board's own sentence, with only the number reconciled.
+      //
+      // A regex used to strip its count — and once the post-committee wording grew a
+      // second clause it ate that too, so the case page read "...has recorded something
+      // What no workstream has reported on..." while the Analysis tab two clicks away
+      // still carried "2 items remain open on the risk register". Removing a sentence to
+      // remove a number is the wrong instrument. Replace the number in place, keep every
+      // clause, and never leave the sentence without its stop.
+      headline: (() => {
+        let h = String(v.headline || '').trim();
+        if (!h) return null;
+        // A lane the register writes up more richly is dropped from the list below, so
+        // the board's sentence must not go on naming it four lines above the three.
+        h = h.replace(/(\d+) workstreams? blocking: ([^;.]+)/i, (m, n, list) => {
+          const shownLanes = outstanding.filter((r) => r.from === 'committee readiness')
+            .map((r) => String(r.text).split(/\s*[\u2014-]\s*/)[0].trim().toLowerCase());
+          const kept = String(list).split(/,\s(?=[A-Z])/)
+            .filter((part) => shownLanes.some((l) => part.trim().toLowerCase().startsWith(l)));
+          if (!kept.length || kept.length === Number(n)) return m;
+          return `${kept.length} workstream${kept.length === 1 ? '' : 's'} blocking: ${kept.join(', ')}`;
+        });
+        h = h.replace(/(—\s*)no obligation or unopened workstream outstanding/i, (m, dash) => (outstanding.length
+          ? `${dash}no committee obligation and no unopened workstream, though ${outstanding.length} item${outstanding.length === 1 ? ' is' : 's are'} still outstanding below`
+          : `${dash}nothing outstanding on the record`));
+        // The board's own count stays the board's. Rewriting it here to conditions plus
+        // monitors, while the board prints conditions alone, put two different integers
+        // in one identical clause a click apart on every decided deal.
+        return /[.!?]$/.test(h) ? h : `${h}.`;
+      })(),
       gating: v.gating || [],
     },
     recommendation: { call, because },
-    writtenRecommendation: writtenRecommendation(deal, openCount),
-    ask: theAsk(canon, returns, deal, priceUnproduced),
+    writtenRecommendation: writtenRecommendation(deal, openCount, returns),
+    ask: theAsk(canon, returns, deal, priceUnproduced, priceBasisPhrase, priceUnevidenced || /^O/i.test(String(deal.stage || '')) || /^(DO NOT PROCEED|DECLINE|NOT )/i.test(String(call))),
     baseCase: theBaseCase(deal, returns, canon),
     // The comparison is about the NUMBER, not about the stage. A multiple struck on a
     // screening default says nothing about the company whether or not the fund has
     // already bought it — so this reads the figure directly rather than the verdict flag,
     // which is deliberately false on a decided deal.
-    priceAgainstPrecedent: againstPrecedent(deal, canon, entryMultipleFor(returns, canon), priceUnevidenced || canon.ebitdaSource === 'derived'),
+    priceAgainstPrecedent: againstPrecedent(deal, canon, entryMultipleFor(returns, canon), priceUnevidenced || canon.ebitdaSource === 'derived', priceBasisPhrase),
     forIt: forIt(deal, canon, returns, tooEarly || priceOnly),
     downside: theDownside(deal, returns, canon),
     againstIt: risks,
@@ -865,11 +1273,16 @@ export function buildDealCase(deal) {
       const found = risks.length - own;
       const total = (register.risks || []).length;
       if (!risks.length) return null;
-      const parts = [risks.length === 1 ? 'The one most likely to lose the money' : `The ${risks.length} most likely to lose the money`];
-      if (found && total > found) parts.push(`${found} of them drawn from the ${total} on the risk register`);
-      else if (found) parts.push(`drawn from the risk register`);
-      if (own) parts.push(`${own} raised by this paper rather than by a workstream`);
-      return `${parts.join(', ')}.`;
+      const lead = risks.length === 1
+        ? 'This is the one most likely to lose the money.'
+        : `These are the ${risks.length} most likely to lose the money.`;
+      const where = [];
+      if (found && found === risks.length) where.push(`${risks.length === 1 ? 'It is' : 'They are all'} on the risk register, which carries ${total} row${total === 1 ? '' : 's'} in total`);
+      else if (found) where.push(`${found} of them ${found === 1 ? 'is' : 'are'} on the risk register, which carries ${total} row${total === 1 ? '' : 's'} in total`);
+      if (own) where.push(own === risks.length
+        ? `${own === 1 ? 'It was' : 'They were all'} raised by this paper rather than by a workstream`
+        : `${own} ${own === 1 ? 'was' : 'were'} raised by this paper rather than by a workstream`);
+      return where.length ? `${lead} ${where.join('; ')}.` : lead;
     })(),
     // What nobody has looked at. These never reached the page: on the deal four days
     // from committee the paper reported "no blocking workstreams" while its own register
@@ -884,7 +1297,23 @@ export function buildDealCase(deal) {
       .filter((r) => r.severity === 'monitor')
       // `basis: 'templated'` was being shipped to the reader -- the product telling a
       // committee about its own plumbing. The sentence already says it in words.
-      .map((r) => ({ item: fix(r.risk), workstream: r.workstream || null, owner: r.owner || null, standardRow: (r.basis || 'templated') === 'templated' })),
+      //
+      // The register also carries categories that are NOT workstreams on this deal — HR /
+      // management being the standing one. Labelling those "workstream" sent a reader to
+      // the diligence tab to find a lane that does not exist. Say which are lanes and
+      // which are gaps nobody has opened a lane for.
+      .map((r) => {
+        const lane = r.workstream || null;
+        const onDeal = !!lane && (deal.workstreams || []).some((w) => laneLabel(w.lane) === lane || w.lane === r.lane);
+        return {
+          item: fix(r.risk),
+          workstream: lane,
+          workstreamOnDeal: onDeal,
+          workstreamNote: lane && !onDeal ? `No ${lane} workstream has been opened on this deal.` : null,
+          owner: r.owner || null,
+          standardRow: (r.basis || 'templated') === 'templated',
+        };
+      }),
     // Everything on the register that somebody actually wrote, at any severity. On a
     // signed deal the one real finding -- "Final QoE issued; $2.1M of add-backs
     // disallowed" -- was graded a monitor and therefore fell out of the three killers,
@@ -915,7 +1344,7 @@ export function buildDealCase(deal) {
         };
       })),
     figures: [
-      { label: 'Enterprise value', value: `${canon.currency}${canon.ev}M`, basis: figureBasis('ev', canon, deal) },
+      { label: 'Enterprise value', value: fmtMoney(canon.ev, canon.currency), basis: figureBasis('ev', canon, deal) },
       // A screening default is enterprise value times 0.12, so the multiple it produces is
       // 1/0.12 = 8.33x on EVERY deal that has no diligenced EBITDA. Four consecutive deals
       // — a dental roll-up, a specialty-foods business, a listed BPO and a vertical-SaaS
@@ -928,7 +1357,9 @@ export function buildDealCase(deal) {
       // draft that is not a result. Those are different sentences and collapsing them
       // told a reader no EBITDA existed on a deal whose own row above said "Recorded from
       // CIM p.14 / QoE draft at high confidence".
-      { label: 'LTM EBITDA', value: `${canon.currency}${canon.ebitda}M`, basis: figureBasis('ebitda', canon, deal) },
+      // Where the figure is ours rather than the record's it carries a tenth, and the row
+    // has to print the number the multiple beside it was struck on.
+    { label: 'LTM EBITDA', value: ebitdaShown(canon), basis: figureBasis('ebitda', canon, deal) },
       { label: 'Entry multiple',
         value: `${canon.entryMultiple}x`,
         basis: [
@@ -957,7 +1388,7 @@ export function buildDealCase(deal) {
           .map((f) => String(f?.text || ''))
           .find((t) => /underwritten|debt package|financing (?:secured|committed)|lender|credit committee|term sheet/i.test(t));
         const credit = returns.leverageBasis || (returns.entry || {}).leverageBasis;
-        const base = credit || `Modelled over ${canon.currency}${canon.ebitda}M of EBITDA.`;
+        const base = credit || `Modelled over ${fmtMoney(canon.ebitda, canon.currency)} of EBITDA.`;
         return financing
           ? `${base} A financing finding is on the record and the model does not read it: “${financing.trim()}”`
           : `${base} No lender or indicative terms are on the record.`;
@@ -967,6 +1398,19 @@ export function buildDealCase(deal) {
     // rows twice on every deal -- with the QoE row appearing three times on one, as a
     // finding, a condition and an outstanding item. One list, and this is its length.
     outstandingCount: outstanding.length,
+    // Said once for the list rather than on every row; see the note where rows are built.
+    outstandingDateNote: (() => {
+      const undated = outstanding.filter((r) => r.undated).length;
+      if (!undated) return null;
+      return undated === outstanding.length
+        ? saidTwoWays(deal, [
+        'No completion date is committed on the record against any of these.',
+        'Not one of these carries a date anybody has committed to.',
+        'None of these has a date against it, so none of them has a deadline.',
+        'Dates are absent throughout: nothing here says by when.',
+      ])
+        : `${undated} of these carry no committed completion date.`;
+    })(),
     // The register returns twelve rows, the readiness board says five papers plus four
     // workstreams, and this list holds seven. Each is defensible on its own filter and
     // nothing said they were one universe read three ways.
@@ -976,10 +1420,87 @@ export function buildDealCase(deal) {
       // recorded findings promoted into its own killers list were post-close monitors.
       // Count the monitors.
       const monitors = (register.risks || []).filter((r) => r.severity === 'monitor').length;
-      const killers = risks.length;
+      const sev = (r) => String(r.severity || '').toLowerCase();
+      // All four counted off the same list as the monitors above. Counting these off the
+      // promoted-killers subset while the monitors came off the register put two
+      // populations in one sentence: "7 from the risk register" and then "1 moves the
+      // price and 2 are closing conditions", on a register grading six conditions.
+      const killers = risks.filter((r) => sev(r) === 'stopper').length;
+      const repricers = (register.risks || []).filter((r) => sev(r) === 'reprice').length;
+      const conditions = (register.risks || []).filter((r) => sev(r) === 'condition').length;
       const n = outstanding.length;
-      return `${n} item${n === 1 ? ' is' : 's are'} outstanding: everything the committee-readiness board is waiting on, plus every register row that is a condition or moves the price. Separately the register carries ${monitors} monitor${monitors === 1 ? '' : 's'}${monitors ? ', listed above as what is not yet known' : ''}, and ${killers === 1 ? 'one row is named as a thing' : `${killers} rows are named as things`} that could kill the deal.`;
-    })(),
+      // The rows the reader can see, graded as the page grades them.
+      const shown = risks || [];
+      // The badge, not the field behind it: a reader counts what is printed.
+      const shownKillers = shown.filter((r) => /deal-stopper/i.test(String(r.severityLabel || ''))).length;
+      const label = (r) => String(r.severityLabel || '').trim();
+      const shownRepricers = shown.filter((r) => /price|repric/i.test(label(r))).length;
+      const shownConditions = shown.filter((r) => /closing condition/i.test(label(r))).length;
+      // A row graded fatal that wears another badge is still the thing that kills the
+      // deal. Name the badge rather than reporting that nothing does.
+      const otherFatal = shown.filter((r) => sev(r) === 'stopper' && !/deal-stopper/i.test(label(r))).map(label).filter(Boolean);
+      const listSays = (() => {
+        if (!shown.length) return 'Nothing is listed under what could kill it.';
+        // Group by the badge the reader can see, so every row is accounted for in the
+        // words it is actually wearing.
+        const byBadge = new Map();
+        for (const r of shown) {
+          const lb = String(r.severityLabel || '').trim() || 'Unlabelled';
+          byBadge.set(lb, (byBadge.get(lb) || 0) + 1);
+        }
+        // A badge can be a sentence ("The price is not evidenced"). Read inline after
+        // "1 graded" that is a broken concatenation, so say it as a thing, not a claim.
+        // Every badge the register can produce, as a thing rather than a claim, with a
+        // plural for when there is more than one of it.
+        const INLINE_GRADE = {
+          'the price is not evidenced': ['unevidenced on price', 'unevidenced on price'],
+          'downside breaks the hurdle': ['a downside that breaks the hurdle', 'downsides that break the hurdle'],
+          'below the fund hurdle': ['below the fund hurdle', 'below the fund hurdle'],
+          'the return does not clear the hurdle': ['short of the hurdle', 'short of the hurdle'],
+          'closing condition': ['a closing condition', 'closing conditions'],
+          'closing condition \u2014 regulatory': ['a regulatory closing condition', 'regulatory closing conditions'],
+          'price-adjuster': ['a price-adjuster', 'price-adjusters'],
+          'deal-stopper': ['a deal-stopper', 'deal-stoppers'],
+          'monitor': ['a monitor', 'monitors'],
+          'post-close monitor': ['a post-close monitor', 'post-close monitors'],
+        };
+        const inline = (lb, c) => {
+          const hit = INLINE_GRADE[String(lb).trim().toLowerCase()];
+          if (hit) return c === 1 ? hit[0] : hit[1];
+          // Unknown badge: lower-case it so it reads as a grade, not a headline.
+          const s = String(lb);
+          return /^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s;
+        };
+        const parts = [...byBadge.entries()].map(([lb, c]) => (c === 1 && byBadge.size === 1 ? `graded ${inline(lb, 1)}` : `${c} graded ${inline(lb, c)}`));
+        const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+        const total = shown.length;
+        if (shownKillers) {
+          return `${shownKillers === 1 ? 'One of the rows' : `${shownKillers} of the rows`} listed under what could kill it ${shownKillers === 1 ? 'is' : 'are'} graded a deal-stopper on the register${otherFatal.length ? `, and ${otherFatal.length === 1 ? 'one more is' : `${otherFatal.length} more are`} raised by this paper` : ''}. ${total === 1 ? 'The row is' : `The ${total} rows are`} ${list}.`;
+        }
+
+        const lead = total === 1
+          ? 'The single row listed under what could kill it is not graded a deal-stopper'
+          : `None of the ${total} rows listed under what could kill it is graded a deal-stopper`;
+        return `${lead} \u2014 ${total === 1 ? 'it is' : 'they are'} ${list}.`;
+      })();
+      // One sentence on nineteen deals, listing categories that are empty on most of
+      // them. Say what the register holds, not what it does not.
+      const held = [
+        monitors ? `${monitors} monitor${monitors === 1 ? '' : 's'}` : null,
+        repricers ? `${repricers} repricing row${repricers === 1 ? '' : 's'}` : null,
+        conditions ? `${conditions} closing condition${conditions === 1 ? '' : 's'}` : null,
+      ].filter(Boolean);
+      const reg = held.length
+        ? `Separately the register carries ${held.length > 1 ? `${held.slice(0, -1).join(', ')} and ${held[held.length - 1]}` : held[0]}.`
+        : 'The register carries nothing beyond those rows.';
+      const fromBoard = outstanding.filter((r) => r.from === 'committee readiness').length;
+      const fromRegister = n - fromBoard;
+      const opener = !fromRegister
+        ? `${n} item${n === 1 ? ' is' : 's are'} outstanding, all of them things the committee-readiness board is waiting on — the register adds nothing that conditions the deal or moves the price.`
+        : !fromBoard
+          ? `${n} item${n === 1 ? ' is' : 's are'} outstanding, and every one of them comes off the risk register rather than the readiness board: rows that condition the deal or move the price.`
+          : `${n} item${n === 1 ? ' is' : 's are'} outstanding: ${fromBoard} the committee-readiness board is waiting on, and ${fromRegister} register row${fromRegister === 1 ? ' that conditions the deal or moves the price' : 's that condition the deal or move the price'}.`;
+      return `${opener} ${reg} ${listSays}`;    })(),
     outstanding,
     // The board already audits how much of the case traces to a source, and scores Lumen
     // at 40 with the reason written out -- "IC ask derived from unsourced Revenue &
@@ -991,15 +1512,7 @@ export function buildDealCase(deal) {
       // numeric claims trace to a source fact or cited document" at score 100 on a case
       // carrying two enterprise values and two entry multiples. A badge that measures
       // something other than what its sentence says is worse than no badge.
-      const caveats = [];
-      if ((returns.entry || {}).ties === false) caveats.push('the stated entry multiple and the funded enterprise value are struck on different numbers');
-      if (canon.ebitdaSource === 'derived') caveats.push('the EBITDA under the multiple is a screening default, not a diligenced figure');
-      else if (ebitdaKf && UNDILIGENCED_SOURCE.test(String(ebitdaKf.source || ''))) {
-        // The audit asks whether a figure has a source. "Screen" is a source. It scored
-        // 100 out of 100 on four real public companies whose revenue and EBITDA are the
-        // asking price times 1.25 and 0.12.
-        caveats.push(`the EBITDA under the multiple is sourced "${ebitdaKf.source}", which is not diligence`);
-      }
+      const caveats = sourcingCaveats(deal, { entryTies: (returns.entry || {}).ties, ebitdaDerived: canon.ebitdaSource === 'derived' });
       return {
         // Score, summary and boolean gave three different answers: 100, "All numeric
         // claims trace to a source fact or cited document", and clean: false, in one
@@ -1008,7 +1521,13 @@ export function buildDealCase(deal) {
         // because it is the number a reader quotes.
         score: caveats.length || a.totalClaims <= 1 ? null : a.score,
         scoreWithheld: caveats.length
-          ? 'No score. The audit checks whether a figure has a source; on this deal that check passes and the figures still cannot be relied on.'
+          // This said "that check passes" unconditionally, so a deal reporting "0 of 1
+          // claim tested trace to a source" carried a sentence saying the trace check had
+          // passed — the one panel on the page whose job is to answer "where did that come
+          // from?" contradicting itself two lines apart.
+          ? (a.sourcedClaims >= a.totalClaims
+            ? `No score. Every figure tested carries a source, but ${caveats[0]}, so a score would say the page is sound when it is not.`
+            : `No score. ${a.totalClaims - a.sourcedClaims} of the ${a.totalClaims} claim${a.totalClaims === 1 ? '' : 's'} tested does not trace to a source at all, and the ones that do rest on figures that cannot be relied on.`)
           : a.totalClaims <= 1
             // A score of 100 was printed beside "only 1 claim was tested, too few to say
             // anything about the page", while three other deals correctly withheld it in
@@ -1018,7 +1537,12 @@ export function buildDealCase(deal) {
         summary: caveats.length
           // "Every claim it tested does trace to a source" was hardcoded, and printed on
           // a deal reporting sourced 2 of 3. Two of three is not every claim.
-          ? `On this deal ${caveats.join(', and ')}. ${a.sourcedClaims} of ${a.totalClaims} claim${a.totalClaims === 1 ? '' : 's'} tested trace to a source${a.sourcedClaims === a.totalClaims ? ', which is why the check passes and the price still cannot be relied on' : ''}.`
+          ? (() => {
+            const lead = `On this deal ${caveats.join(', and ')}`.replace(/\s+$/, '');
+            const stopped = /[.\u2026?!]$/.test(lead) ? lead : `${lead}.`;
+            const n = a.sourcedClaims;
+            return `${stopped} ${n} of ${a.totalClaims} claim${a.totalClaims === 1 ? '' : 's'} tested ${n === 1 ? 'traces' : 'trace'} to a source${a.sourcedClaims === a.totalClaims ? ', so every claim tested carries a source — which is not the same as being able to rely on the figure' : ''}.`;
+          })()
           // "All numeric claims trace to a source fact or cited document. 1 claim tested."
           // If one claim was tested, the first sentence is not a finding.
           : a.totalClaims <= 1
@@ -1034,11 +1558,14 @@ export function buildDealCase(deal) {
     // trust. Comparables is on this list because the only question that matters on
     // price — is this multiple right for this sector — was one tab away and unlinked.
     checkAgainst: [
+      // Both of these opened the same tab, so the second button was a button that did
+      // nothing a reader could see. One destination, one name.
       { label: 'Returns, plan & risk', path: 'returns' },
-      { label: 'Risk register', path: 'risk-register' },
       { label: 'Committee readiness', path: 'ic-readiness' },
       { label: 'Comparables & precedents', path: 'comparables' },
-      { label: 'Data room', path: 'documents' },
+      // Resolved to Papers, which is where documents live and is not what the firm calls
+      // a data room. Name the tab.
+      { label: 'Papers', path: 'documents' },
     ],
   };
 }

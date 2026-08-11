@@ -12,6 +12,7 @@ import {
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { renderPptx } from './pptx.js';
+import { ownerLabel, laneLabel } from '../cockpit.js';
 
 const CUR = { USD: '$', EUR: '\u20ac', GBP: '\u00a3' };
 const money = (deal) => {
@@ -28,22 +29,41 @@ const dateStr = (v) => {
 };
 
 // The rows that describe a deal at a glance — reused by both the memo and the model.
+// Persona ids and status enums are OUR vocabulary. The export handed a room "Sponsor:
+// ai-md", "Status: in_diligence" and "0% · not_started · legal-md" — the same raw-internals
+// bug that was fixed in the threads, on the one surface that leaves the building.
+const words = (v) => String(v || '').replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+// ownerLabel returns a ROLE for ids it has no person for, so the column that had just been
+// cleaned of "ai-md" filled up with "General Counsel" and "Operating Partner — ESG" instead.
+// A column of people holds people; where there is no person, name the role as a role.
+const person = (v) => {
+  if (!v) return '\u2014';
+  const l = ownerLabel(v, null);
+  if (!l) return words(v);
+  return /^[A-Z][a-z]+(\s|\.)/.test(l) ? l : `Unassigned (${l})`;
+};
+
 function summaryRows(deal) {
+  // Six of these fields are computed elsewhere and are simply absent from the record the
+  // exporter is handed, so the file printed an em-dash where the screen behind it showed
+  // a number. A row the record cannot support is not published rather than published empty.
   return [
+    ...[
     ['Company', deal.company || deal.id || '\u2014'],
     ['Sector', [deal.sector, deal.subSector].filter(Boolean).join(' \u00b7 ') || '\u2014'],
     ['Headquarters', deal.hq || deal.region || '\u2014'],
     ['Enterprise value', money(deal)],
     ['Stage', [deal.stage, deal.stageName].filter(Boolean).join(' \u2014 ') || '\u2014'],
-    ['Status', deal.status || '\u2014'],
-    ['IC readiness', pct(deal.readiness)],
+    ['Status', deal.status ? words(deal.status) : '\u2014'],
+    ['IC readiness', pct(deal.readiness ?? deal.icReadiness ?? deal.diligenceProgress)],
     ['Target IC date', dateStr(deal.targetICDate || deal.projectedICDate)],
     ['Days to IC', dash(deal.daysToIC)],
-    ['Lead analyst', deal.leadAnalyst || '\u2014'],
-    ['Sponsor', deal.sponsorPersona || '\u2014'],
+    ['Lead analyst', person(deal.leadAnalyst)],
+    ['Sponsor', person(deal.sponsorPersona)],
     ['Diligence progress', pct(deal.diligenceProgress)],
     ['Compliance', `${dash(deal.complianceCleared)} / ${dash(deal.complianceTotal)} cleared`],
     ['IC memo', `${dash(deal.memoProgress)} / ${dash(deal.memoTotal)} sections${deal.memoApproved ? ' \u00b7 approved' : ''}`],
+    ].filter(([, v]) => v && !/^(\u2014|\u2014 \/ \u2014 cleared|\u2014 \/ \u2014 sections)$/.test(String(v))),
   ];
 }
 
@@ -432,8 +452,8 @@ function modelRows(deal) {
   const rows = [...summaryRows(deal)];
   const ws = Array.isArray(deal.workstreams) ? deal.workstreams : [];
   ws.forEach((w) => rows.push([
-    `Workstream \u00b7 ${w.name || w.title || w.lane || 'Workstream'}`,
-    `${Number.isFinite(Number(w.progress)) ? Number(w.progress) + '% \u00b7 ' : ''}${w.status || 'In progress'}${w.owner || w.md || w.lead ? ' \u00b7 ' + (w.owner || w.md || w.lead) : ''}`,
+    `Workstream \u00b7 ${w.name || w.title || laneLabel(w.lane) || w.lane || 'Workstream'}`,
+    `${Number.isFinite(Number(w.progress)) ? Number(w.progress) + '% \u00b7 ' : ''}${words(w.status) || 'In progress'}${w.owner || w.md || w.lead ? ' \u00b7 ' + person(w.owner || w.md || w.lead) : ''}`,
   ]));
   return rows;
 }

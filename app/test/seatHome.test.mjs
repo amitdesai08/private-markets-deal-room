@@ -140,7 +140,7 @@ test('outside demo mode the product does not narrate the access model at all', (
 test('an administrator is told the view is unweighted instead of being given a fake desk', () => {
   const hd = buildHomeDesk(deals, { role: 'admin', roleLabel: 'Administrator', persona: null, demoMode: true, rawFor: (d) => getDealRaw(d.id) });
   assert.equal(hd.seat.kind, 'oversight');
-  assert.match(text(hd), /administrator's view/i);
+  assert.match(text(hd), /every deal you are cleared for|ranked by what needs a decision first|not filtered to one job/i);
   assert.doesNotMatch(text(hd), /no specialist role is assigned/i);
 });
 
@@ -709,5 +709,46 @@ test('a per-lane tile breakdown never exceeds the number it breaks down', () => 
     assert.ok(parts.length > 1, `${key}: a two-lane seat must show both lanes`);
     for (const p of parts) assert.ok(p <= Number(tile.value), `${key}: a lane claims ${p} deals but the tile totals ${tile.value}`);
     assert.ok(Math.max(...parts) <= Number(tile.value), `${key}: breakdown exceeds the headline`);
+  }
+});
+
+// SEVEN IDENTICAL SENTENCES IN ONE QUEUE.
+//
+// The General Counsel's attention list carried seven byte-identical rows reading "Your
+// Legal workstream has no work recorded against it". Every one was true; read together
+// they were a wall, and nobody reads the fifth — which is the row the queue exists to
+// surface. The collapse originally excluded lane seats, which protected exactly the
+// screen that needed it.
+test('no attention queue repeats one sentence past a handful', () => {
+  for (const who of ['fund-cfo', 'legal-gc', 'partner', 'analyst', 'principal', 'operating-partner']) {
+    const hd = build(who);
+    const rows = hd.attention || [];
+    if (rows.length < 3) continue;
+    const counts = new Map();
+    for (const r of rows) {
+      const w = String(r.why || '').trim();
+      if (!w) continue;
+      counts.set(w, (counts.get(w) || 0) + 1);
+    }
+    for (const r of rows) {
+      if (!r.why) continue;
+      assert.ok(String(r.impact || '').trim(), `${who}: a row on ${r.company} says what is wrong and not what happens if it is ignored`);
+      assert.doesNotMatch(String(r.impact), /rows above|as above|see above|listed above/i, `${who}: the consequence line narrates the layout instead of the deal`);
+    }
+    // Shape, not string: "2 obligations ... are still open" and "3 obligations ... are
+    // still open" are the same sentence to a reader and different strings to a Map.
+    const impacts = new Map();
+    for (const r of rows) {
+      const i = String(r.impact || '').trim();
+      if (!i) continue;
+      const shape = i.toLowerCase().replace(/\d+/g, '#').replace(/\b(is|are|it|them|s)\b/g, '').replace(/\s+/g, ' ').trim();
+      impacts.set(shape, (impacts.get(shape) || 0) + 1);
+    }
+    for (const [impact, n] of impacts) {
+      assert.ok(n <= 3, `${who}: impact "${impact.slice(0, 60)}" appears ${n} times in one queue`);
+    }
+    for (const [why, n] of counts) {
+      assert.ok(n <= 2, `${who}: "${why.slice(0, 70)}" appears ${n} times in one queue`);
+    }
   }
 });

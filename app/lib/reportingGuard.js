@@ -36,8 +36,18 @@ export function guardReporting(sourceIds = [], { block = false } = {}) {
   const roll = recordFreshness(sourceIds);
   const ok = roll.status === 'fresh';
   const staleSources = roll.notFresh.map((c) => c.id);
-  const notice = ok
-    ? null
-    : `Contains data from source(s) outside their freshness SLA (${staleSources.join(', ') || 'none synced'}); ${block ? 'blocked from' : 'not certified for'} IC / LP-facing use until refreshed.`;
-  return { ok, blocked: block && !ok, status: roll.status, staleSources, notice, components: roll.components };
+  // NEVER CONNECTED IS NOT OUT OF DATE.
+  //
+  // Both states were folded into one sentence, so a panel listing Morningstar, LSEG,
+  // Moody's, PitchBook, FactSet and CapIQ — none of which this deployment subscribes to —
+  // told a room they held data "outside its freshness SLA", and invited the one question
+  // a presenter cannot answer: are you licensed with FactSet? An optional feed nobody
+  // connected says nothing about the report; a feed that synced and went stale does.
+  const stale = roll.staleComponents.map((c) => c.id);
+  const never = roll.neverComponents.map((c) => c.id);
+  const parts = [];
+  if (stale.length) parts.push(`Data from ${stale.join(', ')} is outside its freshness SLA; ${block ? 'blocked from' : 'not certified for'} IC / LP-facing use until refreshed.`);
+  if (never.length) parts.push(`Optional market-data sources not connected on this deployment: ${never.join(', ')}. The figures here stand on the fund's own record and do not depend on them${block ? ', but this output was asked to require them' : ''}.`);
+  const notice = ok ? null : parts.join(' ');
+  return { ok, blocked: block && !ok, status: roll.status, staleSources, stale, never, notice, components: roll.components };
 }

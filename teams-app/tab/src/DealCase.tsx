@@ -70,7 +70,7 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
         <section className="dc-card">
           <div className="dc-h">What the deal team wrote</div>
           <div className="dc-pt">{c.writtenRecommendation.text}</div>
-          <div className="dc-basis">{c.writtenRecommendation.length} characters, {String(c.writtenRecommendation.status || '').replace(/_/g, ' ')}. {c.writtenRecommendation.attribution}</div>
+          <div className="dc-basis">{String(c.writtenRecommendation.status || '').replace(/_/g, ' ').replace(/^./, (ch: string) => ch.toUpperCase())}. {c.writtenRecommendation.attribution}</div>
           {c.writtenRecommendation.conflict ? <div className="dc-conflict">{c.writtenRecommendation.conflict}</div> : null}
         </section>
       )}
@@ -202,6 +202,9 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
             <div key={i} className="dc-point">
               <div className="dc-pt">{u.item}</div>
               <div className="dc-basis">{u.workstream}{u.owner ? ` · ${u.owner}` : ''}</div>
+              {/* Naming a workstream and an owner for work nobody has opened reads as a
+                  contradiction unless the page says which it is. The sentence exists. */}
+              {(u as Any).workstreamNote ? <div className="dc-basis">{(u as Any).workstreamNote}</div> : null}
             </div>
           ))}
         </section>
@@ -217,13 +220,21 @@ export default function DealCase({ dealId, onGoTab }: { dealId: string; onGoTab?
           {c.outstanding.map((x: Any, i: number) => (
             <div key={i} className="dc-point">
               <div className="dc-pt">{x.text}</div>
-              <div className="dc-basis">From the {x.from}{x.owner ? ` · ${x.owner}` : ''} · {x.dueDate || x.dueNote}</div>
+              <div className="dc-basis">{x.from === 'committee readiness' ? 'From the readiness board' : 'From the risk register'}{x.owner ? ` · ${x.owner}` : ''}{x.dueDate ? ` · due ${new Date(x.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}</div>
+
             </div>
           ))}
           {/* The register returns twelve rows, the readiness board says five papers plus
               four workstreams, and this list holds seven. Each is defensible on its own
               filter and nothing said they were one universe read three ways. */}
-          {c.outstandingNote ? <div className="dc-basis" style={{ marginTop: 10 }}>{c.outstandingNote}</div> : null}
+          {/* One footnote for the card, not the same sentence under six consecutive rows. */}
+          {c.outstanding.some((x: Any) => x.basisNote) ? (
+            <div className="dc-templated" style={{ marginTop: 8 }}>
+              {c.outstanding.filter((x: Any) => x.basisNote).length} of these are the standard row for their workstream — no named author has written a finding against them.
+            </div>
+          ) : null}
+          {c.outstandingDateNote ? <div className="dc-basis" style={{ marginTop: 8 }}>{c.outstandingDateNote}</div> : null}
+              {c.outstandingNote ? <div className="dc-basis" style={{ marginTop: 10 }}>{c.outstandingNote}</div> : null}
         </section>
       )}
 

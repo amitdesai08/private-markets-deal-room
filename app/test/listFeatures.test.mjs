@@ -107,5 +107,5 @@ test('the ESG lane is owned by the operating partner, not investor relations', (
   // environmental assessment with the IR partner.
   assert.match(ownerLabel(null, 'esg'), /Rachel Nguyen|Operating Partner/i);
   assert.doesNotMatch(ownerLabel(null, 'esg'), /Sofia Marchetti|Investor Relations/i);
-  assert.match(ownerLabel(null, 'legal'), /Priya Raman/i);
+  assert.match(ownerLabel(null, 'legal'), /Anjali Raman/i);
 });

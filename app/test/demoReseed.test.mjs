@@ -51,13 +51,13 @@ test('the overwrite is written to the activity log, with an actor', () => {
   // prints a repo path reads as a developer artefact to the compliance officer who has
   // to rely on it. The assertion still demands the log say what happened, and that it
   // say the history was discarded -- it is only the words that changed.
-  assert.match(top.action, /reset to its starting state/i, 'the log does not say what happened');
+  assert.match(top.action, /restored to the firm’s baseline|reset to its starting state/i, 'the log does not say what happened');
   assert.match(top.action, /discarded/i, 'the log does not admit the history was lost');
   assert.ok(top.when, 'no timestamp');
 });
 
 test('resync discards state recorded against a showcase deal — that is the point, and it is visible', () => {
-  const id = 'demo-cascadia';
+  const id = 'cascadia';
   const before = getDealRaw(id).activity.length;
   advanceDeal(id, { persona: 'partner', reason: 'test movement' });
   const moved = getDealRaw(id).activity.length;

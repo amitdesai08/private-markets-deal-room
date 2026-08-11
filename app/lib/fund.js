@@ -15,6 +15,8 @@ import { fundMandate } from '../data/mandates.js';
 
 const MONTH = 1000 * 60 * 60 * 24 * 30.44;
 
+const fmtM = (n) => `$${Math.round(Number(n) || 0)}M`;
+
 function round(n, dp = 0) {
   const f = 10 ** dp;
   return Math.round((Number(n) || 0) * f) / f;
@@ -41,6 +43,26 @@ export function portfolioCompany(pc) {
   const entryEquity = round(Math.max(1, entryEV - pc.entry.netDebt));
   const currentEV = round(pc.current.ebitda * pc.current.multiple);
   const currentEquity = round(Math.max(0, currentEV - pc.current.netDebt));
+  // ON WHAT BASIS IS THAT WRITTEN DOWN?
+  //
+  // A position was marked at 0.64x and -16.8% IRR and nothing on the page or in the
+  // payload said how the mark was struck, so the first question an LP or an auditor asks
+  // had no answer. The method is a market-approach multiple applied to current EBITDA
+  // less net debt, which is what IPEV and ASC 820 call a Level 3 fair value; say so, and
+  // say when the multiple has been moved off entry, because that is the judgement.
+  const multipleMoved = round(pc.current.multiple - pc.entry.entryMultiple, 2);
+  const valuationPolicy = {
+    framework: 'IPEV Valuation Guidelines · ASC 820 Level 3',
+    approach: 'Market approach — an EV/EBITDA multiple applied to current EBITDA, less net debt.',
+    basis: [
+      `Marked at ${pc.current.multiple}x current EBITDA of ${fmtM(pc.current.ebitda)}, less ${fmtM(pc.current.netDebt)} of net debt.`,
+      multipleMoved === 0
+        ? 'The multiple is held at entry, so the whole movement in this mark is operating performance and debt paydown.'
+        : `The multiple has been moved ${multipleMoved > 0 ? 'up' : 'down'} ${Math.abs(multipleMoved)}x from the ${pc.entry.entryMultiple}x paid at entry — that part of the mark is judgement, not performance.`,
+      'Unobservable inputs, so this is a Level 3 fair value. It is not a transaction price and no third party has confirmed it.',
+    ].join(' '),
+    multipleMoved,
+  };
   const realized = round((pc.realized || []).reduce((s, r) => s + (r.proceeds || 0), 0));
   const totalValue = currentEquity + realized;
   const grossMoic = round(totalValue / entryEquity, 2);
@@ -53,11 +75,21 @@ export function portfolioCompany(pc) {
   const leverAvg = levers.length ? levers.reduce((s, l) => s + (l.progressPct || 0), 0) / levers.length : 0;
   const vcpProgress = round(0.25 * (pc.valueCreation?.hundredDayPct || 0) + 0.75 * leverAvg);
 
-  // KPI variance to plan (avg actual/plan across KPIs, signed).
+  // VARIANCE TO PLAN, ON THE LINES THAT SHARE A UNIT.
+  //
+  // This averaged every KPI's percentage variance regardless of unit, so a volume KPI
+  // planned at 4% and running at -6% contributed -250% and dragged the roll-up to -72.3%
+  // beside an EBITDA of $34M against a $42M plan. A margin measured in points and a
+  // revenue measured in millions do not average.
   const kpis = pc.kpis || [];
-  const kpiVariancePct = kpis.length
-    ? round((kpis.reduce((s, k) => s + (k.plan ? (k.actual - k.plan) / Math.abs(k.plan) : 0), 0) / kpis.length) * 100, 1)
+  const isRate = (k) => /%|margin|rate|churn|retention|utilisation|utilization/i.test(`${k.unit || ''} ${k.label || ''}`);
+  const scalar = kpis.filter((k) => k.plan && !isRate(k));
+  const kpiVariancePct = scalar.length
+    ? round((scalar.reduce((s, k) => s + (k.actual - k.plan) / Math.abs(k.plan), 0) / scalar.length) * 100, 1)
     : 0;
+  // Rate KPIs are reported in points off plan, never folded into the percentage above.
+  const kpiRateVariancePts = kpis.filter((k) => k.plan && isRate(k))
+    .map((k) => ({ label: k.label, pts: round(k.actual - k.plan, 1) }));
 
   const ebitdaGrowthPct = pc.entry.ebitda ? round(((pc.current.ebitda - pc.entry.ebitda) / pc.entry.ebitda) * 100, 1) : 0;
 
@@ -82,6 +114,7 @@ export function portfolioCompany(pc) {
     currentMultiple: pc.current.multiple,
     currentEV,
     currentEquity,
+    valuationPolicy,
     ebitdaGrowthPct,
     realized,
     realizations: pc.realized || [],
@@ -129,10 +162,29 @@ function concentration(companies, key, invested, fundSize, limitPct) {
     .map(([name, equity]) => {
       const pctOfFund = round((equity / fundSize) * 100, 1);
       const pctOfInvested = round((equity / invested) * 100, 1);
+      // WHICH DENOMINATOR THE CAP IS TESTED AGAINST.
+      //
+      // The row carried both percentages and the methodology said "sector exposure / fund
+      // value" without saying what fund value meant, so one position produced 11.2%, 24.6%
+      // or 15.8% depending on which number a reader picked. An LPA concentration cap is
+      // written against COMMITMENTS, so that is the one the status is decided on and the
+      // one named on the row; the share of capital deployed to date is useful context and
+      // is labelled as such rather than left to be mistaken for the test.
       const status = limitPct == null
         ? 'ok'
         : pctOfFund >= limitPct ? 'breach' : pctOfFund >= limitPct * 0.8 ? 'near' : 'ok';
-      return { name, equity: round(equity), pctOfFund, pctOfInvested, limitPct: limitPct ?? null, status };
+      return {
+        name,
+        equity: round(equity),
+        pctOfFund,
+        pctOfInvested,
+        limitPct: limitPct ?? null,
+        testedOn: limitPct == null ? null : 'committed capital',
+        basis: limitPct == null
+          ? 'No LPA cap applies to this breakdown, so no limit is shown.'
+          : `${pctOfFund}% of the fund's ${fmtM(fundSize)} of commitments against a ${limitPct}% LPA cap. ${pctOfInvested}% of capital deployed so far, which is not the test.`,
+        status,
+      };
     })
     .sort((a, b) => b.equity - a.equity);
 }
@@ -147,10 +199,33 @@ export function fundOverview() {
   const realized = round(companies.reduce((s, c) => s + c.realized, 0));
   const totalValue = round(unrealized + realized);
 
-  const dpi = round(realized / invested, 2);
-  const rvpi = round(unrealized / invested, 2);
-  const tvpi = round(totalValue / invested, 2);
-  const grossMoic = tvpi;
+  // TVPI AND GROSS MOIC ARE NOT THE SAME MEASURE.
+  //
+  // `grossMoic = tvpi` printed one number twice under an ILPA banner beside a NET IRR.
+  // ILPA defines the multiples on PAID-IN capital — what LPs have actually funded, which
+  // includes management fees and partnership expenses drawn alongside the investments —
+  // while gross MOIC is struck on invested capital only. They differ by the fee drag,
+  // which is the whole reason an LP looks at both.
+  // Fees are drawn on committed capital from first close, so the drag is a function of the
+  // fund's age rather than of what has been deployed. This is what puts an early-vintage
+  // fund below its gross multiple — the J-curve, which the product was not showing at all.
+  const fundAgeYears = Math.max(0, (Date.now() - new Date(fundVintage.firstClose).getTime()) / (365.25 * 24 * 3600 * 1000));
+  const feesDrawn = round(fundSize * ((fundVintage.managementFeePct ?? 2) / 100) * fundAgeYears);
+  const paidIn = round(invested + feesDrawn);
+  // Printed, because a reader cannot bridge gross MOIC to TVPI without it.
+  const capitalDetail = {
+    committed: fundSize,
+    invested,
+    feesDrawn,
+    paidIn,
+    basis: `Paid-in capital is the ${fmtM(invested)} invested plus ${fmtM(feesDrawn)} of management fees drawn since first close. TVPI, DPI and RVPI are struck on it; gross MOIC is struck on invested capital alone, which is why the two multiples differ.`,
+  };
+  // All three ILPA multiples share one denominator. DPI and RVPI were struck on invested
+  // capital while the banner called them ILPA measures, so they did not sum to TVPI.
+  const dpi = round(realized / paidIn, 2);
+  const rvpi = round(unrealized / paidIn, 2);
+  const tvpi = round(totalValue / paidIn, 2);
+  const grossMoic = round(totalValue / invested, 2);
 
   // Capital-weighted gross IRR across the portfolio.
   const grossIrr = invested
@@ -158,6 +233,12 @@ export function fundOverview() {
     : 0;
   // Net-of-fees rule of thumb: haircut for the 2% fee drag and 20% carry above the hurdle.
   const netMoic = round(1 + (grossMoic - 1) * (1 - fundVintage.carryPct / 100) - 0.05, 2);
+  // NET MOIC AND TVPI ARE 0.01 APART AND MEAN DIFFERENT THINGS.
+  //
+  // The paid-in bridge explained gross MOIC against TVPI and left these two sitting side
+  // by side with nothing between them. They are close by coincidence, not by construction,
+  // and an LP who assumes they are the same figure rounded differently is wrong.
+  const netMoicBasis = `Net MOIC of ${netMoic}x is the ${grossMoic}x gross return after ${fundVintage.carryPct}% carried interest and an allowance for fund expenses, struck on invested capital. TVPI of ${tvpi}x is gross of carry and struck on paid-in capital, which includes management fees drawn. They sit close together on this fund by coincidence; they answer different questions and neither is a rounding of the other.`;
   const netIrr = round(grossIrr * 0.75, 1);
 
   const reserves = round(fundSize * (fundVintage.reservePct / 100));
@@ -193,11 +274,17 @@ export function fundOverview() {
       // tile rather than leaving it to be discovered.
       dryPowderNote: `net of a $${round(reserves / 1000, 2)}B management-fee and expense reserve.`,
       deployedPct,
-      portfolioCompanies: companies.length
+      portfolioCompanies: companies.length,
+      // Paid-in is what LPs have actually funded, and without it on screen a reader
+      // cannot bridge gross MOIC to TVPI.
+      feesDrawn: capitalDetail.feesDrawn,
+      paidIn: capitalDetail.paidIn,
+      paidInBasis: capitalDetail.basis
     },
     performance: {
       grossMoic,
       netMoic,
+      netMoicBasis,
       grossIrrPct: grossIrr,
       netIrrPct: netIrr,
       dpi,

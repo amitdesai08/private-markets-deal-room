@@ -15,6 +15,7 @@
 
 import { STEPS, stepIndex } from '../data/flow.js';
 import { laneLabel, ownerLabel, daysUntil, dueLabel, laneStatusText, CLOSED_AT_IC } from './cockpit.js';
+import { reconcileFindingText } from './diligence.js';
 
 // Statuses that mean the committee has already decided. Past that point, a gap in the
 // diligence record is a filing job, not work anybody is waiting on.
@@ -129,6 +130,25 @@ function promiseSentence(text) {
   return sentences.find((s) => DELIVERY.test(s) && (PROMISE.test(s) || WHEN.test(s))) || null;
 }
 
+// Cut at a word boundary and say it was cut, rather than stopping mid-word.
+function clip(s, n) {
+  const t = String(s || '');
+  if (t.length <= n) return t;
+  const cut = t.slice(0, n);
+  const at = cut.lastIndexOf(' ');
+  return `${(at > n * 0.6 ? cut.slice(0, at) : cut).replace(/[\s,;:.\u2014-]+$/, '')}\u2026`;
+}
+
+// A preview that stops mid-word reads as broken rather than as abbreviated. Break on
+// the last word and say it was cut.
+function previewOf(text, max = 96) {
+  const s = String(text || '').trim();
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const at = cut.lastIndexOf(' ');
+  return `${(at > 40 ? cut.slice(0, at) : cut).replace(/[\s,;:.\u2014-]+$/, '')}\u2026`;
+}
+
 export function detectCommitments(messages = [], { source = 'Teams', dealSteps = [] } = {}) {
   const out = [];
   for (const m of messages) {
@@ -156,7 +176,7 @@ export function detectCommitments(messages = [], { source = 'Teams', dealSteps =
       stepKey: step?.key || null,
       stepTitle: step ? step.title : null,
       confidence: when ? 'high' : 'medium',
-      basis: `${source} message${m.from ? ` from ${m.from}` : ''}`,
+      basis: m.from ? `${m.from}, in the ${String(source).replace(/^the /i, '')}` : String(source),
     });
   }
   return out;
@@ -164,7 +184,7 @@ export function detectCommitments(messages = [], { source = 'Teams', dealSteps =
 
 // Decisions are the other thing that evaporates in chat. Same rule: we detect
 // and PROPOSE, the decision log only records what a person confirms.
-const DECISION = /\b(agreed|decided|we(?:'| a)?re going with|sign(?:ed)? off|approved|confirmed|let'?s go with|final answer|conclusion is)\b/i;
+const DECISION = /\b(agreed|decided|decision|position agreed|we(?:'| a)?re going with|sign(?:ed)? off|approved|confirmed|let'?s go with|final answer|conclusion is|my read is)\b/i;
 export function detectDecisions(messages = []) {
   return messages
     .filter((m) => DECISION.test(m.preview || m.text || ''))
@@ -219,7 +239,7 @@ function blockerAnalysis(step, deal, board, lanes) {
     });
   }
   for (const f of (worst.findings || []).slice(0, 2)) {
-    evidence.push({ text: f.text, source: f.source || 'Diligence finding' });
+    evidence.push({ text: reconcileFindingText(f.text, deal), source: f.source || 'Diligence finding' });
   }
   for (const r of (worst.reasons || []).slice(0, 2)) {
     evidence.push({ text: `${laneLabel(worst.lane)}: ${r}`, source: 'IC readiness board' });
@@ -234,7 +254,12 @@ function blockerAnalysis(step, deal, board, lanes) {
   // her first question was what the letters meant rather than what was stuck. The
   // titles alone say the same thing and need no glossary.
   const at = STEPS.findIndex((s) => s.key === step.key);
-  const downstream = STEPS.slice(at + 1, at + 4).map((s) => s.title);
+  // A step the record shows as already done is not waiting on anything. The workspace
+  // is the one that kept appearing here while its channel was on screen.
+  const workspaceDone = !!deal?.workspace?.teamsProvisioned;
+  const downstream = STEPS.slice(at + 1, at + 4)
+    .map((s) => s.title)
+    .filter((title) => !(workspaceDone && /set up the deal workspace/i.test(title)));
   return {
     headline: lanes.length === 1
       ? `${laneLabel(worst.lane)} is the critical path`
@@ -246,7 +271,7 @@ function blockerAnalysis(step, deal, board, lanes) {
     owner: ownerLabel(worst.owner, worst.lane),
     lane: worst.lane,
     laneLabel: laneLabel(worst.lane),
-    basis: 'Derived from workstream status + the IC readiness board — authoritative status is unchanged',
+    basis: 'Derived from workstream status + the IC readiness board',
   };
 }
 
@@ -305,7 +330,9 @@ export function buildWorkflowDesk(deal, board, { role = null, commitments = [] }
       idle ? `${idle} ${idle === 1 ? 'has' : 'have'} ${settled ? 'no progress on file' : 'not started'}` : '',
       closedAtIc ? `${closedAtIc} closed at IC with no write-up on file` : '',
     ].filter(Boolean).join('; ');
-    c.add(`${moving.length} of ${lanes.length} diligence workstreams are moving${gaps ? `; ${gaps}` : ''}. ${moving.map((w) => `${laneLabel(w.lane)} ${w.progress}%`).join(' · ') || 'No workstream has recorded progress.'}`, 'Workstream progress');
+    const withEvidence = lanes.filter((w) => (w.findings || []).length || (w.contributions || []).length);
+    const movingUnwritten = moving.filter((w) => !withEvidence.includes(w));
+    c.add(`${moving.length} of ${lanes.length} diligence workstreams have recorded progress${gaps ? `; ${gaps}` : ''}. ${moving.map((w) => `${laneLabel(w.lane)} ${w.progress}%`).join(' · ') || 'No workstream has recorded progress.'}${movingUnwritten.length ? ` Of those, ${movingUnwritten.length} ${movingUnwritten.length === 1 ? 'has' : 'have'} nothing written against ${movingUnwritten.length === 1 ? 'it' : 'them'} yet — ${movingUnwritten.map((w) => laneLabel(w.lane)).join(', ')} — so the case page counts ${movingUnwritten.length === 1 ? 'it' : 'them'} as having produced nothing.` : ''}`, 'Workstream progress');
   }
   if (current?.blocker) {
     // The headline was lowercased to splice it after a dash, which turned the defined
@@ -314,12 +341,18 @@ export function buildWorkflowDesk(deal, board, { role = null, commitments = [] }
     c.add(`${current.title} is stalled. ${current.blocker.headline}. ${current.blocker.impact}`, 'IC readiness board');
   }
   const icDays = daysUntil(deal.targetICDate);
-  if (icDays != null && icDays >= 0) c.add(`IC is ${icDays} days out; ${dueLabel(deal.targetICDate)}.`, 'Deal record');
+  if (icDays != null && icDays >= 0) {
+    const when = new Date(deal.targetICDate);
+    const on = Number.isNaN(when.getTime())
+      ? null
+      : when.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+    c.add(`IC is ${icDays} day${icDays === 1 ? '' : 's'} out${on ? `, on ${on}` : ''}.`, 'Deal record');
+  }
   if (commitments.length) {
     // These three strings are printed as citation sources, which exist so a partner
     // can check where a claim came from. An internal product codename tells them
     // nothing they can go and verify.
-    c.add(`${commitments.length} commitment${commitments.length === 1 ? ' was' : 's were'} made in the deal channel that ${commitments.length === 1 ? 'has' : 'have'} no matching task on the plan.`, 'Deal channel (Teams)');
+    c.add(`${commitments.length} commitment${commitments.length === 1 ? ' was' : 's were'} made in the deal channel that ${commitments.length === 1 ? 'has' : 'have'} no matching task on the plan.`, 'Deal channel, composed from the deal record');
   }
 
   return {
@@ -352,6 +385,9 @@ function threadFromNotes(dealId, notes) {
   // them ("the tech thread", "the financing thread"), not one flat log.
   const byPersona = new Map();
   for (const n of notes) {
+    // A message said in the deal's conversation is already in the war room above; filing
+    // it here as well would show the reader their own post twice.
+    if (n?.channelPost) continue;
     const key = n.personaId || 'deal-team';
     if (!byPersona.has(key)) byPersona.set(key, []);
     byPersona.get(key).push(n);
@@ -365,7 +401,7 @@ function threadFromNotes(dealId, notes) {
       title: list[0].personaLabel || list[0].author,
       anchorKind: lane ? 'Workstream' : 'Deal',
       anchor: lane ? laneLabel(lane) : 'Deal record',
-      preview: list[list.length - 1].text.slice(0, 90),
+      preview: previewOf(list[list.length - 1].text),
       updated: iso(list[list.length - 1].createdAt),
       participants: [...new Set(list.flatMap((n) => [n.author, ...(n.sharedWith || [])]))].slice(0, 6),
       messages: list.map((n, i) => ({
@@ -376,6 +412,17 @@ function threadFromNotes(dealId, notes) {
     });
   }
   return out;
+}
+
+// An issue's `resolutionPath` is sometimes a bare workstream status. Rendered straight
+// into a thread it produced a message from a named person reading, in full, "not started".
+const STATUS_TOKEN = /^(not[ _-]?started|in[ _-]?progress|blocked|on[ _-]?hold|complete|done|open|pending)$/i;
+function issueText(issue) {
+  const path = String(issue?.resolutionPath || '').trim();
+  const title = String(issue?.title || '').trim();
+  if (path && !STATUS_TOKEN.test(path)) return path;
+  if (title && path) return `${title} — currently ${path.toLowerCase().replace(/[_-]/g, ' ')}.`;
+  return title || 'Raised on this deal; no detail recorded.';
 }
 
 export function buildThreads(deal, { channel = null, notes = [], liveChannel = null } = {}) {
@@ -389,7 +436,27 @@ export function buildThreads(deal, { channel = null, notes = [], liveChannel = n
     id: `ch-${i}`, graphId: m.id || null,
     from: m.from, initials: initials(m.from), at: iso(m.created), text: m.preview || m.text || '',
     webUrl: m.webUrl || null,
+    via: 'teams',
   }));
+  // Anything said in the Deal Room itself belongs in the same conversation. Keeping it in
+  // a separate list meant a person could only join in when Microsoft 365 was connected and
+  // had granted a delegated token — so on most days the deal's own conversation was
+  // readable and could not be answered.
+  for (const n of notes || []) {
+    if (!n?.channelPost) continue;
+    msgs.push({
+      id: `note-${n.id}`,
+      graphId: null,
+      from: n.author || 'Deal team',
+      initials: initials(n.author || 'Deal team'),
+      at: iso(n.createdAt),
+      text: n.text || '',
+      webUrl: null,
+      via: n.postedToTeams ? 'teams' : 'deal-room',
+      role: n.personaLabel || n.role || null,
+    });
+  }
+  msgs.sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
   if (msgs.length) {
     threads.push({
       id: 'war-room',
@@ -397,13 +464,13 @@ export function buildThreads(deal, { channel = null, notes = [], liveChannel = n
       title: channel?.name || liveChannel?.channel_id || `${deal.company} — Deal Room`,
       anchorKind: 'Channel',
       anchor: deal.teamsChannel?.displayName || channel?.name || 'Deal channel',
-      preview: msgs[msgs.length - 1]?.text.slice(0, 90) || '',
+      preview: previewOf(msgs[msgs.length - 1]?.text || ''),
       updated: msgs.length ? iso(msgs[msgs.length - 1].at) : null,
       participants: [...new Set(msgs.map((m) => m.from))],
       messages: msgs,
       live: !!liveChannel && !liveChannel.demo,
       webUrl: deal.teamsChannel?.webUrl || null,
-      source: liveChannel && !liveChannel.demo ? 'Microsoft Teams (live)' : 'Sample deal channel',
+      source: liveChannel && !liveChannel.demo ? 'Microsoft Teams (live)' : 'Deal channel, composed from the deal record',
     });
   }
 
@@ -421,18 +488,18 @@ export function buildThreads(deal, { channel = null, notes = [], liveChannel = n
       anchorKind: 'Workstream',
       anchor: laneLabel(issue.lane),
       state: issue.status === 'in_progress' ? 'In progress' : 'Pending',
-      preview: issue.resolutionPath || issue.title || '',
+      preview: issueText(issue),
       updated: iso(issue.raisedAt || issue.createdAt),
       participants: [ownerLabel(issue.owner, issue.lane)].filter(Boolean),
       messages: [{
         id: `${issue.id || i}-0`, from: ownerLabel(issue.owner, issue.lane), initials: initials(ownerLabel(issue.owner, issue.lane)),
-        at: iso(issue.raisedAt || issue.createdAt), text: issue.resolutionPath || issue.title || '',
+        at: iso(issue.raisedAt || issue.createdAt), text: issueText(issue),
       }],
       source: 'Deal issue log',
     });
   }
 
-  const commitments = detectCommitments(channel?.messages || liveChannel?.results || [], { source: 'Teams' });
+  const commitments = detectCommitments(channel?.messages || liveChannel?.results || [], { source: liveChannel?.results?.length ? 'Microsoft Teams channel' : 'deal channel, composed from the deal record' });
   const decisions = detectDecisions(channel?.messages || liveChannel?.results || []);
 
   // Catch-up: what a person who was away needs, expressed as key point / open
@@ -442,8 +509,12 @@ export function buildThreads(deal, { channel = null, notes = [], liveChannel = n
   const catchUp = msgs.length ? {
     count: fresh.length,
     window: fresh.length ? 'since yesterday evening' : 'no new messages in the last 36 hours',
-    keyPoint: (fresh[0] || msgs[msgs.length - 1])?.text?.slice(0, 220) || null,
-    openQuestion: commitments.length ? `${commitments[0].author} committed to "${commitments[0].dueText || 'a date'}" — no task exists for it.` : null,
+    keyPoint: clip((fresh[0] || msgs[msgs.length - 1])?.text, 220) || null,
+      openQuestion: commitments.length
+        ? (commitments[0].dueText
+          ? `${commitments[0].author} committed to "${commitments[0].dueText}" — no task exists for it.`
+          : `${commitments[0].author} made a commitment here with no date against it, and no task exists for it.`)
+        : null,
     decision: decisions.length ? decisions[0].text.slice(0, 200) : 'No decision has been recorded in this thread.',
     basis: 'Composed from the channel messages above — nothing is inferred beyond them',
   } : null;
@@ -489,18 +560,35 @@ export function buildDocumentDesk(deal, { files = [], since = null, live = [] } 
   const currentIdx = Math.max(0, stepIndex(deal.currentStep || deal.stage));
   const sinceMs = since ? new Date(since).getTime() : newest(files, 'lastModified') - 36 * 3600 * 1000;
 
-  const docs = [...files, ...live].map((f, i) => {
+  const paperKey = (name) => String(name || '')
+    .split('—').pop()
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\bv\d+\b|\bdraft\b|\bfinal\b|\bapproved\b|\bconfidential\b/gi, '')
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(/[^a-z0-9]/gi, '')
+    .toLowerCase();
+  const byKey = new Map();
+  for (const f of [...files, ...live]) byKey.set(paperKey(f.name), f);
+  const onRecord = [];
+  const alias = new Map();
+  for (const r of deal.documents || []) {
+    const hit = byKey.get(paperKey(r.name));
+    if (hit) alias.set(hit.name, r.name);
+    else onRecord.push(r);
+  }
+  const docs = [...files, ...live, ...onRecord].map((f, i) => {
     const changedAt = new Date(f.lastModified || f.modified || 0).getTime();
     return {
       id: f.id || `doc-${i}`,
       name: f.name,
       kind: kindOf(f.name),
       sensitivity: sensitivity(f.name),
-      summary: f.summary || null,
-      lastModified: iso(f.lastModified || f.modified),
+      summary: f.summary ? reconcileFindingText(f.summary, deal) : null,
+      lastModified: iso(f.lastModified || f.modified || f.updated),
       webUrl: f.webUrl || null,
       changed: !!changedAt && changedAt >= sinceMs,
       live: !!f.webUrl,
+      recordName: alias.get(f.name) || null,
     };
   });
 
@@ -512,8 +600,10 @@ export function buildDocumentDesk(deal, { files = [], since = null, live = [] } 
       || findings.find((f) => laneFor(d.name) === f.lane);
     return {
       ...d,
-      delta: hit ? hit.text : (d.summary || 'Content updated.'),
-      deltaTone: hit ? (hit.severity === 'positive' ? 'good' : hit.severity === 'caution' || hit.severity === 'negative' ? 'bad' : 'warn') : 'warn',
+      // Repeating the document's own summary under a warning pill is an alarm about
+      // nothing. Where there is no finding to point at, say what we actually know.
+      delta: hit ? reconcileFindingText(hit.text, deal) : null,
+      deltaTone: hit ? (hit.severity === 'positive' ? 'good' : hit.severity === 'caution' || hit.severity === 'negative' ? 'bad' : 'warn') : 'muted',
       author: hit ? ownerLabel(hit.owner, hit.lane) : 'Deal team',
       basis: hit ? `Matched to the ${laneLabel(hit.lane)} finding "${String(hit.source || '').trim()}"` : 'Data room metadata',
     };
@@ -531,10 +621,30 @@ export function buildDocumentDesk(deal, { files = [], since = null, live = [] } 
         doc: doc?.name || `${laneLabel(f.lane)} pack`,
         ref: f.source || laneLabel(f.lane),
         author: ownerLabel(f.owner, f.lane),
-        text: f.text,
+        text: reconcileFindingText(f.text, deal),
         webUrl: doc?.webUrl || null,
       };
     });
+
+// Not every declared output is a FILE. The gap list matched artefact names against the
+// data room only, so it reported "Workstream owners assigned" missing on a deal whose
+// Brief names four owners two clicks earlier, and "Deal workspace (Teams + SharePoint)"
+// missing on a deal carrying a live data-room URL. A gap the record disproves is worse
+// than no gap list.
+function satisfiedByRecord(artefact, deal) {
+  const a = String(artefact || '').toLowerCase();
+  const lanes = deal.workstreams || [];
+  if (/owner|assign/.test(a)) return lanes.length > 0 && lanes.every((w) => w.owner);
+  if (/workspace|teams|sharepoint|data ?room/.test(a)) return !!(deal.teamsChannel || deal.dataRoomUrl || deal.dataRoomSeeded);
+  if (/checklist|template/.test(a)) return !!(deal.checklistStats && (deal.checklistStats.total || 0) > 0);
+  if (/finding|red.?flag/.test(a)) {
+    const lane = /tech|ai/.test(a) ? 'techai' : /commercial/.test(a) ? 'commercial' : /financial|qoe/.test(a) ? 'financial' : /legal/.test(a) ? 'legal' : null;
+    if (lane) return lanes.some((w) => w.lane === lane && (w.findings || []).length);
+    return lanes.some((w) => (w.findings || []).length);
+  }
+  if (/memo/.test(a)) return (deal.memoSections || []).some((m) => m.status === 'approved' || m.status === 'draft');
+  return false;
+}
 
   // Gap detection — the flow already declares produces[] for every step, so we can
   // say precisely what a deal at this stage should have and does not. Scoped to the
@@ -548,7 +658,18 @@ export function buildDocumentDesk(deal, { files = [], since = null, live = [] } 
     for (const p of s.produces || []) {
       const words = String(p).toLowerCase().split(/\W+/).filter((w) => w.length > 4);
       const covered = words.length && have.some((n) => words.some((w) => n.includes(w)));
-      if (!covered) gaps.push({ artefact: p, step: s.title, stepKey: s.key, owner: ownerLabel(s.owner, null) });
+      if (covered || satisfiedByRecord(p, deal)) continue;
+      const stepDone = STEPS.indexOf(s) < currentIdx;
+      gaps.push({
+        artefact: p,
+        step: s.title,
+        stepKey: s.key,
+        owner: ownerLabel(s.owner, null),
+        stepDone,
+        note: stepDone
+          ? 'Nothing matching is in the data room. The step is behind the deal on the plan, so check whether the paper was filed elsewhere.'
+          : null,
+      });
     }
   }
 
@@ -573,6 +694,6 @@ export function buildDocumentDesk(deal, { files = [], since = null, live = [] } 
     // It used to read "Derived from the produces[] list declared on the diligence-stage
     // flow steps up to D4", which names three internal structures and a step code and
     // explains nothing to the partner reading it.
-    gapBasis: `Every step this deal has reached says which papers it should produce. These are the ones the ${(currentStep?.stage || 'current')} steps completed so far have not produced yet.`,
+    gapBasis: `Every step this deal has reached says which papers it should produce. These are the ones with nothing matching in the data room — for steps the deal has already passed, that is a records gap rather than work outstanding, and the row says so.`,
   };
 }

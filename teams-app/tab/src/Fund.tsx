@@ -6,10 +6,10 @@ import { isPostIC } from './deskUi';
 //   /api/fund/overview  — fund / LP performance + concentration vs LPA limits
 //   /api/fund/portfolio — owned-company monitoring (VCP, KPIs, MOIC, status)
 
-type Concentration = { name: string; equity: number; pctOfFund: number; pctOfInvested: number; limitPct: number | null; status: string };
+type Concentration = { name: string; equity: number; pctOfFund: number; pctOfInvested: number; limitPct: number | null; status: string; testedOn?: string | null; basis?: string };
 type Overview = {
   fund: { name: string; strategy: string; vintageYear: number; investmentPeriod: string; fundSizeLabel: string };
-  capital: { committed: number; invested: number; reserves: number; dryPowder: number; deployedPct: number; portfolioCompanies: number; dryPowderNote?: string };
+  capital: { committed: number; invested: number; reserves: number; dryPowder: number; deployedPct: number; portfolioCompanies: number; dryPowderNote?: string; feesDrawn?: number; paidIn?: number; paidInBasis?: string };
   performance: { grossMoic: number; netMoic: number; grossIrrPct: number; netIrrPct: number; dpi: number; rvpi: number; tvpi: number; realized: number; unrealized: number; totalValue: number };
   concentration: { maxSectorPct: number; maxDealPct: number; bySector: Concentration[]; byRegion: Concentration[]; largestPosition: { company: string; pctOfFund: number; limitPct: number; status: string } };
   lpTerms: { preferredReturnPct: number; carryPct: number; managementFeePct: number; esgPolicy: string };
@@ -22,6 +22,7 @@ type Company = {
   holdMonths: number; entryEV: number; entryEquity: number; entryMultiple: number; entryEbitda: number;
   currentEbitda: number; currentMultiple: number; currentEV: number; currentEquity: number; ebitdaGrowthPct: number;
   realized: number; grossMoic: number; grossIrr: number; vcpProgress: number; hundredDayPct: number;
+  valuationPolicy?: { framework: string; approach: string; basis: string; multipleMoved: number };
   levers: Lever[]; kpis: Kpi[]; kpiVariancePct: number; addOns: { completed: number; pipeline: number };
 };
 type Portfolio = { count: number; statusCounts: { onTrack: number; watch: number; underperform: number }; addOnsClosed: number; addOnsPipeline: number; avgVcpProgress: number; companies: Company[] };
@@ -132,11 +133,20 @@ export default function Fund({ deals, onOpenDeal }: { deals?: { id: string; comp
       <div className="fnd-kpis">
         <Kpi v={ov.fund.fundSizeLabel} l="Committed capital" s={`${ov.capital.deployedPct}% invested`} />
         <Kpi v={usd(ov.capital.invested)} l="Invested" s={`${usd(ov.capital.dryPowder)} dry powder — ${ov.capital.dryPowderNote || 'net of reserves'}`} />
-        <Kpi v={`${p.tvpi.toFixed(2)}x`} l="TVPI (gross)" s={`DPI ${p.dpi.toFixed(2)}x · RVPI ${p.rvpi.toFixed(2)}x`} />
-        <Kpi v={`${p.grossMoic.toFixed(2)}x`} l="Gross MOIC" s={`Net ${p.netMoic.toFixed(2)}x`} />
+        <Kpi v={`${p.tvpi.toFixed(2)}x`} l="TVPI (on paid-in)" s={`DPI ${p.dpi.toFixed(2)}x · RVPI ${p.rvpi.toFixed(2)}x`} />
+        <Kpi v={`${p.grossMoic.toFixed(2)}x`} l="Gross MOIC (on invested)" s={`Net ${p.netMoic.toFixed(2)}x`} />
         <Kpi v={`${p.grossIrrPct}%`} l="Gross IRR" s={`Net ${p.netIrrPct}%`} />
         <Kpi v={usd(p.totalValue)} l="Total value" s={`${usd(p.unrealized)} unrealised · ${usd(p.realized)} realised`} />
       </div>
+
+      {/* The two multiples are struck on different denominators, and a reader who cannot
+          see paid-in capital has no way to reconcile 1.62x with 1.46x. Print the bridge. */}
+      {ov.capital.paidIn ? (
+        <div className="fnd-paidin">
+          <span className="fnd-paidin-fig">Paid-in capital {usd(ov.capital.paidIn)}</span>
+          <span className="fnd-paidin-note">{ov.capital.paidInBasis}</span>
+        </div>
+      ) : null}
 
       {/* Watchlist — deteriorating names that need action */}
       {(() => {
@@ -236,6 +246,14 @@ export default function Fund({ deals, onOpenDeal }: { deals?: { id: string; comp
               {openId === c.id ? (
                 <div className="fnd-detail">
                   <p className="c-thesis">{c.thesis}</p>
+                  {/* A mark of 0.64x with no stated basis has no answer to "on what basis
+                      is that written down", which is the first thing an LP asks. */}
+                  {c.valuationPolicy ? (
+                    <div className="c-valpol">
+                      <span className="c-valpol-h">How this mark is struck · {c.valuationPolicy.framework}</span>
+                      <span>{c.valuationPolicy.approach} {c.valuationPolicy.basis}</span>
+                    </div>
+                  ) : null}
                   <div className="c-grid">
                     <div>
                       {/* "VALUE-CREATION PLAN 57%" in the row above and "100-day 100%"
@@ -297,7 +315,7 @@ export default function Fund({ deals, onOpenDeal }: { deals?: { id: string; comp
       <section className="fnd-panel">
         <div className="fnd-panel-h">
           <span>Portfolio concentration vs LPA limits</span>
-          <span className="fnd-mut">Max {ov.concentration.maxSectorPct}% per sector · {ov.concentration.maxDealPct}% per deal (of fund)</span>
+          <span className="fnd-mut">Max {ov.concentration.maxSectorPct}% per sector · {ov.concentration.maxDealPct}% per deal, tested on committed capital</span>
         </div>
         <div className="fnd-conc">
           {ov.concentration.bySector.map((s) => (
@@ -307,13 +325,17 @@ export default function Fund({ deals, onOpenDeal }: { deals?: { id: string; comp
                 <span className={`conc-fill ${concClass(s.status)}`} style={{ width: `${Math.min(100, (s.pctOfFund / ov.concentration.maxSectorPct) * 100)}%` }} />
                 <span className="conc-limit" title={`LPA limit ${ov.concentration.maxSectorPct}%`} />
               </span>
-              <span className="conc-val">{s.pctOfFund}% of fund <em>({s.pctOfInvested}% of invested)</em></span>
+              <span className="conc-val" title={s.basis || ''}>{s.pctOfFund}% of commitments <em>({s.pctOfInvested}% of capital deployed)</em></span>
             </div>
           ))}
           <div className="conc-note">
-            Largest single position: <strong>{ov.concentration.largestPosition.company}</strong> at {ov.concentration.largestPosition.pctOfFund}% of fund
+            Largest single position: <strong>{ov.concentration.largestPosition.company}</strong> at {ov.concentration.largestPosition.pctOfFund}% of commitments
             <span className={`pill ${concClass(ov.concentration.largestPosition.status)}`}>vs {ov.concentration.largestPosition.limitPct}% cap</span>
           </div>
+          {/* One position could be read as 11.2%, 24.6% or 15.8% depending on which
+              denominator a reader picked, and nothing on the page said which one the cap
+              was written against. LPA caps are struck on commitments. */}
+          <div className="conc-basis">Caps are written against committed capital, so that is the number the status is decided on. The share of capital deployed to date is shown for context and is not the test.</div>
         </div>
       </section>
 
@@ -447,6 +469,12 @@ const CSS = `
 .conc-val { color: var(--muted); font-size: 12px; }
 .conc-val em { font-style: normal; opacity: .7; }
 .conc-note { margin-top: 4px; font-size: 12.5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.conc-basis { font-size: 11.5px; color: var(--muted); line-height: 1.5; border-top: 1px dashed var(--border); padding-top: 8px; }
+.c-valpol { display: flex; flex-direction: column; gap: 3px; margin: 0 0 10px; padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px; font-size: 11.5px; color: var(--muted); line-height: 1.55; }
+.c-valpol-h { color: var(--fg); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .3px; }
+.fnd-paidin { margin: -4px 0 12px; padding: 9px 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.fnd-paidin-fig { font-size: 13px; font-weight: 600; }
+.fnd-paidin-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; flex: 1 1 320px; }
 .fnd-ilpa { margin: 0; padding: 12px 16px 14px 34px; display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--fg); }
 .fnd-ilpa li { opacity: .9; }
 .fnd-retry { border: 1px solid var(--border); background: var(--card); color: var(--fg); border-radius: 6px; padding: 4px 12px; font: inherit; font-size: 12.5px; cursor: pointer; margin-left: 6px; }

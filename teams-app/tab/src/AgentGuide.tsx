@@ -66,7 +66,7 @@ export default function AgentGuide({ roleLabel, canViewStage2, canWrite, onAsk }
               used a third of what she was paying for without it. It stays collapsed --
               it was 350px of catalogue above the first fact about a deal -- but it now
               says what it is rather than describing its own filing order. */}
-          <span className="ag-sub">models, memos, checklists, 100-day plans — open this first{roleLabel ? <> · shown for <strong>{roleLabel}</strong></> : null}</span>
+          <span className="ag-sub">models, memos, checklists, 100-day plans{roleLabel ? <> · shown for <strong>{roleLabel}</strong></> : null}</span>
           {/* She scrolled past this row twice without registering that it opened. It
               read as a section heading, because that is what a bold line with a grey
               line under it looks like. It stays collapsed -- 350px of catalogue above

@@ -512,7 +512,7 @@ export async function buildDocumentBriefDocx(deal, brief = {}) {
 
   children.push(sectionHeading('Diligence findings recorded against it'));
   if (!findings.length) {
-    children.push(body('Nothing in the diligence findings refers to this document yet.'));
+    children.push(body(brief.unattributedNote || 'Nothing in the diligence findings refers to this document yet.'));
   } else {
     children.push(
       body('Each finding notes why it appears here: either it names this document as its source, or it belongs to the same workstream.'),
@@ -575,7 +575,7 @@ export async function buildDocumentBriefPdf(deal, brief = {}) {
 
   blocks.push({ t: 'h', text: 'Diligence findings recorded against it' });
   if (!findings.length) {
-    blocks.push({ t: 'p', text: 'Nothing in the diligence findings refers to this document yet.', color: '6B7280' });
+    blocks.push({ t: 'p', text: brief.unattributedNote || 'Nothing in the diligence findings refers to this document yet.', color: '6B7280' });
   } else {
     blocks.push({ t: 'p', text: 'Each finding notes why it appears here: either it names this document as its source, or it belongs to the same workstream.', color: '6B7280' });
     for (const f of findings) {

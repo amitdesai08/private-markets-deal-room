@@ -225,8 +225,22 @@ function buildComposedInput({ scope, focusId, focusCompany, message, lens, ident
 }
 
 // ---- the tool loop ----------------------------------------------------------
-async function runToolLoop({ scope, focusId, focusCompany, message, previousResponseId, identity, viewAsRole, lens, onDelta, onReset }) {
+// What each fetch is for, said the way the product says it everywhere else.
+const TOOL_STATUS = {
+  deal_analyst_view: 'Reading the deal record',
+  deal_case: 'Reading the case',
+  deal_returns: 'Reading the returns model',
+  deal_risk_register: 'Reading the risk register',
+  deal_ic_readiness: 'Reading the readiness board',
+  deal_documents: 'Looking through the papers',
+  workiq_search: 'Searching the deal channel',
+  workiq_documents: 'Looking through the papers',
+  list_deals: 'Reading the deal list',
+};
+
+async function runToolLoop({ scope, focusId, focusCompany, message, previousResponseId, identity, viewAsRole, lens, onDelta, onReset, onStatus }) {
   const agentRef = { name: AGENT_NAME, type: 'agent_reference' };
+  // What the reader sees while a fetch is in flight, in the product's own words.
   const toolNamesUsed = [];
   // A turn either answers or fetches. Text from a turn that then fetches is the model
   // thinking aloud on the way to a tool, and leaving it on screen would show the reader a
@@ -246,9 +260,12 @@ async function runToolLoop({ scope, focusId, focusCompany, message, previousResp
     if (!calls.length) break;
     if (turnHadText && onReset) onReset();
     turnHadText = false;
-    const outputs = [];
-    for (const call of calls.slice(0, MAX_CALLS_PER_TURN)) {
+    const batch = calls.slice(0, MAX_CALLS_PER_TURN);
+    for (const call of batch) {
       toolNamesUsed.push(call.name);
+      if (onStatus) onStatus(TOOL_STATUS[call.name] || 'Checking the record');
+    }
+    const outputs = await Promise.all(batch.map(async (call) => {
       // Data-sovereignty guard: this is an internal-data agent, so refuse any web/egress
       // tool before it runs (no path to exfiltrate deal data), regardless of what the
       // model emitted. Governed reads/writes fall through to dispatchTool as before.
@@ -258,12 +275,12 @@ async function runToolLoop({ scope, focusId, focusCompany, message, previousResp
         : call.name.startsWith('workiq_')
           ? await dispatchWorkiq(call.name, call.args, { hidden: hiddenCompanyNames(identity, viewAsRole) })
           : dispatchTool(call.name, call.args, { scope, focusId, focusCompany, identity, viewAsRole });
-      outputs.push({
+      return {
         type: 'function_call_output',
         call_id: call.callId,
         output: JSON.stringify(result).slice(0, MAX_OUTPUT_CHARS)
-      });
-    }
+      };
+    }));
     data = await send({ model: AGENT_MODEL, agent_reference: agentRef, previous_response_id: data.id, input: outputs });
   }
 
@@ -315,7 +332,7 @@ async function dealFallback(focusId, message, lens) {
 //   scope defaults to 'deal' when a dealId is given, else 'portfolio'. When an identity
 //   is supplied, every deal read is gated to what that user may see (no RBAC bypass).
 //   askerPersona pins the persona lens to the specific specialist the caller signed in as.
-export async function chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole, askerPersona , onDelta, onReset } = {}) {
+export async function chatDealAgent({ message, dealId, scope, previousResponseId, identity, viewAsRole, askerPersona , onDelta, onReset, onStatus } = {}) {
   const text = String(message || '').trim();
   if (!text) return { error: 'message-required' };
   const lens = lensBlock({ identity, viewAsRole, persona: askerPersona });
@@ -378,7 +395,8 @@ export async function chatDealAgent({ message, dealId, scope, previousResponseId
       viewAsRole,
       lens,
       onDelta,
-      onReset
+      onReset,
+      onStatus
     });
     if (!reply) throw new Error('empty agent reply');
     // Checked, not trusted: the prompt asks for the record's figures, this makes sure

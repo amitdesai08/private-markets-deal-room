@@ -550,7 +550,16 @@ export async function listDealDocuments(deal) {
     .filter((x) => x.file)
     .map((x) => ({ id: x.id, name: x.name, size: x.size, webUrl: x.webUrl, modified: x.lastModifiedDateTime, mime: x.file?.mimeType || null }))
     .sort((a, b) => String(b.modified || '').localeCompare(String(a.modified || '')));
-  return { folderUrl, folders, documents };
+  const empty = folders.filter((f) => !f.childCount).length;
+  return {
+    folderUrl,
+    folders,
+    documents,
+    // The one thing a reader cannot work out from the tree itself.
+    foldersNote: empty
+      ? `The data room is provisioned with the fund\u2019s standard folder framework, so ${empty} of the ${folders.length} folders are still empty. Diligence recorded against this deal lives on the workstreams; only what has been filed appears here.`
+      : null,
+  };
 }
 
 // Provision the standard VDR folder framework INSIDE this deal's own data-room

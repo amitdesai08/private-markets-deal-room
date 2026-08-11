@@ -25,7 +25,7 @@ import { screenText } from './contentSafety.js';
 import { dealAccessLevel } from './userPolicy.js';
 import { lensBlock } from './personaLens.js';
 import { workiqNotesContext } from './workiqMemory.js';
-import { houseStyle } from './ai.js';
+import { houseStyle, normalisingEmitter } from './ai.js';
 import { answerFromRecord } from './knownAnswers.js';
 import { consumeSse, readResponseStream } from './sse.js';
 import { figuresBlock, enforceFigures } from './diligence.js';
@@ -200,6 +200,12 @@ function baseContext({ scope, focusId, focusCompany, lens, identity, viewAsRole 
       'say that the record does not hold it. NEVER report a tool error, an access denial or a',
       'permission problem to the reader — they have access; you are the one who does not, and',
       'that is our plumbing rather than a fact about their deal.',
+      '',
+      'YOU CANNOT CHANGE THE RECORD. Asked to log an issue, it opened "blocking issue logged"',
+      'and nothing had been logged — the audit trail was unchanged. Never write that you have',
+      'logged, recorded, raised, updated, resolved, assigned or created anything. You propose;',
+      'a named person approves; only then does the record move. Say what you would log and who',
+      'has to approve it, in the future tense.',
       JSON.stringify(dealAnalystView(focusId)),
       ...(authoritative ? ['', authoritative] : []),
       ...(wiq ? ['', wiq] : []),
@@ -291,10 +297,43 @@ const PLUMBING_RE = new RegExp([
   '\\{"error"',
   'ask (?:the deal lead|an administrator) (?:or an administrator )?(?:to|for)',
 ].join('|'), 'i');
+// Field paths and record slugs reach the reader inside a sentence, where a line filter
+// cannot see them: "(Sources: returns.scenarios; The case.)" and "Source:
+// lumen-analytics deal record". The reader is owed the name of the screen.
+const FIELD_PATH_WORDS = {
+  'returns.scenarios': 'the returns scenarios',
+  'returns.entrymultiple': 'the entry multiple',
+  'returns.entry': 'the returns entry',
+  'returns.assumptions': 'the modelling assumptions',
+  'returns.exit': 'the exit assumptions',
+  'keyfigures': 'the key figures',
+  'riskregister.risks': 'the risk register',
+  'riskregister': 'the risk register',
+  'icreadiness': 'the committee-readiness board',
+  'workstreams.findings': 'the workstream findings',
+  'workstreams': 'the workstreams',
+  'documents': 'the papers',
+};
+export function sayItInWords(text, companyFor = null) {
+  let s = String(text || '');
+  // camelCase or dotted identifiers used as a source.
+  s = s.replace(/\b([a-z][a-zA-Z0-9]*(?:\.[a-zA-Z][a-zA-Z0-9]*)+)\b/g, (m) => FIELD_PATH_WORDS[m.toLowerCase()] || m);
+  s = s.replace(/\b(keyFigures|riskRegister|icReadiness|dealRecord)\b/g, (m) => FIELD_PATH_WORDS[m.toLowerCase()] || m);
+  // "lumen-analytics deal record" -- a URL slug where the company name belongs.
+  s = s.replace(/\b([a-z0-9]+(?:-[a-z0-9]+)+)\s+deal record\b/g, (m, slug) => {
+    const name = companyFor && companyFor(slug);
+    return name ? `the ${name} deal record` : 'the deal record';
+  });
+  // Any remaining dotted path inside a Sources list.
+  s = s.replace(/\bPrecise value:\s*/gi, '');
+  s = s.replace(/\bRounded text:\s*/gi, '');
+  return s;
+}
+
 export function withoutPlumbing(text) {
   if (!text) return text;
   const kept = String(text).split(/\n/).filter((line) => !PLUMBING_RE.test(line)).join('\n');
-  const cleaned = kept.replace(/\n{3,}/g, '\n\n').trim();
+  const cleaned = sayItInWords(kept).replace(/\n{3,}/g, '\n\n').trim();
   // If stripping would empty the answer, the confession WAS the answer; say something true
   // instead of showing the reader our internals or nothing at all.
   return cleaned || 'I could not assemble an answer from the deal record for that question. Ask it about a specific figure on the deal and I will answer from the record.';
@@ -438,6 +477,7 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
     message: text,
     deals: listDeals(identity, viewAsRole),
     rawFor: getDealRaw,
+    focusId,
   });
   if (known) {
     // Nothing was generated, so there is nothing to stream — but the caller is watching a
@@ -446,10 +486,43 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
     return { ...known, scope: effScope, dealId: focusId, citations: known.citations || [] };
   }
 
+  // Cover for whichever path answers. Reading a script that runs out and repeats is
+  // worse than a spinner, so the tail rotates through what is genuinely still happening.
+  const ladder = (steps, tail) => {
+    let step = 0;
+    let tailAt = 0;
+    return setInterval(() => {
+      if (step < steps.length) { emit({ type: 'status', text: steps[step] }); step += 1; return; }
+      emit({ type: 'status', text: tail[tailAt % tail.length] });
+      tailAt += 1;
+    }, 2200);
+  };
+  const TAIL = ['Putting the answer together', 'Checking the answer against the record', 'Making sure every figure cites where it came from'];
+
   // The fast path, unless the question has earned the slow one.
   if (!needsSpecialists(text)) {
     emit({ type: 'status', text: 'Reading the deal record' });
-    const fast = await chatDealAgent({ message, dealId: focusId || dealId, scope: effScope, previousResponseId, identity, viewAsRole, askerPersona, onDelta: (d) => emit({ type: 'delta', text: d }) });
+    // One line that never changes for twenty seconds reads as a stall. Say what is being
+    // read, in the order it is read, whether or not the model goes back for more.
+    const steps = [
+      'Reading the case',
+      'Reading the returns model',
+      'Reading the risk register',
+      'Reading the readiness board',
+      'Checking each figure against its source',
+      'Reading what the workstreams have recorded',
+      'Checking the committee papers',
+      'Putting the answer together',
+      'Checking the answer against the record',
+    ];
+    const tick = ladder(steps, TAIL);
+    // Nothing reaches the screen that a later tidy would rewrite.
+    const stream = normalisingEmitter((d) => emit({ type: 'delta', text: d }));
+    // One line that never changes reads as a stall. The agent knows when it goes to fetch
+    // something; say what it went for.
+    const fast = await chatDealAgent({ message, dealId: focusId || dealId, scope: effScope, previousResponseId, identity, viewAsRole, askerPersona, onStatus: (s) => emit({ type: 'status', text: s }), onDelta: (d) => stream.delta(d) });
+    clearInterval(tick);
+    stream.end();
     return fast && fast.reply ? { ...fast, reply: withoutPlumbing(fast.reply), orchestration: 'direct' } : fast;
   }
 
@@ -473,6 +546,16 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
         ? `Consulting the ${LABELS[specialists[0]] || specialists[0]} specialist`
         : `Consulting the ${specialists.map((s) => LABELS[s] || s).join(' and ')} specialists`,
     });
+    // Ten and a half seconds on one unchanging line, twice reproduced. The specialist
+    // path answers the returns questions, which are the ones asked in the room.
+    const specTick = ladder([
+      'Reading the deal record',
+      'Reading the returns model',
+      'Working through the entry and exit assumptions',
+      'Testing the downside',
+      'Checking the leverage against the structure',
+      'Reading the risk register for anything that moves the price',
+    ], TAIL);
     const findings = await clock('specialists', () => Promise.all(specialists.map((slug) => clock(
       `specialist:${slug}`,
       () => consultSpecialist(slug, ctx, text, solo ? ((d) => emit({ type: 'delta', text: d })) : undefined)
@@ -480,6 +563,7 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
         // the reader can see the thing is moving and roughly how far in it is.
         .then((f) => { if (!solo) emit({ type: 'status', text: `${LABELS[slug] || slug} specialist has reported` }); return f; }),
     ))));
+    clearInterval(specTick);
 
     // 3) Compose — only when there is something to compose. With one specialist the
     // "synthesis" was a pass-through that cost 13.7 seconds to restate a single finding.

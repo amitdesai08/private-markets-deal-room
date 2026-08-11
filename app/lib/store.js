@@ -21,7 +21,7 @@ import { uploadFiles as uploadFilingFiles, getFile as getBlobFile } from './blob
 import { writeFilingSet, listFilings, onelakeInfo, onelakeStatusSync, onelakeConfigured } from './onelake.js';
 import { markSync, listConnectors } from './connectors.js';
 import { fundMandate, seedThemes, seedScreens } from '../data/mandates.js';
-import { scoreTargets, scoreScreen, gateCompany, validateScreen } from './scoring.js';
+import { scoreTargets, scoreScreen, gateCompany, validateScreen, explainScreenScore } from './scoring.js';
 import { buildScorecard, buildTriageScore, buildMemoBase } from './screening.js';
 import { buildDiligencePlan, buildFindingsReport, buildFinalMemoBase, buildExecutionPack, buildCloseoutPlan, buildReturnsModel, buildValueCreationPlan, buildRiskRegister, buildIoi, buildLoi } from './diligence.js';
 import { buildDealCase } from './dealCase.js';
@@ -33,6 +33,7 @@ import {
   PASS_REASONS,
   PARK_REASONS,
   reasonLabel,
+  seedCandidates,
   stageIndex as candStageIndex
 } from '../data/candidates.js';
 import { initRepo, repoMode, repoReady, companies as coRepo, deals as dealRepo, signals as sigRepo, recordEvent } from './repo/index.js';
@@ -109,6 +110,8 @@ function attachWorkspaces(list) {
         if (ws && ws.owner) sl.md = ws.owner;
       }
     }
+    // The committee date belongs to the deal, not to the workspace that mirrors it.
+    if (d.workspace && d.targetICDate && d.workspace.icDate !== d.targetICDate) d.workspace.icDate = d.targetICDate;
     const migrated = ensureFirstClassLanes(d);
     normalizeTeamsLinks(d);
     normalizePlaybookTemplates(d);
@@ -347,7 +350,15 @@ export async function hydrate() {
         attachWorkspaces([dd]);
         deals.push(dd);
       }
-      reseedSequences();
+      // Scaffolding that the fixture itself wrote, kept out of the record rather than
+  // filtered out of the two views that happen to render activity.
+  const SCAFFOLD = /reset to its starting state|restored to the firm’s baseline|demo fixture/i;
+  for (const dd of deals) {
+    if (!Array.isArray(dd.activity) || !dd.activity.some((x) => SCAFFOLD.test(String(x?.action || '')))) continue;
+    dd.activity = dd.activity.filter((x) => !SCAFFOLD.test(String(x?.action || '')));
+    persistDeal(dd);
+  }
+  reseedSequences();
     }
     return { mode: repoMode(), companies: 0, deals: deals.length };
   }
@@ -371,6 +382,21 @@ export async function hydrate() {
       attachWorkspaces([dd]);
       deals.push(dd);
       persistDeal(dd);
+    }
+    // THE SAME FOR CANDIDATES, WHICH NOBODY HAD EVER SEEDED.
+    //
+    // Deals were inserted on boot when missing and candidates were not, so on a fresh
+    // datastore the screening desk came back with candidates: [] for ever — while the
+    // funnel above it, which counts deals, went on printing "Sourced 19 · Screened 19 ·
+    // Shortlisted 16". A count with nothing under it is worse than an empty desk: it
+    // tells a reader the list failed to load. Insert by id, never clobbering, exactly as
+    // the deals above, so a candidate someone has since screened or passed is left alone.
+    const haveCandIds = new Set(candidates.map((c) => c.id));
+    for (const demo of seedCandidates) {
+      if (haveCandIds.has(demo.id)) continue;
+      const cc = clone(demo);
+      candidates.push(cc);
+      persistCand(cc);
     }
     // WHO MAY KNOW A DEAL EXISTS IS POLICY, NOT WORK IN PROGRESS.
     //
@@ -797,14 +823,72 @@ const RECORD_OWNED = new Set([
   'icReadinessMark', 'canonicalId',
 ]);
 
+function mergeWorkstreams(liveLanes = [], demoLanes = []) {
+  return liveLanes.map((live) => {
+    const demo = demoLanes.find((w) => w.lane === live.lane);
+    if (!demo) return live;
+    // The committed completion date belongs to the fixture, whether or not the lane
+    // carries a finding. Returning early here left two hundred outstanding items undated.
+    const dated = demo.dueDate !== undefined ? { ...live, dueDate: demo.dueDate } : live;
+    if (!(demo.findings || []).length) return dated;
+    const base = dated;
+    const findings = (base.findings || []).map((f, i) => {
+      const from = (demo.findings || [])[i];
+      if (!from || f.by || f.author || f.recordedBy) return f;
+      return { ...f, text: from.text, severity: from.severity ?? f.severity, source: from.source ?? f.source };
+    });
+    // Findings the fixture has added since the store was written. Nobody has recorded
+    // anything against them, so there is nothing of the firm's to preserve.
+    const extra = (demo.findings || []).slice(findings.length);
+    const merged = extra.length ? [...findings, ...extra] : findings;
+    // Where the fixture has opened a workstream the store still shows as unstarted, the
+    // progress and status belong to the fixture too.
+    const untouched = !(base.findings || []).length && !(base.contributions || []).length;
+    return untouched
+      ? { ...base, findings: merged, status: demo.status ?? base.status, progress: demo.progress ?? base.progress }
+      : { ...base, findings: merged };
+  });
+}
+
+function mergeActivity(liveRows = [], demoRows = []) {
+  const live = Array.isArray(liveRows) ? liveRows : [];
+  const demo = Array.isArray(demoRows) ? demoRows : [];
+  if (!demo.length) return live;
+  const written = live.length > demo.length ? live.slice(0, live.length - demo.length) : [];
+  const tail = live.length >= demo.length ? live.slice(live.length - demo.length) : [];
+  const refreshed = demo.map((row, i) => ({ ...row, when: tail[i]?.when ?? row.when }));
+  return [...written, ...refreshed];
+}
+
 // Apply the fixture to a live deal without touching anything the record owns.
+// Rows written by automated probes and access reviews. Not the firm's work, and one
+// failover away from being on screen in front of buyers.
+const TEST_RESIDUE = /readonly-probe|boundary check|should be refused|attribution test|please ignore|access-review probe|smoke test|workstream blocking IC|^test[ -]/i;
+function stripResidue(rows) {
+  return (Array.isArray(rows) ? rows : []).filter((r) => !TEST_RESIDUE.test(String((r && (r.title || r.name || r.label)) || '')));
+}
+
 function applyFixture(live, demo) {
   const next = clone(demo);
   for (const k of RECORD_OWNED) {
     if (k in live) next[k] = live[k]; else delete next[k];
   }
+  if (Array.isArray(live.workstreams)) next.workstreams = mergeWorkstreams(live.workstreams, demo.workstreams);
+  // The papers list is the fixture's, and a summary or a date added to it has to arrive.
+  if (Array.isArray(demo.documents)) next.documents = demo.documents;
+  if (Array.isArray(live.activity)) next.activity = mergeActivity(live.activity, demo.activity);
+  if (Array.isArray(next.issues)) next.issues = stripResidue(next.issues);
+  if (Array.isArray(next.conditions)) next.conditions = stripResidue(next.conditions);
   return next;
 }
+
+// Ids this fixture shipped under and no longer uses. Kept explicitly so the purge below
+// can never reach a deal the firm created for itself.
+const RETIRED_SEED_IDS = [
+  'demo-cascadia', 'demo-beaconhill', 'demo-lonestar', 'demo-peachtree', 'demo-greatlakes',
+  'demo-mojave', 'demo-riverbend', 'demo-harborlight', 'demo-cypress', 'demo-helvetia',
+  'demo-meridian', 'demo-aurora', 'demo-sterling', 'demo-onyx',
+];
 
 export function resyncSeededDeals({ persona = null, mode = 'rules' } = {}) {
   const when = new Date().toISOString();
@@ -822,7 +906,7 @@ export function resyncSeededDeals({ persona = null, mode = 'rules' } = {}) {
       dd.activity = [
         // The audit trail is the one surface whose whole value is being defensible to a
         // compliance reader. A repo path in it says the record is a developer artefact.
-        { actor: who, action: 'Deal reset to its starting state. Anything recorded against this deal before now was discarded.', when },
+        { actor: who, action: 'Deal record restored to the firm\u2019s baseline. Anything recorded against this deal before now was discarded.', when },
         ...(Array.isArray(dd.activity) ? dd.activity : []),
       ];
     }
@@ -830,8 +914,50 @@ export function resyncSeededDeals({ persona = null, mode = 'rules' } = {}) {
     persistDeal(dd);
     applied.push(dd.id);
   }
+  // A DEAL THAT LEFT THE BOOK MUST LEAVE THE STORE.
+  //
+  // The showcase ids carried a `demo-` prefix that a reader could see in the URL, and
+  // renaming them left the store holding both spellings: the deal list came back with
+  // thirty-three rows and every renamed company appeared twice. A resync that only ever
+  // adds cannot correct a fixture, it accumulates one.
+  //
+  // Deliberately NOT "anything not in the seed": that rule would delete a deal the firm
+  // itself created the moment an administrator pressed resync. Only ids this fixture is
+  // known to have shipped and then retired are eligible, listed by hand.
+  const orphaned = [];
+  for (const id of RETIRED_SEED_IDS) {
+    const i = deals.findIndex((d) => d.id === id);
+    if (i < 0) continue;
+    deals.splice(i, 1);
+    durableWrite(`drop deal ${id}`, () => dealRepo.remove(id));
+    durableWrite(`drop record ${id}`, () => dealRepo.remove(recordIdFor(id)));
+    orphaned.push(id);
+  }
+  // Every deal on the book, not just the ones the fixture owns.
+  let swept = 0;
+  for (const d of deals) {
+    const before = (d.issues || []).length + (d.conditions || []).length;
+    const activityLen = JSON.stringify(d.activity || []).length;
+    if (Array.isArray(d.issues)) d.issues = stripResidue(d.issues);
+    if (Array.isArray(d.conditions)) d.conditions = stripResidue(d.conditions);
+    // The row is only half of it: the blocker label, the activity entry that created
+    // it and the readiness delta all quote the same string back.
+    if (d.icReadinessMark && d.icReadinessMark.blockerLabels) {
+      for (const k of Object.keys(d.icReadinessMark.blockerLabels)) {
+        if (TEST_RESIDUE.test(String(d.icReadinessMark.blockerLabels[k] || ''))) {
+          delete d.icReadinessMark.blockerLabels[k];
+          d.icReadinessMark.blockerKeys = (d.icReadinessMark.blockerKeys || []).filter((x) => x !== k);
+        }
+      }
+    }
+    if (Array.isArray(d.activity)) {
+      d.activity = d.activity.filter((r) => !TEST_RESIDUE.test(String((r && (r.action || r.text)) || '')));
+    }
+    const after = (d.issues || []).length + (d.conditions || []).length;
+    if (after !== before || JSON.stringify(d.activity || []).length !== activityLen) { swept += 1; persistDeal(d); }
+  }
   reseedSequences();
-  return { applied: applied.length, ids: applied, mode: repoMode(), wiped: wipe };
+  return { applied: applied.length, ids: applied, orphaned, swept, mode: repoMode(), wiped: wipe };
 }
 
 export function getDeal(id) {
@@ -1855,7 +1981,22 @@ function scoreCandidate(c) {
     }
   }
   const band = !gate.passes ? 'excluded' : best.score >= 75 ? 'strong' : best.score >= 45 ? 'moderate' : 'weak';
-  return { gate, score: best.score, band, matchedScreen: best.screen };
+  // Carry the arithmetic, not just the answer. A reader who wants to know why a candidate
+  // scored what it did can now see the nine tests that produced it.
+  const explain = gate.passes && best.screen
+    ? explainScreenScore(c, selectedScreens().find((s) => s.id === best.screen.id))
+    : null;
+  return {
+    gate,
+    score: best.score,
+    band,
+    matchedScreen: best.screen,
+    scoreComponents: explain?.components || [],
+    scoreBasis: explain?.basis
+      || (!gate.passes
+        ? `Excluded before scoring — ${gate.reasons.join('; ')}.`
+        : 'No selected screen matched this candidate, so there is nothing to score against.'),
+  };
 }
 
 // The O2 "Target-Screening Agent" hard-knockout recommendation for a candidate.
@@ -1931,6 +2072,8 @@ function publicCandidate(c) {
     sourcedAt: c.sourcedAt,
     score: sc.score,
     band: sc.band,
+    scoreComponents: sc.scoreComponents,
+    scoreBasis: sc.scoreBasis,
     gated: !sc.gate.passes,
     gateReasons: sc.gate.reasons,
     matchedScreen: sc.matchedScreen,
@@ -2047,7 +2190,22 @@ export function getCohort(stage, identity, viewAsRole = null) {
     list.sort((a, b) => b.score - a.score);
     list.forEach((c, i) => { c.rank = i + 1; });
   }
-  return { stage, fundName: fund.name, candidates: list };
+  // AN EMPTY BOARD UNDER A LIVE COUNT READS AS A FAILURE TO LOAD.
+  //
+  // The O1 tile printed "Sourced 16, active 4" over a board that returned nothing,
+  // because the funnel counts everything that REACHED a step while the cohort holds only
+  // what is still sitting at it. Every candidate has been screened, so nothing waits at
+  // sourcing — which is a good state, not a broken one. Say which of the two it is, and
+  // count it the way the tile above counts it, or the note contradicts the number it is
+  // there to explain.
+  const hidden = hiddenCompanyNames(identity, viewAsRole);
+  const reached = candidates.filter(visibleTo(hidden)).filter((c) => reachedIndex(c) >= candStageIndex(stage)).length;
+  const emptyNote = list.length
+    ? null
+    : reached
+      ? `Nothing is waiting at this step. All ${reached} candidate${reached === 1 ? ' that has' : 's that have'} reached it ${reached === 1 ? 'has' : 'have'} already been actioned and moved on — the count above is how many passed through, not how many are queued.`
+      : 'No candidate has reached this step yet.';
+  return { stage, fundName: fund.name, candidates: list, reached, emptyNote };
 }
 
 // Only O2 (Auto Screen) and O3 (Triage) run a per-candidate assessment agent.
@@ -2179,6 +2337,11 @@ function reduceCandidate(c) {
     ...rest,
     dealSize: null, revenue: null, ebitda: null, ebitdaMargin: null, growth: null,
     score: null, band: null, screenRec: null, ownership: null, thesis: undefined,
+    // The score breakdown names the sector test, the EV-band test, the margin test and
+    // the growth test with their points. That is the shape of the figures this reduction
+    // exists to withhold, and it was travelling under a nulled score — so the row showed
+    // no number and nine reasons for it.
+    scoreComponents: [], scoreBasis: null,
     // canonicalId is dropped above: the reduced row was still returning the exact id that
     // /companies/:id accepts, which is the join key for the record this reduction exists to
     // withhold.
@@ -2984,6 +3147,15 @@ export function getDealComparables(id) {
     comparableDeals,
     icPrecedents,
     benchmarkFindings: getBenchmarkFindings(),
+    // `source` carries the snapshot's own counts, which are the counts of the WHOLE
+    // corpus — so a panel scoped to one sector printed "12 comparable deals" over eleven
+    // rows, and the reader who divides one by the other stops trusting the page. Count
+    // what is on this panel.
+    counts: {
+      comparableDeals: comparableDeals.length,
+      icPrecedents: icPrecedents.length,
+      benchmarkFindingWorkstreams: getBenchmarkFindings().length,
+    },
     // An empty panel is an answer; an empty panel that does not say it is scoped reads
     // as a broken one.
     note: comparableDeals.length || icPrecedents.length
@@ -3090,9 +3262,14 @@ export function proposeAssistantActions(id) {
   // 1) Blocking workstreams not yet captured as an open issue -> propose logging one.
   const issueTitles = new Set(openIssues.map((i) => String(i.title || '').toLowerCase()));
   for (const w of board.blockingWorkstreams || []) {
-    const title = `${w.label || w.lane} workstream blocking IC`;
+    const lane = (deal.workstreams || []).find((x) => x.lane === w.lane);
+    const finding = ((lane && lane.findings) || []).find((f) => f && f.text && /stopper|reprice|condition|risk|high/i.test(String(f.severity || '')))
+      || ((lane && lane.findings) || [])[0];
+    const short = finding && finding.text ? String(finding.text).split(/(?<=[.;])\s/)[0].replace(/\.$/, '') : '';
+    const title = short && short.length <= 110 ? short : `${w.label || w.lane} has not reported`;
     if (issueTitles.has(title.toLowerCase())) continue;
-    const reason = (w.reasons && w.reasons[0]) || `${w.blockingIssues || w.openIssues || 0} blocking issue(s)`;
+    const nIss = w.blockingIssues || w.openIssues || 0;
+    const reason = (w.reasons && w.reasons[0]) || `${nIss} blocking issue${nIss === 1 ? '' : 's'}`;
     out.push({
       id: `pa-issue-${w.lane}`,
       kind: 'record_issue',

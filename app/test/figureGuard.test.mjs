@@ -94,7 +94,7 @@ test('a stated entry multiple beats one we derive', () => {
   const kf = stated.keyFigures.find((k) => /entry multiple/i.test(k.label));
   const recorded = Number(String(kf.value).replace(/[^0-9.]/g, ''));
   const c = canonicalFigures(stated);
-  assert.equal(c.entryMultiple, +recorded.toFixed(1), `${stated.company} publishes ${c.entryMultiple}x against a recorded ${recorded}x`);
+  assert.equal(c.entryMultiple, recorded, `${stated.company} publishes ${c.entryMultiple}x against a recorded ${recorded}x`);
   assert.equal(c.entryMultipleSource, 'recorded');
 });
 
@@ -120,15 +120,22 @@ test('one figure is never rewritten with another figure standing next to it', ()
   assert.equal(enforceFigures(md, deal), md);
 });
 
+// Handed over as fields rather than sentences: the assistant was quoting the prose
+// version back in quotation marks and attributing it to a named page.
 test('the figures block states the record as the answer, not as background', () => {
   const deal = anyDeal();
   const c = canonicalFigures(deal);
   const block = figuresBlock(deal);
-  assert.match(block, /AUTHORITATIVE FIGURES/);
-  assert.ok(block.includes(`${c.entryMultiple}x EV/EBITDA`));
+  assert.match(block, /The deal's own numbers/);
+  assert.ok(block.includes(`entry multiple is ${c.entryMultiple}x`));
   assert.ok(block.includes(`${c.irr}% IRR`));
   assert.ok(block.includes(`${c.moic}x MOIC`));
   assert.ok(block.includes(c.currencyCode));
+  assert.match(block, /Never present one as a quotation/, 'the block does not forbid being quoted back as a citation');
+  // AND NO MACHINE TOKEN ANYWHERE. Handed `outstanding_count=12`, the assistant pasted
+  // that token into an answer, in quotation marks, against a named screen. Telling it
+  // not to copy the format it is shown does not work; not showing it the format does.
+  assert.doesNotMatch(block, /^[a-z][a-z0-9_]*=/m, 'a machine token is still being handed to the model');
 });
 
 // Compare deals put two companies side by side with no entry multiple, no leverage and

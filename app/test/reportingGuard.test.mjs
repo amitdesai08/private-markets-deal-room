@@ -16,7 +16,12 @@ test('un-synced external sources BLOCK an IC/LP output when block=true', () => {
   const g = guardReporting(['edgar', 'gdelt'], { block: true }); // fresh process → both "never"
   assert.equal(g.ok, false);
   assert.equal(g.blocked, true);
-  assert.ok(g.notice && /freshness SLA/i.test(g.notice), 'a clear stale notice must be attached');
+  // The notice used to call a source that had NEVER been connected "outside its freshness
+  // SLA", which put six market-data vendors this deployment does not subscribe to on screen
+  // as though the fund's data had gone out of date. It must still refuse clearly, naming
+  // the sources — it just may not describe an absent feed as a stale one.
+  assert.ok(g.notice && /freshness SLA|not connected/i.test(g.notice), 'a clear notice must be attached');
+  assert.ok(g.notice.includes('edgar') && g.notice.includes('gdelt'), 'the notice must name the sources');
   assert.deepEqual(g.staleSources.sort(), ['edgar', 'gdelt']);
 });
 

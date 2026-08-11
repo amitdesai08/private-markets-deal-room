@@ -4,7 +4,7 @@ import { demoStageDeals } from '../data/deals.js';
 import { computeICReadiness } from '../lib/icReadiness.js';
 import { buildCockpit } from '../lib/cockpit.js';
 
-const id = process.argv[2] || 'demo-sterling';
+const id = process.argv[2] || 'sterling';
 const role = process.argv[3] || 'partner';
 
 const deal = demoStageDeals.find((d) => d.id === id);

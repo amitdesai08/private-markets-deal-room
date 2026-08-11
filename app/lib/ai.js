@@ -56,7 +56,56 @@ export function getModelInfo() {
 // shown in a demo, and after every deterministic surface in the product had been
 // brought into line. Deal figures are US dollars; internal plumbing has no business
 // on a partner's screen under any circumstances.
+// A NORMALISED STREAM.
+//
+// The deltas were the model's raw text and the finished reply was the tidied text, so
+// the room read "NOT-READY" while it typed and then watched the paragraph redraw
+// itself into "not ready for committee". Nothing may reach the screen that a later
+// rule will change: the accumulated text is tidied on every delta, and only the part
+// that is now settled is emitted. The tail is held back until the stream ends, because
+// a rule can still reach backwards into it.
+export function normalisingEmitter(emit, tail = 160) {
+  let raw = '';
+  let sent = 0;
+  const push = (final) => {
+    const clean = houseStyle(raw);
+    const upto = final ? clean.length : Math.max(0, clean.length - tail);
+    if (upto <= sent) return;
+    emit(clean.slice(sent, upto));
+    sent = upto;
+  };
+  return {
+    delta(text) { raw += String(text || ''); push(false); },
+    end() { push(true); return houseStyle(raw); },
+  };
+}
+
+// A QUOTATION IS SOMEBODY'S WORDS.
+//
+// The tidy pass rewrote "Current step is D3" into "Current step is diligence" inside
+// quotation marks, so the assistant attributed to a named colleague a sentence the Work
+// tab shows differently. Quoted spans come out before the pass and go back after it.
+function protectQuotes(md, run) {
+  const held = [];
+  // Somebody TALKING, not a field value in quotation marks. A message has a person in
+  // it: a first-person pronoun, an imperative, a greeting. A readiness enum has none of
+  // those, and the rules that unpick quoted field values have to keep reaching it.
+  const SPOKEN = /\b(I|I'?ll|I'?ve|we|we'?ll|let'?s|my|our|you|your|please|kicking off|post|send|happy to|leave|picking|taking|agreed|decided)\b/i;
+  const masked = String(md || '').replace(/["\u201c][^"\u201c\u201d\n]{4,400}["\u201d]/g, (m) => {
+    if (!SPOKEN.test(m)) return m;
+    held.push(m);
+    return `\u0000Q${held.length - 1}\u0000`;
+  });
+  return run(masked).replace(/\u0000Q(\d+)\u0000/g, (m, i) => held[Number(i)] ?? m);
+}
+
 export function houseStyle(md) {
+  if (!md) return md;
+  // A quotation is somebody's words; the pass runs around it, not through it.
+  return protectQuotes(md, tidy);
+}
+
+function tidy(md) {
   if (!md) return md;
   let s = String(md);
   // Parenthetical tool citations, e.g. "(mcp_dealroom.get_deal; mcp_x.get_y)".
@@ -83,7 +132,7 @@ export function houseStyle(md) {
   s = s.replace(/\bdaysToIC[:\s]*(-?\d+)\b/gi, (_m, n) => (Number(n) < 0 ? `IC was ${Math.abs(Number(n))} days ago` : `IC in ${n} days`));
 
   // Record keys were reaching the screen as if they were names: the assistant listed
-  // "**demo-meridian** — Meridian Logistics (status: owned)". The key is ours, not the
+  // "**meridian** — Meridian Logistics (status: owned)". The key is ours, not the
   // reader's, and the "demo-" half of it announces to a prospect that the book in front
   // of them is invented. Take the key and leave the company name standing.
   s = s.replace(/\**\s*demo-[a-z0-9-]+\s*\**\s*(?:\u2014|\u2013|-)\s*/gi, '');
@@ -174,12 +223,24 @@ export function houseStyle(md) {
   // D3." became "Deal size $240M;." Tidy the join rather than the label.
   s = s.replace(/([;,\u00b7|])\s*([.!?])/g, '$2');
   s = s.replace(/\s+([.!?])/g, '$1');
+  s = s.replace(/\s*\((?:quote|verbatim|from the record|source)\)\s*/gi, ' ');
+  // Removing a marker mid-line leaves its spacing behind: "status : not ready".
+  s = s.replace(/\s+([:;,.!?])/g, '$1');
+  s = s.replace(/^\s*(?:final answer|answer)\s*:\s*/gim, '');
+  // And stripping a leading label leaves the sentence opening in lower case.
   s = s.replace(/\bNOT[-\s\u2011]READY\b/gi, 'not ready for committee');
+  // Capitalise the enum where it opens a sentence, a line or a bullet.
+  s = s.replace(/^([a-z])/gm, (m, c) => c.toUpperCase());
+  s = s.replace(/(^|[\n>\-*\u2022]\s*|[.!?]\s+)(not ready for committee|ready for committee)/g,
+    (m, lead, phrase) => `${lead}${phrase.charAt(0).toUpperCase()}${phrase.slice(1)}`);
   s = s.replace(/\bIC[-\s\u2011]READY\b/gi, 'ready for committee');
   // The model writes "IC-ready for committee" often enough that spelling the enum out
   // produced "ready for committee for committee". Every one of these is the same
   // fault: a substitution that assumes it is the only thing on the line.
   s = s.replace(/\bready for committee for committee\b/gi, 'ready for committee');
+  // "not ready for committee for IC", "ready for committee at IC" — the spelled-out
+  // phrase already carries the committee, so a trailing reference to it doubles up.
+  s = s.replace(/\bready for committee (?:for|at|to) (?:IC|the IC|committee|the committee)\b/gi, 'ready for committee');
   // The model quotes the readiness field verbatim, quotation marks and all, as though
   // it were citing a source rather than reading the deal's own record: `IC readiness:
   // not ready for committee — "Not ready for committee — 4 required items..."`. The
@@ -200,7 +261,12 @@ export function houseStyle(md) {
       // committee — the deal is  with 4 required items outstanding". A partner will not
       // paste a sentence with a hole in it into an email.
       if (a.toLowerCase() !== b.toLowerCase()) return m;
-      if (/\b(is|are|was|were|be|been|remains?|reads?|shows?|sits?|stands?)\s*$/i.test(sep)) return m;
+      if (/\b(is|are|was|were|be|been|remains?|reads?|shows?|sits?|stands?)\s*$/i.test(sep)) {
+        // "X — the board shows X — 4 items": the connective governs the second reading,
+        // so the first is the duplicate. Drop it and the punctuation holding it on.
+        const lead = sep.replace(/^[\s—:;,-]+/, '');
+        return lead ? lead.charAt(0).toUpperCase() + lead.slice(1) + b.toLowerCase() : a + sep;
+      }
       return a + sep;
     });
   // Dropping a duplicate leaves its punctuation behind: "shows: ; 4 items", "— — 4".
@@ -312,6 +378,12 @@ export function houseStyle(md) {
   s = s.replace(/\brequires? (?:your )?permission to include all deals[^.\n]{0,60}\./gi, 'That is a question about the whole book rather than this deal.');
   s = s.replace(/\bsingle[- ]deal scope\b/gi, 'this one deal');
   s = s.replace(/\bcurrent scope\b/gi, 'this conversation');
+  // A stage range is not a word: substituting inside "D1–D5 artifacts" produced
+  // "D1–diligence IC papers". Repaired last, after every rule that could cause it.
+  s = s.replace(/\bD\d\s*[\u2013\u2014-]\s*(?:D\d|diligence)\s+IC papers\b/gi, 'the diligence-stage committee papers');
+  // A dangling dash is a sentence that stopped mid-thought: "Not ready for committee — ."
+  s = s.replace(/\s*[—-]\s*(?=[.;,]|$)/gm, '');
+  s = s.replace(/\s*[—-]\s*\n/g, '\n');
   return s;
 }
 

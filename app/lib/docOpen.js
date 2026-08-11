@@ -43,6 +43,7 @@
 // brief, and a brief never pretends to be the document.
 
 import { laneLabel, ownerLabel } from './cockpit.js';
+import { reconcileFindingText } from './diligence.js';
 
 // Documents this platform builds from the live record. Order matters: "Returns
 // Model" and "Deal Model" both contain the word model, so the specific patterns are
@@ -178,19 +179,22 @@ export function mergeLiveFiles(files = [], live = []) {
 // and deliberately incomplete: an unmatched document gets no lane rather than a
 // wrong one, because attributing counsel's mark-up to the finance workstream sends
 // someone to the wrong colleague.
+const FIRM_AUTHORED = /\bic memo\b|investment committee|returns model|\bmodel\.xlsx|investment screen|screening memo|\bteaser response\b|deal brief|board pack/i;
+
 const LANE_WORDS = [
   ['financial', /\bqoe\b|quality of earnings|\bfinancial|\bebitda\b|audit|\btrading\b|\bbudget\b/i],
   ['legal', /\blegal\b|\bspa\b|\bsha\b|counsel|contract|consent|litigat|\bcompliance\b/i],
   ['commercial', /commercial|market|customer|pricing|\bcohort\b|churn|revenue/i],
-  ['operational', /operation|supply|logistic|manufactur|\bplant\b|\bsite\b/i],
-  ['tech', /\btech|\bit\b|\bsoftware\b|\bplatform\b|\bcyber|\bdata\b/i],
+  ['operations', /operation|supply|logistic|manufactur|\bplant\b|\bsite\b/i],
+  ['techai', /\btech|\bit\b|\bsoftware\b|\bplatform\b|\bcyber|\bdata\b|\bai\b/i],
   ['esg', /\besg\b|sustainab|carbon|emission|environment/i],
   ['hr', /\bhr\b|people|management team|organisation|organization|payroll/i],
   ['tax', /\btax\b|transfer pricing|\bvat\b/i],
 ];
 
-function laneForName(name) {
-  const n = String(name || '');
+function laneForName(name, company = null) {
+  let n = String(name || '');
+  if (company) n = n.split('—').length > 1 ? n.split('—').slice(1).join('—') : n.replace(company, '');
   for (const [lane, re] of LANE_WORDS) if (re.test(n)) return lane;
   return null;
 }
@@ -215,7 +219,7 @@ function findingMatches(f, name, lane) {
  */
 export function documentBrief(doc = {}, deal = null) {
   const name = String(doc?.name || '');
-  const lane = laneForName(name);
+  const lane = laneForName(name, deal?.company || null);
   const workstreams = Array.isArray(deal?.workstreams) ? deal.workstreams : [];
   const ws = lane ? workstreams.find((w) => w.lane === lane) : null;
 
@@ -224,7 +228,7 @@ export function documentBrief(doc = {}, deal = null) {
     .filter((f) => findingMatches(f, name, lane))
     .slice(0, 6)
     .map((f) => ({
-      text: f.text,
+      text: reconcileFindingText(f.text, deal),
       severity: f.severity || null,
       source: f.source || null,
       basis: String(f.source || '').length > 3 && name.toLowerCase().includes(String(f.source).toLowerCase())
@@ -234,7 +238,7 @@ export function documentBrief(doc = {}, deal = null) {
 
   return {
     name,
-    summary: withoutRepeats(doc?.summary, findings),
+    summary: withoutRepeats(doc?.summary, findings, deal),
     lane,
     owner: ws?.owner || null,
     // The same two facts as a person would say them. The raw keys stay above
@@ -243,6 +247,13 @@ export function documentBrief(doc = {}, deal = null) {
     laneName: lane ? laneLabel(lane) : null,
     ownerName: ws?.owner ? ownerLabel(ws.owner, lane) : null,
     laneStatus: readable(ws?.status),
+    unattributedNote: !lane
+      ? (FIRM_AUTHORED.test(name)
+        ? 'This paper is the firm’s own work, drawn from the deal record rather than produced by one diligence workstream, so no single lane owns it.'
+        : 'This paper came into the deal from outside — it is not the output of any diligence workstream, and no lane owns it.')
+      : !findings.length
+        ? `Filed under ${laneLabel(lane)}. That workstream has recorded nothing that cites this document yet.`
+        : null,
     findings,
     // Where the real file lives, when the deal has a data room to point at.
     dataRoomUrl: deal?.workspace?.sharePointProvisioned ? (deal?.workspace?.sharePointUrl || null) : null,
@@ -272,11 +283,11 @@ function readable(v) {
  * the paper reads as though nobody proof-read it. The finding stays; the copy of it
  * goes.
  */
-function withoutRepeats(summary, findings = []) {
+function withoutRepeats(summary, findings = [], deal = null) {
   let s = String(summary || '').trim();
   if (!s) return null;
   for (const f of findings) {
-    const t = String(f.text || '').trim();
+    const t = String(reconcileFindingText(f.text, deal) || '').trim();
     // Short texts can legitimately recur; only lift out something substantial.
     if (t.length > 24 && s.includes(t)) s = s.replace(t, '');
   }
