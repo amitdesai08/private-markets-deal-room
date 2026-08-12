@@ -10,5 +10,8 @@ real datastore (production Phase 1).
 This is fabricated demo data (fake companies, news, filings, Morningstar
 ratings, analyst research, CxO signals). It is **not** production data. It is
 kept for reference and as an optional load into the datastore during the
-Phase 1 repository migration (`p1-repository`). A second copy lives in the
-session `files/seed-archive/`.
+Phase 1 repository migration (`p1-repository`).
+
+The snapshot covers the five original seed deals. `app/data/deals.js` has since
+grown to nineteen (`seedDeals` + `demoStageDeals`), so this is a record of where
+the data started rather than a mirror of what the app serves today.

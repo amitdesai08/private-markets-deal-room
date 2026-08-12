@@ -176,18 +176,24 @@ An idle demo shouldn't cost anything. Power the platform off/on as one unit:
 ├── app/                    The API / data / MCP service (Node/Express) — no web client
 │   ├── lib/                AI client, agents, pluggable store, MCP server, Graph, fund/portfolio engine
 │   ├── data/               Lifecycle & flow, personas, deals, sourcing framework, owned portfolio
+│   ├── test/               Node test-runner suites for the API, agents and deal narrative
 │   ├── scripts/            Foundry agent provisioning (create_agent.py template + persona agents)
+│   ├── graph/              Microsoft Graph change-notification subscribe / renew helpers
+│   ├── archive/            JSON snapshot of the original hard-coded seed data
 │   ├── mcp/                Deal MCP server OpenAPI + Copilot Studio guide
 │   └── Dockerfile          Multi-stage build (deps → runtime)
 ├── teams-app/              The Teams interface tier (thin front end; holds no data)
 │   ├── tab/                Teams-native + standalone web console (React + Vite)
 │   ├── server/             SSO/OBO, bot (Bot Framework), backend proxy, Adaptive Cards
 │   ├── manifest/           Teams app manifest + build script
+│   ├── declarative-agent/  M365 Copilot declarative agent + API plugin manifests
 │   └── Dockerfile          Multi-stage build (tab → server → runtime)
 ├── infra/                  Azure IaC — subscription-scoped, domain-split into 6 resource groups
 │   ├── main.bicep          Orchestrator + modules/ (core · ai · data · app · integration · network)
 │   └── main.{dev,test,prod,sample}.bicepparam
 ├── docs/                   Architecture, how-it-works, deploy, access model, stages, demos
+├── skills/                 Agent skill definitions (screening, comps, LBO, IC memo, DD, VCP)
+├── mockups/                Static HTML design mockups (deal cockpit, navigation IA)
 ├── scripts/                Deploy + Entra-provisioning + azd hooks
 └── .github/workflows/      OIDC CI/CD for infra and app
 ```

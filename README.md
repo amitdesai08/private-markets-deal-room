@@ -228,7 +228,7 @@ the one deal she's named on. Switch to the partner and everything opens.
 | [**Inside a deal**](docs/DEAL-STAGES.md) | A tab-by-tab tour of every stage, the workspace, decision artifacts and the document repository. |
 | [**Data integration**](docs/DATA-INTEGRATION.md) | External market-data ingestion (PitchBook, Capital IQ, Bloomberg, FactSet, Morningstar, LSEG, Moody's) & system-of-record fit (DealCloud, Allvue, Salesforce FSC). |
 | [Infra runbook](infra/README.md) · [App service](app/README.md) | Deep Bicep / `what-if` details and the API / MCP service. |
-| [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Operations plan](docs/OPERATIONS-PLAN.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) | Go-live, run-book, security posture and how to contribute. |
+| [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Operations plan](docs/OPERATIONS-PLAN.md) · [Data handling](docs/DATA-HANDLING.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) | Go-live, run-book, what data the app touches, security posture and how to contribute. |
 
 ---
 
