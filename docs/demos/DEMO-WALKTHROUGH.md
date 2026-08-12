@@ -384,6 +384,33 @@ Watch what happens:
 > not hidden in the page, it is not sent to the browser. There is nothing to inspect and
 > nothing to switch back on."
 
+### The move that lands: a name beats a rank
+
+Stay on the analyst and open **Project Onyx**, a confidential carve-out running under a
+clean-team protocol. It opens in full — he is *named on it*.
+
+Now switch to **Michael Realman — Administrator**, the most senior seat in the switcher, and
+look for it. It is not there. His list is **16 deals**; the partner's is **19**. Paste the
+deal's own link into the address bar and the product answers:
+
+> **Deal unavailable.** *"This deal is not open to you. Either it does not exist, or you are
+> not on its deal team."*
+
+Read that sentence out. It refuses **without confirming the deal exists** — on an unannounced
+take-private, the fact that there is something to ask about is itself the leak.
+
+> "The analyst can open a deal the administrator cannot. Not because the analyst outranks
+> anybody — because somebody put his name on it. A confidential deal is refused before the
+> product ever asks what your role is, so being the administrator buys you nothing here."
+
+Three deals in the book are marked confidential, and each adds exactly **one** to the seat
+named on it: the **Fund CFO** sees Aurora Software, the **Principal** sees Project Sterling,
+the **General Counsel** and the **Analyst** see Project Onyx. Every other seat, the
+administrator included, sees sixteen.
+
+> "That is what a clean team is. If there is a compliance officer in the room, this is the
+> part they came for."
+
 Switch back to the partner before you continue.
 
 ---
@@ -462,7 +489,7 @@ caught without any of these.
 | **4** | **Inside Helvetia** | 8 | *Where to start* line above the pages → **The case** (2 obligations still outstanding; the readiness board lists them) → **The work · Workstreams** (Financial and ESG read *Closed at IC — no write-up on file*; scroll down for the data room) → **💬 Ask the assistant**. | *"That is a records gap, not outstanding work — and knowing the difference is the whole job."* then *"The assistant drafts. The readiness board is the record. Nothing reaches a committee paper unchecked."* |
 | **5** | **Fund & Portfolio** | 4 | Fund → watchlist → portfolio monitoring → **concentration vs LPA limits**. | *"That is the panel that ends a conversation with an LP before it starts."* |
 | **6** | **Firm reporting** | 2 | Power BI banner, then the certification line and who signed it, then *Market data: not connected*. **Droppable.** | *"Nothing reaches an investor until a named person certifies it, and that freezes a dated copy that cannot be edited."* |
-| **7** | **Person dropdown → Chidi Anagonye — Analyst** | 4 | 19 → 8 deals · *Harborlight Marine Services 🔒* under **Status only** · no **Value & Exit** filter at all. **Never drop this one.** | *"The restricted deal is never sent to the browser. Nothing to inspect, nothing to switch back on."* |
+| **7** | **Chidi Anagonye — Analyst**, then **Michael Realman — Administrator** | 4 | 19 → 8 deals · *Harborlight Marine Services 🔒* under **Status only** · open **Project Onyx** as the analyst, then fail to find it as the administrator (16 deals). **Never drop this one.** | *"The analyst opens a deal the administrator cannot see exists, because somebody put his name on it. Rank buys you nothing on a confidential deal."* |
 | **8** | **⚙ Settings**, then close | 2 | Switch one free source off. | *"You decide what this thing is allowed to look at."* Then **ask for something.** |
 
 **30 minutes. Short of time, drop 2 and 6 → 24.**

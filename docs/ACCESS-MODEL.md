@@ -13,23 +13,30 @@
 - **Status tier — pipeline awareness for everyone.** Every role sees the *metadata* of every
   non-confidential deal (company, sector, size, stage, status, IC readiness). Analysts get a
   clean **status-only view** of post-screening deals — never a dead-end lock.
-- **Content tier — the workspace, on need-to-know.** The confidential workspace (financials,
-  diligence findings, signed terms, valuations, documents and the agents) opens to the
-  **deal-team role**, **admins**, or **anyone named on that deal's team**.
+- **Content tier — the workspace, on need-to-know.** The workspace (financials, diligence
+  findings, signed terms, valuations, documents and the agents) opens to the **deal-team
+  role**, **admins**, or **anyone named on that deal's team** — **except on a deal flagged
+  `confidential`, where a role grants nothing and only a name gets in**.
 
 | Role | Agents | Deal metadata | Deal workspace | Write |
 |---|---|---|---|---|
-| **Administrator** | **all 10** | every deal | every deal | ✓ |
-| **Partner** | all 10 | every deal | every deal | ✓ |
-| **Deal team** | 8 | every deal | every deal | ✓ |
+| **Administrator** | **all 10** | every deal *except confidential* | every deal *except confidential* | ✓ |
+| **Partner** | all 10 | every deal *except confidential* | every deal *except confidential* | ✓ |
+| **Deal team** | 8 | every deal *except confidential* | every deal *except confidential* | ✓ |
 | **Analyst / Member** | 1 | every deal *(status)* | only deals they're **named on** | read-only |
+
+A confidential deal is the one place these tiers stop applying: it is reachable **only** by
+the people named on it, whatever their rank.
 
 - **Deal-team need-to-know** — add a user to a specific deal's team (`deal.team`) and they get
   the **full** workspace for *that* deal regardless of their role tier — true least-privilege,
   deal by deal.
 - **Confidential deals** — flag a deal `confidential` and it disappears from the status tier
-  entirely: only its named team and admins even know it exists. Built for take-privates under
-  NDA, carve-outs on a clean-team protocol, or a live exit.
+  entirely: **only the people named on it know it exists**. Rank does not substitute for a
+  name — [`dealAccessLevel`](../app/lib/userPolicy.js) refuses a confidential deal *before*
+  it consults `isAdmin`, so an administrator who is not on the team gets the same nothing as
+  everyone else. Built for take-privates under NDA, carve-outs on a clean-team protocol, or a
+  live exit.
 - **Role-based agent routing** — the orchestrator surfaces *only* the agents a role may call;
   an Administrator can call **every** agent.
 - **Hierarchy "view-as-down"** — a senior role can preview the room **as any lower role**, and
@@ -39,7 +46,7 @@
 
 ![Role-gated access in the Teams tab](../teams-app/docs/teams-rbac.png)
 
-<sub>*Viewing as an Analyst, a post-screening deal shows a status-only summary — the full financials, findings and terms stay with the deal team, and confidential deals don't appear at all — while a partner, admin or a **named deal-team member** sees the whole record.*</sub>
+<sub>*Viewing as an Analyst, a post-screening deal shows a status-only summary — the full financials, findings and terms stay with the deal team, and confidential deals don't appear at all — while a partner or a **named deal-team member** sees the whole record.*</sub>
 
 ---
 
@@ -106,31 +113,35 @@ Region→group and tag→group mappings live in the admin-editable access config
 ## Demo profiles — the whole access model, in one click
 
 Flip on `deployDemoProfiles` (`azd env set DEPLOY_DEMO_PROFILES true`) and the tab's **"sign in
-as"** switcher is seeded with one named profile per role, so the model is demoable without
-provisioning a single user. Every profile is enforced end-to-end by the orchestrator — the
-switcher even shows how many agents each identity may call:
+as"** switcher is seeded with one named profile per seat, so the model is demoable without
+provisioning a single user. Every profile is enforced end-to-end by the orchestrator, and the
+counts below are what each seat actually returns from `/api/deals`:
 
-| Profile | Role | Agents |
+| Profile | Role | Deals visible |
 |---|---|---|
-| **Sam Rivera** — Platform Administrator | admin | **10** · view-as any role |
-| **Eleanor Bishop** — Partner / Deal Sponsor | partner | **10** |
-| **Marcus Feld** — Principal / Deal Lead | deal-team | 8 |
-| **James Whitfield** — Retail MD | deal-team | 8 |
-| **Dr. Priya Nair** — AI MD | deal-team | 8 |
-| **Diego Marquez** — Supply Chain MD | deal-team | 8 |
-| **Rachel Nguyen** — Operating Partner | deal-team | 8 |
-| **David Osei** — Fund CFO | deal-team | 8 |
-| **Priya Raman** — General Counsel | deal-team | 8 |
-| **Sofia Marchetti** — Investor Relations | partner | **10** |
-| **Maya Olsen** — Analyst | analyst | 1 · read-only |
+| **Michael Realman** — The Architect, Administrator | admin | 16 · view-as any role |
+| **Eleanor Shellstrop** — Partner, Deal Sponsor & IC Chair | partner | **19** — named on all three confidential deals |
+| **Tahani Al-Jamil** — Deal Team, Value Creation | deal-team | 16 |
+| **Riley West** — Regional MD, West Coast territory | partner | **5** — the territory wall |
+| **Janet** — AI Partner, Tech & Digital Value | deal-team | 16 |
+| **Doug Forcett** — Supply Chain Partner, Operations | deal-team | 16 |
+| **Brent Norwalk** — Commercial Partner, Sector & Growth | deal-team | 16 |
+| **Mindy St. Claire** — Finance Partner, Fund CFO | deal-team | **17** — + Aurora Software |
+| **Simone Garnett** — Principal, Deal Lead | deal-team | **17** — + Project Sterling |
+| **Derek Hofstetler** — Operating Partner, Value Creation | deal-team | 16 |
+| **Chidi Anagonye** — Analyst, Northeast coverage | analyst | **8** — includes Project Onyx; one status-only |
+| **Shawn Reese** — General Counsel, Legal & Execution | deal-team | **17** — + Project Onyx |
+| **Gwendolyn Vale** — Investor Relations, LP & Fund | partner | 16 |
+| **Jason Mendoza** — Member, Observer | member | 9 — every one of them status-only |
 
-> 🕵️ **Need-to-know, live in the demo.** The seeded pipeline ships with **confidential deals**
-> — a take-private under NDA, a carve-out on a clean-team protocol, and a live exit — plus a
-> real **need-to-know grant**. Sign in as **Maya (Analyst)** and the wider pipeline is
-> **status-only**, the confidential take-private and exit are **invisible**, yet she gets the
-> **full** workspace on the two deals she's *named on* — including the confidential carve-out.
-> Switch to **Eleanor (Partner)** or **Sam (Admin)** and every deal opens. No code, no
-> redeploy — just the switcher.
+> 🕵️ **Need-to-know, live in the demo.** The seeded pipeline ships with three **confidential
+> deals** — a take-private under NDA (*Project Sterling*), a carve-out on a clean-team protocol
+> (*Project Onyx*) and a live exit (*Aurora Software*) — and the column above is the whole
+> access model in one number. Each confidential deal adds exactly **one** to the seat named on
+> it: the Fund CFO gets Aurora, the Principal gets Sterling, the General Counsel and the
+> **Analyst** get Onyx. The **Administrator sees none of the three**. So the most junior seat
+> in the room can open a deal the most senior cannot — because it is named on it. Rank does
+> not move that number; a name does. No code, no redeploy — just the switcher.
 
 ---
 
@@ -169,7 +180,7 @@ plane; this section maps them to the regulatory concepts a compliance officer ex
 
 | Regulatory concept | How The Deal Room enforces it |
 |---|---|
-| **MNPI containment** | A deal flagged `confidential` leaves the status tier entirely — only its **named team** and **admins** know it exists. The workspace (financials, findings, signed terms, valuations, documents) is never exposed to a non-entitled identity. |
+| **MNPI containment** | A deal flagged `confidential` leaves the status tier entirely — only its **named team** knows it exists, and rank does not substitute for a name: an administrator who is not on the team cannot see it either. The workspace (financials, findings, signed terms, valuations, documents) is never exposed to a non-entitled identity. |
 | **Information barrier / ethical wall** | Access is a **per-deal wall**: `deal.team` need-to-know grants the full workspace for *that deal only*, independent of role tier. Nothing widens by default. |
 | **Wall-crossing (control & log)** | Adding a user to `deal.team` is an explicit, recorded **need-to-know grant** — the wall-crossing event — rather than an ambient role privilege. Removal revokes access immediately. |
 | **Restricted / watch list** | `confidential` deals behave like a **restricted list**: invisible to the wider firm, surfaced only to entitled staff — the pattern for a public take-private before a Rule 2.7 / tender announcement. |

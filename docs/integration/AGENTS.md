@@ -24,8 +24,8 @@ deal data (see [DATA-SOVEREIGNTY.md](../security/DATA-SOVEREIGNTY.md)).
 
 | Agent (`name`) | Persona | Class | Objective | Serves |
 |---|---|---|---|---|
-| `deal-room-analyst` | Maya Olsen — Analyst | internal-data | Read-only deal & portfolio analysis; runs the origination funnel | Stage 1–2 |
-| `deal-room-partner` | Eleanor Bishop — Partner | internal-data | Deal sponsorship, go/no-go, IC gatekeeping | All stages |
+| `deal-room-analyst` | Chidi Anagonye — Analyst | internal-data | Read-only deal & portfolio analysis; runs the origination funnel | Stage 1–2 |
+| `deal-room-partner` | Eleanor Shellstrop — Partner | internal-data | Deal sponsorship, go/no-go, IC gatekeeping | All stages |
 | `deal-room-principal` | Principal — Deal Lead | internal-data | Deal lead / orchestration, IOI/LOI into IC | Stage 1–3 |
 | `deal-room-retail-md` | Retail MD | internal-data | Commercial diligence (market, customer, share) | Stage 2 |
 | `deal-room-ai-md` | AI / Tech MD | internal-data | Tech / AI diligence & digital value | Stage 2 |
@@ -33,7 +33,7 @@ deal data (see [DATA-SOVEREIGNTY.md](../security/DATA-SOVEREIGNTY.md)).
 | `deal-room-operating-partner` | Operating Partner | internal-data | Value creation — 100-day plan, EBITDA bridge | Stage 3–4 |
 | `deal-room-fund-cfo` | Fund CFO | internal-data | Returns & financing — LBO / IRR / MOIC, sources & uses | Stage 2–4 |
 | `deal-room-legal-gc` | General Counsel | internal-data | Legal diligence & execution — SPA, R&W, KYC/AML | Stage 2–3 |
-| `deal-room-ir-lp` | Sofia Marchetti — IR / LP | internal-data | LP lens — exposure, ILPA/SFDR reporting, concentration | All stages |
+| `deal-room-ir-lp` | Gwendolyn Vale — IR / LP | internal-data | LP lens — exposure, ILPA/SFDR reporting, concentration | All stages |
 | `deal-room-fabric` | Fabric Data Agent | internal-data | NL Q&A over the fund's OneLake lakehouse | Cross-cutting |
 | `deal-room-news-scout` | News Scout | **external-web** | Public web sourcing signals (Bing-grounded) | Stage 1 (sourcing) |
 

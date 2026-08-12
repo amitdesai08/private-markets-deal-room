@@ -894,8 +894,8 @@ export const demoStageDeals = [
     id: 'aurora',
     growth: 14,
     company: 'Aurora Software',
-    // Confidential exit: exists only for its named team (+ admins). Everyone else
-    // never sees it in the pipeline at all.
+    // Confidential exit: exists only for its named team. Rank does not substitute for a
+    // name — an administrator who is not on it never sees it in the pipeline either.
     team: ['partner', 'fund-cfo'],
     confidential: true,
     sector: 'Software',
@@ -951,8 +951,9 @@ export const demoStageDeals = [
     id: 'sterling',
     growth: 11,
     company: 'Project Sterling (listed payments processor)',
-    // Confidential take-private under a standstill/NDA — deal-team only. Hidden from the
-    // status tier (analyst never sees it); only its named team + admins know it exists.
+    // Confidential take-private under a standstill/NDA — named team only. Hidden from the
+    // status tier (the analyst never sees it), and from administrators too: dealAccessLevel
+    // refuses a confidential deal before it consults isAdmin, so only a name gets past it.
     team: ['partner', 'principal'],
     confidential: true,
     sector: 'Financials',
@@ -1011,9 +1012,10 @@ export const demoStageDeals = [
     id: 'onyx',
     growth: 11,
     company: 'Project Onyx (specialty-chemicals carve-out)',
-    // Confidential carve-out on a clean-team protocol — BUT analyst "Maya" is read-in on
-    // a need-to-know basis, so she gets the full workspace even though the deal is hidden
-    // from the wider status tier. Showcases confidential + explicit need-to-know together.
+    // Confidential carve-out on a clean-team protocol — BUT the analyst seat is read-in on
+    // a need-to-know basis, so it gets the full workspace even though the deal is hidden
+    // from the wider status tier. The pair is the point: the most junior seat in the demo
+    // opens this deal because it is named on it, and the administrator cannot open it at all.
     team: ['analyst', 'partner', 'legal-gc'],
     confidential: true,
     sector: 'Industrials',

@@ -118,6 +118,13 @@ dropdown (it shows **Name — Role**, no clutter):
 5. **Jason Mendoza — Member.** The **guardrail floor**: **9 deals and every one of them
    status only**, view-only, **zero persona agents**.
 
+> **The move that lands.** Put two of those numbers side by side: the **analyst opens Project
+> Onyx and the administrator cannot see that it exists**. Each confidential deal adds exactly
+> one to the seat named on it — Fund CFO **17** (Aurora), Principal **17** (Sterling), General
+> Counsel **17** (Onyx) — and sixteen for everybody else. A confidential deal is refused
+> *before* the product asks what your role is. That is a clean team, enforced rather than
+> displayed.
+
 > Two things to call out: **what you see follows who you are** — switch persona and the
 > "Live deals" KPI changes *with* the deal list, not just the stage views; and outside demo
 > mode a real user sees only **their own** view, not the whole tier. No one can grant
