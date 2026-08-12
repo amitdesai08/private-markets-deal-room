@@ -68,7 +68,7 @@ so you never mix “feature order” with “act order” mid-demo:
 
 1. **Open & access** — the 30s pitch, then **“sign in as”** (who sees what).
 2. **Source & screen** — Sourcing & screening funnel: signal → candidate → auto-screen → **PURSUE** gate.
-3. **Diligence** — Diligence workstreams: red/amber/green workstreams, findings, **Apply ▸**.
+3. **Diligence** — **The work · Workstreams**: red/amber/green lanes, findings, **Apply ▸**.
 4. **IC pack & decision** — Decision artifacts + the **pre-populated, firm-branded IC pack** +
    the **IC-readiness verdict** *(this is the wow — the blank page is gone)*.
 5. **Work it together** — the **notification bell**, the **Deal channel** you can post into
@@ -86,7 +86,7 @@ so you never mix “feature order” with “act order” mid-demo:
 > moving — the story never depends on an external call.
 
 > **60-second pre-flight (before the room):** confirm the **“sign in as”** switcher flips the deal
-> counts (**9 → 7** for the analyst), the top consumer deal opens with **returns/risks populated**,
+> counts (**19 → 8** from the partner to the analyst), the top consumer deal opens with **returns/risks populated**,
 > and one **Apply ▸** writes to the **audit trail**. If *Apply* is flaky, treat it as optional.
 
 ---
@@ -104,14 +104,19 @@ The demo people are placeholder names — one per access tier, so the access
 **separation and guardrails** are the story. Use the single top-bar **"sign in as"**
 dropdown (it shows **Name — Role**, no clutter):
 
-1. **Michael Realman — Administrator.** Agents panel shows **every** specialist agent; sees
-   **all 15 deals in flight** including the two **confidential** ones; every stage open.
-2. **Tahani Al-Jamil — Deal Team.** Deal-team agents; **Stage-2 diligence unlocked**; writes
-   findings and the value-creation plan.
-3. **Chidi Anagonye — Analyst.** The rail collapses to **his own agent** (read-only), the
-   **"All deals" total drops to 3** — the two **confidential** deals vanish — and Stage-2 locks.
-4. **Jason Mendoza — Member.** The **guardrail floor**: view-only, **zero persona agents**,
-   dashboard only.
+1. **Eleanor Shellstrop — Partner.** The widest seat in the room: **19 deals**, including the
+   three **confidential** ones she is named on.
+2. **Michael Realman — Administrator.** Every specialist agent, every stage open — and **16
+   deals**. The three confidential deals are **not** among them: they open for the team named
+   on them, not for rank.
+3. **Tahani Al-Jamil — Deal Team.** Deal-team agents; **diligence unlocked**; writes findings
+   and the value-creation plan. **16 deals.**
+4. **Chidi Anagonye — Analyst.** The rail collapses to **his own agent** (read-only) and
+   **All deals** drops to **8** — one of them, Harborlight Marine Services, is **status only**.
+   He *is* read-in on **Project Onyx**, a confidential carve-out: need-to-know granted by
+   name, not by rank.
+5. **Jason Mendoza — Member.** The **guardrail floor**: **9 deals and every one of them
+   status only**, view-only, **zero persona agents**.
 
 > Two things to call out: **what you see follows who you are** — switch persona and the
 > "Live deals" KPI changes *with* the deal list, not just the stage views; and outside demo
@@ -131,7 +136,7 @@ dropdown (it shows **Name — Role**, no clutter):
 
 ## 4 · A deal, end to end (4 min)
 
-> Start on the **Home** you landed on: call out the **the headline figures** and the
+> Start on the **Home** you landed on: call out the **headline figures** and the
 > **Needs attention** list (deals slipping toward IC), then the **deals-by-stage** capital
 > view — the story is the deals in flight, with **market intelligence intentionally at
 > the bottom**. Then open a deal.
@@ -326,17 +331,17 @@ your confidential estate is enforced and logged, so nothing leaks across it.
 | Feature | Where |
 |---|---|
 | Access tiers, one demo person each | top-bar person dropdown (Name — Role) |
-| Deal brief (verdict + top blockers + “what changed” delta + next best action) | deal → **Deal brief** |
-| Diligence workbench (red/amber/green workstreams) | deal → **Diligence workstreams** tab |
-| Side-by-side compare (2–4 deals + Copy table) | **Home** → tick **+ Compare** |
-| Assistant approve-to-apply + audit trail | in-deal **💬 Ask** → **Apply ▸** · deal **Audit trail** (on the "On this deal" row) · `POST /api/deals/:id/assistant-actions` · `GET /api/deals/:id/activity` |
-| Lifecycle (sixteen steps, 6 gates) | **Work the deal** tab · `GET /api/lifecycle` |
+| Deal brief (verdict + top blockers + “what changed” delta + next best action) | deal → **Brief** |
+| Diligence workbench (red/amber/green workstreams) | deal → **The work · Workstreams** |
+| Side-by-side compare (2–4 deals + Copy table) | **Home** or **All deals** → tick **+ Compare** |
+| Assistant approve-to-apply + audit trail | in-deal **💬 Ask** → **Apply ▸** · deal **Audit trail** (on the sub-row of every deal page) · `POST /api/deals/:id/assistant-actions` · `GET /api/deals/:id/activity` |
+| Lifecycle (sixteen steps, 6 gates) | **The work · Plan** · `GET /api/lifecycle` |
 | Decision artifacts | deal → **Papers** · `/api/deals/:id/{returns,value-creation,risk-register,ioi,loi}` |
-| Returns Excel | deal → **Documents** → *Returns model (Excel)* |
+| Returns Excel | deal → **Papers · Generate** → *Returns model (Excel)* |
 | Fund & portfolio (post-IC) | **Fund & Portfolio** tab · `/api/fund/{overview,portfolio,value}` |
 | Specialist agents | assistant + in-deal **💬 Ask the assistant** · `GET /api/persona-agents` |
 | Orchestrated delegation | one assistant → orchestrator delegates to stage specialists → composes (`ORCHESTRATION=purpose`) |
-| Deal Room Report (Power BI) | in-app **Report** tab (top nav) |
+| Deal Room Report (Power BI) | in-app **Firm reporting** tab (top nav) |
 | Add a custom data source | **Settings ⚙ → Data Sources → Add a data source** · `POST /api/connectors` |
 | Files, chats & email (M365 for agents) | **Settings ⚙ → Data Sources → Files, chats & email** |
 | Keyless data | `/api/company/:name/fundamentals`, `/api/entity/:name/lei`, `/api/news/gdelt` |
