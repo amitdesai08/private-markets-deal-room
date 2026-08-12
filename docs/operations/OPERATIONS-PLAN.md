@@ -17,7 +17,7 @@ deployment:
 
 ---
 
-## 1. Least-privilege power control  ✅ implemented
+## 1. Least-privilege power control ✅ implemented
 
 The Teams app sleeps/wakes the orchestrator with its **managed identity**. That
 identity previously held **Contributor** on the orchestrator — far more than
@@ -32,7 +32,7 @@ orchestrator container app only:
 | `Microsoft.Resources/tags/write` | write the lease tag |
 
 - **Definition + assignment:** `caPowerRoleDef` / `raOrchPowerControl` in
-  [`infra/modules/app.bicep`](../infra/modules/app.bicep) (role name
+  [`infra/modules/app.bicep`](../../infra/modules/app.bicep) (role name
   *“Deal Room Power Control (<namePrefix>)”*).
 - **Applied live** on dev: swapped the identity from Contributor to the custom
   role and verified `status` (read), `wake` (tag-write + start) still work.
@@ -96,7 +96,7 @@ Route orchestrator → Cosmos entirely over the VNet so public access can stay
   `Microsoft.App/environments` — correctly sized/delegated for a Consumption CA env.
 - ✅ `snet-pe` (`10.40.4.0/24`) exists; private-endpoint + private-DNS definitions for
   Cosmos, data storage (blob+dfs), Foundry, Key Vault, AI Search and Service Bus are in
-  [`infra/modules/network.bicep`](../infra/modules/network.bicep), gated by
+  [`infra/modules/network.bicep`](../../infra/modules/network.bicep), gated by
   `enablePrivateEndpoints` (default `false`).
 - ✅ **DRIFT RESOLVED — now staged in Bicep:** `network.bicep` now defines
   `snet-cae` (`10.40.6.0/23`, delegated to `Microsoft.App/environments`) to match the
@@ -112,7 +112,7 @@ Route orchestrator → Cosmos entirely over the VNet so public access can stay
 **Because a CA environment cannot be VNet-joined after creation, the cutover
 *recreates* the environment.** The IaC is **staged and `az bicep build`-validated**;
 both flags flip together in one deliberate deploy. To cut over, set the two **CUTOVER
-SWITCHES** in [`infra/main.dev.bicepparam`](../infra/main.dev.bicepparam)
+SWITCHES** in [`infra/main.dev.bicepparam`](../../infra/main.dev.bicepparam)
 (`enablePrivateEndpoints=true`, `deploySearch=false`) and run the deploy — after the
 delete-first step below (immutable env).
 
@@ -143,7 +143,7 @@ data services.
 > checklist to run when we schedule the window.
 
 **Deploy mechanism (grounded):** the platform deploys via
-[`scripts/deploy.ps1`](../scripts/deploy.ps1) → **`az deployment sub create`**
+[`scripts/deploy.ps1`](../../scripts/deploy.ps1) → **`az deployment sub create`**
 (incremental, deployment name `dealhub-dev`) — **not** a deployment stack. Incremental
 mode **does not delete** resources absent from the template, so a redeploy reconciles the
 *declared* resources only; it won't garbage-collect drift. The env recreate in Phase 2 is
@@ -157,7 +157,7 @@ Three drift/recovery facts that must be handled around the recreate:
    (no `keyVaultUrl`), so they **cannot be read back** from the running apps, and there is
    **no local `entra.generated.bicepparam` / secrets file** (the deploy writes secrets to a
    temp file that is deleted after wiring). **Recovery path:** re-run
-   [`scripts/provision-entra.ps1`](../scripts/provision-entra.ps1) — it is **idempotent**
+   [`scripts/provision-entra.ps1`](../../scripts/provision-entra.ps1) — it is **idempotent**
    (finds the existing app registrations by display name, so the **app IDs stay stable**)
    and **regenerates** the client secrets into a fresh `entra.generated.bicepparam` +
    temp secrets file, which `deploy.ps1` then wires into the recreated apps. Net effect:
@@ -230,7 +230,7 @@ anywhere in the application code** — the app uses Foundry, Fabric and the keyl
 data providers, not AI Search. It is pure standing cost.
 
 - **📦 Staged:** gated behind `deploySearch` (default **false**) in
-  [`infra/modules/ai.bicep`](../infra/modules/ai.bicep) + `infra/main.bicep`. Fresh /
+  [`infra/modules/ai.bicep`](../../infra/modules/ai.bicep) + `infra/main.bicep`. Fresh /
   customer deploys **skip it**. The next infra deploy of the dev stack will **remove**
   the existing unused Search (deployment-stack `deleteResources`) — the ~$75/mo saving
   lands then. Set `deploySearch=true` if you ever need search / vector retrieval.
@@ -245,7 +245,7 @@ The workspace had **no daily cap** (`dailyQuotaGb = -1`) and 30-day retention.
 - **✅ Applied (dev):** daily cap set to **1 GB** (well above dev's actual usage).
   Reverse with `az monitor log-analytics workspace update -n log-dealhub-dev-swc -g rg-dealhub-core-dev-swc --set workspaceCapping.dailyQuotaGb=-1`.
 - **📦 Staged:** `logAnalyticsDailyQuotaGb` param (default -1) added to
-  [`infra/modules/core.bicep`](../infra/modules/core.bicep) + `infra/main.bicep` so
+  [`infra/modules/core.bicep`](../../infra/modules/core.bicep) + `infra/main.bicep` so
   it's durable — set it per environment.
 - Consider App Insights / Container Apps log **sampling** to cut volume further.
 
@@ -255,7 +255,7 @@ The workspace had **no daily cap** (`dailyQuotaGb = -1`) and 30-day retention.
 Run the `sleep` action on a nightly schedule so the orchestrator is down off-hours;
 users self-wake from the Teams gate when needed.
 
-- **📦 Staged:** [`.github/workflows/deal-room-sleep.yml`](../.github/workflows/deal-room-sleep.yml)
+- **📦 Staged:** [`.github/workflows/deal-room-sleep.yml`](../../.github/workflows/deal-room-sleep.yml)
   — nightly `sleep` (03:00 UTC) + on-demand `sleep|stop|start|status`. **Opt-in:** set
   repo variable `ENABLE_SCHEDULED_SLEEP=true` and the `AZURE_*` OIDC secrets (the
   identity needs rights to stop/start the container apps).

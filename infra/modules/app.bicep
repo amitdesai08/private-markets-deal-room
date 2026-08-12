@@ -166,7 +166,7 @@ resource caEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
     // posture). internal:false keeps a PUBLIC ingress endpoint while routing outbound
     // through the VNet, so the apps stay reachable but reach Cosmos/storage over private
     // endpoints. NOTE: this property is IMMUTABLE — turning it on for an existing env
-    // requires deleting + recreating the environment (see docs/OPERATIONS-PLAN.md).
+    // requires deleting + recreating the environment (see docs/operations/OPERATIONS-PLAN.md).
     vnetConfiguration: empty(caeSubnetId) ? null : {
       infrastructureSubnetId: caeSubnetId
       internal: false

@@ -23,11 +23,11 @@ tenant.
 
 **Deep dives — the "how", for builders:**
 
-| [🧭 How it works](docs/HOW-IT-WORKS.md) | [🗂️ Inside a deal](docs/DEAL-STAGES.md) | [🔐 Access model](docs/ACCESS-MODEL.md) | [☁️ Deploy](docs/DEPLOY.md) | [📐 Architecture](https://viewer.diagrams.net/?tags=%7B%7D&lightbox=1&nav=1&title=architecture#Uhttps%3A%2F%2Fraw.githubusercontent.com%2Famitdesai08%2Fprivate-markets-deal-room%2Fmain%2Fdocs%2Farchitecture.drawio) |
+| [📐 Architecture](docs/ARCHITECTURE.md) | [🧭 How it works](docs/HOW-IT-WORKS.md) | [🗂️ Inside a deal](docs/DEAL-STAGES.md) | [🔐 Access model](docs/ACCESS-MODEL.md) | [☁️ Deploy](docs/DEPLOY.md) |
 |:--:|:--:|:--:|:--:|:--:|
-| architecture & internals | stages, workspace & data room | RBAC, need-to-know & demo | one command to your tenant | interactive Azure diagram |
+| the system on one page | internals & repo layout | stages, workspace & data room | RBAC, need-to-know & demo | one command to your tenant |
 
-<sub>More: [🎬 Demo walkthrough](docs/Demos/DEMO-WALKTHROUGH.md) · [📋 Demo runbook](docs/Demos/DEMO-RUNBOOK.md) · [🛡️ Security](SECURITY.md) · [🔒 Security & compliance (buyer appendix)](docs/buyer-security-compliance.md) · [🤝 Contributing](CONTRIBUTING.md)</sub>
+<sub>**[📚 All documentation →](docs/README.md)** · [🎬 Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · [📋 Demo runbook](docs/demos/DEMO-RUNBOOK.md) · [🛡️ Security](SECURITY.md) · [🔒 Security & compliance (buyer appendix)](docs/security/buyer-security-compliance.md) · [🤝 Contributing](CONTRIBUTING.md)</sub>
 
 ---
 
@@ -74,7 +74,7 @@ what is missing rather than leaving you to work it out. If the product cannot sh
 something, it says so rather than leaving a gap.
 
 For a click-by-click tour written for someone who has never seen it, read the
-[demo walkthrough](docs/Demos/DEMO-WALKTHROUGH.md).
+[demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md).
 
 ---
 
@@ -214,7 +214,7 @@ seeded pipeline even ships **confidential deals** and a real **need-to-know gran
 the analyst and the confidential take-private and exit are invisible, yet she has full access to
 the one deal she's named on. Switch to the partner and everything opens.
 
-> 🎬 [Demo walkthrough](docs/Demos/DEMO-WALKTHROUGH.md) · 📋 [Demo runbook](docs/Demos/DEMO-RUNBOOK.md) · 🔐 [Access model](docs/ACCESS-MODEL.md)
+> 🎬 [Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · 📋 [Demo runbook](docs/demos/DEMO-RUNBOOK.md) · 🔐 [Access model](docs/ACCESS-MODEL.md)
 
 ---
 
@@ -222,13 +222,14 @@ the one deal she's named on. Switch to the partner and everything opens.
 
 | Guide | What's inside |
 |---|---|
-| [**How it works**](docs/HOW-IT-WORKS.md) | Architecture diagram, the one-backend/two-surfaces model, AI Foundry agents, the pluggable store, the identity trust seam, cost control, repo layout & run-locally. |
+| [**Architecture**](docs/ARCHITECTURE.md) | **Start here.** The system on one page — two surfaces over one backend, the identity seam, and the Azure footprint by resource group. |
+| [**How it works**](docs/HOW-IT-WORKS.md) | The internals — AI Foundry agents, the pluggable store, assistant write-back & the audit trail, cost control, repo layout & run-locally. |
 | [**Deploy guide**](docs/DEPLOY.md) | Prerequisites, `azd up`, the guided script, identity paths, roles, and how to customize & extend. |
 | [**Access model**](docs/ACCESS-MODEL.md) | Two-tier RBAC, deal-team need-to-know, confidential deals, **MNPI & information barriers**, demo profiles & the runtime Demo Mode toggle. |
 | [**Inside a deal**](docs/DEAL-STAGES.md) | A tab-by-tab tour of every stage, the workspace, decision artifacts and the document repository. |
-| [**Data integration**](docs/DATA-INTEGRATION.md) | External market-data ingestion (PitchBook, Capital IQ, Bloomberg, FactSet, Morningstar, LSEG, Moody's) & system-of-record fit (DealCloud, Allvue, Salesforce FSC). |
+| [**All documentation**](docs/README.md) | The full map — [integration](docs/integration/), [security](docs/security/), [operations](docs/operations/), [demos](docs/demos/) and [reference](docs/reference/). |
 | [Infra runbook](infra/README.md) · [App service](app/README.md) | Deep Bicep / `what-if` details and the API / MCP service. |
-| [Deployment checklist](docs/DEPLOYMENT-CHECKLIST.md) · [Operations plan](docs/OPERATIONS-PLAN.md) · [Data handling](docs/DATA-HANDLING.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) | Go-live, run-book, what data the app touches, security posture and how to contribute. |
+| [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) | Security posture and how to contribute. |
 
 ---
 

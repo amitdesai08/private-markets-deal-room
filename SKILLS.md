@@ -8,8 +8,8 @@ extend** the agents to how their firm actually works.
 
 > Modelled on the [Claude for Financial Services](https://github.com/anthropics/financial-services)
 > skill/agent framework (Apache-2.0). See the agent roster in
-> [docs/AGENTS.md](docs/AGENTS.md) and the backlog item H in
-> [docs/ACTION-ITEMS.md](docs/ACTION-ITEMS.md).
+> [docs/AGENTS.md](docs/integration/AGENTS.md) and the backlog item H in
+> [docs/ACTION-ITEMS.md](docs/reference/ACTION-ITEMS.md).
 
 ## How it fits together
 
@@ -73,8 +73,8 @@ tool dispatch, so an agent only ever works with data the *requesting user* may s
 (`get_deal` refuses/redacts deals out of the caller's need-to-know), and Work IQ reads run
 as the signed-in user. Skills **draft work product for human sign-off** — they do not execute
 transactions, post to a ledger, or approve. See
-[docs/DATA-SOVEREIGNTY.md](docs/DATA-SOVEREIGNTY.md) and the Governance section of
-[docs/AGENTS.md](docs/AGENTS.md).
+[docs/DATA-SOVEREIGNTY.md](docs/security/DATA-SOVEREIGNTY.md) and the Governance section of
+[docs/AGENTS.md](docs/integration/AGENTS.md).
 
 ## Extend it (make it yours)
 

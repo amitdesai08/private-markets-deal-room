@@ -5,9 +5,9 @@ one doc that lets you understand the product, demo it, and explain it to an indu
 professional with confidence. It covers: what the app *is*, the business it models, what every
 screen *shows*, what every agent *does*, how access is *enforced*, and a glossary of the jargon.
 
-Companion docs: [PERSONAS.md](PERSONAS.md) (who uses it) · [AGENTS.md](AGENTS.md) (agent
-reference) · [DEAL-STAGES.md](DEAL-STAGES.md) · [ACCESS-MODEL.md](ACCESS-MODEL.md) ·
-[DATA-SOVEREIGNTY.md](DATA-SOVEREIGNTY.md) · [SKILLS.md](../SKILLS.md).
+Companion docs: [PERSONAS.md](../PERSONAS.md) (who uses it) · [AGENTS.md](../integration/AGENTS.md) (agent
+reference) · [DEAL-STAGES.md](../DEAL-STAGES.md) · [ACCESS-MODEL.md](../ACCESS-MODEL.md) ·
+[DATA-SOVEREIGNTY.md](../security/DATA-SOVEREIGNTY.md) · [SKILLS.md](../../SKILLS.md).
 
 ---
 
@@ -36,7 +36,7 @@ Every company the fund looks at moves through four stages. This is the spine of 
 | **4** | **Value Creation & Exit** | Own and grow the company (3–6 yrs), then sell it | 100-day plan, EBITDA bridge, portfolio reporting, exit |
 
 Returns are judged in **IRR** (annualised %) and **MOIC** (multiple of money in→out). See
-[DEAL-STAGES.md](DEAL-STAGES.md) for the detailed gates.
+[DEAL-STAGES.md](../DEAL-STAGES.md) for the detailed gates.
 
 ## 3. What the app shows (screen by screen)
 
@@ -67,7 +67,7 @@ the IC memo, value creation — and the user just asks; the request is routed to
 (Two internal shapes: **today** one agent per PE role — Analyst, Partner, Fund CFO, Operating
 Partner, GC, IR, plus the sector MDs and the external News Scout; the **scaffolded target** is
 **purpose-shaped**, a few agents named for the *job* with an **orchestrator** that routes to them.
-Full reference: [AGENTS.md](AGENTS.md).)
+Full reference: [AGENTS.md](../integration/AGENTS.md).)
 
 Purpose agents (the direction), each bundling **skills** (`skills/<slug>/SKILL.md`):
 
@@ -91,7 +91,7 @@ Two hard rules make the agents trustworthy:
 
 The one **external-web** agent (News Scout) can read the public web for sourcing signals but can
 *never* touch internal deal data — and vice-versa. That boundary is enforced and audit-logged
-([DATA-SOVEREIGNTY.md](DATA-SOVEREIGNTY.md)).
+([DATA-SOVEREIGNTY.md](../security/DATA-SOVEREIGNTY.md)).
 
 ## 5. How access is enforced (the part IT will ask about)
 
@@ -99,7 +99,7 @@ Everything hangs off the user's **Entra ID** identity. The flow:
 
 1. The Teams tab/chat sends the signed-in user's identity to the backend (the Teams proxy
    injects the trusted identity + a view-as role — a client can't forge a wider role).
-2. `roleForUser` ([userPolicy.js](../app/lib/userPolicy.js)) resolves the **role** (admin ·
+2. `roleForUser` ([userPolicy.js](../../app/lib/userPolicy.js)) resolves the **role** (admin ·
    partner · deal-team · analyst · member, or a custom Entra-mapped role).
 3. Every read is gated: `dealAccessLevel` returns **full / status-only / none** per deal, so
    confidential deals are hidden or redacted; `list_deals`/`search_deals` return only visible
@@ -109,12 +109,12 @@ Everything hangs off the user's **Entra ID** identity. The flow:
    are routed to a read-only agent.
 
 Net: an analyst literally cannot get a confidential deal's detail out of the UI *or* the chat.
-See [ACCESS-MODEL.md](ACCESS-MODEL.md) and the "Governance & data protection" section of
-[AGENTS.md](AGENTS.md).
+See [ACCESS-MODEL.md](../ACCESS-MODEL.md) and the "Governance & data protection" section of
+[AGENTS.md](../integration/AGENTS.md).
 
 ## 6. How to demo / explain it to a PE professional
 
-A 3-minute talk track (there are full runbooks in [docs/Demos](Demos)):
+A 3-minute talk track (there are full runbooks in [docs/Demos](../Demos)):
 
 1. **Open the Dashboard** — "Here's the fund's whole pipeline, by stage, in Teams."
 2. **Ask the chat "what can you do?"** — "The copilot answers *for my role* — an analyst sees

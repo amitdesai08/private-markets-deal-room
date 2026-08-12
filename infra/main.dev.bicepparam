@@ -106,7 +106,7 @@ param regionGroupIds = '{"d35bd3a2-7823-4fd0-a1f7-398f4a5a111c":["northeast"],"4
 //                                       // maintenance window (bundled cost cutover).
 // PREREQUISITE (immutable env): an existing CA env cannot gain vnetConfiguration in place —
 // DELETE cae-* + both container apps FIRST, then deploy. Keep Cosmos publicNetworkAccess =
-// Enabled until private endpoints + DNS are confirmed. Full runbook: docs/OPERATIONS-PLAN.md.
+// Enabled until private endpoints + DNS are confirmed. Full runbook: docs/operations/OPERATIONS-PLAN.md.
 // Leave both at the safe values below for routine (non-cutover) deploys.
 param enablePrivateEndpoints = false
 param keyVaultPurgeProtection = false

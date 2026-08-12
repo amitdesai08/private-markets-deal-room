@@ -3,8 +3,8 @@
 Written for a builder with **no private-equity (PE) background**. It explains the real
 roles at a mid-market PE firm, what each one actually does, what they want from an AI
 assistant, and how that maps to the Deal Room's **Entra ID roles**, **agents** and **deal
-stages**. Pair with [EXPLAINER.md](EXPLAINER.md) (the plain-English tour + glossary) and
-[AGENTS.md](AGENTS.md) (the agent reference).
+stages**. Pair with [EXPLAINER.md](reference/EXPLAINER.md) (the plain-English tour + glossary) and
+[AGENTS.md](integration/AGENTS.md) (the agent reference).
 
 ## The 60-second mental model
 

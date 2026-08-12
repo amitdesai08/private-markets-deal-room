@@ -77,7 +77,7 @@ its name, never self-asserted by a model:
 - **Freshness without leakage** — live web search / scraping for non-stale sourcing lives
   **only** in the external-web class, isolated from every internal record.
 
-Full model + the requirement mapping: [docs/DATA-SOVEREIGNTY.md](docs/DATA-SOVEREIGNTY.md).
+Full model + the requirement mapping: [docs/DATA-SOVEREIGNTY.md](docs/security/DATA-SOVEREIGNTY.md).
 
 ## Demo profiles are not a production auth mechanism
 

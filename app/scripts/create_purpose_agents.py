@@ -1,6 +1,6 @@
 """Provision the PURPOSE-BASED Deal Room agents in Foundry Agent Service (scaffold).
 
-This is the target topology (see /SKILLS.md and docs/AGENTS.md): a small set of agents
+This is the target topology (see /SKILLS.md and docs/integration/AGENTS.md): a small set of agents
 named for the JOB they do, not the persona — with the Deal Room Analyst as the orchestrator
 that delegates. Each agent bundles the skills it needs (skills/<slug>/SKILL.md) and reaches
 the fund's governed data through the SAME read-only MCP the persona agents use, so RBAC +

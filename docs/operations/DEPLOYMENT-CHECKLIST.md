@@ -1,7 +1,7 @@
 # Deployment checklist — customer / delivery
 
 A practical, step-by-step checklist to stand up The Deal Room in a customer (or
-your own) Azure subscription. For the full narrative see the [README](../README.md).
+your own) Azure subscription. For the full narrative see the [README](../../README.md).
 
 > **TL;DR:** demo in one command — `azd up`. Everything below is optional
 > hardening for a customer-grade deployment.
@@ -11,7 +11,7 @@ your own) Azure subscription. For the full narrative see the [README](../README.
 | Path | Command | Images | Entra apps | Foundry agents | Best for |
 |---|---|---|---|---|---|
 | **A · azd** *(canonical, one-command)* | `azd up` | built + pushed automatically (`azure.yaml` services, ACR remote build) | `postprovision` hook (full mode) | `postdeploy` hook | demos, fresh customer envs |
-| **B · scripted** *(what the live dev env uses)* | [`scripts/deploy.ps1`](../scripts/deploy.ps1) → `az deployment sub create` | **rolled manually** after infra (`az acr build` + `az containerapp update`) | [`scripts/provision-entra.ps1`](../scripts/provision-entra.ps1) (idempotent) | run the `app/scripts/create_*_agent.py` scripts | granular control, air-gapped/CI, param-file (`*.bicepparam`) deploys |
+| **B · scripted** *(what the live dev env uses)* | [`scripts/deploy.ps1`](../../scripts/deploy.ps1) → `az deployment sub create` | **rolled manually** after infra (`az acr build` + `az containerapp update`) | [`scripts/provision-entra.ps1`](../../scripts/provision-entra.ps1) (idempotent) | run the `app/scripts/create_*_agent.py` scripts | granular control, air-gapped/CI, param-file (`*.bicepparam`) deploys |
 
 Both deploy the **same** `infra/main.bicep`. Path A reads `infra/main.parameters.json`
 (azd env-var substitution, e.g. `${DEALROOM_STORE=blob}`); Path B reads a `*.bicepparam`
@@ -88,7 +88,7 @@ azd env set AZURE_LOCATION swedencentral
 - [ ] Confirm managed-identity RBAC (no keys in the app); rotate any deploy-time secrets.
 - [ ] *(hardened)* set `enablePrivateEndpoints=true` and `keyVaultPurgeProtection=true`. Enabling private endpoints **recreates the Container Apps env** (new FQDNs) — follow the staged cutover runbook in [OPERATIONS-PLAN.md § VNet integration](OPERATIONS-PLAN.md#2-vnet-integration--remove-the-cosmos-public-access-dependency) (capture/recovery checklist + phases).
 - [ ] Confirm Content Safety (`CONTENT_SAFETY_ENDPOINT`) if required by policy.
-- [ ] Review agent **data sovereignty** (internal-data vs external-web isolation) — [DATA-SOVEREIGNTY.md](DATA-SOVEREIGNTY.md).
+- [ ] Review agent **data sovereignty** (internal-data vs external-web isolation) — [DATA-SOVEREIGNTY.md](../security/DATA-SOVEREIGNTY.md).
 
 ## 8 · Operations (post-go-live)
 

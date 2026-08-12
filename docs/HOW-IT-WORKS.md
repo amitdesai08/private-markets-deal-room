@@ -4,19 +4,19 @@
 > surfaces, Azure AI Foundry agents, a pluggable store, and identity-aware access — all
 > subscription-agnostic Bicep on Azure Container Apps.
 >
-> See also: [Deploy guide](DEPLOY.md) · [Access model](ACCESS-MODEL.md) · [Inside a deal](DEAL-STAGES.md)
+> See also: [Architecture](ARCHITECTURE.md) · [Deploy guide](DEPLOY.md) · [Access model](ACCESS-MODEL.md) · [Inside a deal](DEAL-STAGES.md)
 
 ---
 
 ## Architecture
 
-The Deal Room's Azure architecture — drawn with **official Microsoft Azure icons**:
+The one-page picture — the two surfaces over one backend, the identity seam, and the Azure
+footprint broken out by resource group — is **[Architecture](ARCHITECTURE.md)**. Read that
+first; the sections below pick up where it stops and walk each layer in turn.
 
-> 📐 **[View the interactive architecture diagram →](https://viewer.diagrams.net/?tags=%7B%7D&lightbox=1&nav=1&title=architecture#Uhttps%3A%2F%2Fraw.githubusercontent.com%2Famitdesai08%2Fprivate-markets-deal-room%2Fmain%2Fdocs%2Farchitecture.drawio)**
->
-> Prefer to edit? Open `docs/architecture.drawio` in VS Code with the **Draw.io Integration** extension — the icons are embedded, so the file is fully self-contained.
-
-The diagram shows both the **separation** and the **interactions**: your Microsoft 365 tenant, the Azure subscription split into its domain **resource groups** (`app · ai · data · integration · core`), Microsoft Entra, and the external keyless data sources — joined by **numbered flows** (SSO/OBO, the **identity trust boundary** into the backend, managed-identity model inference, the single deal store, per-deal Teams-channel + SharePoint data-room provisioning, the MCP surface, and event-driven signals). The sections below walk each layer.
+The detailed Azure drawing, with official Microsoft Azure icons and numbered flows, is kept as
+an editable source at [`reference/architecture.drawio`](reference/architecture.drawio) and can
+be opened in the [interactive viewer](https://viewer.diagrams.net/?tags=%7B%7D&lightbox=1&nav=1&title=architecture#Uhttps%3A%2F%2Fraw.githubusercontent.com%2Famitdesai08%2Fprivate-markets-deal-room%2Fmain%2Fdocs%2Freference%2Farchitecture.drawio).
 
 ---
 
@@ -191,7 +191,12 @@ An idle demo shouldn't cost anything. Power the platform off/on as one unit:
 ├── infra/                  Azure IaC — subscription-scoped, domain-split into 6 resource groups
 │   ├── main.bicep          Orchestrator + modules/ (core · ai · data · app · integration · network)
 │   └── main.{dev,test,prod,sample}.bicepparam
-├── docs/                   Architecture, how-it-works, deploy, access model, stages, demos
+├── docs/                   Architecture, how-it-works, access model, stages, personas, deploy
+│   ├── demos/              Walkthrough, runbook and lightning demo
+│   ├── integration/        Market data, agents & skills, data handling
+│   ├── security/           Buyer security appendix, data sovereignty
+│   ├── operations/         Deployment checklist, operations plan
+│   └── reference/          Explainer, action items, editable architecture diagram
 ├── skills/                 Agent skill definitions (screening, comps, LBO, IC memo, DD, VCP)
 ├── mockups/                Static HTML design mockups (deal cockpit, navigation IA)
 ├── scripts/                Deploy + Entra-provisioning + azd hooks

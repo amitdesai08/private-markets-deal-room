@@ -205,7 +205,7 @@ MCAPS `CosmosDB_PublicNetwork_Modify` initiative), either (a) add a resource-sco
 **policy exemption** for the Cosmos account and keep public access enabled, or
 (b) deploy a **VNet-integrated** Container Apps environment + a Cosmos **private
 endpoint** (`enablePrivateEndpoints=true`). Never leave Cosmos unreachable — the app
-cannot serve deals in memory mode. See [`docs/SOLUTION.md`](../docs/SOLUTION.md) §6.
+cannot serve deals in memory mode. See the [operations plan](../docs/operations/OPERATIONS-PLAN.md#2-vnet-integration--remove-the-cosmos-public-access-dependency).
 
 ## Not provisioned by this template
 

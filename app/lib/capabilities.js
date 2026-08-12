@@ -9,7 +9,7 @@
 // Deterministic (no model call): capability questions are answered from this map, so the
 // "help me get started" experience is instant and always correct + scoped.
 
-// Purpose-based agents (target topology, see docs/AGENTS.md) + the skills each runs and
+// Purpose-based agents (target topology, see docs/integration/AGENTS.md) + the skills each runs and
 // the deal stage it serves. `needs` gates the DETAIL: 'read' = any role may ask; 'stage2'
 // = full detail needs deal-team access (others get status-only); 'write' = an action.
 const CAPABILITIES = [

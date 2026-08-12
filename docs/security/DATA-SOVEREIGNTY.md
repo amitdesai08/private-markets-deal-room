@@ -3,10 +3,10 @@
 > How The Deal Room keeps the fund's data sovereign across its AI agents: each agent sees
 > only what its objective needs, internal deal data can never leave through an agent, and
 > the agents that reach the public web are hard-separated from the agents that read internal
-> data. Enforced **server-side** in [`app/lib/agentSovereignty.js`](../app/lib/agentSovereignty.js),
+> data. Enforced **server-side** in [`app/lib/agentSovereignty.js`](../../app/lib/agentSovereignty.js),
 > never by trusting a model.
 >
-> See also: [Security overview](../SECURITY.md) · [Access model](ACCESS-MODEL.md) · [How it works](HOW-IT-WORKS.md#the-identity-trust-seam)
+> See also: [Security overview](../../SECURITY.md) · [Access model](../ACCESS-MODEL.md) · [How it works](../HOW-IT-WORKS.md#the-identity-trust-seam)
 
 ---
 
@@ -21,7 +21,7 @@ a model can never assert or change its own class.
 | **external-web** | `deal-room-news-scout` (Bing-grounded) | ✗ **never** (no internal tools) | ✓ (public sourcing only) |
 
 The boundary is a **guard at every agent↔tool dispatch seam**
-([`assertToolAllowed`](../app/lib/agentSovereignty.js)): before any tool runs, the server checks
+([`assertToolAllowed`](../../app/lib/agentSovereignty.js)): before any tool runs, the server checks
 it against the calling agent's class. A boundary-crossing call is **refused, not executed** —
 so neither a prompt-injection payload nor a manipulated orchestration loop can move data across
 the line.
@@ -49,11 +49,11 @@ flowchart LR
 ### 1 · Agents only access data for their objective
 - **Class allow-list** — an agent may only run tools in its class (`INTERNAL_TOOLS` vs. the
   web/egress tools). Anything else is refused before dispatch.
-- **Deal scope** — for the internal class, [`dispatchTool`](../app/lib/dealTools.js) hard-filters
+- **Deal scope** — for the internal class, [`dispatchTool`](../../app/lib/dealTools.js) hard-filters
   every read to the *focused* deal when a conversation is scoped to one deal; the model's
   arguments are ignored if they name another deal.
 - **Persona authority** — write/action verbs are additionally authorized per persona in
-  [`personaPolicy.js`](../app/lib/personaPolicy.js), and the persona is **set by the server**, never
+  [`personaPolicy.js`](../../app/lib/personaPolicy.js), and the persona is **set by the server**, never
   taken from the model.
 
 ### 2 · No cross-pollination by manipulating agents / the orchestration loop
@@ -89,8 +89,8 @@ now implemented (app-layer) or staged in infrastructure:
   Container-Apps-delegated `snet-cae`, a `snet-pe` for private endpoints, private DNS zones,
   and private endpoints for Cosmos (`privatelink.documents.azure.com`), Foundry, Search,
   Key Vault, Service Bus and Storage — all gated on `enablePrivateEndpoints`
-  ([`infra/modules/network.bicep`](../infra/modules/network.bicep),
-  [`infra/modules/data.bicep`](../infra/modules/data.bicep)). Prod ships this **on**
+  ([`infra/modules/network.bicep`](../../infra/modules/network.bicep),
+  [`infra/modules/data.bicep`](../../infra/modules/data.bicep)). Prod ships this **on**
   (`main.prod.bicepparam`); dev ships it **off** (`main.dev.bicepparam`).
   - **Confirmed current dev posture:** Cosmos `publicNetworkAccess` is public and has **no**
     private endpoint (`peConnections: null`), and the CA environment is Consumption-only with
@@ -101,25 +101,25 @@ now implemented (app-layer) or staged in infrastructure:
     place — enabling it **recreates the CA env and both container apps**, which changes their
     FQDNs and therefore requires re-pointing the Teams manifest / bot messaging endpoint /
     redirect URIs. It is a deliberate, supervised maintenance-window cutover, not a hot flip.
-    Full runbook: [OPERATIONS-PLAN.md](OPERATIONS-PLAN.md). Keep Cosmos `publicNetworkAccess =
+    Full runbook: [OPERATIONS-PLAN.md](../operations/OPERATIONS-PLAN.md). Keep Cosmos `publicNetworkAccess =
     Enabled` until the private endpoints + DNS are confirmed.
 
 - **Portfolio-scope need-to-know — implemented.** Every *portfolio-wide* agent context now
   excludes `confidential` deals. The deal analyst and the 10 persona agents build their
-  portfolio summaries from [`listAgentDeals()`](../app/lib/store.js) (deals where
+  portfolio summaries from [`listAgentDeals()`](../../app/lib/store.js) (deals where
   `confidential` is false), and the portfolio branches of
-  [`dispatchTool`](../app/lib/dealTools.js) (`list_deals` / `search_deals`) use the same
+  [`dispatchTool`](../../app/lib/dealTools.js) (`list_deals` / `search_deals`) use the same
   filtered list. A confidential deal is therefore never summarised into a portfolio-wide
   conversation; it remains reachable only through **focused, deal-scope chat**, which the HTTP
   layer already gates by deal team before the agent is invoked
-  ([access model](ACCESS-MODEL.md)).
+  ([access model](../ACCESS-MODEL.md)).
 
 - **Content Safety — available.** Set `CONTENT_SAFETY_ENDPOINT` to screen model I/O on both
-  classes via [`screenText`](../app/lib/contentSafety.js).
+  classes via [`screenText`](../../app/lib/contentSafety.js).
 
 - **Audit — implemented.** Whenever the guard refuses a boundary-crossing call it both returns
   a `sovereignty-denied` tool result to the model *and* emits one structured line to stderr
-  ([`auditDenied`](../app/lib/agentSovereignty.js)). Container Apps ships stdout/stderr to Log
+  ([`auditDenied`](../../app/lib/agentSovereignty.js)). Container Apps ships stdout/stderr to Log
   Analytics, so a single query surfaces every attempted violation for alerting:
 
   ```kusto
