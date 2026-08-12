@@ -60,13 +60,12 @@ Five tabs across the top. That is the whole product.
 |---|---|
 | **Home** | What needs you today — the daily briefing, the four headline figures, and the queue. |
 | **Sourcing & screening** | Companies you are looking at but have not committed to: pipeline, the sourcing framework, analyst research, and live filings and news. |
-| **Deals in flight** | The deals you are actually running. Press a row to open one. |
+| **All deals** | The deals you are actually running. Press a row to open one. |
 | **Fund & Portfolio** | The fund's money, and the companies it already owns. |
-| **Report** | The certified numbers you would send to an investor. |
+| **Firm reporting** | The certified numbers you would send to an investor. |
 
-Open a deal and you get nine tabs, in the same order on every deal: **Deal brief ·
-Thesis & key figures · IC readiness · Returns, plan & risk · Progress & follow-ups ·
-Work the deal · Diligence workstreams · Documents · More ▾**.
+Open a deal and you get five pages, in the same order on every deal: **Brief · The case ·
+The work · Analysis · Papers**.
 
 Two rules the interface holds itself to: every figure says what it is counting and
 what it excludes, and where a number is not in the figures above it, the screen names
@@ -154,7 +153,7 @@ The assistant doesn't just answer — inside a deal it **proposes concrete next 
 the deal's own state (*log this blocking workstream as an issue*, *mark this issue resolved*). It
 **never acts on its own**: you **Apply** a suggestion, and the change is written to the live
 record **and** to a **fully-attributed audit entry** — who approved it, when, and that it came
-*via the assistant*. The deal's **Audit trail**, under **More ▾**, is the running record. Every write is
+*via the assistant*. The deal's **Audit trail** is the running record. Every write is
 governed by the caller's role server-side, so the AI can help move work forward without becoming
 a way around the access model.
 
