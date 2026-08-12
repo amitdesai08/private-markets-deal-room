@@ -1,35 +1,37 @@
 # Teams app screenshots
 
-The repo landing page ([../../README.md](../../README.md)) keeps **one** web-app
-screenshot (the hero) and showcases the rest **from Microsoft Teams**. The Teams
-shots below are captured from the **Teams channel-tab web UI** (`teams-app/tab`,
-served by the `ca-dealhub-teams` container) — a distinct interface from the full
-web app — so they show exactly what Teams renders.
+Captured from the **Teams channel-tab web UI** (`teams-app/tab`, served by the
+`ca-dealhub-teams` container), so they show exactly what Teams renders. The repo landing
+page ([../../README.md](../../README.md)) uses five of them; the last two are kept for the
+deeper docs.
 
-To refresh them, point a headless browser (e.g. Playwright/Chromium) at the tab
-URL, drive the views, and save PNGs over the files below (same names). The tab
-loads live deal data and exposes a **Demo — "view as"** role switcher, which is
-handy for the RBAC shot (switch to *Analyst — user5* and open a Stage-2 deal to
-get the "restricted to the deal team" lock).
-
-| File | Root README section | What it shows |
+| File | Where it's used | What it shows |
 |---|---|---|
-| `teams-agent-chat.png` | 🤖 Talk to your deals | The Deal Room agent answering a natural-language question, grounded in live deal data. |
-| `teams-dashboard.png` | 📊 The Teams dashboard | The channel-tab dashboard — KPIs, origination funnel, live pipeline deals. |
-| `teams-stage1.png` | 🗂️ Stage 1 | Stage 1 — Origination & Screening (funnel + candidate pipeline). |
-| `teams-stage1-analytics.png` | 🗂️ Stage 1 | Target deep-dive — SEC EDGAR filings + AI-generated analyst report (sector outlook, risks, recommendation). |
-| `teams-stage2.png` | 🗂️ Stage 2 | Stage 2 — Diligence & Approval (deals in diligence). |
-| `teams-rbac.png` | 🔐 Identity-aware access | An Analyst blocked from a Stage-2 deal (role-gated lock). |
+| `teams-dashboard.png` | README hero | The Home desk — a partner's daily briefing, composed from the deal record, with a numbered evidence marker behind each claim. |
+| `teams-agent-chat.png` | 💬 An AI deal team you @mention | The assistant answering *“which deal is the highest priority right now, and why?”* beside the briefing. |
+| `teams-stage1.png` | 🗂️ The whole lifecycle | Sourcing & screening — deals in origination, with the mandate and screening framework behind the sub-tabs. |
+| `teams-deal-cockpit.png` | 🧭 A Deal brief built for the deal team | A deal opening on *where to start*, the IC clock, and the five pages every deal has. |
+| `teams-rbac.png` | 🔐 Need-to-know access | An analyst on a deal they are not cleared for — status only, with *Ask to join the deal team*. |
+| `teams-stage2.png` | — | The **All deals** list: 19 deals segmented by stage, with the IC-ready ones called out. |
+| `teams-stage1-analytics.png` | — | A deal's **Analysis** page — the paper LBO, its returns against the hurdle, and the basis it was struck on. |
 
-## Capture tips
+## Refreshing them
 
-- Use a deal channel in the **Private Equity Deals** team so the bot resolves deal
-  context from the channel.
-- Prefer the **dark** Teams theme for a crisp look, and crop to the Teams content
-  pane (hide personal chat lists / unrelated tenant chrome).
-- Aim for ~1600px wide PNGs; keep them under a few hundred KB.
-- Avoid real personal data in view — the demo deals (Sound United, National
-  CineMedia, XBP Global, Allbirds) are ideal subjects.
+The **beta** tab is the one to shoot: it sets `DEMO_OPEN_SIGN_IN`, so a browser with no
+directory account can hold a demo seat. The dev tab does not, and will sit on
+*“Loading your deals…”* behind a 401.
 
-Once a PNG is added, uncomment its `![…](teams-app/docs/<file>.png)` line in the
-root README and it renders on the repo landing page.
+1. Open the tab with a seat named in the query string — the roster ids are `admin`,
+   `partner`, `deal-team`, `analyst`, `principal`, `fund-cfo`, `member`, …:
+
+   ```
+   https://<teams-beta-host>/?dr_as=partner#/overview
+   ```
+
+2. Dismiss the *“Now viewing as …”* access note (`.sbn-x`) — it is demo chrome, not product.
+3. Drive the view, then save a PNG over the file above, keeping the same name.
+
+Shoot every file at the **same viewport** so the set reads as one product (the current set
+is 919 × 608). For the access shot, pick a seat and a deal that genuinely collide —
+`?dr_as=analyst` on a deal outside their territory returns the real status-only view rather
+than a staged lock.

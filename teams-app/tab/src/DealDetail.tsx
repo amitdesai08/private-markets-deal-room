@@ -856,7 +856,10 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
               <div className="dd-sub">{[deal.sector, deal.subSector, deal.hq].filter(Boolean).join(' · ')}</div>
               <div className="dd-meta">
                 <span className="chip">{deal.stageName || deal.stage}</span>
-                <span className="chip">Step {deal.stepNumber} of {deal.totalSteps} · {STEP_LABEL[deal.currentStep || ''] || deal.currentStep}</span>
+                {/* A status-only seat is not told the step, and the chip printed "Step of ·". */}
+                {deal.stepNumber != null && deal.totalSteps != null ? (
+                  <span className="chip">Step {deal.stepNumber} of {deal.totalSteps} · {STEP_LABEL[deal.currentStep || ''] || deal.currentStep}</span>
+                ) : null}
                 {/* Lumen Analytics is headquartered in Dublin and its diligence
                     documents quote euros, and this header printed a dollar sign with
                     nothing to say which currency the dollar sign meant. A partner

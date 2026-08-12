@@ -11,7 +11,7 @@ live deal record, delivered by the right specialist, and scoped to who's asking.
 No new portal to adopt. No paid data feeds to demo. **One command** to stand it up in your own
 tenant.
 
-![The Deal Room console rendered inside Microsoft Teams](teams-app/docs/teams-dashboard.png)
+![The Deal Room console — a partner's daily briefing, composed from the deal record with the evidence behind every figure](teams-app/docs/teams-dashboard.png)
 
 <sub>*The same console runs **natively in Microsoft Teams** and as a **standalone web app**, over one shared deal record.*</sub>
 
@@ -91,7 +91,7 @@ answers from the right **specialist's** viewpoint (analyst, sector MDs, partner,
 > 💬 *summarise the latest diligence findings and open risks.*
 > 💬 *how does the retail MD read this opportunity?*
 
-![The conversational agent answering in the Teams interface — grounded in live deal data](teams-app/docs/teams-agent-chat.png)
+![The assistant answering “which deal is the highest priority right now, and why?” — grounded in the live deal record](teams-app/docs/teams-agent-chat.png)
 
 ### 📊 A dashboard native to your channel
 
@@ -146,7 +146,7 @@ and verdict moves, newly-blocking vs resolved items), a deterministic **next bes
 The whole surface is **decision-data-first** — market intelligence is supporting context, not the
 lead — and there's **one invisible assistant**, no exposed “bots.”
 
-![The deal brief — IC-readiness verdict, top blockers, provenance-tagged figures and the red/amber/green diligence workbench](teams-app/docs/teams-deal-cockpit.png)
+![A deal opens on where to start — the next action, the IC clock, and the five pages every deal has](teams-app/docs/teams-deal-cockpit.png)
 
 ### ✅ Propose → approve → apply, with a full audit trail
 
@@ -172,7 +172,7 @@ deals; **customizable deal-group tags** each **auto-create an Entra security gro
 sector pod or clean-team can be granted in one place; and each deal's **own access group** is the
 single control for its **Teams channel, SharePoint data room and workspace**.
 
-![Role-gated access in the Teams tab](teams-app/docs/teams-rbac.png)
+![A seat without need-to-know sees where the deal stands and nothing else](teams-app/docs/teams-rbac.png)
 
 > 🔎 **[The full access model — roles, need-to-know & demo mode →](docs/ACCESS-MODEL.md)**
 
