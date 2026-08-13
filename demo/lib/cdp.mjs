@@ -99,8 +99,7 @@ export class Session {
     await loaded;
   }
 
-  async screenshot({ path: outPath, quality } = {}) {
-    const r = await this.send('Page.captureScreenshot', {
+  async screenshot({ path: outPath, quality } = {}) {    const r = await this.send('Page.captureScreenshot', {
       format: 'png', captureBeyondViewport: false, ...(quality ? { quality } : {}),
     });
     const buf = Buffer.from(r.data, 'base64');
@@ -154,10 +153,14 @@ export async function launch({ width = 1440, height = 900, scale = 2, headless =
   const s = new Session(ws);
   await s.send('Page.enable');
   await s.send('Runtime.enable');
+  await s.send('Network.enable');
   // Headless paints whatever it is told to, so this is where capture resolution is decided.
   await s.send('Emulation.setDeviceMetricsOverride', {
     width, height, deviceScaleFactor: scale, mobile: false,
   });
+
+  /** Attach headers to every request the page makes — how the capture authenticates. */
+  s.setHeaders = (headers) => s.send('Network.setExtraHTTPHeaders', { headers });
 
   s.close = async () => {
     try { ws.close(); } catch { /* already gone */ }

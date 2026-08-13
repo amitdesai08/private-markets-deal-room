@@ -10,6 +10,7 @@ import { mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launch } from './lib/cdp.mjs';
+import { tabToken } from './lib/token.mjs';
 
 const arg = (flag, fallback) => {
   const i = process.argv.indexOf(flag);
@@ -265,6 +266,16 @@ async function main() {
     width: WIDTH, height: HEIGHT, scale: SCALE,
     headless: !process.env.DEMO_HEADED,
   });
+
+  // The tab refuses anonymous callers, so prove an identity before driving it. Without a
+  // token the seat headers are ignored and every scene captures the signed-out state.
+  const token = await tabToken();
+  if (token) {
+    await s.setHeaders({ Authorization: `Bearer ${token}` });
+    console.log('  authenticated as the demo automation service principal');
+  } else {
+    console.log('  WARNING: no token — continuing unauthenticated, which needs DEMO_OPEN_SIGN_IN');
+  }
 
   const state = { seat: 'partner', lastDealUrl: null, lastClick: null };
   const manifest = [];

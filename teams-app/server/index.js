@@ -126,8 +126,11 @@ app.post('/api/teams/context', async (req, res) => {
   let acc = null;
   if (isBackendLive()) {
     try {
-      const headers = { 'content-type': 'application/json' };
-      if (config.backend.botKey) headers['x-bot-key'] = config.backend.botKey;
+      // Must speak the same contract as every other forwarded call. Sending the bot key
+      // alone proves the app and names nobody, which the orchestrator answers with 401 —
+      // so `acc` came back null and every caller, a real administrator included, fell
+      // through to the `member` fallback and never saw an admin-only tab.
+      const headers = backendAuth({ identity, ssoToken, asOverride, requestingUser });
       const r = await fetch(`${config.backend.url}/api/me/access`, {
         method: 'POST', headers, body: JSON.stringify({ requestingUser, viewAsRole }),
       });

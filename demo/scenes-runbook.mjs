@@ -100,10 +100,19 @@ export const SCENES = [
       an internal API, a subscription you already hold — with an honest reachability test rather than a faked
       connected badge.`,
   },
-  // The runbook's beat 9 also shows Settings → Document templates. That feature is fully
-  // built — DocTemplates.tsx, /api/admin/doc-template, DOC_TEMPLATE_DEFAULTS — but the tab
-  // renders only when the context reports isAdmin, and /api/teams/context returns
-  // isAdmin=false and role=member for *every* demo profile, the `admin` seat included.
-  // So no demo seat can reach it and there is nothing to capture. Present it live from
-  // Teams as a real administrator, or make the access profile honour the demo seat's role.
+  {
+    id: 'rb-templates',
+    act: 43,
+    title: 'Your firm\u2019s paper, not a vendor\u2019s',
+    // Admin-only, and reachable at last: the capture now presents a real Entra identity, so
+    // the roster's administrator seat resolves to the admin role instead of being floored.
+    seat: 'admin',
+    steps: [{ goto: '#/settings' }, { wait: 3500 }, { clickText: 'Document templates' }, { wait: 2500 },
+      { scrollTop: 0 }],
+    say: `And document templates, which only an administrator can reach. Set the fund name, the accent and ink colours,
+      the confidentiality label and the disclaimer, then choose which sections appear — investment merits, financial
+      summary, valuation and returns, the value creation plan, findings by workstream. The preview shows the cover as
+      the committee will receive it, and every document generated afterwards follows suit. It looks like your firm's
+      paper, not a vendor's, so you adopt it without re-templating a thing.`,
+  },
 ];
