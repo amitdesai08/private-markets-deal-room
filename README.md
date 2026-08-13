@@ -213,14 +213,16 @@ briefing, a deal opened and taken apart, the fund, the certified report, and the
 administrator is refused a deal an analyst can open.
 
 <!-- GitHub strips <video> from README markdown and will not preview an MP4 in its file
-     viewer either, so this is a still. To get a player here: drag docs/demos/walkthrough-teaser.mp4
-     into any issue comment on this repo, then replace this image with the user-attachments
-     URL GitHub hands back, on a line of its own. See demo/README.md. -->
-<a href="demo/"><img src="docs/demos/narrated-walkthrough.png" width="900" alt="The narrated walkthrough — the player, paused on Untracked follow-ups, with the narration captioned"></a>
+     viewer either, so this is a still. The links below carry ?raw=1 so a click downloads the
+     file instead of landing on GitHub's "we can't show files that are this big" page.
+     To get a real player here: drag docs/demos/walkthrough-teaser.mp4 into any issue comment
+     on this repo, then replace this image with the user-attachments URL GitHub hands back,
+     on a line of its own. See demo/README.md. -->
+<a href="docs/demos/walkthrough-teaser.mp4?raw=1"><img src="docs/demos/narrated-walkthrough.png" width="900" alt="The narrated walkthrough — the player, paused on Untracked follow-ups, with the narration captioned"></a>
 
-> ⬇️ **Watch it** — [the full 16 minutes](docs/demos/walkthrough.mp4) (12 MB) or
-> [a four-minute cut](docs/demos/walkthrough-teaser.mp4) (3 MB). GitHub cannot play video in a
-> page, so these download; any player opens them.
+> ⬇️ **Watch it** — [the four-minute cut](docs/demos/walkthrough-teaser.mp4?raw=1) (3 MB) or
+> [the full sixteen minutes](docs/demos/walkthrough.mp4?raw=1) (12 MB). GitHub cannot play video
+> in a page, so these download; any player opens them.
 
 **Better, drive it yourself.** The same thirty scenes ship as an **interactive player** — jump
 to any act, pause on any screen, captions for rooms where audio is awkward. Three commands, no
