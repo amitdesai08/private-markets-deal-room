@@ -42,9 +42,10 @@ barriers — is in the [access model](ACCESS-MODEL.md).
 ## The Azure footprint
 
 Subscription-scoped Bicep, split into six resource groups so each domain can be governed and
-costed on its own.
+costed on its own — with the Microsoft 365 tenant it reads from on one side, and the keyless
+public sources on the other.
 
-![The Azure footprint — six resource groups](diagrams/azure-footprint.svg)
+![The Deal Room on Azure — the tenant, the subscription and its six resource groups](diagrams/azure-architecture.svg)
 
 | Resource group | What lives there |
 |---|---|

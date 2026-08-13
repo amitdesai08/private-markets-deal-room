@@ -25,7 +25,7 @@ $src  = Join-Path $repo 'docs\diagrams\deal-room-architecture.drawio'
 $pages = @(
   @{ index = 1; out = 'docs\diagrams\how-it-fits-together.svg' },
   @{ index = 2; out = 'docs\diagrams\identity-trust-seam.svg' },
-  @{ index = 3; out = 'docs\diagrams\azure-footprint.svg' }
+  @{ index = 3; out = 'docs\diagrams\azure-architecture.svg' }
 )
 
 foreach ($p in $pages) {
@@ -34,10 +34,11 @@ foreach ($p in $pages) {
   # Each page carries an explicit white background, so --theme light renders a light card
   # that stays readable on GitHub in dark mode as well as light. (--theme auto exports a
   # transparent background, which leaves the dark title text invisible on a dark page.)
+  # --embed-svg-images inlines the official Azure icons so the SVG stands alone;
   # --embed-svg-fonts false keeps it ~40 KB instead of ~600 KB.
   $params = @(
     '--no-sandbox', '-x', '-p', $p.index, '-f', 'svg', '-e', '-b', '12',
-    '--theme', 'light', '--embed-svg-fonts', 'false',
+    '--theme', 'light', '--embed-svg-fonts', 'false', '--embed-svg-images',
     '-o', "`"$out`"", "`"$src`""
   )
   $proc = Start-Process -FilePath $exe -ArgumentList $params -NoNewWindow -PassThru -Wait
