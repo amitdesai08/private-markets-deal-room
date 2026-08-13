@@ -27,7 +27,7 @@ tenant.
 |:--:|:--:|:--:|:--:|:--:|
 | the system on one page | internals & repo layout | stages, workspace & data room | RBAC, need-to-know & demo | one command to your tenant |
 
-<sub>**[📚 All documentation →](docs/README.md)** · [🎬 Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · [📋 Demo runbook](docs/demos/DEMO-RUNBOOK.md) · [🛡️ Security](SECURITY.md) · [🔒 Security & compliance (buyer appendix)](docs/security/buyer-security-compliance.md) · [🤝 Contributing](CONTRIBUTING.md)</sub>
+<sub>**[📚 All documentation →](docs/README.md)** · [🎧 Narrated walkthrough](docs/demos/walkthrough.mp4) · [🎬 Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · [📋 Demo runbook](docs/demos/DEMO-RUNBOOK.md) · [🛡️ Security](SECURITY.md) · [🔒 Security & compliance (buyer appendix)](docs/security/buyer-security-compliance.md) · [🤝 Contributing](CONTRIBUTING.md)</sub>
 
 ---
 
@@ -207,13 +207,35 @@ Deal MCP server, and subscription-agnostic Bicep.)*
 
 ## See it in action
 
-Deploy in **demo mode** (or open the web console) and flip on **demo profiles** — one named
-identity per role — to walk the whole access model without provisioning a single user. The
-seeded pipeline even ships **confidential deals** and a real **need-to-know grant**: sign in as
-the analyst and the confidential take-private and exit are invisible, yet she has full access to
-the one deal she's named on. Switch to the partner and everything opens.
+**Sixteen minutes, narrated, no setup.** A click-through of the whole demo — captured against
+the running product and voiced end to end. Thirty scenes across all eight acts: the morning
+briefing, a deal opened and taken apart, the fund, the certified report, and the moment an
+administrator is refused a deal an analyst can open.
 
-> 🎬 [Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · 📋 [Demo runbook](docs/demos/DEMO-RUNBOOK.md) · 🔐 [Access model](docs/ACCESS-MODEL.md)
+<a href="docs/demos/walkthrough.mp4"><img src="docs/demos/narrated-walkthrough.png" width="900" alt="The narrated walkthrough — the player, paused on Untracked follow-ups"></a>
+
+> ▶️ **[Play the narrated walkthrough →](docs/demos/walkthrough.mp4)** · 12 MB, 16 minutes, sound on.
+
+Prefer to drive it? The same thirty scenes ship as an **interactive player** — jump to any act,
+pause on any screen, captions for rooms where audio is awkward. Three commands, no credentials,
+nothing to install:
+
+```powershell
+node demo/capture.mjs; node demo/narrate.mjs; node demo/build-player.mjs
+start demo/build/demo.html
+```
+
+> 🎬 **[How the walkthrough is built →](demo/)** — the demo is data: one file holds what the
+> browser does and what the narrator says.
+
+**Or run the product itself.** Deploy in **demo mode** (or open the web console) and flip on
+**demo profiles** — one named identity per role — to walk the whole access model without
+provisioning a single user. The seeded pipeline even ships **confidential deals** and a real
+**need-to-know grant**: sign in as the analyst and the confidential take-private and exit are
+invisible, yet she has full access to the one deal she's named on. Switch to the partner and
+everything opens.
+
+> 📖 [Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · 📋 [Demo runbook](docs/demos/DEMO-RUNBOOK.md) · ⚡ [Lightning demo](docs/demos/DEMO-LIGHTNING.md) · 🔐 [Access model](docs/ACCESS-MODEL.md)
 
 ---
 

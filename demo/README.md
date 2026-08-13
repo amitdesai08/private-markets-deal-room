@@ -16,14 +16,16 @@ room where audio is awkward. Space plays and pauses, arrow keys move.
 | [`capture.mjs`](capture.mjs) | Drives the real product through every scene and writes one screenshot each. |
 | [`narrate.mjs`](narrate.mjs) | Sends each scene's narration to Azure AI Speech and writes an MP3. |
 | [`build-player.mjs`](build-player.mjs) | Assembles `build/demo.html` from the three. |
+| [`build-video.mjs`](build-video.mjs) | Renders the same scenes to an MP4, for the README. |
 | [`lib/cdp.mjs`](lib/cdp.mjs) | A small Chrome DevTools Protocol client. |
 
 ## Building it
 
 ```powershell
-node demo/capture.mjs        # ~5 min — screenshots into build/shots
-node demo/narrate.mjs        # ~1 min — narration into build/audio
+node demo/capture.mjs        # ~10 min — screenshots into build/shots
+node demo/narrate.mjs        # ~1 min  — narration into build/audio
 node demo/build-player.mjs   # instant — writes build/demo.html
+node demo/build-video.mjs    # ~3 min  — writes build/walkthrough.mp4
 ```
 
 `build/` is generated and git-ignored. Re-run one broken scene without losing the rest by
@@ -64,7 +66,30 @@ Point it somewhere else with `DEMO_BASE_URL`, including a local
 - Narration is synthetic. If you would rather record a human over the same scenes, delete
   `build/audio` and the player falls back to holding each scene long enough to read its
   caption.
-- There is no video file. `ffmpeg` is not available on the build machine and the npm
-  registry is blocked there, so the deliverable is the player. If you want an MP4, install
-  ffmpeg and mux `build/audio/*.mp3` onto `build/shots/*.png` with a per-scene duration
-  taken from `build/scenes.json`.
+- `build-video.mjs` needs ffmpeg. It is not required for the player — only for the MP4 on
+  the front page. `winget install Gyan.FFmpeg`, or unzip a portable build and point
+  `DEMO_FFMPEG` at it.
+
+## Why the front page shows a video rather than the player
+
+The player cannot be embedded in a README, and it is worth writing down why so nobody spends
+an afternoon rediscovering it. GitHub renders README markdown through a sanitiser that, **in
+repository context**, drops far more than the `/markdown` API does:
+
+| Tag | In a README |
+|---|---|
+| `<script>` | stripped — so no interactive player, ever |
+| `<iframe>`, `<embed>`, `<object>` | stripped, or escaped to visible text |
+| `<audio>` | stripped — so stills plus narration is not an option either |
+| `<video>` | **stripped**, whatever the `src` host — relative, `raw.githubusercontent`, even `user-attachments` |
+| `<img>`, `<picture>`, `<details>`, `<a>` | kept |
+
+The `/markdown` REST endpoint *keeps* `<video>`, which is misleading: pass `context` (or render
+a real README) and it goes. The only way to get a playing video on a GitHub page is to upload
+the file through the web UI — drag it into an issue or pull request comment — and paste the
+`user-attachments` URL it hands back, which the site then turns into a player. There is no API
+for that upload, so it cannot be part of this build.
+
+So the README shows a poster image linking to `docs/demos/walkthrough.mp4`, which GitHub plays
+in its own file viewer. If you want a true inline player on the front page, drag that MP4 into
+any issue comment and swap the poster for the URL GitHub returns.
