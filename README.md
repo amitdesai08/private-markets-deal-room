@@ -27,7 +27,7 @@ tenant.
 |:--:|:--:|:--:|:--:|:--:|
 | the system on one page | internals & repo layout | stages, workspace & data room | RBAC, need-to-know & demo | one command to your tenant |
 
-<sub>**[📚 All documentation →](docs/README.md)** · [🎧 Narrated walkthrough](docs/demos/walkthrough.mp4) · [🎬 Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · [📋 Demo runbook](docs/demos/DEMO-RUNBOOK.md) · [🛡️ Security](SECURITY.md) · [🔒 Security & compliance (buyer appendix)](docs/security/buyer-security-compliance.md) · [🤝 Contributing](CONTRIBUTING.md)</sub>
+<sub>**[📚 All documentation →](docs/README.md)** · [🎧 Narrated walkthrough](docs/demos/walkthrough.mp4?raw=1) · [🎬 Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · [📋 Demo runbook](docs/demos/DEMO-RUNBOOK.md) · [🛡️ Security](SECURITY.md) · [🔒 Security & compliance (buyer appendix)](docs/security/buyer-security-compliance.md) · [🤝 Contributing](CONTRIBUTING.md)</sub>
 
 ---
 
