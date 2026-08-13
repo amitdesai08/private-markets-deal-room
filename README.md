@@ -222,7 +222,7 @@ node demo/capture.mjs; node demo/narrate.mjs; node demo/build-player.mjs
 start demo/build/demo.html
 ```
 
-> 🎬 [Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · 📋 [Demo runbook](docs/demos/DEMO-RUNBOOK.md) · ⚡ [Lightning demo](docs/demos/DEMO-LIGHTNING.md) · 🎧 [Build the narrated walkthrough](demo/) · 🔐 [Access model](docs/ACCESS-MODEL.md)
+> 🎬 [Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · 📋 [Demo runbook](docs/demos/DEMO-RUNBOOK.md) · ⚡ [Lightning demo](docs/demos/DEMO-LIGHTNING.md) · 🎥 [Narrated recordings](docs/demos/RECORDINGS.md) · 🔐 [Access model](docs/ACCESS-MODEL.md)
 
 ---
 

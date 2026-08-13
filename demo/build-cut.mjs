@@ -21,8 +21,15 @@ async function main() {
     process.exit(1);
   }
 
-  const source = JSON.parse(await readFile(path.join(OUT, 'scenes.json'), 'utf8'));
-  const byId = Object.fromEntries(source.scenes.map((s) => [s.id, s]));
+  const sources = cut.sources || ['scenes.json'];
+  const byId = {};
+  let meta = null;
+  for (const file of sources) {
+    const m = JSON.parse(await readFile(path.join(OUT, file), 'utf8'));
+    meta = meta || m;
+    for (const s of m.scenes) byId[s.id] = s;
+  }
+  const source = meta;
 
   const missing = cut.scenes.filter((s) => !byId[s.use] || !byId[s.use].image);
   if (missing.length) {
@@ -33,12 +40,16 @@ async function main() {
 
   const scenes = cut.scenes.map((s, n) => {
     const src = byId[s.use];
+    // A cut usually re-writes the line for its own pacing, but a scene captured for this
+    // deck already has the right one.
+    const say = (s.say || src.say || '').replace(/\s+/g, ' ').trim();
+    if (!say) throw new Error(`${s.use} has no narration, in the cut or the capture`);
     return {
       id: `${name}-${String(n).padStart(2, '0')}-${s.use}`,
       act: s.act,
-      title: s.title,
+      title: s.title || src.title,
       seat: src.seat,
-      say: s.say.replace(/\s+/g, ' ').trim(),
+      say,
       image: src.image,
       spotlight: src.spotlight || null,
       // A cut re-orders scenes, so a cursor pointing at the control that led to the *next*

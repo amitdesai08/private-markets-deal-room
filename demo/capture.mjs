@@ -10,7 +10,16 @@ import { mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launch } from './lib/cdp.mjs';
-import { BASE, SCENES, ACTS } from './scenes.mjs';
+
+const arg = (flag, fallback) => {
+  const i = process.argv.indexOf(flag);
+  return i > -1 && process.argv[i + 1] && !process.argv[i + 1].startsWith('--')
+    ? process.argv[i + 1] : fallback;
+};
+// The runbook visits screens the walkthrough never does, and keeps them in its own manifest.
+const SCENES_MODULE = arg('--scenes', 'scenes.mjs');
+const MANIFEST = arg('--manifest', 'scenes.json');
+const { BASE, SCENES, ACTS } = await import(`./${SCENES_MODULE}`);
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'build');
@@ -243,9 +252,9 @@ async function main() {
   // A partial run is for fixing one broken scene, so it must not throw away the rest.
   let previous = [];
   if (only.length) {
-    previous = await readFile(path.join(OUT, 'scenes.json'), 'utf8')
+    previous = await readFile(path.join(OUT, MANIFEST), 'utf8')
       .then((t) => JSON.parse(t).scenes).catch(() => []);
-  } else {
+  } else if (MANIFEST === 'scenes.json') {
     // Clear the screenshots, but never build/audio — that costs a Speech call per scene
     // and does not change when a selector does.
     await rm(SHOTS, { recursive: true, force: true }).catch(() => {});
@@ -308,7 +317,7 @@ async function main() {
   }
 
   await writeFile(
-    path.join(OUT, 'scenes.json'),
+    path.join(OUT, MANIFEST),
     JSON.stringify({
       capturedAt: new Date().toISOString(),
       base: BASE,

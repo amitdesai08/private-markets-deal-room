@@ -36,9 +36,10 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ goto: '#/overview' }, { waitText: 'Daily briefing' }, { scrollTop: 0 }],
     say: `This is The Deal Room — one place to run a private equity deal, built on the Microsoft tools a firm already pays for.
-      Before anything else, one thing said out loud: everything you are about to see is a demonstration book. Invented companies,
-      invented people, invented numbers. Nothing confidential is on screen, and the market and news panels are running on
-      demonstration data too. We are signed in as Eleanor Shellstrop, a partner and the chair of the investment committee.`,
+      One thing said out loud before anything else. Almost everything here is an invented demonstration book: invented
+      companies, invented people, invented numbers, and no confidential material anywhere. The exception is a handful of
+      real public companies the screener has picked up from public filings — those are named because that information is
+      already public. We are signed in as Eleanor Shellstrop, a partner and the chair of the investment committee.`,
   },
   {
     id: '01-layout',

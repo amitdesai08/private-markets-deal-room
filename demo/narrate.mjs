@@ -25,12 +25,17 @@ const RESOURCE = process.env.SPEECH_RESOURCE || 'spch-dealhub-dev-p3tks';
 const RESOURCE_GROUP = process.env.SPEECH_RG || 'rg-dealhub-ai-dev-swc';
 const REGION = process.env.SPEECH_REGION || 'swedencentral';
 const VOICE = process.env.DEMO_VOICE || 'en-GB-RyanNeural';
-// A shade under natural pace: this is a boardroom narration, not a podcast.
-const RATE = process.env.DEMO_RATE || '-6%';
+// Slightly above natural pace. This was -6% and sounded ponderous: a walkthrough is not a
+// meditation, and a viewer who wants to dwell can pause.
+const RATE = process.env.DEMO_RATE || '+6%';
+const STYLE = process.env.DEMO_STYLE || 'narration-professional';
 const FORCE = process.argv.includes('--force');
 // Cuts of the walkthrough carry their own manifest and their own narration.
-const MANIFEST = (process.argv[process.argv.indexOf('--manifest') + 1] || 'scenes.json')
-  .replace(/^--.*/, 'scenes.json');
+const MANIFEST = (() => {
+  const i = process.argv.indexOf('--manifest');
+  return i > -1 && process.argv[i + 1] && !process.argv[i + 1].startsWith('--')
+    ? process.argv[i + 1] : 'scenes.json';
+})();
 
 // Two encodings of every line. MP3 is the primary: it carries a duration, so the player can
 // show progress and seek within a scene. But Chromium built without proprietary codecs —
@@ -64,15 +69,16 @@ const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, 
   .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
 function ssml(text) {
-  // An em dash is a beat in this script, and a full stop is a longer one. Saying them
-  // at an even pace is what makes synthetic narration sound synthetic.
+  // An em dash is a beat and a full stop is a longer one, but these were long enough to
+  // read as hesitation - roughly nine seconds of silence across a three-minute scene.
+  // Short enough to punctuate, not to pause.
   const shaped = esc(text)
-    .replace(/\s+—\s+/g, '<break time="380ms"/> ')
-    .replace(/\.\s+/g, '.<break time="520ms"/> ')
-    .replace(/:\s+/g, ':<break time="320ms"/> ');
+    .replace(/\s+\u2014\s+/g, '<break time="140ms"/> ')
+    .replace(/\.\s+/g, '.<break time="220ms"/> ')
+    .replace(/:\s+/g, ':<break time="120ms"/> ');
   return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" `
     + `xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="en-GB">`
-    + `<voice name="${VOICE}"><mstts:express-as style="narration-professional">`
+    + `<voice name="${VOICE}"><mstts:express-as style="${STYLE}">`
     + `<prosody rate="${RATE}">${shaped}</prosody>`
     + `</mstts:express-as></voice></speak>`;
 }
