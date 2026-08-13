@@ -16,6 +16,11 @@ well, **correct it here** rather than working around it live.
 > There is a one-page card at the end of this document. Take that into the room, not
 > these twenty pages.
 
+> **There is a narrated version of this walkthrough.** [`demo/`](../../demo/) builds a
+> click-through of all eight acts — captured against the running product, voiced by Azure
+> AI Speech, about fifteen minutes. Useful for rehearsing, for sending to somebody who
+> could not attend, or for playing behind you while you talk. Open `demo/build/demo.html`.
+
 ---
 
 ## Before you start
