@@ -120,7 +120,7 @@ export const SCENES = [
     steps: [{ scrollTo: 'Untracked follow-ups' }],
     spotlight: 'text:Untracked follow-ups',
     say: `This is the panel people remember. Somebody promised something in a Teams channel, and nobody wrote it down.
-      The product found sixteen of them, across fourteen deals, each one quoted verbatim with who said it and by when.
+      The product found twenty-two of them, across nineteen deals, each one quoted verbatim with who said it and by when.
       It does not chase them for you. It tells you they exist. Every firm in this room has a version of this problem
       and no way of seeing it.`,
   },
@@ -143,8 +143,8 @@ export const SCENES = [
     steps: [{ scrollTo: 'Market intelligence' }],
     spotlight: 'text:Market intelligence',
     say: `And at the bottom, market intelligence. Comparable deals, committee voting precedents with the vote recorded on each,
-      and the one to point at — findings raised in past diligences, across closed deals, by workstream. Commercial eighteen,
-      financial fourteen, legal eleven, technology nine, ESG seven. That is where the problems have historically been found.
+      and the one to point at — findings raised in past diligences, across closed deals, by workstream, with commercial
+      and financial well ahead of the rest. That is where the problems have historically been found.
       It is the difference between guessing where to put the diligence hours and knowing.`,
   },
 
@@ -180,12 +180,13 @@ export const SCENES = [
   {
     id: '12-deals-list',
     act: 3,
-    title: 'Nineteen of nineteen',
+    title: 'Twenty-four of twenty-four',
     seat: 'partner',
     steps: [{ clickText: 'All deals' }, { wait: 3000 }, { scrollTop: 0 }],
     say: `All deals. One row per deal: whether it is IC-ready, the company, where it is in the sixteen steps, what is holding it up,
-      the size and the committee date. The header reads nineteen of nineteen — everything this seat is allowed to see,
-      including the four still in screening. Six filters across the top, each with its count. Remember that number, nineteen.
+      the size and the committee date. The header reads twenty-four of twenty-four — everything this seat is allowed to see,
+      including the ones still in screening. Six filters across the top, each with its count. Remember that number,
+      twenty-four.
       We are going to come back to it.`,
     click: 'text:All deals',
   },
@@ -308,11 +309,12 @@ export const SCENES = [
   {
     id: '22-seat-partner',
     act: 7,
-    title: 'The partner sees nineteen',
+    title: 'The partner sees twenty-four',
     seat: 'partner',
     keepBanner: true,
     steps: [{ clickText: 'All deals' }, { wait: 3000 }, { scrollTop: 0 }],
-    say: `This is the strongest part of the demo. We are still the partner, and the list still reads nineteen of nineteen.
+    say: `This is the strongest part of the demo. We are still the partner, and the list still reads twenty-four of
+      twenty-four.
       Now watch what happens when somebody else sits down.`,
     click: 'select.viewas',
   },
@@ -323,7 +325,7 @@ export const SCENES = [
     seat: 'analyst',
     keepBanner: true,
     steps: [{ selectSeat: 'analyst' }, { wait: 4000 }, { clickText: 'All deals' }, { wait: 3000 }, { scrollTop: 0 }],
-    say: `Chidi Anagonye, an analyst covering the Northeast. All deals drops from nineteen to eight, and the filters change
+    say: `Chidi Anagonye, an analyst covering the Northeast. All deals drops from twenty-four to eight, and the filters change
       with it — one in origination, four in diligence, three in execution. Value and Exit is not offered at all, because this
       analyst has no deal in it. The filters describe his world, not the fund's. The daily briefing is rewritten for his job,
       and the four figures on Home become different figures, chosen for what an analyst actually does.`,
@@ -355,12 +357,12 @@ export const SCENES = [
   {
     id: '25-seat-admin',
     act: 7,
-    title: 'The administrator sees sixteen',
+    title: 'The administrator sees twenty-one',
     seat: 'admin',
     keepBanner: true,
     steps: [{ selectSeat: 'admin' }, { wait: 4000 }, { clickText: 'All deals' }, { wait: 3000 }, { scrollTop: 0 }],
     say: `And now switch to Michael Realman — the administrator, the most senior seat in the switcher — and look for it.
-      It is not there. His list is sixteen deals. The partner's was nineteen. Being the administrator buys you nothing here.`,
+      It is not there. His list is twenty-one deals. The partner's was twenty-four. Being the administrator buys you nothing here.`,
   },
   {
     id: '26-seat-admin-refused',

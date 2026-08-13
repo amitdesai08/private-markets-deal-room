@@ -42,9 +42,9 @@ export const CUTS = {
           Where did this number come from is the question that stops every committee. Here it is one click.`,
       },
       {
-        use: '07-home-followups', act: 1, title: 'Sixteen promises nobody wrote down',
-        say: `And the panel people remember. Sixteen promises made in Teams channels that nobody wrote down, across
-          fourteen deals, each quoted verbatim with who said it and by when. It does not chase them. It tells you they
+        use: '07-home-followups', act: 1, title: 'Promises nobody wrote down',
+        say: `And the panel people remember. Twenty-two promises made in Teams channels that nobody wrote down, across
+          nineteen deals, each quoted verbatim with who said it and by when. It does not chase them. It tells you they
           exist. Every firm has this problem and no way of seeing it.`,
       },
       {
@@ -81,9 +81,9 @@ export const CUTS = {
           paper unchecked.`,
       },
       {
-        use: '23-seat-analyst', act: 5, title: 'Nineteen deals become eight',
+        use: '23-seat-analyst', act: 5, title: 'Twenty-four deals become eight',
         say: `Now somebody else sits down. Chidi Anagonye, an analyst covering the Northeast. All deals drops from
-          nineteen to eight, and the filters change with it. Value and Exit is not offered at all, because he has no deal
+          twenty-four to eight, and the filters change with it. Value and Exit is not offered at all, because he has no deal
           in it. The filters describe his world, not the fund's.`,
       },
       {
@@ -100,8 +100,8 @@ export const CUTS = {
       },
       {
         use: '26-seat-admin-refused', act: 5, title: 'Refused without confirming it exists',
-        say: `Now switch to the administrator — the most senior seat here — and look for it. His list is sixteen deals;
-          the partner's was nineteen. Paste the deal's own link and the product answers: deal unavailable. Either it does
+        say: `Now switch to the administrator — the most senior seat here — and look for it. His list is twenty-one deals;
+          the partner's was twenty-four. Paste the deal's own link and the product answers: deal unavailable. Either it does
           not exist, or you are not on its deal team. It refuses without confirming the deal exists, because on an
           unannounced take-private the fact that there is something to ask about is itself the leak. The analyst opens a
           deal the administrator cannot, because somebody put his name on it. Rank buys you nothing.`,
