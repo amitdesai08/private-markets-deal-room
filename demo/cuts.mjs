@@ -125,6 +125,7 @@ export const CUTS = {
       },
       { use: 'rb-sources', act: 8, title: 'Files, chats and email' },
       { use: 'rb-papers', act: 8, title: 'A finished first draft' },
+      { use: 'rb-templates', act: 8, title: 'Your firm\u2019s paper' },
       {
         use: '28-close', act: 9, title: 'Close',
         say: `One place to run a deal, inside the tools your team already uses. Every number tells you where it came
