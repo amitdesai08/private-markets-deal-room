@@ -1,0 +1,307 @@
+<mxfile host="app.diagrams.net" agent="deal-room" version="31.1.8">
+  <diagram name="How it fits together" id="fits-together">
+    <mxGraphModel background="#FFFFFF" dx="1600" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1560" pageHeight="700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="t1" value="The Deal Room — one backend, two surfaces" style="text;html=1;align=left;verticalAlign=middle;fontSize=20;fontStyle=1;fontColor=#1F3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="24" width="700" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t2" value="The console tier holds no data. Every read and write is forwarded to the one backend, so there is a single source of truth and nothing to keep in sync." style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#44546A;" vertex="1" parent="1">
+          <mxGeometry x="40" y="52" width="1000" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="person" value="Deal professional" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#7F7F7F;fontColor=#333333;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="340" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="teams" value="Teams channel tab&#10;+ conversational bot" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4A7EBB;fontColor=#10233E;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="240" y="150" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="web" value="Standalone web console&#10;(the same build)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4A7EBB;fontColor=#10233E;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="240" y="340" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="copilot" value="M365 Copilot&#10;+ hosted agents" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4A7EBB;fontColor=#10233E;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="240" y="530" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="console" value="Console tier&#10;ca-dealhub-teams&#10;&#10;holds no data" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DCE9F7;strokeColor=#2E74B5;fontColor=#10233E;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="550" y="210" width="210" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="backend" value="Deal Room backend&#10;ca-dealhub-orch&#10;&#10;API · agents · MCP&#10;the only tier that holds data" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2E74B5;strokeColor=#1F4E79;fontColor=#FFFFFF;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="860" y="330" width="250" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="store" value="Deal store&#10;blob per document (default)&#10;Cosmos DB optional" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E2EFDA;strokeColor=#70AD47;fontColor=#1E3A1E;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="100" width="230" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="foundry" value="Azure AI Foundry&#10;models + Bing grounding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontColor=#4A3B00;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="240" width="230" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="m365" value="Microsoft 365&#10;Teams channels ·&#10;SharePoint data rooms" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2E7F5;strokeColor=#9673A6;fontColor=#3B2A42;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="380" width="230" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="market" value="Keyless market data&#10;SEC EDGAR · GLEIF · GDELT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#999999;fontColor=#333333;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="520" width="230" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#7F7F7F;endArrow=block;endFill=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="person" target="teams">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#7F7F7F;endArrow=block;endFill=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="person" target="web">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#7F7F7F;endArrow=block;endFill=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="person" target="copilot">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E74B5;endArrow=block;endFill=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;" edge="1" parent="1" source="teams" target="console">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E74B5;endArrow=block;endFill=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="web" target="console">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e6" value="/api + shared bot key" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1F4E79;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;fontColor=#1F4E79;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;" edge="1" parent="1" source="console" target="backend">
+          <mxGeometry x="0.4" relative="1" as="geometry">
+            <mxPoint y="-12" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" value="MCP · Entra-secured" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1F4E79;strokeWidth=2;endArrow=block;endFill=1;fontSize=11;fontColor=#1F4E79;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.8;entryDx=0;entryDy=0;" edge="1" parent="1" source="copilot" target="backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#70AD47;strokeWidth=2;endArrow=block;endFill=1;exitX=1;exitY=0.2;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="backend" target="store">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1150" y="145" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" value="managed identity" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#D6B656;endArrow=block;endFill=1;fontSize=11;fontColor=#7F6000;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.4;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="backend" target="foundry">
+          <mxGeometry x="-0.5" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1200" y="285" />
+            </Array>
+            <mxPoint y="-11" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e10" value="Microsoft Graph" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9673A6;endArrow=block;endFill=1;fontSize=11;fontColor=#5B3A6B;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.6;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="backend" target="m365">
+          <mxGeometry x="-0.5" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1240" y="425" />
+            </Array>
+            <mxPoint y="-11" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#999999;endArrow=block;endFill=1;exitX=1;exitY=0.8;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="backend" target="market">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1270" y="565" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="n1" value="One console, two surfaces — the same build renders inside a Teams channel and as a web app, over the same deal record." style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=2;fontColor=#44546A;" vertex="1" parent="1">
+          <mxGeometry x="240" y="640" width="820" height="20" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram name="The identity trust seam" id="trust-seam">
+    <mxGraphModel background="#FFFFFF" dx="1400" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1150" pageHeight="660" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="s-t1" value="The identity trust seam" style="text;html=1;align=left;verticalAlign=middle;fontSize=20;fontStyle=1;fontColor=#1F3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="24" width="600" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="s-t2" value="Access is decided on the server. A client may state who it is; it can never widen what it is allowed to see." style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#44546A;" vertex="1" parent="1">
+          <mxGeometry x="40" y="52" width="900" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s1" value="1 · A person opens the tab" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#7F7F7F;fontColor=#333333;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="60" y="110" width="300" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" value="2 · Console tier asks Microsoft Entra ID to sign them in" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DCE9F7;strokeColor=#2E74B5;fontColor=#10233E;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="60" y="196" width="300" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="3 · Entra returns a token carrying group and app-role claims" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4A7EBB;fontColor=#10233E;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="60" y="282" width="300" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" value="4 · Console tier calls /api with the resolved identity and the shared bot key" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DCE9F7;strokeColor=#2E74B5;fontColor=#10233E;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="60" y="368" width="300" height="66" as="geometry" />
+        </mxCell>
+
+        <mxCell id="boundary" value="" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 6;fillColor=none;strokeColor=#C00000;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="440" y="120" width="650" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="boundary-l" value="Trust boundary — the backend" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#C00000;" vertex="1" parent="1">
+          <mxGeometry x="440" y="96" width="360" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s5" value="5 · The asserted identity is honoured only if the bot key matches.&#10;Otherwise the caller is an unidentified default seat." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDE9E9;strokeColor=#C00000;fontColor=#5B0000;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="470" y="146" width="590" height="66" as="geometry" />
+        </mxCell>
+        <mxCell id="s6" value="6 · roleForUser — the highest-ranked match wins across the Entra group claim, the app-role claim and the configured id lists" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DCE9F7;strokeColor=#2E74B5;fontColor=#10233E;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="470" y="242" width="590" height="66" as="geometry" />
+        </mxCell>
+        <mxCell id="s7" value="7 · Per-deal check — need-to-know, territory and the deal team.&#10;A confidential deal is refused before the role is consulted: only a name gets in." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDE9E9;strokeColor=#C00000;fontColor=#5B0000;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="470" y="338" width="590" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="s8" value="8 · The answer carries only what this seat may see" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E2EFDA;strokeColor=#70AD47;fontColor=#1E3A1E;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="470" y="440" width="590" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="se1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#7F7F7F;endArrow=block;endFill=1;" edge="1" parent="1" source="s1" target="s2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="se2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#7F7F7F;endArrow=block;endFill=1;" edge="1" parent="1" source="s2" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="se3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#7F7F7F;endArrow=block;endFill=1;" edge="1" parent="1" source="s3" target="s4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="se4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#C00000;strokeWidth=2;endArrow=block;endFill=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="s4" target="s5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="se5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E74B5;endArrow=block;endFill=1;" edge="1" parent="1" source="s5" target="s6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="se6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E74B5;endArrow=block;endFill=1;" edge="1" parent="1" source="s6" target="s7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="se7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#70AD47;endArrow=block;endFill=1;" edge="1" parent="1" source="s7" target="s8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note" value="An identity asserted without the bot key buys nothing,&#10;and rank buys nothing on a confidential deal." style="text;html=1;align=left;verticalAlign=top;fontSize=12;fontStyle=2;fontColor=#44546A;" vertex="1" parent="1">
+          <mxGeometry x="60" y="470" width="340" height="40" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram name="The Azure footprint" id="azure-footprint">
+    <mxGraphModel background="#FFFFFF" dx="1400" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1250" pageHeight="620" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="f-t1" value="The Azure footprint — six resource groups" style="text;html=1;align=left;verticalAlign=middle;fontSize=20;fontStyle=1;fontColor=#1F3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="24" width="700" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="f-t2" value="Subscription-scoped Bicep, split by domain so each can be governed and costed on its own. Managed identity end to end — no keys in the app." style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#44546A;" vertex="1" parent="1">
+          <mxGeometry x="40" y="52" width="1000" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rg-app" value="app" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#DCE9F7;strokeColor=#2E74B5;fontColor=#10233E;fontSize=14;fontStyle=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="380" height="226" as="geometry" />
+        </mxCell>
+        <mxCell id="app1" value="Container Apps environment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E74B5;fontColor=#10233E;fontSize=12;" vertex="1" parent="rg-app">
+          <mxGeometry x="20" y="44" width="340" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="app2" value="Container app · console" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E74B5;fontColor=#10233E;fontSize=12;" vertex="1" parent="rg-app">
+          <mxGeometry x="20" y="88" width="164" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="app3" value="Container app · backend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E74B5;fontColor=#10233E;fontSize=12;" vertex="1" parent="rg-app">
+          <mxGeometry x="196" y="88" width="164" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="app4" value="Container registry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E74B5;fontColor=#10233E;fontSize=12;" vertex="1" parent="rg-app">
+          <mxGeometry x="20" y="132" width="164" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="app5" value="Bot Service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E74B5;fontColor=#10233E;fontSize=12;" vertex="1" parent="rg-app">
+          <mxGeometry x="196" y="132" width="164" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="app6" value="Function app" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E74B5;fontColor=#10233E;fontSize=12;" vertex="1" parent="rg-app">
+          <mxGeometry x="20" y="176" width="340" height="34" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rg-ai" value="ai" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#FFF2CC;strokeColor=#D6B656;fontColor=#4A3B00;fontSize=14;fontStyle=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="450" y="100" width="360" height="226" as="geometry" />
+        </mxCell>
+        <mxCell id="ai1" value="Azure AI Foundry — models &amp;amp; embeddings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D6B656;fontColor=#4A3B00;fontSize=12;" vertex="1" parent="rg-ai">
+          <mxGeometry x="20" y="44" width="320" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="ai2" value="Bing grounding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D6B656;fontColor=#4A3B00;fontSize=12;" vertex="1" parent="rg-ai">
+          <mxGeometry x="20" y="100" width="320" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="ai3" value="AI Search" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D6B656;fontColor=#4A3B00;fontSize=12;" vertex="1" parent="rg-ai">
+          <mxGeometry x="20" y="146" width="320" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="ai4" value="called over managed identity — no keys" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=2;fontColor=#7F6000;" vertex="1" parent="rg-ai">
+          <mxGeometry x="20" y="188" width="320" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rg-data" value="data" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#E2EFDA;strokeColor=#70AD47;fontColor=#1E3A1E;fontSize=14;fontStyle=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="840" y="100" width="370" height="226" as="geometry" />
+        </mxCell>
+        <mxCell id="d1" value="Storage — one JSON blob per document (the default store)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#70AD47;fontColor=#1E3A1E;fontSize=12;" vertex="1" parent="rg-data">
+          <mxGeometry x="20" y="44" width="330" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="d2" value="Cosmos DB — optional, for production concurrency" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#70AD47;fontColor=#1E3A1E;fontSize=12;dashed=1;" vertex="1" parent="rg-data">
+          <mxGeometry x="20" y="100" width="330" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="d3" value="Fabric capacity" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#70AD47;fontColor=#1E3A1E;fontSize=12;" vertex="1" parent="rg-data">
+          <mxGeometry x="20" y="156" width="330" height="34" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rg-int" value="integration" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#F2E7F5;strokeColor=#9673A6;fontColor=#3B2A42;fontSize=14;fontStyle=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="360" width="380" height="172" as="geometry" />
+        </mxCell>
+        <mxCell id="i1" value="API Management" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9673A6;fontColor=#3B2A42;fontSize=12;" vertex="1" parent="rg-int">
+          <mxGeometry x="20" y="44" width="340" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="i2" value="Service Bus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9673A6;fontColor=#3B2A42;fontSize=12;" vertex="1" parent="rg-int">
+          <mxGeometry x="20" y="88" width="164" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="i3" value="Event Grid" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9673A6;fontColor=#3B2A42;fontSize=12;" vertex="1" parent="rg-int">
+          <mxGeometry x="196" y="88" width="164" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="i4" value="event-driven signals from the tenant" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=2;fontColor=#5B3A6B;" vertex="1" parent="rg-int">
+          <mxGeometry x="20" y="130" width="340" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rg-core" value="core" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#F2F2F2;strokeColor=#7F7F7F;fontColor=#333333;fontSize=14;fontStyle=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="450" y="360" width="360" height="172" as="geometry" />
+        </mxCell>
+        <mxCell id="c1" value="Key Vault" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7F7F7F;fontColor=#333333;fontSize=12;" vertex="1" parent="rg-core">
+          <mxGeometry x="20" y="44" width="156" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" value="Managed identity" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7F7F7F;fontColor=#333333;fontSize=12;" vertex="1" parent="rg-core">
+          <mxGeometry x="188" y="44" width="152" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="Log Analytics · Application Insights" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7F7F7F;fontColor=#333333;fontSize=12;" vertex="1" parent="rg-core">
+          <mxGeometry x="20" y="88" width="320" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="the identity every tier runs as" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=2;fontColor=#595959;" vertex="1" parent="rg-core">
+          <mxGeometry x="20" y="130" width="320" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rg-net" value="network" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#E8F0FE;strokeColor=#4A7EBB;fontColor=#10233E;fontSize=14;fontStyle=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="840" y="360" width="370" height="172" as="geometry" />
+        </mxCell>
+        <mxCell id="n1" value="Virtual network" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#4A7EBB;fontColor=#10233E;fontSize=12;" vertex="1" parent="rg-net">
+          <mxGeometry x="20" y="44" width="330" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="n2" value="Private endpoints" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#4A7EBB;fontColor=#10233E;fontSize=12;" vertex="1" parent="rg-net">
+          <mxGeometry x="20" y="88" width="160" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="n3" value="Private DNS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#4A7EBB;fontColor=#10233E;fontSize=12;" vertex="1" parent="rg-net">
+          <mxGeometry x="192" y="88" width="158" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="n4" value="optional — off by default in a lean deploy" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=2;fontColor=#1F4E79;" vertex="1" parent="rg-net">
+          <mxGeometry x="20" y="130" width="330" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f-note" value="With the blob store the Bicep does not provision Cosmos at all — a full demo carries no standing database cost." style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=2;fontColor=#44546A;" vertex="1" parent="1">
+          <mxGeometry x="40" y="556" width="1000" height="20" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

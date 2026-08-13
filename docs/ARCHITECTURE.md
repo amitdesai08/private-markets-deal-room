@@ -20,36 +20,7 @@ is subscription-agnostic Bicep on Azure Container Apps.
 
 ## The shape of it
 
-```mermaid
-flowchart LR
-    User["Deal professional"]
-
-    TeamsUI["Teams channel tab<br/>+ conversational bot"]
-    WebUI["Standalone web console"]
-    CopilotUI["M365 Copilot<br/>+ hosted agents"]
-
-    Console["Console tier<br/>ca-dealhub-teams<br/>holds no data"]
-    Backend["Deal Room backend<br/>ca-dealhub-orch<br/>API - agents - MCP"]
-
-    Store[("Deal store<br/>blob per document<br/>Cosmos optional")]
-    Foundry["Azure AI Foundry<br/>models + Bing grounding"]
-    M365Graph["Microsoft 365<br/>Teams channels<br/>SharePoint data rooms"]
-    Market["Keyless market data<br/>SEC EDGAR - GLEIF - GDELT"]
-
-    User --> TeamsUI
-    User --> WebUI
-    User --> CopilotUI
-
-    TeamsUI --> Console
-    WebUI --> Console
-    Console -->|"/api + shared bot key"| Backend
-    CopilotUI -->|"MCP, Entra-secured"| Backend
-
-    Backend --> Store
-    Backend -->|"managed identity"| Foundry
-    Backend -->|"Microsoft Graph"| M365Graph
-    Backend --> Market
-```
+![The Deal Room — one backend, two surfaces](diagrams/how-it-fits-together.svg)
 
 **The rule that keeps it honest:** the console tier holds no data. Every read and write is
 forwarded to the one backend, so there is a single source of truth and nothing to keep in sync.
@@ -61,22 +32,7 @@ forwarded to the one backend, so there is a single source of truth and nothing t
 Access is decided on the server. The client can state who it is, but it cannot widen its own
 powers — the asserted identity is honoured only when the call carries the shared bot key.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant U as User
-    participant C as Console tier
-    participant E as Microsoft Entra ID
-    participant B as Backend
-
-    U->>C: Opens the tab
-    C->>E: SSO
-    E-->>C: Token with group and app-role claims
-    C->>B: Request + resolved identity + bot key
-    Note over B: Identity trusted only if the bot key matches,<br/>otherwise treated as an unidentified default seat
-    B->>B: Resolve role, then check access to this deal
-    B-->>C: Only what this seat is allowed to see
-```
+![The identity trust seam](diagrams/identity-trust-seam.svg)
 
 Full behaviour — the two-tier RBAC, deal-team need-to-know, confidential deals and MNPI
 barriers — is in the [access model](ACCESS-MODEL.md).
@@ -88,40 +44,7 @@ barriers — is in the [access model](ACCESS-MODEL.md).
 Subscription-scoped Bicep, split into six resource groups so each domain can be governed and
 costed on its own.
 
-```mermaid
-flowchart TB
-    subgraph app["app"]
-        CAENV["Container Apps environment"]
-        CA1["Container app - console"]
-        CA2["Container app - backend"]
-        ACR["Container registry"]
-        BOT["Bot Service"]
-        FUNC["Function app"]
-    end
-    subgraph ai["ai"]
-        AIF["Azure AI Foundry"]
-        BING["Bing grounding"]
-        SRCH["AI Search"]
-    end
-    subgraph dataRg["data"]
-        STG["Storage - blob per document"]
-        COS["Cosmos DB - optional"]
-        FAB["Fabric capacity"]
-    end
-    subgraph integration["integration"]
-        APIM["API Management"]
-        SBUS["Service Bus"]
-        EGRID["Event Grid"]
-    end
-    subgraph core["core"]
-        KV["Key Vault"]
-        MI["Managed identity"]
-        LOGS["Log Analytics - App Insights"]
-    end
-    subgraph network["network"]
-        VNET["VNet - private endpoints - private DNS"]
-    end
-```
+![The Azure footprint — six resource groups](diagrams/azure-footprint.svg)
 
 | Resource group | What lives there |
 |---|---|
@@ -155,16 +78,24 @@ flowchart TB
 
 ---
 
-## The editable diagram
+## The diagrams themselves
 
-The detailed Azure drawing, with official Azure icons and numbered flows, is kept as an
-editable source rather than a picture:
+All three drawings above live in one draw.io file —
+[`docs/diagrams/deal-room-architecture.drawio`](diagrams/deal-room-architecture.drawio), one
+page per diagram. That file is the source; the SVGs beside it are generated from it and
+committed, because GitHub renders SVG inside a page and cannot render `.drawio`.
 
-> 📐 **[Open the interactive architecture diagram →](https://viewer.diagrams.net/?tags=%7B%7D&lightbox=1&nav=1&title=architecture#Uhttps%3A%2F%2Fraw.githubusercontent.com%2Famitdesai08%2Fprivate-markets-deal-room%2Fmain%2Fdocs%2Freference%2Farchitecture.drawio)**
->
-> To edit, open [`docs/reference/architecture.drawio`](reference/architecture.drawio) in VS Code
-> with the **Draw.io Integration** extension — the icons are embedded, so the file is
-> self-contained.
+To change a diagram, edit the `.drawio` — the
+[draw.io VS Code extension](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio)
+opens it in place, or use draw.io desktop — then regenerate the SVGs:
+
+```powershell
+pwsh scripts/build-diagrams.ps1
+```
+
+Each SVG also carries a copy of its own diagram, so it reopens in draw.io on its own if that is
+all you have. They are exported with `--theme auto`, which is what keeps them readable in
+GitHub's dark mode as well as its light one.
 
 ---
 

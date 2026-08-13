@@ -14,9 +14,9 @@ The one-page picture — the two surfaces over one backend, the identity seam, a
 footprint broken out by resource group — is **[Architecture](ARCHITECTURE.md)**. Read that
 first; the sections below pick up where it stops and walk each layer in turn.
 
-The detailed Azure drawing, with official Microsoft Azure icons and numbered flows, is kept as
-an editable source at [`reference/architecture.drawio`](reference/architecture.drawio) and can
-be opened in the [interactive viewer](https://viewer.diagrams.net/?tags=%7B%7D&lightbox=1&nav=1&title=architecture#Uhttps%3A%2F%2Fraw.githubusercontent.com%2Famitdesai08%2Fprivate-markets-deal-room%2Fmain%2Fdocs%2Freference%2Farchitecture.drawio).
+The drawings are draw.io, kept as one editable source at
+[`diagrams/deal-room-architecture.drawio`](diagrams/deal-room-architecture.drawio) and exported
+to the SVGs that page renders — `pwsh scripts/build-diagrams.ps1` after any edit.
 
 ---
 
@@ -196,7 +196,8 @@ An idle demo shouldn't cost anything. Power the platform off/on as one unit:
 │   ├── integration/        Market data, agents & skills, data handling
 │   ├── security/           Buyer security appendix, data sovereignty
 │   ├── operations/         Deployment checklist, operations plan
-│   └── reference/          Explainer, action items, editable architecture diagram
+│   ├── diagrams/          draw.io source for the architecture drawings + generated SVGs
+│   └── reference/          Explainer, action items
 ├── skills/                 Agent skill definitions (screening, comps, LBO, IC memo, DD, VCP)
 ├── mockups/                Static HTML design mockups (deal cockpit, navigation IA)
 ├── scripts/                Deploy + Entra-provisioning + azd hooks

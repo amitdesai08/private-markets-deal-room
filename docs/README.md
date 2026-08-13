@@ -21,7 +21,8 @@ Start at the top. Each section below goes one level deeper than the one above it
 | [`integration/`](integration/) | [Data integration](integration/DATA-INTEGRATION.md) (market data & systems of record) · [Agents & skills](integration/AGENTS.md) · [Data handling](integration/DATA-HANDLING.md). |
 | [`security/`](security/) | [Buyer security & compliance appendix](security/buyer-security-compliance.md) · [Data sovereignty](security/DATA-SOVEREIGNTY.md). |
 | [`operations/`](operations/) | [Deployment checklist](operations/DEPLOYMENT-CHECKLIST.md) · [Operations plan](operations/OPERATIONS-PLAN.md) (networking, power control, cost). |
-| [`reference/`](reference/) | [Explainer & glossary](reference/EXPLAINER.md) · [Action items](reference/ACTION-ITEMS.md) · the editable [architecture diagram](reference/architecture.drawio). |
+| [`diagrams/`](diagrams/) | The draw.io source for every architecture drawing, and the SVGs generated from it. |
+| [`reference/`](reference/) | [Explainer & glossary](reference/EXPLAINER.md) · [Action items](reference/ACTION-ITEMS.md). |
 
 ## Elsewhere in the repo
 
