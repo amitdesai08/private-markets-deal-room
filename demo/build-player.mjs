@@ -216,7 +216,7 @@ const frame = $('frame'), shot = $('shot'), spot = $('spot'), cursor = $('cursor
 const ping = $('ping'), vo = $('vo'), caption = $('caption'), track = $('track');
 const missing = $('missing');
 
-let i = 0, playing = false, advanceTimer = null;
+let i = 0, playing = false, advanceTimer = null, triedAlt = false;
 
 /* Keep the frame at the exact aspect of the capture so the overlay maths stay true. */
 function fit() {
@@ -315,7 +315,7 @@ function go(n, autoplay = playing) {
 
   vo.pause();
   if (s.audio) {
-    if (vo.getAttribute('src') !== s.audio) vo.src = s.audio;
+    if (vo.getAttribute('src') !== s.audio) { triedAlt = false; vo.src = s.audio; }
     vo.currentTime = 0;
     if (autoplay) vo.play().catch(() => {});
   } else if (autoplay) {
@@ -362,6 +362,19 @@ function setPlaying(on) {
 }
 
 vo.addEventListener('ended', pressThenAdvance);
+
+/* Chromium built without proprietary codecs cannot decode MP3, and reports canPlayType as
+   "probably" before failing — so a <source> list would pick the MP3 and never fall back.
+   Switch to the Opus copy only once decoding has actually failed. */
+vo.addEventListener('error', () => {
+  const s = S[i];
+  if (triedAlt || !s.audioAlt) return;
+  triedAlt = true;
+  vo.src = s.audioAlt;
+  vo.currentTime = 0;
+  if (playing) vo.play().catch(() => {});
+});
+
 vo.addEventListener('timeupdate', () => {
   const total = Number.isFinite(vo.duration) && vo.duration > 0 ? vo.duration : S[i].seconds;
   if (!total) return;
