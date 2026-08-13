@@ -60,6 +60,31 @@ optional private path.
 
 ---
 
+## How the resources interact
+
+Resource groups say who owns what. They do not say what talks to what, over which protocol, or
+what allows it. This is the same estate drawn as connections rather than containers — every hop
+labelled with what it carries, and colour-coded by the kind of traffic it is.
+
+![How the Deal Room resources interact — request traffic, the data plane, identity and RBAC, telemetry and the private network path](diagrams/resource-interaction.svg)
+
+| Line | What it is |
+|---|---|
+| **Blue — request traffic** | North-south. A person's request arriving from the tenant, terminating at the console and forwarded to the backend. |
+| **Green — data plane** | Service to service. The backend reading and writing blobs, calling models, publishing events, and Graph provisioning the channel. |
+| **Orange dashed — identity, RBAC and secrets** | Not traffic. What grants the call: the managed identity assigned to both apps, its role assignments, secrets read at revision start, the registry pull. |
+| **Grey dotted — telemetry** | Logs, traces and the access trail leaving every tier. |
+| **Purple dashed — private network path** | The optional data plane that never touches the public internet. |
+
+Two things are worth reading off it directly. **The console holds no data** — every blue line
+stops there and continues as a separate hop to the backend, so the surface a user reaches and
+the tier that stores documents are different processes with different permissions. And **there
+is no connection string anywhere on the diagram** — every green line is authorised by the
+orange one beneath it, which is the user-assigned managed identity plus an RBAC role assignment
+scoped to exactly that resource.
+
+---
+
 ## What runs where
 
 | Tier | Container app | Role |
@@ -83,7 +108,7 @@ optional private path.
 
 ## The diagrams themselves
 
-All three drawings above live in one draw.io file —
+All four drawings above live in one draw.io file —
 [`docs/diagrams/deal-room-architecture.drawio`](diagrams/deal-room-architecture.drawio), one
 page per diagram. That file is the source; the SVGs beside it are generated from it and
 committed, because GitHub renders SVG inside a page and cannot render `.drawio`.
@@ -97,8 +122,9 @@ pwsh scripts/build-diagrams.ps1
 ```
 
 Each SVG also carries a copy of its own diagram, so it reopens in draw.io on its own if that is
-all you have. They are exported with `--theme auto`, which is what keeps them readable in
-GitHub's dark mode as well as its light one.
+all you have. Every page sets an explicit white background and exports with `--theme light`, so
+the drawings stay readable in GitHub's dark mode as well as its light one. The official Azure
+icons are inlined into the SVG, so nothing is fetched at view time.
 
 ---
 
