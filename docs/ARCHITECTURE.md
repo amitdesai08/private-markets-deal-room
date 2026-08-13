@@ -43,9 +43,11 @@ barriers — is in the [access model](ACCESS-MODEL.md).
 
 Subscription-scoped Bicep, split into six resource groups so each domain can be governed and
 costed on its own — with the Microsoft 365 tenant it reads from on one side, and the keyless
-public sources on the other.
+public sources on the other. **The numbered line is a single request, in order**, from the tab
+through the identity seam to the deal store; the dashed lines are platform services and the
+optional private path.
 
-![The Deal Room on Azure — the tenant, the subscription and its six resource groups](diagrams/azure-architecture.svg)
+![The Deal Room on Azure — the tenant, the subscription, its six resource groups and the path a request takes through them](diagrams/azure-architecture.svg)
 
 | Resource group | What lives there |
 |---|---|
