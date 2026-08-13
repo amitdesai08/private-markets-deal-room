@@ -90,6 +90,8 @@ _*.js
 _*.txt
 _*.json
 _*.html
+_*.svg
+_*.png
 _*/
 _c[0-9]*.txt
 s[0-9]*.ps1
