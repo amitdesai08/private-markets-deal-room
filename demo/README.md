@@ -59,6 +59,32 @@ Point it somewhere else with `DEMO_BASE_URL`, including a local
 | `DEMO_RATE` | `-6%` | Narration pace. |
 | `SPEECH_KEY` / `SPEECH_REGION` | read from Azure | Skip the CLI lookup. |
 
+## Running it as a service principal
+
+`narrate.mjs` asks the Azure CLI for a token, so it works as whoever is signed in. For
+unattended runs there is a certificate-backed identity, `sp-dealroom-demo-automation`, which
+holds **Cognitive Services Speech User** and **Cognitive Services User** on the Speech resource
+and **Reader** on the app resource group — enough to narrate and to read configuration, and
+nothing else. It cannot change any resource.
+
+```powershell
+# in its own CLI profile, so an interactive session is not replaced
+$env:AZURE_CONFIG_DIR = "$env:TEMP\az-dealroom-automation"
+az login --service-principal `
+  -u 4732cfda-458b-4a5c-9714-f87a2d3e61d9 `
+  --certificate "$env:USERPROFILE\.azure\sp-dealroom-demo-automation.pem" `
+  --tenant 301fb807-bdbc-4bac-802f-39b67f298b6c
+node demo/narrate.mjs
+```
+
+The private key lives in `~/.azure/sp-dealroom-demo-automation.pem` and is **not** in this
+repository. There is no client secret. To retire the identity:
+`az ad app delete --id 4732cfda-458b-4a5c-9714-f87a2d3e61d9`.
+
+It authenticates to **Azure**, not to the product. The Deal Room authorises people by name
+against a deal team, so a service principal cannot hold a seat and cannot be used to capture
+screenshots — that still needs either a signed-in person or the demo profiles.
+
 ## Notes
 
 - The screenshots are of the demonstration book: invented companies, invented people,
