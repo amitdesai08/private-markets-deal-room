@@ -70,11 +70,11 @@ Point it somewhere else with `DEMO_BASE_URL`, including a local
   the front page. `winget install Gyan.FFmpeg`, or unzip a portable build and point
   `DEMO_FFMPEG` at it.
 
-## Why the front page shows a video rather than the player
+## Why the front page shows a still and not a player
 
-The player cannot be embedded in a README, and it is worth writing down why so nobody spends
-an afternoon rediscovering it. GitHub renders README markdown through a sanitiser that, **in
-repository context**, drops far more than the `/markdown` API does:
+Neither the player nor a video can be embedded in a README, and it is worth writing down why
+so nobody spends an afternoon rediscovering it. GitHub renders README markdown through a
+sanitiser that, **in repository context**, drops far more than the `/markdown` API does:
 
 | Tag | In a README |
 |---|---|
@@ -84,12 +84,14 @@ repository context**, drops far more than the `/markdown` API does:
 | `<video>` | **stripped**, whatever the `src` host — relative, `raw.githubusercontent`, even `user-attachments` |
 | `<img>`, `<picture>`, `<details>`, `<a>` | kept |
 
-The `/markdown` REST endpoint *keeps* `<video>`, which is misleading: pass `context` (or render
-a real README) and it goes. The only way to get a playing video on a GitHub page is to upload
-the file through the web UI — drag it into an issue or pull request comment — and paste the
-`user-attachments` URL it hands back, which the site then turns into a player. There is no API
-for that upload, so it cannot be part of this build.
+Two traps in there. The `/markdown` REST endpoint **keeps** `<video>`, so it will tell you the
+embed works; pass `context`, or render a real README, and it goes. And GitHub's file viewer
+will not play a committed MP4 either — it answers *"we can't show files that are this big right
+now"* even at 3 MB — so linking the file only ever offers a download.
 
-So the README shows a poster image linking to `docs/demos/walkthrough.mp4`, which GitHub plays
-in its own file viewer. If you want a true inline player on the front page, drag that MP4 into
-any issue comment and swap the poster for the URL GitHub returns.
+The one route to a playing video on a GitHub page is to upload the file through the web UI —
+drag it into an issue or pull request comment — and paste the `user-attachments` URL it hands
+back, which the site turns into a player. There is no API for that upload, so it cannot be part
+of this build. **If you want a player on the front page:** drag `docs/demos/walkthrough-teaser.mp4`
+into any issue comment, copy the URL, and replace the still in README's *See it in action* with
+it on a line of its own. There is a comment there marking the spot.

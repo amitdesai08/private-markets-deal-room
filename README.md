@@ -212,13 +212,19 @@ the running product and voiced end to end. Thirty scenes across all eight acts: 
 briefing, a deal opened and taken apart, the fund, the certified report, and the moment an
 administrator is refused a deal an analyst can open.
 
-<a href="docs/demos/walkthrough.mp4"><img src="docs/demos/narrated-walkthrough.png" width="900" alt="The narrated walkthrough — the player, paused on Untracked follow-ups"></a>
+<!-- GitHub strips <video> from README markdown and will not preview an MP4 in its file
+     viewer either, so this is a still. To get a player here: drag docs/demos/walkthrough-teaser.mp4
+     into any issue comment on this repo, then replace this image with the user-attachments
+     URL GitHub hands back, on a line of its own. See demo/README.md. -->
+<a href="demo/"><img src="docs/demos/narrated-walkthrough.png" width="900" alt="The narrated walkthrough — the player, paused on Untracked follow-ups, with the narration captioned"></a>
 
-> ▶️ **[Play the narrated walkthrough →](docs/demos/walkthrough.mp4)** · 12 MB, 16 minutes, sound on.
+> ⬇️ **Watch it** — [the full 16 minutes](docs/demos/walkthrough.mp4) (12 MB) or
+> [a four-minute cut](docs/demos/walkthrough-teaser.mp4) (3 MB). GitHub cannot play video in a
+> page, so these download; any player opens them.
 
-Prefer to drive it? The same thirty scenes ship as an **interactive player** — jump to any act,
-pause on any screen, captions for rooms where audio is awkward. Three commands, no credentials,
-nothing to install:
+**Better, drive it yourself.** The same thirty scenes ship as an **interactive player** — jump
+to any act, pause on any screen, captions for rooms where audio is awkward. Three commands, no
+credentials, nothing to install:
 
 ```powershell
 node demo/capture.mjs; node demo/narrate.mjs; node demo/build-player.mjs
