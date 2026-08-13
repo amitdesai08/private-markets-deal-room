@@ -100,8 +100,10 @@ export const SCENES = [
       an internal API, a subscription you already hold — with an honest reachability test rather than a faked
       connected badge.`,
   },
-  // The runbook's beat 9 also describes Settings → Document templates, for setting the fund
-  // name, brand colours and confidentiality wording. That section does not exist in this
-  // build — Settings offers only Data sources — so there is nothing to capture and no scene
-  // for it here.
+  // The runbook's beat 9 also shows Settings → Document templates. That feature is fully
+  // built — DocTemplates.tsx, /api/admin/doc-template, DOC_TEMPLATE_DEFAULTS — but the tab
+  // renders only when the context reports isAdmin, and /api/teams/context returns
+  // isAdmin=false and role=member for *every* demo profile, the `admin` seat included.
+  // So no demo seat can reach it and there is nothing to capture. Present it live from
+  // Teams as a real administrator, or make the access profile honour the demo seat's role.
 ];
