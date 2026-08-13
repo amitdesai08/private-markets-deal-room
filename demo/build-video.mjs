@@ -60,7 +60,15 @@ async function main() {
   const ffmpeg = await tool('ffmpeg');
   const ffprobe = await tool('ffprobe');
 
-  const manifest = JSON.parse(await readFile(path.join(OUT, 'scenes.json'), 'utf8'));
+  const arg = (flag, fallback) => {
+    const i = process.argv.indexOf(flag);
+    return i > -1 && process.argv[i + 1] && !process.argv[i + 1].startsWith('--')
+      ? process.argv[i + 1] : fallback;
+  };
+  const manifestName = arg('--manifest', 'scenes.json');
+  const outName = arg('--out', TEASER ? 'walkthrough-teaser.mp4' : 'walkthrough.mp4');
+
+  const manifest = JSON.parse(await readFile(path.join(OUT, manifestName), 'utf8'));
   const scenes = manifest.scenes.filter((s) => s.image && s.audio
     && (!TEASER || TEASER_SCENES.includes(s.id)));
   if (!scenes.length) throw new Error('nothing to render — run capture.mjs and narrate.mjs first');
@@ -101,7 +109,7 @@ async function main() {
   const listFile = path.join(SEGS, 'list.txt');
   await writeFile(listFile, list.join('\n'), 'utf8');
 
-  const outFile = path.join(OUT, TEASER ? 'walkthrough-teaser.mp4' : 'walkthrough.mp4');
+  const outFile = path.join(OUT, outName);
   await run(ffmpeg, [
     '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0',
     '-i', `"${listFile}"`, '-c', 'copy', '-movflags', '+faststart', `"${outFile}"`,

@@ -424,13 +424,21 @@ go(0, false);
 `;
 
 async function main() {
-  const data = JSON.parse(await readFile(path.join(OUT, 'scenes.json'), 'utf8'));
+  const arg = (flag, fallback) => {
+    const i = process.argv.indexOf(flag);
+    return i > -1 && process.argv[i + 1] && !process.argv[i + 1].startsWith('--')
+      ? process.argv[i + 1] : fallback;
+  };
+  const manifestName = arg('--manifest', 'scenes.json');
+  const outName = arg('--out', 'demo.html');
+
+  const data = JSON.parse(await readFile(path.join(OUT, manifestName), 'utf8'));
   const html = page(data);
-  const out = path.join(OUT, 'demo.html');
+  const out = path.join(OUT, outName);
   await writeFile(out, html, 'utf8');
   const withShot = data.scenes.filter((s) => s.image).length;
   const withAudio = data.scenes.filter((s) => s.audio).length;
-  console.log(`demo.html written — ${data.scenes.length} scenes, ${withShot} captured, ${withAudio} narrated`);
+  console.log(`${outName} written — ${data.scenes.length} scenes, ${withShot} captured, ${withAudio} narrated`);
   console.log(out);
 }
 

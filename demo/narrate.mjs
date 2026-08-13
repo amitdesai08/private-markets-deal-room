@@ -28,6 +28,9 @@ const VOICE = process.env.DEMO_VOICE || 'en-GB-RyanNeural';
 // A shade under natural pace: this is a boardroom narration, not a podcast.
 const RATE = process.env.DEMO_RATE || '-6%';
 const FORCE = process.argv.includes('--force');
+// Cuts of the walkthrough carry their own manifest and their own narration.
+const MANIFEST = (process.argv[process.argv.indexOf('--manifest') + 1] || 'scenes.json')
+  .replace(/^--.*/, 'scenes.json');
 
 // Two encodings of every line. MP3 is the primary: it carries a duration, so the player can
 // show progress and seek within a scene. But Chromium built without proprietary codecs —
@@ -94,7 +97,7 @@ async function synthesise(auth, text, outPath, spec) {
 }
 
 async function main() {
-  const manifestPath = path.join(OUT, 'scenes.json');
+  const manifestPath = path.join(OUT, MANIFEST);
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   await mkdir(AUDIO, { recursive: true });
 

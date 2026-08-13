@@ -4,6 +4,14 @@ A click-through of the full [30-minute demo](../docs/demos/DEMO-WALKTHROUGH.md),
 against the running product and narrated by Azure AI Speech. Open
 `build/demo.html` and press **Begin the walkthrough**.
 
+> **Open it in Edge or Chrome, not VS Code's built-in browser.** That one is Electron and
+> decodes neither MP3 nor Opus, so the walkthrough plays silently and looks broken. It is the
+> browser, not the build.
+>
+> ```powershell
+> start msedge "$PWD\demo\build\demo.html"
+> ```
+
 It plays end to end on its own, or a presenter can drive it: the transport bar steps scene
 by scene, **Scenes** jumps to any act, and **Captions** puts the narration on screen for a
 room where audio is awkward. Space plays and pauses, arrow keys move.
@@ -17,6 +25,8 @@ room where audio is awkward. Space plays and pauses, arrow keys move.
 | [`narrate.mjs`](narrate.mjs) | Sends each scene's narration to Azure AI Speech and writes an MP3. |
 | [`build-player.mjs`](build-player.mjs) | Assembles `build/demo.html` from the three. |
 | [`build-video.mjs`](build-video.mjs) | Renders the same scenes to an MP4, for sharing off-GitHub. |
+| [`cuts.mjs`](cuts.mjs) | Shorter edits of the walkthrough — same screens, tighter narration. |
+| [`build-cut.mjs`](build-cut.mjs) | Assembles a cut's manifest from screens already captured. |
 | [`lib/cdp.mjs`](lib/cdp.mjs) | A small Chrome DevTools Protocol client. |
 
 ## Building it
@@ -31,6 +41,23 @@ node demo/build-video.mjs    # ~3 min  — writes build/walkthrough.mp4
 `build/` is generated and git-ignored. Re-run one broken scene without losing the rest by
 passing its index — `node demo/capture.mjs 14 15` — and watch it happen with
 `$env:DEMO_HEADED=1`.
+
+## Shorter cuts
+
+[`cuts.mjs`](cuts.mjs) holds alternative edits that reuse screens the walkthrough already
+captured, so a cut costs a Speech call per line and needs no browser at all. `lightning`
+follows [DEMO-LIGHTNING.md](../docs/demos/DEMO-LIGHTNING.md) — fifteen scenes, about six
+minutes.
+
+```powershell
+node demo/build-cut.mjs lightning
+node demo/narrate.mjs      --manifest scenes-lightning.json
+node demo/build-player.mjs --manifest scenes-lightning.json --out lightning.html
+node demo/build-video.mjs  --manifest scenes-lightning.json --out lightning.mp4
+```
+
+A cut re-orders scenes, so the cursor that pressed through to the next screen is dropped —
+it would be pointing at a control that no longer leads anywhere.
 
 Narration is only re-synthesised when it is missing, so editing one line of `scenes.mjs`
 and re-running `narrate.mjs` costs one request. Use `--force` to redo all of them.
