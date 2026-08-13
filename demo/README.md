@@ -16,7 +16,7 @@ room where audio is awkward. Space plays and pauses, arrow keys move.
 | [`capture.mjs`](capture.mjs) | Drives the real product through every scene and writes one screenshot each. |
 | [`narrate.mjs`](narrate.mjs) | Sends each scene's narration to Azure AI Speech and writes an MP3. |
 | [`build-player.mjs`](build-player.mjs) | Assembles `build/demo.html` from the three. |
-| [`build-video.mjs`](build-video.mjs) | Renders the same scenes to an MP4, for the README. |
+| [`build-video.mjs`](build-video.mjs) | Renders the same scenes to an MP4, for sharing off-GitHub. |
 | [`lib/cdp.mjs`](lib/cdp.mjs) | A small Chrome DevTools Protocol client. |
 
 ## Building it
@@ -66,13 +66,17 @@ Point it somewhere else with `DEMO_BASE_URL`, including a local
 - Narration is synthetic. If you would rather record a human over the same scenes, delete
   `build/audio` and the player falls back to holding each scene long enough to read its
   caption.
-- `build-video.mjs` needs ffmpeg. It is not required for the player — only for the MP4 on
-  the front page. `winget install Gyan.FFmpeg`, or unzip a portable build and point
+- `build-video.mjs` needs ffmpeg. It is not required for the player — only if you want a file
+  to send someone. `winget install Gyan.FFmpeg`, or unzip a portable build and point
   `DEMO_FFMPEG` at it.
 
-## Why the front page shows a still and not a player
+## Why none of this is published
 
-Neither the player nor a video can be embedded in a README, and it is worth writing down why
+The build stays on your machine. `build/` is git-ignored and no video or screenshot of the
+walkthrough is committed — this repository is public, and the walkthrough is a tour of a
+running deployment.
+
+It is also, separately, not something GitHub can host well. That was worth establishing once,
 so nobody spends an afternoon rediscovering it. GitHub renders README markdown through a
 sanitiser that, **in repository context**, drops far more than the `/markdown` API does:
 
@@ -85,13 +89,14 @@ sanitiser that, **in repository context**, drops far more than the `/markdown` A
 | `<img>`, `<picture>`, `<details>`, `<a>` | kept |
 
 Two traps in there. The `/markdown` REST endpoint **keeps** `<video>`, so it will tell you the
-embed works; pass `context`, or render a real README, and it goes. And GitHub's file viewer
-will not play a committed MP4 either — it answers *"we can't show files that are this big right
-now"* even at 3 MB — so linking the file only ever offers a download.
+embed works; pass `context`, or render a real README via
+`GET /repos/{owner}/{repo}/readme` with `Accept: application/vnd.github.html`, and it goes. And
+GitHub's file viewer will not play a committed MP4 either — it answers *"we can't show files
+that are this big right now"* even at 3 MB — so a committed video only ever offers a download.
 
 The one route to a playing video on a GitHub page is to upload the file through the web UI —
-drag it into an issue or pull request comment — and paste the `user-attachments` URL it hands
-back, which the site turns into a player. There is no API for that upload, so it cannot be part
-of this build. **If you want a player on the front page:** drag `docs/demos/walkthrough-teaser.mp4`
-into any issue comment, copy the URL, and replace the still in README's *See it in action* with
-it on a line of its own. There is a comment there marking the spot.
+drag it into an issue or pull request comment — and paste back the `user-attachments` URL,
+which the site turns into a player. There is no API for it.
+
+To share the walkthrough inside your own tenant, put `build/walkthrough.mp4` in SharePoint or a
+Teams channel: Teams plays it inline, and access is governed by the tenant already.

@@ -27,7 +27,7 @@ tenant.
 |:--:|:--:|:--:|:--:|:--:|
 | the system on one page | internals & repo layout | stages, workspace & data room | RBAC, need-to-know & demo | one command to your tenant |
 
-<sub>**[📚 All documentation →](docs/README.md)** · [🎧 Narrated walkthrough](docs/demos/walkthrough.mp4?raw=1) · [🎬 Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · [📋 Demo runbook](docs/demos/DEMO-RUNBOOK.md) · [🛡️ Security](SECURITY.md) · [🔒 Security & compliance (buyer appendix)](docs/security/buyer-security-compliance.md) · [🤝 Contributing](CONTRIBUTING.md)</sub>
+<sub>**[📚 All documentation →](docs/README.md)** · [ Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · [📋 Demo runbook](docs/demos/DEMO-RUNBOOK.md) · [🛡️ Security](SECURITY.md) · [🔒 Security & compliance (buyer appendix)](docs/security/buyer-security-compliance.md) · [🤝 Contributing](CONTRIBUTING.md)</sub>
 
 ---
 
@@ -207,43 +207,22 @@ Deal MCP server, and subscription-agnostic Bicep.)*
 
 ## See it in action
 
-**Sixteen minutes, narrated, no setup.** A click-through of the whole demo — captured against
-the running product and voiced end to end. Thirty scenes across all eight acts: the morning
-briefing, a deal opened and taken apart, the fund, the certified report, and the moment an
-administrator is refused a deal an analyst can open.
+Deploy in **demo mode** (or open the web console) and flip on **demo profiles** — one named
+identity per role — to walk the whole access model without provisioning a single user. The
+seeded pipeline even ships **confidential deals** and a real **need-to-know grant**: sign in as
+the analyst and the confidential take-private and exit are invisible, yet she has full access to
+the one deal she's named on. Switch to the partner and everything opens.
 
-<!-- GitHub strips <video> from README markdown and will not preview an MP4 in its file
-     viewer either, so this is a still. The links below carry ?raw=1 so a click downloads the
-     file instead of landing on GitHub's "we can't show files that are this big" page.
-     To get a real player here: drag docs/demos/walkthrough-teaser.mp4 into any issue comment
-     on this repo, then replace this image with the user-attachments URL GitHub hands back,
-     on a line of its own. See demo/README.md. -->
-<a href="docs/demos/walkthrough-teaser.mp4?raw=1"><img src="docs/demos/narrated-walkthrough.png" width="900" alt="The narrated walkthrough — the player, paused on Untracked follow-ups, with the narration captioned"></a>
-
-> ⬇️ **Watch it** — [the four-minute cut](docs/demos/walkthrough-teaser.mp4?raw=1) (3 MB) or
-> [the full sixteen minutes](docs/demos/walkthrough.mp4?raw=1) (12 MB). GitHub cannot play video
-> in a page, so these download; any player opens them.
-
-**Better, drive it yourself.** The same thirty scenes ship as an **interactive player** — jump
-to any act, pause on any screen, captions for rooms where audio is awkward. Three commands, no
-credentials, nothing to install:
+There is also a **narrated walkthrough** you can build locally — thirty scenes across all eight
+acts, captured against the running product and voiced end to end. It is not published here; three
+commands produce it on your own machine:
 
 ```powershell
 node demo/capture.mjs; node demo/narrate.mjs; node demo/build-player.mjs
 start demo/build/demo.html
 ```
 
-> 🎬 **[How the walkthrough is built →](demo/)** — the demo is data: one file holds what the
-> browser does and what the narrator says.
-
-**Or run the product itself.** Deploy in **demo mode** (or open the web console) and flip on
-**demo profiles** — one named identity per role — to walk the whole access model without
-provisioning a single user. The seeded pipeline even ships **confidential deals** and a real
-**need-to-know grant**: sign in as the analyst and the confidential take-private and exit are
-invisible, yet she has full access to the one deal she's named on. Switch to the partner and
-everything opens.
-
-> 📖 [Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · 📋 [Demo runbook](docs/demos/DEMO-RUNBOOK.md) · ⚡ [Lightning demo](docs/demos/DEMO-LIGHTNING.md) · 🔐 [Access model](docs/ACCESS-MODEL.md)
+> 🎬 [Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · 📋 [Demo runbook](docs/demos/DEMO-RUNBOOK.md) · ⚡ [Lightning demo](docs/demos/DEMO-LIGHTNING.md) · 🎧 [Build the narrated walkthrough](demo/) · 🔐 [Access model](docs/ACCESS-MODEL.md)
 
 ---
 
