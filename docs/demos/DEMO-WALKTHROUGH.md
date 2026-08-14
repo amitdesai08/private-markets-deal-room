@@ -46,23 +46,13 @@ well, **correct it here** rather than working around it live.
 
 ---
 
-## How the window is laid out
+## The five tabs — and nothing else to find
 
-Three bands, and they never move.
+**Home · Sourcing & screening · All deals · Fund & Portfolio · Firm reporting.** Left to
+right, that is the whole product, and each one is a stage of how a deal actually gets
+run — not a software menu:
 
-**The top bar** — the product name, then, left to right:
-
-| Control | What it does |
-|---|---|
-| The **person dropdown** | Who you are signed in as. Fourteen placeholder people for the demo. |
-| **+ New deal** | Enter a deal you already have, without going through screening. |
-| **💬 Ask the assistant** | Opens the assistant on whatever you are looking at. |
-| **☀** | Light or dark. |
-| **⚙** (Settings) | Which outside data sources the product is allowed to use. |
-
-**The five main tabs** — this is the whole product. There is nothing else to find.
-
-| Tab | In one sentence |
+| Tab | The job it does |
 |---|---|
 | **Home** | What needs you today. |
 | **Sourcing & screening** | Companies you are looking at but have not committed to. |
@@ -70,10 +60,12 @@ Three bands, and they never move.
 | **Fund & Portfolio** | The fund's money, and the companies it already owns. |
 | **Firm reporting** | The numbers you would send an investor. |
 
-**The page itself**, below the tabs.
+Open a deal and there is one more level underneath — the five pages covered in Act 4. If
+you get lost at any point, press a main tab and you are back somewhere known.
 
-That is the entire navigation. Five tabs, and one more level when you open a deal. If
-you get lost, press a main tab and you are back somewhere known.
+**Do not narrate the rest of the top bar.** There is a person switcher (used in Act 7), an
+assistant (used in Act 4) and a settings gear (used in Act 8) — point at each only when you
+use it. A room came to hear what the product does for a deal, not a tour of its buttons.
 
 ### Two badges you will be asked about
 
