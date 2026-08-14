@@ -20,7 +20,9 @@ is subscription-agnostic Bicep on Azure Container Apps.
 
 ## The shape of it
 
-![The Deal Room — one backend, two surfaces](diagrams/how-it-fits-together.svg)
+[![The Deal Room — one backend, two surfaces](diagrams/how-it-fits-together.svg)](diagrams/how-it-fits-together.svg)
+
+> Click the diagram to open the full-size, zoomable version.
 
 **The rule that keeps it honest:** the console tier holds no data. Every read and write is
 forwarded to the one backend, so there is a single source of truth and nothing to keep in sync.
@@ -32,7 +34,9 @@ forwarded to the one backend, so there is a single source of truth and nothing t
 Access is decided on the server. The client can state who it is, but it cannot widen its own
 powers — the asserted identity is honoured only when the call carries the shared bot key.
 
-![The identity trust seam](diagrams/identity-trust-seam.svg)
+[![The identity trust seam](diagrams/identity-trust-seam.svg)](diagrams/identity-trust-seam.svg)
+
+> Click the diagram to open the full-size, zoomable version.
 
 Full behaviour — the two-tier RBAC, deal-team need-to-know, confidential deals and MNPI
 barriers — is in the [access model](ACCESS-MODEL.md).
@@ -47,7 +51,9 @@ public sources on the other. **The numbered line is a single request, in order**
 through the identity seam to the deal store; the dashed lines are platform services and the
 optional private path.
 
-![The Deal Room on Azure — the tenant, the subscription, its six resource groups and the path a request takes through them](diagrams/azure-architecture.svg)
+[![The Deal Room on Azure — the tenant, the subscription, its six resource groups and the path a request takes through them](diagrams/azure-architecture.svg)](diagrams/azure-architecture.svg)
+
+> Click the diagram to open the full-size, zoomable version.
 
 | Resource group | What lives there |
 |---|---|
@@ -66,7 +72,9 @@ Resource groups say who owns what. They do not say what talks to what, over whic
 what allows it. This is the same estate drawn as connections rather than containers — every hop
 labelled with what it carries, and colour-coded by the kind of traffic it is.
 
-![How the Deal Room resources interact — request traffic, the data plane, identity and RBAC, telemetry and the private network path](diagrams/resource-interaction.svg)
+[![How the Deal Room resources interact — request traffic, the data plane, identity and RBAC, telemetry and the private network path](diagrams/resource-interaction.svg)](diagrams/resource-interaction.svg)
+
+> Click the diagram to open the full-size, zoomable version.
 
 | Line | What it is |
 |---|---|
