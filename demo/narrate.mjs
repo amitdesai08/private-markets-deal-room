@@ -70,13 +70,31 @@ async function speechAuth() {
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
+// The demo roster borrows its names from The Good Place, whose cast says them clearly and
+// without ambiguity — that's the reference for how the voiceover should say them too, since
+// a generic voice reads "Anagonye" by guesswork otherwise.
+const NAME_PHONEMES = {
+  Chidi: 'ˈtʃiːdi',
+  Anagonye: 'ˌænəˈɡoʊnjeɪ',
+  Eleanor: 'ˈɛlənɚ',
+  Shellstrop: 'ˈʃɛlstrɑp',
+  Realman: 'ˈriːlmæn',
+};
+
+function pronounceNames(s) {
+  for (const [name, ph] of Object.entries(NAME_PHONEMES)) {
+    s = s.replaceAll(name, `<phoneme alphabet="ipa" ph="${ph}">${name}</phoneme>`);
+  }
+  return s;
+}
+
 function ssml(text) {
   // A forced break after every period stacked on top of the voice's own sentence-final
   // pause, which is what read as hesitation - closer to a list being read aloud than a
   // person talking. The neural voice already paces sentence and clause boundaries on its
   // own; the only place it needs help is an em dash, which it otherwise runs straight
   // through as if the words either side were one clause.
-  const shaped = esc(text)
+  const shaped = pronounceNames(esc(text))
     .replace(/\s+\u2014\s+/g, '<break time="120ms"/> ');
   return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" `
     + `xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="${VOICE.slice(0, 5)}">`

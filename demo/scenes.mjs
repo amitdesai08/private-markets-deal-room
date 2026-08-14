@@ -415,10 +415,11 @@ export const SCENES = [
     title: 'The close',
     seat: 'partner',
     steps: [{ clickText: 'Home' }, { wait: 3000 }, { scrollTop: 0 }],
-    say: `The deal material itself never leaves a firm's own Microsoft tenant: the data room is its SharePoint, the
-      conversation is its Teams channel, and the mail and calendar are its own. It is one place to run a deal, built
-      on tools a firm already pays for and already trusts, where every number tells you where it came from. From
-      here, the natural next step is a working session with a real deal team, to talk through what it would take to
+    say: `The deal material itself never leaves a firm's own Microsoft tenant: the data room is its SharePoint, and
+      the conversation is its Teams channel, embedded right inside the deal itself rather than a separate tab to go
+      find. The mail and calendar are its own too. It's one place to run a deal, built on tools a firm already pays
+      for and already trusts, where every number tells you where it came from. From here, the natural next step is a
+      working session with a real deal team, to talk through what it would take to
       load their own deals.`,
   },
 ];

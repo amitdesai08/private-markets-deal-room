@@ -201,6 +201,7 @@ export const SCENES = [
     say: `It is one place to run a deal, from a first look all the way to owning the company, inside tools a team
       already uses. Every number tells you where it came from, and each person sees only what their role permits,
       enforced by Microsoft Entra ID. The deal material never leaves that tenant: the data room is its SharePoint,
-      and the conversation is its Teams channel.`,
+      and the conversation is its Teams channel, embedded right inside the deal rather than a separate tab to go
+      find.`,
   },
 ];
