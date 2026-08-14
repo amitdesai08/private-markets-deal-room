@@ -87,7 +87,7 @@ toggled, tested and **removed** like any other. This is the runtime counterpart 
      entitlement-bound** and generally **not** redistributable to a shared backend — model it
      as a per-user connector, not a tenant-wide one.
 3. **Entity-resolve into the canonical model.** Every feed is deduped into one governed
-   **Company** record ([`model/company.js`](../../app/lib/model/company.js)) by
+   company record (`mergeIntel()` in [`companies.js`](../../app/lib/companies.js)) by
    **domain → registry (LEI) → name**, so PitchBook, EDGAR and the news desk collapse to a
    single entity with tracked provenance — no double-counting across providers.
 4. **Timeouts & fail-fast.** Connectivity **probes** must be snappy (fail fast, report *slow*)

@@ -36,8 +36,8 @@ connected, the items under "Not in place" below stop being theoretical.
   Confidential deals are invisible — not redacted — to anyone outside the named team.
 - **Status-tier redaction.** `applyStatusTier` (`app/lib/store.js`) strips the thesis, the
   per-lane workstream array, `diligenceProgress`, memo counts and compliance counts. A
-  single overall `readiness` scalar survives deliberately; that is a decision, and it is
-  recorded in the rev-4 appendix on `mockups/nav-ia.html`.
+  single overall `readiness` scalar survives deliberately, so a status-only reader knows
+  roughly where a deal stands without the detail underneath it.
 - **Region walls.** A region-restricted user cannot see an out-of-region deal at all.
 - **View-as narrows only.** It can never elevate a capability the caller does not have.
 - **Partner-only IC-gate override**, resolved server-side from the caller's identity, and

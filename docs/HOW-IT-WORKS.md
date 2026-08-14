@@ -199,7 +199,6 @@ An idle demo shouldn't cost anything. Power the platform off/on as one unit:
 │   ├── diagrams/          draw.io source for the architecture drawings + generated SVGs
 │   └── reference/          Explainer, action items
 ├── skills/                 Agent skill definitions (screening, comps, LBO, IC memo, DD, VCP)
-├── mockups/                Static HTML design mockups (deal cockpit, navigation IA)
 ├── scripts/                Deploy + Entra-provisioning + azd hooks
 └── .github/workflows/      OIDC CI/CD for infra and app
 ```
