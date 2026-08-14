@@ -21,13 +21,11 @@ tenant.
 
 **On this page:** [Why it matters](#why-it-matters) · [What you can do](#what-you-can-do) · [Features](#the-major-features) · [See it in action](#see-it-in-action)
 
-**Deep dives — the "how", for builders:**
+| 🎬 [Demo Center](docs/DEMO-CENTER.md) | 🔐 [Security & compliance](docs/SECURITY-COMPLIANCE.md) | ☁️ [Deploy guide](docs/DEPLOY.md) | 📐 [Architecture](docs/ARCHITECTURE.md) |
+|:--:|:--:|:--:|:--:|
+| videos, live demo, scripts | control matrix & data sovereignty | one command to your tenant | the system on one page |
 
-| [📐 Architecture](docs/ARCHITECTURE.md) | [🧭 How it works](docs/HOW-IT-WORKS.md) | [🗂️ Inside a deal](docs/DEAL-STAGES.md) | [🔐 Access model](docs/ACCESS-MODEL.md) | [☁️ Deploy](docs/DEPLOY.md) |
-|:--:|:--:|:--:|:--:|:--:|
-| the system on one page | internals & repo layout | stages, workspace & data room | RBAC, need-to-know & demo | one command to your tenant |
-
-<sub>**[📚 All documentation →](docs/README.md)** · [ Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · [📋 Demo runbook](docs/demos/DEMO-RUNBOOK.md) · [🛡️ Security](SECURITY.md) · [🔒 Security & compliance (buyer appendix)](docs/security/buyer-security-compliance.md) · [🤝 Contributing](CONTRIBUTING.md)</sub>
+<sub>**[📚 All documentation →](docs/README.md)** · [🧭 How it works](docs/HOW-IT-WORKS.md) · [🗂️ Inside a deal](docs/DEAL-STAGES.md) · [🔑 Access model](docs/ACCESS-MODEL.md) · [🤝 Contributing](CONTRIBUTING.md)</sub>
 
 ---
 
@@ -207,22 +205,17 @@ Deal MCP server, and subscription-agnostic Bicep.)*
 
 ## See it in action
 
-Deploy in **demo mode** (or open the web console) and flip on **demo profiles** — one named
+The [**Demo Center**](docs/DEMO-CENTER.md) is the single place to start: narrated recordings you
+can download and play right now, an interactive click-through you can drive yourself, and the
+scripts a presenter follows for a live session.
+
+Or run the live product: deploy in **demo mode** and turn on **demo profiles** — one named
 identity per role — to walk the whole access model without provisioning a single user. The
-seeded pipeline even ships **confidential deals** and a real **need-to-know grant**: sign in as
-the analyst and the confidential take-private and exit are invisible, yet she has full access to
-the one deal she's named on. Switch to the partner and everything opens.
+seeded pipeline ships **confidential deals** and a real **need-to-know grant**: sign in as the
+analyst and a confidential take-private is invisible, yet she has full access to the one deal
+she's named on. Switch to the partner and it opens.
 
-There is also a **narrated walkthrough** you can build locally — thirty scenes across all eight
-acts, captured against the running product and voiced end to end. It is not published here; three
-commands produce it on your own machine:
-
-```powershell
-node demo/capture.mjs; node demo/narrate.mjs; node demo/build-player.mjs
-start demo/build/demo.html
-```
-
-> 🎬 [Demo walkthrough](docs/demos/DEMO-WALKTHROUGH.md) · 📋 [Demo runbook](docs/demos/DEMO-RUNBOOK.md) · ⚡ [Lightning demo](docs/demos/DEMO-LIGHTNING.md) · 🎥 [Narrated recordings](docs/demos/RECORDINGS.md) · 🔐 [Access model](docs/ACCESS-MODEL.md)
+> 🎬 **[Open the Demo Center →](docs/DEMO-CENTER.md)** · 🔐 [Access model](docs/ACCESS-MODEL.md)
 
 ---
 
@@ -235,9 +228,10 @@ start demo/build/demo.html
 | [**Deploy guide**](docs/DEPLOY.md) | Prerequisites, `azd up`, the guided script, identity paths, roles, and how to customize & extend. |
 | [**Access model**](docs/ACCESS-MODEL.md) | Two-tier RBAC, deal-team need-to-know, confidential deals, **MNPI & information barriers**, demo profiles & the runtime Demo Mode toggle. |
 | [**Inside a deal**](docs/DEAL-STAGES.md) | A tab-by-tab tour of every stage, the workspace, decision artifacts and the document repository. |
+| [**Security & compliance**](docs/SECURITY-COMPLIANCE.md) | Control matrix, data sovereignty, shared responsibility — written for a PE firm's procurement review. |
 | [**All documentation**](docs/README.md) | The full map — [integration](docs/integration/), [security](docs/security/), [operations](docs/operations/), [demos](docs/demos/) and [reference](docs/reference/). |
 | [Infra runbook](infra/README.md) · [App service](app/README.md) | Deep Bicep / `what-if` details and the API / MCP service. |
-| [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) | Security posture and how to contribute. |
+| [Vulnerability reporting](SECURITY.md) · [Contributing](CONTRIBUTING.md) | How to report a security issue, and how to contribute. |
 
 ---
 

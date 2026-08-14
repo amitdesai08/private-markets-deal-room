@@ -1,12 +1,13 @@
 # Security
 
-The Deal Room is an **Azure accelerator** built to be secure-by-default. This
-document summarises the security model and how to report a vulnerability.
+The Deal Room is an **Azure accelerator** built to be secure-by-default. This document
+covers how to report a vulnerability. For the full control matrix, data sovereignty model,
+and what a deploying firm is responsible for — the document written for a PE firm's
+compliance review — see **[Security & compliance](docs/SECURITY-COMPLIANCE.md)**.
 
 **Why it matters:** a deal room holds the fund's most sensitive material — live deal
 terms, MNPI and confidential targets — so confidentiality, need-to-know access and a
-clean audit trail aren't features, they're the point. The controls below exist to keep
-that material defensible to compliance and to LPs.
+clean audit trail aren't features, they're the point.
 
 ## Reporting a vulnerability
 
@@ -22,76 +23,14 @@ Please include: a description, the affected component (orchestrator / teams-app 
 infra / scripts), reproduction steps, and any suggested remediation. We aim to
 acknowledge within a few business days.
 
-## Security model (how the accelerator protects itself)
+## At a glance
 
-- **Managed identity end-to-end.** The Container Apps run as a user-assigned
-  managed identity (UAMI). Access to Azure OpenAI / Foundry, the data store,
-  Storage and (optionally) Cosmos is **RBAC via managed identity — no keys in
-  the app**. Cosmos, when used, has local auth disabled.
-- **No secrets in the repository.** `.env`, `*.pem/*.key/*.pfx`, generated Entra
-  param files and compiled Bicep outputs are git-ignored. Secrets
-  (`teamsTabClientSecret`, `botAppPassword`, `m365ClientSecret`,
-  `mcpReadonlyKey`, `botBackendKey`) are passed at deploy time or auto-derived
-  as Container App secrets — never committed. Rotate them by redeploying.
-- **Identity-aware RBAC.** What each caller may see and do is resolved
-  **server-side** from the requesting identity ([`app/lib/userPolicy.js`](app/lib/userPolicy.js) +
-  [`app/lib/personaPolicy.js`](app/lib/personaPolicy.js)). A client can never widen its own powers; the
-  hierarchy "view-as" can only move **down**, never up. Persona write actions are
-  authorised on the server regardless of what a model emits.
-- **Entra-gated MCP.** The public `/mcp` surface is protected by Microsoft Entra
-  ID; the read-only `/mcp-ro` surface (used by the Foundry agents) is gated by a
-  Container App secret and exposes **read tools only** — governed writes stay in
-  the app.
-- **Trusted-caller seam.** The orchestrator only honours a supplied requesting
-  identity when the caller proves it is the Teams server (shared
-  `botBackendKey`); otherwise the request is treated as unidentified and gets the
-  `defaultAgentRole`.
-- **Content safety (optional).** When `CONTENT_SAFETY_ENDPOINT` is set, model
-  I/O is screened by Azure AI Content Safety.
-- **Network hardening (optional).** `enablePrivateEndpoints=true` provisions
-  private endpoints + private DNS for the data-plane services and denies public
-  network access.
+- **Managed identity end-to-end** — no keys or connection strings in the running app.
+- **Identity-aware RBAC**, resolved server-side — a client can never widen its own access.
+- **Two hard agent classes** — internal-data agents can never reach the public web; the
+  external-web agent can never read a deal record.
+- **Demo profiles are for demonstrations only** — keep them off in production, where
+  access is driven solely by the Entra object IDs you supply.
 
-## Data sovereignty — agent isolation
+Full detail on all of the above: **[docs/SECURITY-COMPLIANCE.md](docs/SECURITY-COMPLIANCE.md)**.
 
-The AI agents are split into **two hard classes** with a **server-enforced** boundary
-([`app/lib/agentSovereignty.js`](app/lib/agentSovereignty.js)) — an agent's class is set from
-its name, never self-asserted by a model:
-
-| Class | Agents | Reads the fund's data | Reaches the public web |
-|---|---|:--:|:--:|
-| **internal-data** | deal analyst · the 10 persona agents · Fabric Data Agent | ✓ governed, deal-scoped | ✗ **never** |
-| **external-web** | news scout (Bing-grounded) | ✗ **never** | ✓ sourcing only |
-
-- **Objective scoping** — every tool call is checked against the agent's class allow-list; a
-  tool outside the objective is refused **before** it runs.
-- **No cross-pollination** — an internal-data agent can never call a web/egress tool (no
-  exfiltration path), and the external-web agent can never call an internal deal tool (nothing
-  internal is ever sent to a web-facing model). The guard runs at the dispatch seam, so
-  **prompt-injection or a manipulated orchestration loop cannot cross the boundary** — the
-  decision is the server's, not the model's.
-- **Deal-scope enforcement** — inside the internal class, `dispatchTool` hard-filters to the
-  focused deal server-side (a deal-locked conversation can't reach another deal's data no
-  matter what the model emits), and persona write-authority is server-set
-  ([`app/lib/personaPolicy.js`](app/lib/personaPolicy.js)).
-- **Freshness without leakage** — live web search / scraping for non-stale sourcing lives
-  **only** in the external-web class, isolated from every internal record.
-
-Full model + the requirement mapping: [docs/DATA-SOVEREIGNTY.md](docs/security/DATA-SOVEREIGNTY.md).
-
-## Demo profiles are not a production auth mechanism
-
-The demo "sign in as" profiles are gated behind `deployDemoProfiles` and are for
-**demonstrations only**. Leave `deployDemoProfiles=false` in production — real
-access is then driven solely by the Entra object IDs you supply in the roles
-harness (`adminIds` / `partnerIds` / `dealTeamIds` / `analystIds`).
-
-## Your responsibilities when deploying
-
-- Supply your **own** Entra object IDs in the roles harness; do not rely on demo
-  names in production.
-- Keep `deployDemoProfiles=false` and, if you don't need the M365/bot identity,
-  run in **demo mode** (no app registrations).
-- Review the Entra app registrations and their consented Graph scopes before
-  going live (see the deployment checklist).
-- Rotate deploy-time secrets and restrict who can read the Container App secrets.

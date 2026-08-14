@@ -1,5 +1,9 @@
 # Data handling — statement of current fact
 
+> **Internal engineering reference — not customer-facing.** This is a file-level, current-state
+> audit for the delivery team ahead of connecting a live tenant. For the compliance-review
+> version of this posture, see [Security & compliance](../SECURITY-COMPLIANCE.md).
+
 Last verified: rev 4b, against the code in this commit. This file exists because a
 compliance review asked for the position in writing rather than inferred from source, and
 because an assurance that lives only in someone's memory is not an assurance.

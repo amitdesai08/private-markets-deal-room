@@ -1,5 +1,10 @@
 # Action items — WorkIQ integration & Deal Room UX
 
+> **Internal roadmap — not customer-facing.** This is a working backlog for the delivery
+> team, not a statement of the product's current capability. For what the product does
+> today, see [How it works](../HOW-IT-WORKS.md) or the [Security & compliance](../SECURITY-COMPLIANCE.md)
+> control matrix.
+
 A tracked backlog of the WorkIQ follow-ups plus the product/UX items raised on
 2026-07-24. Each item states the **problem**, a grounded **analysis** (with the
 files involved), the **proposed approach**, and a rough **effort**. Nothing here is
