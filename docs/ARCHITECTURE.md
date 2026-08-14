@@ -20,9 +20,9 @@ is subscription-agnostic Bicep on Azure Container Apps.
 
 ## The shape of it
 
-<a href="https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/diagrams/how-it-fits-together.svg" target="_blank" rel="noopener noreferrer"><img src="diagrams/how-it-fits-together.svg" alt="The Deal Room — one backend, two surfaces" /></a>
+<a href="diagrams/how-it-fits-together.svg" target="_blank" rel="noopener noreferrer"><img src="diagrams/how-it-fits-together.svg" alt="The Deal Room — one backend, two surfaces" /></a>
 
-> Click the diagram to open the full-size, zoomable SVG in a new tab.
+> Click the diagram to open it full-size on GitHub.
 
 **The rule that keeps it honest:** the console tier holds no data. Every read and write is
 forwarded to the one backend, so there is a single source of truth and nothing to keep in sync.
@@ -34,9 +34,9 @@ forwarded to the one backend, so there is a single source of truth and nothing t
 Access is decided on the server. The client can state who it is, but it cannot widen its own
 powers — the asserted identity is honoured only when the call carries the shared bot key.
 
-<a href="https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/diagrams/identity-trust-seam.svg" target="_blank" rel="noopener noreferrer"><img src="diagrams/identity-trust-seam.svg" alt="The identity trust seam" /></a>
+<a href="diagrams/identity-trust-seam.svg" target="_blank" rel="noopener noreferrer"><img src="diagrams/identity-trust-seam.svg" alt="The identity trust seam" /></a>
 
-> Click the diagram to open the full-size, zoomable SVG in a new tab.
+> Click the diagram to open it full-size on GitHub.
 
 Full behaviour — the two-tier RBAC, deal-team need-to-know, confidential deals and MNPI
 barriers — is in the [access model](ACCESS-MODEL.md).
@@ -51,9 +51,9 @@ public sources on the other. **The numbered line is a single request, in order**
 through the identity seam to the deal store; the dashed lines are platform services and the
 optional private path.
 
-<a href="https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/diagrams/azure-architecture.svg" target="_blank" rel="noopener noreferrer"><img src="diagrams/azure-architecture.svg" alt="The Deal Room on Azure — the tenant, the subscription, its six resource groups and the path a request takes through them" /></a>
+<a href="diagrams/azure-architecture.svg" target="_blank" rel="noopener noreferrer"><img src="diagrams/azure-architecture.svg" alt="The Deal Room on Azure — the tenant, the subscription, its six resource groups and the path a request takes through them" /></a>
 
-> Click the diagram to open the full-size, zoomable SVG in a new tab.
+> Click the diagram to open it full-size on GitHub.
 
 | Resource group | What lives there |
 |---|---|
@@ -72,9 +72,9 @@ Resource groups say who owns what. They do not say what talks to what, over whic
 what allows it. This is the same estate drawn as connections rather than containers — every hop
 labelled with what it carries, and colour-coded by the kind of traffic it is.
 
-<a href="https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/diagrams/resource-interaction.svg" target="_blank" rel="noopener noreferrer"><img src="diagrams/resource-interaction.svg" alt="How the Deal Room resources interact — request traffic, the data plane, identity and RBAC, telemetry and the private network path" /></a>
+<a href="diagrams/resource-interaction.svg" target="_blank" rel="noopener noreferrer"><img src="diagrams/resource-interaction.svg" alt="How the Deal Room resources interact — request traffic, the data plane, identity and RBAC, telemetry and the private network path" /></a>
 
-> Click the diagram to open the full-size, zoomable SVG in a new tab.
+> Click the diagram to open it full-size on GitHub.
 
 | Line | What it is |
 |---|---|
