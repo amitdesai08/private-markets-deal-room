@@ -179,6 +179,15 @@ Evaluate the product on real companies from day one — every figure is genuine,
 data (**SEC EDGAR (the US regulator’s public company-filings archive) / XBRL (the tagged-figures format regulators publish accounts in)** fundamentals, **GLEIF (the global register of legal entity identifiers)** entity & ownership, **GDELT (a public worldwide news index)** news), so there's
 nothing to buy or license just to see it work.
 
+### 🔗 Bring your firm's CRM or deal database in
+
+Already run pipeline in **DealCloud, Salesforce, Allvue/eFront, or an internal system**? Connect it
+from **Settings → Data sources** and pull your existing deals straight in — matched to the Deal Room's
+record so nothing gets duplicated on a re-sync. Decisions flow back out the same way: the moment a
+deal clears IC, the verdict, conditions, risk register and returns model push back to your system of
+record automatically, so it stays the book of truth for pipeline while the Deal Room stays the book of
+record for the decision. **Admin-only** to connect, and pending approval like any other data source.
+
 ### 🧠 Files, chats & email — grounded in your Microsoft 365 work data
 
 **Files, chats & email** lets the deal team's AI draw on the fund's real Microsoft 365 work — **files, deal-channel

@@ -86,6 +86,11 @@ enter only through the sourcing input methods:
 - **News & Filings** → the Bing-grounded Foundry news-scout agent (live).
 - **CxO Signals** → WorkIQ / Graph mailbox connector (P2).
 - **Filings / Morningstar / research** → market-data connectors (P2).
+- **CRM / system of record** → `pullSorDeals()` in `lib/store.js` pulls a deal in from a
+  connected `kind: 'sor'` connector (DealCloud, Salesforce, Allvue/eFront, or an internal
+  system), tagging it with `externalRef: { connectorId, id, source }` so a re-sync never
+  duplicates it. The same connector receives the IC decision back once the deal clears a
+  gate — see [`docs/integration/DATA-INTEGRATION.md`](../../docs/integration/DATA-INTEGRATION.md).
 
 The original demo/seed data is archived under `app/archive/seed/` for reference.
 

@@ -89,9 +89,9 @@ For a customer jumpstart — deploying this platform for a real firm's use, not 
 
 With an empty store, replace the seeded record with the firm's real data behind the same `/api` + store seam:
 
-- **Deals, candidates, fund mandate** — load them through the existing sourcing input methods ([`app/lib/store.js`](../app/lib/store.js)) or a one-time import script against the same shape as [`app/data/deals.js`](../app/data/deals.js) / [`app/data/candidates.js`](../app/data/candidates.js).
+- **Deals, candidates, fund mandate** — connect your existing CRM / deal database (DealCloud, Salesforce, Allvue/eFront, or an internal system) from **Settings → Data sources → Connect your CRM / deal database** (admin only), then press **Sync now** to pull the pipeline in — matched to the Deal Room's record by connector + native id, so a re-sync never duplicates. Or load deals through the existing sourcing input methods ([`app/lib/store.js`](../app/lib/store.js)) directly, against the same shape as [`app/data/deals.js`](../app/data/deals.js) / [`app/data/candidates.js`](../app/data/candidates.js).
 - **Live signals & market data** — wire real sources through the connector registry in [`app/lib/connectors.js`](../app/lib/connectors.js); see [Data integration](integration/DATA-INTEGRATION.md) for the full "adding a connector" checklist and the entity-resolution seam (`mergeIntel()` in [`app/lib/companies.js`](../app/lib/companies.js)).
-- **System of record sync** (DealCloud, Salesforce, Allvue, etc.) — also documented in [Data integration](integration/DATA-INTEGRATION.md).
+- **System of record sync** (DealCloud, Salesforce, Allvue, etc.) — the same CRM connector above also pushes IC decisions back out automatically the moment a deal clears a gate (verdict, conditions, risk register, returns model), so the firm's CRM stays the book of truth for pipeline while the Deal Room stays the book of record for the decision. See [Data integration](integration/DATA-INTEGRATION.md) Part B for the full design and [`app/lib/sorSync.js`](../app/lib/sorSync.js) for the implementation.
 
 ---
 
