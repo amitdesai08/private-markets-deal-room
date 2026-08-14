@@ -85,13 +85,12 @@ const PHASES = [
 ];
 const phaseOf = (d) => PHASES.find((p) => p.re.test(`${d.stage || ''} ${d.stageName || ''}`)) || null;
 
-// This queue used to rank on `deal.readiness` — a 45/35/20 blend whose largest term is
-// a percentage an analyst types into a lane by hand. That made the top of a partner's
-// day sortable by whoever was most optimistic with a slider. It now ranks on the IC
-// readiness VERDICT (lib/icReadiness.js), which is derived from facts that leave a
-// trace: whether the papers are on record, whether a lane has actually opened, whether
-// high-severity findings are unresolved, whether committee conditions are outstanding.
-// The percentage survives as context on the row, never as the reason.
+// Ranked on the IC readiness VERDICT (lib/icReadiness.js), not on deal.readiness — that
+// field is a hand-entered percentage and would make the top of the queue sortable by
+// whoever was most optimistic with a slider. The verdict instead derives from facts that
+// leave a trace: papers on record, a lane actually opened, unresolved high-severity
+// findings, outstanding committee conditions. The percentage survives as context, never
+// as the reason.
 //
 // `raw` is the unredacted record and is REQUIRED to compute a verdict, because the
 // verdict names lanes and findings. It is passed as null for any deal the reader holds
@@ -159,12 +158,8 @@ function assess(deal, raw) {
     return { rank: 9, tag: 'In origination', tone: 'muted', why: 'Screened, not yet launched into diligence.', impact: 'Nothing is late. It joins the diligence queue when somebody launches it.', basis: 'Deal record — current step', verdict: null, gating: [] };
   }
 
-  // Nor has a deal whose diligence has not started slipped anything. Four first-screen
-  // candidates sat in a partner's top five "at risk of slipping their IC dates" reading
-  // "IC is 13 days out and the deal is not ready — 7 workstreams blocking". Nothing was
-  // slipping: no lane had been opened and the date was a target nobody had booked. Two of
-  // the top five not being deals yet is the arithmetic that makes a reader stop trusting
-  // the count.
+  // Nor has a deal whose diligence has not started slipped anything: with no lane opened,
+  // the target date is a plan nobody has booked, not a deadline going by.
   const anyLaneStarted = (raw.workstreams || []).some((w) => String(w.status || 'not_started') !== 'not_started');
   if (!anyLaneStarted) {
     return {
@@ -190,16 +185,11 @@ function assess(deal, raw) {
   if (pre && typeof icDays === 'number' && icDays <= 21 && state === 'NOT-READY') {
     return {
       rank: 1, tag: 'Not IC-ready', tone: 'bad',
-      // Lead with what is missing, not with the state. Thirteen of sixteen rows opened
-      // "IC is N days out and the deal is not ready —" and nobody read past the second
-      // one; the tag already says the state, and the gating list is the part that differs
-      // deal to deal.
+      // Lead with what is actually missing, not with the state — the tag already says
+      // the state, and the gating list is the part that differs deal to deal.
       why: `${gating.join('; ')} — with committee ${icDays} day${icDays === 1 ? '' : 's'} out.`,
-      // ONE SENTENCE FOR THIRTEEN CARDS, AND IT WAS ABOUT THE WRONG THING.
-      //
-      // "Open conditions become IC conditions" was stamped on every not-ready deal,
-      // including three pre-IC deals with no open conditions at all. Say what is actually
-      // holding THIS deal, taken from the gating list that produced the row.
+      // Say what is holding THIS deal, taken from the gating list that produced the row,
+      // rather than one fixed sentence for every not-ready deal.
       impact: (() => {
         const g = gating.join(' ').toLowerCase();
         if (/blocking/.test(g)) { impactOptions = BLOCKING_AT_IC; return phrasing(deal, BLOCKING_AT_IC); }
@@ -232,11 +222,10 @@ function assess(deal, raw) {
   // conditional deals sat behind every not-ready deal and never surfaced at all.
   if (state === 'CONDITIONAL') {
     const post = phase === 'post-committee';
-    // icReadiness ALREADY separates these two things and says why (icReadiness.js#L236):
-    // an open condition is an obligation the firm accepted at committee; an unevidenced
-    // lane is work nobody recorded. `gating` is the concatenation of both, so counting
-    // gating.length re-merged them one file later and printed "6 obligations still
-    // outstanding" on a signed deal that carries none — the six were never-opened lanes.
+    // icReadiness already separates these two things: an open condition is an obligation
+    // accepted at committee; an unevidenced lane is work nobody recorded. `gating` is the
+    // concatenation of both — derive the counts from v.openConditions /
+    // v.openComplianceChecks, never from gating.length, or the two get re-merged.
     const exiting = /exit/i.test(`${deal.status || ''} ${deal.stageName || ''}`);
     const obligations = num(v.openConditions) + num(v.openComplianceChecks);
     const unevidenced = post ? Math.max(0, gating.length - obligations) : 0;
@@ -245,11 +234,9 @@ function assess(deal, raw) {
     if (n) parts.push(`${n} obligation${n === 1 ? '' : 's'} still outstanding`);
     if (unevidenced) parts.push(`${unevidenced} diligence workstream${unevidenced === 1 ? '' : 's'} with no work recorded`);
     return {
-      // A deal already through the gate ranks BELOW a live deal that cannot be tabled.
-      // At rank 3 for both, half the IC chair's queue was deals he had already approved
-      // — tagged "no committee date set", because there isn't one — while four live
-      // NOT-READY diligence deals were pushed off the page. A pre-committee condition
-      // still outranks a generic not-ready deal; a post-close obligation does not.
+      // A deal already through the gate ranks BELOW a live deal that cannot be tabled:
+      // a pre-committee condition still outranks a generic not-ready deal, but a
+      // post-close obligation does not.
       rank: post ? 5 : 3,
       // An asset being sold does not carry conditions attached at approval; it carries
       // the work that has to be done before it can go to market.
@@ -260,9 +247,8 @@ function assess(deal, raw) {
         ? `${gating.join('; ')} — ${parts.join(' and ')}${phrasing(deal, [', carried past approval.', ', still open after the deal was approved.', ' — none of it cleared before approval.', ', outstanding since the deal went through.'])}`
         : `Ready for IC, subject to ${n} condition${n === 1 ? '' : 's'} still to close.`,
       impact: post
-        // Four cards ended with this identical sentence. The record already knows what the
-        // obligations are and who is on the other side of them; name the count and the
-        // slowest one rather than describing the category.
+        // Name the count and the slowest obligation, from the record, rather than one
+        // fixed sentence describing the category.
         ? (n
           ? (exiting
             ? `${n} item${n === 1 ? '' : 's'} of exit preparation ${n === 1 ? 'is' : 'are'} still open, and a sale process cannot be launched around ${n === 1 ? 'it' : 'them'}.`
@@ -283,8 +269,7 @@ function assess(deal, raw) {
     return {
       rank: 4, tag: 'Not IC-ready', tone: 'warn',
       why: `${gating.join('; ')}.`,
-      // "Each of these has to close before the deal can go to IC" restated the sentence
-      // above it, four times in one queue. Say what the shortfall actually is.
+      // State the actual shortfall rather than one fixed sentence for every not-ready deal.
       impact: (() => {
         const n = gating.length;
         const g = gating.join(' ').toLowerCase();
@@ -355,11 +340,10 @@ function assessLane(deal, raw, lanes, laneLabels) {
   const openIssues = (bundle?.issues || []).filter((i) => lanes.includes(i.lane) && i.status !== 'resolved');
   const highIssues = openIssues.filter((i) => /high|critical/i.test(String(i.severity || '')));
 
-  // Same correction as in assess(): `icPending` is false the moment a deal reaches D4,
-  // the committee step itself, so a workstream lead with open work on a deal sitting at the
-  // gate would lose "and committee is 4 days out" from their row and drop a rank on the
-  // day it matters most. This is inert on today's seed only because the one D4 deal has
-  // no open lane; it is not inert in general.
+  // Same correction as in assess(): use icDays/daysToIC rather than icPending, which
+  // goes false the moment a deal reaches D4 — the committee step itself, when it matters
+  // most. Inert on the current seed only because its one D4 deal has no open lane; not
+  // inert in general.
   const pre = dealPhase(deal) !== 'post-committee';
   const icDays = typeof deal.daysToIC === 'number' ? deal.daysToIC : (pre ? daysUntil(deal.targetICDate) : null);
   const soon = pre && typeof icDays === 'number' && icDays >= 0 && icDays <= 21;
@@ -367,27 +351,19 @@ function assessLane(deal, raw, lanes, laneLabels) {
   const when = late
     ? `the target IC date passed ${Math.abs(icDays)} days ago`
     : soon ? `IC is ${icDays} day${icDays === 1 ? '' : 's'} out` : null;
-  // A seat can own MORE THAN ONE lane — the Fund CFO owns Financial / QoE and Tax &
-  // structuring. Two earlier versions of this were wrong in the same direction. Reading
-  // ws[0] made tax invisible on every deal. Reading the single worst lane fixed the
-  // label but still judged the seat on one lane, so a high-severity finding in the
-  // CFO's QoE lane rendered under a row tagged "Tax & structuring" — the label
-  // describing something other than its own contents, again.
-  //
-  // So each owned lane is assessed on its own terms and the most severe result leads
-  // the row. The lane that produced the row is the lane the row is named after, and the
-  // others are reported alongside it rather than silently dropped.
+  // A seat can own MORE THAN ONE lane (the Fund CFO owns Financial / QoE and Tax &
+  // structuring). Each owned lane is assessed on its own terms and the most severe result
+  // leads the row, so the row's label always names the lane its own contents describe;
+  // the other lanes are reported alongside it rather than silently dropped.
   const assessOne = (w) => {
     const label = laneLabels[lanes.indexOf(w.lane)] || w.lane;
     const progress = num(w.progress);
     const started = progress > 0 && w.status !== 'not_started';
     const findings = Array.isArray(w.findings) ? w.findings.length : 0;
     const blocking = blockingHere.filter((b) => b.lane === w.lane);
-    // Issues AND findings. `bundle.issues` is a separate risk register; the findings are
-    // the record of the lane's own work, and a finding written up as high-severity is
-    // the single thing this seat would be asked about first. Reading only the register
-    // meant the CFO's page said "Financial / QoE 70% complete" on a deal nine days from
-    // committee whose QoE lane records EUR 3.2M of EBITDA that may not exist.
+    // Issues AND findings, not the risk register alone — a finding written up as
+    // high-severity in the lane's own workstream record is not always mirrored in
+    // bundle.issues, and it's the first thing this seat would be asked about.
     const highFindings = (Array.isArray(w.findings) ? w.findings : [])
       .filter((f) => /high|critical/i.test(String(f.severity || '')))
       .map((f) => ({ title: f.text, lane: w.lane }));
@@ -404,8 +380,7 @@ function assessLane(deal, raw, lanes, laneLabels) {
         why: when
           ? `Your ${label} workstream has no work recorded against it and ${when}.`
           : `Your ${label} workstream has no work recorded against it.`,
-        // Seven cards in the Fund CFO's queue closed with this same sentence. The row
-        // already knows the deal's phase and its committee date; use them.
+        // Use the deal's own phase and committee date rather than one fixed sentence.
         impact: when
           ? `${label} is the workstream you own on this deal, and it has produced nothing while the committee date moved to within reach.`
           : `Until something is written against ${label}, this deal reaches committee with your workstream unevidenced — whatever the rest of it looks like.`,
@@ -633,15 +608,9 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
     const rank = raw && promoted && phaseOf(d)?.key === promoted ? Math.min(a.rank, 2) : a.rank;
     scored.push({ deal: d, a: { ...a, rank } });
   }
-  // Order: severity band first, then how close the committee is.
-  //
-  // The tie-break used to be `readiness`, which is wrong twice over. It is the slider
-  // number this file's own header says must never be the reason for a row's position —
-  // and it is absent on every seeded deal, so num() returned 0 for both sides of every
-  // comparison and the sort collapsed to the order of the array in data/deals.js. The
-  // true answer to "why is this deal top of my list?" was "because it is first in a
-  // seed file". Days-to-committee is a date somebody agreed to, it is the axis the
-  // reader is actually managing against, and it can be said out loud.
+  // Order: severity band first, then how close the committee is. Never `readiness` —
+  // that is the hand-entered slider this file's header says must never decide a row's
+  // position, and days-to-committee is a date the reader is actually managing against.
   const urgency = (d) => (typeof d.daysToIC === 'number' && d.daysToIC >= 0 ? d.daysToIC : 9999);
   const ranked = scored.sort((x, y) => x.a.rank - y.a.rank
     || urgency(x.deal) - urgency(y.deal)
@@ -649,21 +618,16 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
 
 
   const ranked_ = ranked.filter((r) => r.a.rank <= 5);
-  // Everything the rank cut removed. This was not counted anywhere, so the panel dropped
-  // seven not-IC-ready deals and reported attentionOmitted 0 — a list that silently
+  // Counted explicitly (attentionOmitted), not left implicit — a list that silently
   // shortens the book while saying it has not is worse than one that is simply long.
   const droppedByRank = ranked.length - ranked_.length;
   // A row with no impact, no verdict and nothing gating it is not competing for anyone's
-  // attention. Three real items followed by seven reading "In origination · Screened, not
-  // yet launched into diligence" spends the list's authority: the eye stops scanning, and
-  // the partner giving this 45 seconds stops trusting the ranking. They are counted and
-  // named in one line instead.
+  // attention, and too many of them buries the rows that are — so they are counted and
+  // named in one line instead of shown individually.
   //
-  // Except for the seat that owns that phase. To a sourcing seat those same rows ARE the
-  // work, and cutting them empties the one queue they came here for — but not all of
-  // them, or the list becomes the deal list with a new heading. An analyst was shown 11
-  // of 11, five of them reading "Screened, not yet launched into diligence", and the
-  // three that mattered were buried among them.
+  // Except for the seat that owns that phase: to a sourcing seat those same rows ARE the
+  // work, and cutting them would empty the one queue they came here for. So own-phase
+  // quiet rows are kept (capped at 3) while every other seat's quiet rows are summarised.
   const isOwnPhase = (r) => !!promoted && phaseOf(r.deal)?.key === promoted;
   const substantive = ranked_.filter((r) => r.a.impact || r.a.verdict || (r.a.gating && r.a.gating.length));
   const ownQuiet = ranked_.filter((r) => !substantive.includes(r) && isOwnPhase(r)).slice(0, 3);
@@ -671,10 +635,9 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
   const quiet = ranked_.length - kept.length;
   // Never cut to nothing: a desk of entirely quiet deals still needs its top of the list.
   const qualifying = kept.length >= 3 ? kept : ranked_.slice(0, Math.min(3, ranked_.length));
-  // Send the whole qualifying set. A hard slice here meant the panel could say "6 deals"
-  // and "7 more ranked below these" in the same sentence with no control anywhere on the
-  // page to reach the other seven — a partner reads the list as the list, and walks into
-  // committee blind to one of them. The tab shows six and offers to expand.
+  // Send the whole qualifying set, uncut — the tab handles showing six and offering to
+  // expand. A hard slice here would let the panel say "6 deals" and "7 more ranked below
+  // these" with no way on the page to actually reach the other seven.
   const attention = qualifying
     .map((r, i) => ({
       ...r.a,
@@ -682,15 +645,11 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
       // Display order, 1-based. Set AFTER the spread so it is the queue position
       // the user sees, not the internal severity score used to sort.
       rank: i + 1,
-      // Why THIS row sits where it sits. A partner's first question about any ranked
-      // list is "why is this one above that one?", and until the sort had a defensible
-      // second axis the honest answer was "because of its position in a seed file".
-      // Now the two things that decide it — the severity band and the committee date —
-      // are stated on the row that they placed.
-      // The negative branch used to print "no IC date set" on deals that plainly had
-      // one -- the row said "no IC date set" while the deal's own record held
-      // 20 Jul 2026, fourteen days back. The date was not missing; it had passed. Say
-      // which of the two it is, because they call for different actions.
+      // Why THIS row sits where it sits — the two things that decided its position
+      // (severity band and committee date), stated on the row itself rather than left
+      // to be inferred from the sort.
+      // Distinguish "no IC date set" from "the IC date has passed" — they call for
+      // different actions and must not collapse into the same sentence.
       placedBy: (() => {
         const n = typeof r.deal.daysToIC === 'number' ? r.deal.daysToIC : null;
         if (n === null) return `${r.a.tag} · no IC date set`;
@@ -1002,13 +961,10 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
 
   // Headline numbers, all derived from the deals THIS caller can see so the
   // narrative and the tiles can never disagree.
-  // A sum over redacted values is not a small number, it is a missing one. Enterprise
-  // value is stripped from every row a member can only see the status of, so this summed
-  // nine masked deals to nothing and the padlock screen — the one moment in the demo that
-  // exists to show access working — opened with "carrying $0 of enterprise value". The
-  // fund appeared to be worth nothing at precisely the point we were claiming the product
-  // is careful with what it shows. Count what is actually readable and say the rest is
-  // withheld; a number that cannot be honestly computed is not rendered as zero.
+  // A sum over redacted values is not a small number, it is a missing one — enterprise
+  // value is stripped from every row a member can only see the status of. Count only what
+  // is actually readable and say the rest is withheld; never render an unreadable value as
+  // zero.
   const priced = list.filter((d) => num(d.dealSize) > 0);
   const capital = priced.reduce((s, d) => s + num(d.dealSize), 0) * 1e6;
   const capitalWithheld = list.length - priced.length;
@@ -1018,9 +974,9 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
   // a partner can act on; "62% average readiness" is a number nobody has ever acted on.
   //
   // "Ready to table" counts only deals that have NOT yet been to committee. A signed
-  // Execution deal and an owned Value company both compute READY, and reporting them as
-  // ready to table is the same error as reporting an origination target as failing to
-  // reach one — the tile would have read 5 when the true answer was 1.
+  // Execution deal and an owned Value company both compute READY, and counting them as
+  // ready to table is the same error as counting an origination target as failing to
+  // reach committee — both are already past the question.
   //
   // These are portfolio facts and are computed for every seat, because a workstream lead is
   // still entitled to the state of the deals they work on. What changes per seat is
@@ -1083,20 +1039,10 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
   // Decide the number once and agree with it.
   const sectorCount = sectors || 1;
   const sectorWord = `${sectorCount} sector${sectorCount === 1 ? '' : 's'}`;
-  // "The next committee" must include the deal that is AT committee.
-  //
-  // `icPending` is `stepIndex < IC_STEP_INDEX`, and IC_STEP_INDEX is D4 — the committee
-  // step itself — so a deal sitting on D4 with a date four days out was excluded from
-  // its own countdown. Atlas Cold Chain was exactly that: READY, daysToIC 4, and the
-  // only deal in "Ready to table = 1". The chair's tile said "next committee: 9 days"
-  // and named a different company. He would have read nine days and nothing ready, and
-  // walked into a committee in four with a deal ready to table. Everything before the
-  // gate counts, which is every deal `dealPhase` has not yet called post-committee.
+  // "The next committee" must include the deal that is AT committee — every deal
+  // `dealPhase` has not yet called post-committee, D4 (the committee step) included.
   // ...but a target date on a deal still in origination is an aspiration, not a booked
-  // committee. All four O-stage deals in the book carry dates 48-70 days out; without
-  // this a region-scoped seat holding only origination deals would be told "next
-  // committee in 48 days" above a queue row saying that deal has not been launched into
-  // diligence yet. Only a deal that has actually entered diligence is heading for a gate.
+  // committee. Only a deal that has actually entered diligence is heading for a gate.
   const awaitingCommittee = (d) => {
     const p = dealPhase(d);
     return p !== 'post-committee' && p !== 'origination';
@@ -1117,9 +1063,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
     : 'none scheduled';
 
   // The phase strip is built from the SAME authority as every verdict counter on the
-  // page. It used to use `phaseOf` alone — a regex over the stage code — which
-  // classified one D5 deal as diligence while `dealPhase` called it post-committee, so
-  // the strip said 9 in diligence while the tile beside it said 7 of 8.
+  // page (`dealPhase`), not `phaseOf` alone — a bare regex over the stage code can
+  // disagree with dealPhase on which side of committee a deal sits.
   //
   // `dealPhase` is authoritative on the only question that matters here (has this deal
   // been to committee?), but it is coarser: it has no execution/value split. So it
@@ -1269,10 +1214,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
         );
         const blockers = attention.filter((a) => (a.gating || []).length).slice(0, 3);
         if (blockers.length) {
-          // "Not ready for the next IC" sat under a sentence saying the next IC is in
-          // four days, and then named deals whose own committees are nine, twelve and
-          // twenty-one days out. They are not late for that meeting; they are behind on
-          // their own dates. Say whose date each one is against.
+          // Each blocker is behind on ITS OWN committee date, not "the next IC" \u2014 say
+          // whose date each one is against, or the sentence implies they share one.
           c.add(`Behind for their own committee dates: ${blockers.map((b) => {
             const d = typeof b.icInDays === 'number' && b.icInDays >= 0 ? ` in ${b.icInDays} day${b.icInDays === 1 ? '' : 's'}` : '';
             return `${b.company}${d} (${(b.gating || [])[0]})`;
