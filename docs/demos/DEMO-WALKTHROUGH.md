@@ -72,11 +72,11 @@ use it. A room came to hear what the product does for a deal, not a tour of its 
 
 | Badge | What it means |
 |---|---|
-| **▤ Composed** | Assembled from the record by fixed rules. **No AI wrote a word of it**, and it cannot change a deal's status. |
-| **✦ AI** | A model wrote the prose, from that deal's own record, with its sources listed. |
+| **▤ Composed** | The platform itself put these words together, filling a fixed template directly from the deal record. **No person typed it and no AI model wrote it** — it cannot change a deal's status. |
+| **✦ AI** | A language model read the deal's own record and drafted the sentence itself, with its sources listed. |
 
-Home's daily briefing is **Composed**. The brief inside a deal is **AI**. Say which is
-which before anyone asks — it is the first question every committee asks.
+Home's daily briefing is **Composed**. The brief inside a deal is **AI**. Name the
+difference before anyone asks — it is the first question every committee asks.
 
 ---
 

@@ -24,7 +24,9 @@ const AUDIO = path.join(OUT, 'audio');
 const RESOURCE = process.env.SPEECH_RESOURCE || 'spch-dealhub-dev-p3tks';
 const RESOURCE_GROUP = process.env.SPEECH_RG || 'rg-dealhub-ai-dev-swc';
 const REGION = process.env.SPEECH_REGION || 'swedencentral';
-const VOICE = process.env.DEMO_VOICE || 'en-GB-RyanNeural';
+// A neutral American voice, not a regional one — the walkthrough is for any English-
+// speaking audience, and an accent is one more thing a viewer notices instead of the product.
+const VOICE = process.env.DEMO_VOICE || 'en-US-AndrewNeural';
 // Slightly above natural pace. This was -6% and sounded ponderous: a walkthrough is not a
 // meditation, and a viewer who wants to dwell can pause.
 const RATE = process.env.DEMO_RATE || '+6%';
@@ -77,7 +79,7 @@ function ssml(text) {
     .replace(/\.\s+/g, '.<break time="220ms"/> ')
     .replace(/:\s+/g, ':<break time="120ms"/> ');
   return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" `
-    + `xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="en-GB">`
+    + `xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="${VOICE.slice(0, 5)}">`
     + `<voice name="${VOICE}"><mstts:express-as style="${STYLE}">`
     + `<prosody rate="${RATE}">${shaped}</prosody>`
     + `</mstts:express-as></voice></speak>`;

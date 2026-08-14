@@ -41,14 +41,14 @@ export const CUTS = {
       },
       {
         use: '22-seat-partner', act: 2, title: 'Start where it is strongest',
-        say: `Lead with this. We are the partner, and the list reads twenty-four of twenty-four — everything this seat is
+        say: `Signed in as the partner, the list reads twenty-four of twenty-four, which is everything this seat is
           cleared for.`,
       },
       {
         use: '23-seat-analyst', act: 2, title: 'The analyst sees eight',
-        say: `Switch to an analyst covering the Northeast. Twenty-four becomes eight, and the filters change with it:
-          one in origination, four in diligence, three in execution. No Value and Exit at all, because he has no deal in
-          it. The filters describe his world, not the fund's.`,
+        say: `An analyst covering the Northeast sees a different world: twenty-four becomes eight, and the filters
+          change with it, one in origination, four in diligence, three in execution, with no Value and Exit at all,
+          because he has no deal in that stage. The filters describe his world rather than the fund's.`,
       },
       {
         use: '23b-seat-analyst-locked', act: 2, title: 'It says what it is holding back',
@@ -58,15 +58,16 @@ export const CUTS = {
       },
       {
         use: '24-seat-analyst-onyx', act: 2, title: 'A name beats a rank',
-        say: `Stay on the analyst and open Project Onyx, a confidential carve-out under a clean-team protocol. It opens
-          in full, because he is named on it.`,
+        say: `Project Onyx, a confidential carve-out under a clean-team protocol, still opens in full for that same
+          analyst, because he is named on it.`,
       },
       {
         use: '26-seat-admin-refused', act: 2, title: 'The administrator is refused',
-        say: `Now the administrator — twenty-one deals to the partner's twenty-four. Paste the deal's own link and the
-          product answers: deal unavailable. Either it does not exist, or you are not on its deal team. It refuses
-          without confirming the deal exists, because on an unannounced take-private the fact that there is something to
-          ask about is itself the leak. If there is a compliance officer in the room, this is the part they came for.`,
+        say: `The administrator, by contrast, holds twenty-one deals to the partner's twenty-four, and opening that
+          same deal's own link directly gets the answer deal unavailable: either it does not exist, or the signed-in
+          seat is not on its deal team. It refuses without ever confirming which is true, because on an unannounced
+          take-private, the mere fact that there is something worth asking about is itself the leak, which is the
+          part a compliance officer in the room would care about most.`,
       },
       {
         use: '12-deals-list', act: 3, title: 'The whole funnel, one row per deal',
