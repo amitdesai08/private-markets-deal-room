@@ -139,4 +139,118 @@ export const CUTS = {
       },
     ],
   },
+
+  // docs/demos/DEMO-RUNBOOK-TECHNICAL.md — the delivery team's spine for an IT/security
+  // audience. Reuses frames from scenes-technical.json (no fresh capture), denser and more
+  // implementation-facing than the technical walkthrough, comfortable naming env vars and
+  // API routes the walkthrough never mentions.
+  'runbook-technical': {
+    title: 'Demo runbook — technical audience',
+    source: 'docs/demos/DEMO-RUNBOOK-TECHNICAL.md',
+    sources: ['scenes-technical.json'],
+    acts: [
+      { n: 1, title: 'The pitch' },
+      { n: 2, title: 'Identity trust seam' },
+      { n: 3, title: 'Agent isolation' },
+      { n: 4, title: 'Connector governance' },
+      { n: 5, title: 'Audit and approve-to-apply' },
+      { n: 6, title: 'Azure footprint and network boundary' },
+      { n: 7, title: 'Deploy and jumpstart' },
+    ],
+    scenes: [
+      {
+        use: 'tc-00-open', act: 1, title: 'One tenant, one backend, no keys',
+        say: `Single-tenant deploy, your Azure subscription, your Entra directory. Not multi-tenant SaaS. Thirty
+          seconds on the shape of it, then straight into identity, agent isolation, connector governance, audit,
+          and the footprint — the five things an architecture or security review actually asks about.`,
+      },
+      { use: 'tc-02-seat-switch', act: 2, title: 'Resolved server-side, not filtered in the browser' },
+      { use: 'tc-03-seat-analyst', act: 2, title: 'Same route, same code, a narrower result set' },
+      {
+        use: 'tc-04-restricted-deal', act: 2, title: 'Not a display rule',
+        say: `Confirm this live if asked: open the browser network tab on a restricted deal and there is nothing
+          to find. The record was never sent — that is the difference between filtering in the client and
+          authorising on the server, and it is worth pausing on for this audience specifically.`,
+      },
+      { use: 'tc-05-assistant-scope', act: 3, title: 'Registry-set agent class, checked every tool call' },
+      { use: 'tc-06-datasources', act: 4, title: 'A real round trip, or an honest failure — never a static badge' },
+      { use: 'tc-07-connector-approval', act: 4, title: 'Pending until an administrator approves it (advisor SC-5)' },
+      {
+        use: 'tc-08-crm-connector', act: 4, title: 'The CRM connector, same governance',
+        say: `The system-of-record connector: POST to /api/connectors with kind sor, admin-gated end to end —
+          register, configure, enable and remove all require the administrator role server-side, not just in the
+          UI. Pull is matched on connector id plus native record id, never on name. Push happens automatically the
+          moment a deal crosses an IC gate, fired without being awaited on the decision path, so an unreachable CRM
+          can never block or duplicate a decision already recorded here.`,
+      },
+      { use: 'tc-09-apply', act: 5, title: 'Approve-to-apply — the AI cannot bypass its own access model' },
+      {
+        use: 'tc-10-audit', act: 5, title: 'GET /api/deals/:id/activity',
+        say: `Every mutating action and every assistant-applied change writes a named, timestamped entry here —
+          the "via assistant, you approved" badge is what a compliance reviewer will ask to see reproduced.`,
+      },
+      {
+        use: 'tc-11-architecture', act: 6, title: 'Six resource groups, managed identity end to end',
+        say: `Point at the architecture docs here if the room wants the diagrams: app, ai, data, integration, core,
+          network — six Bicep resource groups, each Azure-to-Azure call authorised by one user-assigned managed
+          identity and a scoped RBAC role assignment. No connection string or key anywhere in the path.`,
+      },
+      {
+        use: 'tc-12-network', act: 6, title: 'enablePrivateEndpoints — one switch',
+        say: `Off by default for a lean pilot. On, the storage account and Cosmos DB sit behind private endpoints
+          in a VNet, public network access is disabled, and private DNS resolves the lookups — the data plane never
+          touches the public internet.`,
+      },
+      {
+        use: 'tc-13-deploy', act: 7, title: 'azd up, and SEED_DEMO_DATA=false for a real deployment',
+        say: `One command against the target subscription. A demo deploy seeds the invented showcase book; a
+          customer jumpstart sets seedDemoData to false before the first deploy, so the store boots empty and is
+          populated only through real connectors — nothing fake ever reaches a real firm's Cosmos account.`,
+      },
+      { use: 'tc-14-close', act: 7, title: 'Additive to an estate you already secure' },
+    ],
+  },
+
+  // docs/demos/DEMO-RUNBOOK-BUSINESS.md — the delivery team's spine for a CEO/CFO/Managing
+  // Partner/Managing Director audience. Reuses frames from scenes-business.json.
+  'runbook-business': {
+    title: 'Demo runbook — business audience',
+    source: 'docs/demos/DEMO-RUNBOOK-BUSINESS.md',
+    sources: ['scenes-business.json'],
+    acts: [
+      { n: 1, title: 'The pitch' },
+      { n: 2, title: 'The day starts triaged' },
+      { n: 3, title: 'Screening at scale' },
+      { n: 4, title: 'The blank page is gone' },
+      { n: 5, title: 'Nothing forgotten' },
+      { n: 6, title: 'One system, source to exit' },
+      { n: 7, title: 'Reporting without the scramble' },
+      { n: 8, title: 'Close' },
+    ],
+    scenes: [
+      {
+        use: 'bc-00-open', act: 1, title: 'The cost this replaces is hours, not software',
+        say: `Thirty seconds on the frame, then straight into the six places this removes a manual task: the
+          morning briefing, screening, drafting, follow-up tracking, fund monitoring and reporting. Every saving
+          named here is a specific task removed, not a percentage.`,
+      },
+      { use: 'bc-01-briefing', act: 2, title: 'A briefing nobody compiled by hand' },
+      { use: 'bc-02-needs-attention', act: 2, title: 'The list that used to take a Monday call' },
+      { use: 'bc-03-sourcing', act: 3, title: 'Screening that doesn\u2019t scale with headcount' },
+      { use: 'bc-04-open-deal', act: 4, title: 'A finished first draft, not a blank page' },
+      { use: 'bc-05-readiness', act: 4, title: 'A verdict instead of a status meeting' },
+      { use: 'bc-06-follow-ups', act: 5, title: 'The commitments nobody wrote down' },
+      { use: 'bc-07-fund', act: 6, title: 'The deal didn\u2019t end at the signature' },
+      {
+        use: 'bc-08-crm', act: 6, title: 'No double entry against your CRM',
+        say: `If the firm already runs a CRM or deal database for pipeline, this is the one integration question
+          worth a full stop on: existing deals pull in once, matched on the CRM's own record id, and every
+          investment-committee decision pushes back out automatically the moment it's made — no one re-keys a
+          decision into a second system after the fact.`,
+      },
+      { use: 'bc-09-report', act: 7, title: 'Investor-ready, not an end-of-quarter scramble' },
+      { use: 'bc-10-close', act: 8, title: 'Time back, not a new system to run' },
+    ],
+  },
 };
+
