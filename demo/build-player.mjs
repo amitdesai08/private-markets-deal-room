@@ -140,10 +140,18 @@ const page = (data) => `<!doctype html>
   /* ── scene index ──────────────────────────────────────────────── */
   #index {
     position: absolute; top: 0; right: 0; bottom: 0; width: 380px; z-index: 40;
-    background: #0e1119; border-left: 1px solid var(--line); overflow: auto;
-    transform: translateX(100%); transition: transform .28s ease; padding: 18px;
+    background: #0e1119; border-left: 1px solid var(--line);
+    transform: translateX(100%); transition: transform .28s ease;
+    display: flex; flex-direction: column;
   }
   #index.open { transform: none; }
+  #indexHead {
+    display: flex; align-items: center; justify-content: space-between; flex: none;
+    padding: 16px 14px 16px 18px; border-bottom: 1px solid var(--line);
+  }
+  #indexHead span { font-size: 13px; text-transform: uppercase; letter-spacing: .09em;
+                    color: var(--dim); font-weight: 600; }
+  #indexList { overflow: auto; padding: 10px 18px 18px; }
   #index h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .09em;
               color: var(--dim); margin: 22px 0 9px; font-weight: 600; }
   #index h2:first-child { margin-top: 0; }
@@ -202,7 +210,10 @@ const page = (data) => `<!doctype html>
   </div>
 </div>
 
-<div id="index"></div>
+<div id="index">
+  <div id="indexHead"><span>Scenes</span><button class="btn icon" id="indexClose" title="Close (Esc)">×</button></div>
+  <div id="indexList"></div>
+</div>
 
 <audio id="vo" preload="auto"></audio>
 
@@ -252,7 +263,7 @@ function buildTrack() {
 }
 
 function buildIndex() {
-  const el = $('index');
+  const el = $('indexList');
   el.innerHTML = '';
   let act = null;
   S.forEach((s, n) => {
@@ -269,7 +280,7 @@ function buildIndex() {
     r.innerHTML = '<span class="n">' + String(n + 1).padStart(2, '0') + '</span>'
       + '<span>' + s.title + '</span>'
       + '<span class="seat">' + (s.seat || '') + '</span>';
-    r.onclick = () => { go(n); el.classList.remove('open'); };
+    r.onclick = () => { go(n); $('index').classList.remove('open'); };
     el.appendChild(r);
   });
 }
@@ -279,7 +290,7 @@ function paintChrome() {
     c.className = 'seg' + (n < i ? ' done' : n === i ? ' now' : '');
     if (n !== i) c.querySelector('.fill').style.width = n < i ? '100%' : '0';
   });
-  [...$('index').querySelectorAll('.row')].forEach((r) => {
+  [...$('indexList').querySelectorAll('.row')].forEach((r) => {
     r.classList.toggle('now', Number(r.dataset.n) === i);
   });
   const s = S[i];
@@ -387,6 +398,7 @@ $('play').onclick = () => setPlaying(!playing);
 $('next').onclick = () => go(i + 1, playing);
 $('prev').onclick = () => go(i - 1, playing);
 $('toc').onclick = () => $('index').classList.toggle('open');
+$('indexClose').onclick = () => $('index').classList.remove('open');
 $('cc').onclick = () => caption.classList.toggle('off');
 
 addEventListener('keydown', (e) => {

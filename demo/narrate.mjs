@@ -27,9 +27,9 @@ const REGION = process.env.SPEECH_REGION || 'swedencentral';
 // A neutral American voice, not a regional one — the walkthrough is for any English-
 // speaking audience, and an accent is one more thing a viewer notices instead of the product.
 const VOICE = process.env.DEMO_VOICE || 'en-US-AndrewNeural';
-// Slightly above natural pace. This was -6% and sounded ponderous: a walkthrough is not a
-// meditation, and a viewer who wants to dwell can pause.
-const RATE = process.env.DEMO_RATE || '+6%';
+// Slightly above natural pace, but not the +6% this was — combined with a forced break on
+// every sentence that read as rushed-then-braking rather than a person talking at a clip.
+const RATE = process.env.DEMO_RATE || '+2%';
 const STYLE = process.env.DEMO_STYLE || 'narration-professional';
 const FORCE = process.argv.includes('--force');
 // Cuts of the walkthrough carry their own manifest and their own narration.
@@ -71,13 +71,13 @@ const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, 
   .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
 function ssml(text) {
-  // An em dash is a beat and a full stop is a longer one, but these were long enough to
-  // read as hesitation - roughly nine seconds of silence across a three-minute scene.
-  // Short enough to punctuate, not to pause.
+  // A forced break after every period stacked on top of the voice's own sentence-final
+  // pause, which is what read as hesitation - closer to a list being read aloud than a
+  // person talking. The neural voice already paces sentence and clause boundaries on its
+  // own; the only place it needs help is an em dash, which it otherwise runs straight
+  // through as if the words either side were one clause.
   const shaped = esc(text)
-    .replace(/\s+\u2014\s+/g, '<break time="140ms"/> ')
-    .replace(/\.\s+/g, '.<break time="220ms"/> ')
-    .replace(/:\s+/g, ':<break time="120ms"/> ');
+    .replace(/\s+\u2014\s+/g, '<break time="120ms"/> ');
   return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" `
     + `xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="${VOICE.slice(0, 5)}">`
     + `<voice name="${VOICE}"><mstts:express-as style="${STYLE}">`
