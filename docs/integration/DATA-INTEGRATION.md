@@ -143,14 +143,24 @@ rather than replaces the firm's books of record:
     **risk register** and **conditions** back to the deal record so the SoR carries the outcome.
 - **Same connector framework.** Model each SoR as a connector (`kind: 'sor'`, `role: 'system'`)
   with a real probe (token refresh + a lightweight `GET`), so status is honest and credentials
-  live in `configFields` — identical to the market-data providers above. **This connection layer
-  is implemented**: Settings → Data sources → "Connect your CRM / deal database" (admin only,
-  pending-approval like any custom source) registers a `kind: 'sor'` connector with an API base
-  URL, an OAuth client-credentials or API-key credential, and a health-check path — see
-  [`app/lib/connectors.js`](../../app/lib/connectors.js)'s `testSor()` for the real round-trip.
-  What is **not yet built**: the actual inbound pipeline import and outbound IC write-back logic
-  below — today the connector proves reachability + auth only. Wiring the sync itself is the
-  next step, following the same `mergeIntel()` entity-resolution seam as the data feeds in Part A.
+  live in `configFields` — identical to the market-data providers above. **Implemented**:
+  Settings → Data sources → "Connect your CRM / deal database" (admin only, pending-approval
+  like any custom source) registers a `kind: 'sor'` connector with an API base URL, an OAuth
+  client-credentials or API-key credential, a health-check path, a deals-list path and a
+  write-back path — see [`app/lib/connectors.js`](../../app/lib/connectors.js)'s `testSor()`
+  for the real round-trip.
+  - *Inbound* is wired: `pullSorDeals()` in [`app/lib/store.js`](../../app/lib/store.js), fired
+    from Settings' "Sync now" (admin only), fetches the configured deals-list path, does
+    best-effort field extraction across common REST/CRM export shapes (not any one hardcoded
+    vendor schema), and creates a deal for anything not already linked to that connector —
+    matched on (connector id, native id) via `deal.externalRef`, never by name.
+  - *Outbound* is wired: crossing an IC gate in `advanceDeal()` fires `pushDealIcDecision()`
+    for any deal with an `externalRef`, posting the gate, verdict, conditions, risk register
+    and returns model to the connector's write-back path. Fired without being awaited on the
+    decision path, and idempotent per gate (`deal.icWriteBacks`), so a firm's CRM being briefly
+    unreachable can never block or duplicate a decision already recorded here.
+  - Both directions live in [`app/lib/sorSync.js`](../../app/lib/sorSync.js) (the HTTP/parsing
+    primitives) with the deal-store orchestration in `store.js`.
 - **Cadence & idempotency.** Sync on a schedule + on decision events; make write-backs
   **idempotent** (keyed on the canonical id + artifact version) so a retry never duplicates.
 - **Governance carries over.** Inbound records inherit the access model; outbound writes run under
