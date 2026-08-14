@@ -1,14 +1,14 @@
 # Demo recordings
 
 Narrated click-throughs of the three demo documents, captured against the running Deal Room
-and voiced by Azure AI Speech. **Click a file, then *View raw* to download it** — GitHub
-cannot play video in a page, but any player opens these.
+and voiced by Azure AI Speech. **Click a file to download it** — GitHub cannot play video in
+a page, but any player opens these.
 
 | Recording | Length | Size | Follows |
 |---|---|---|---|
-| [`walkthrough.mp4`](media/walkthrough.mp4?raw=1) | 12 min | 10.6 MB | [DEMO-WALKTHROUGH.md](DEMO-WALKTHROUGH.md) — all eight acts, 30 scenes |
-| [`runbook.mp4`](media/runbook.mp4?raw=1) | 8 min | 7.7 MB | [DEMO-RUNBOOK.md](DEMO-RUNBOOK.md) — the delivery spine, 25 scenes, opens on access |
-| [`lightning.mp4`](media/lightning.mp4?raw=1) | 5 min | 4.8 MB | [DEMO-LIGHTNING.md](DEMO-LIGHTNING.md) — six beats, 15 scenes, its own capture rather than the walkthrough's frames |
+| [`walkthrough.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/walkthrough.mp4) | 12 min | 10.6 MB | [DEMO-WALKTHROUGH.md](DEMO-WALKTHROUGH.md) — all eight acts, 30 scenes |
+| [`runbook.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook.mp4) | 8 min | 7.7 MB | [DEMO-RUNBOOK.md](DEMO-RUNBOOK.md) — the delivery spine, 25 scenes, opens on access |
+| [`lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/lightning.mp4) | 5 min | 4.8 MB | [DEMO-LIGHTNING.md](DEMO-LIGHTNING.md) — six beats, 15 scenes, its own capture rather than the walkthrough's frames |
 
 The runbook is the only one that reaches the **administrator** screens — access administration
 and document templates — because those render for an admin seat and no other.

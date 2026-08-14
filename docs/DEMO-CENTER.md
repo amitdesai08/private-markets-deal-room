@@ -8,14 +8,14 @@ a presenter follows to run a live session.
 
 ## Watch a recording
 
-Three narrated recordings, each following one of the scripts below. Click a file, then
-**View raw** to download it — GitHub does not play video inline, but any player opens these.
+Three narrated recordings, each following one of the scripts below. Click a file to download it
+— GitHub does not play video inline, but any player opens these.
 
 | Recording | Length | Size | Follows the script |
 |---|---|---|---|
-| [`walkthrough.mp4`](demos/media/walkthrough.mp4?raw=1) | 13 min | 11 MB | [The full walkthrough](demos/DEMO-WALKTHROUGH.md) — all eight acts |
-| [`runbook.mp4`](demos/media/runbook.mp4?raw=1) | 8 min | 7.5 MB | [The delivery runbook](demos/DEMO-RUNBOOK.md) — opens on access, reaches the admin screens |
-| [`lightning.mp4`](demos/media/lightning.mp4?raw=1) | 5 min | 4.6 MB | [The lightning cut](demos/DEMO-LIGHTNING.md) — six beats |
+| [`walkthrough.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/walkthrough.mp4) | 13 min | 11 MB | [The full walkthrough](demos/DEMO-WALKTHROUGH.md) — all eight acts |
+| [`runbook.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook.mp4) | 8 min | 7.5 MB | [The delivery runbook](demos/DEMO-RUNBOOK.md) — opens on access, reaches the admin screens |
+| [`lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/lightning.mp4) | 5 min | 4.6 MB | [The lightning cut](demos/DEMO-LIGHTNING.md) — six beats |
 
 All three are captured against the running product with real seat-based access rules enforced
 — what you see on screen is what the server actually allows that seat to see, not a mock-up.
