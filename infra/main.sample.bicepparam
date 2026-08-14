@@ -92,6 +92,7 @@ param dealTeamIds = []
 param analystIds = []
 param defaultAgentRole = 'deal-team'      // partner | deal-team | analyst | member
 param deployDemoProfiles = true           // showcase profiles (one identity per role); set false for production
+param seedDemoData = true                 // fake showcase deals/candidates on boot; set false for a customer jumpstart (empty, real store)
 
 // ── Persistence backend ──────────────────────────────────────────────────────
 // 'blob' = lean, low-cost blob-per-document on the data storage account (ideal

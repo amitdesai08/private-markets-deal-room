@@ -119,6 +119,8 @@ param analystGroupIds string = ''
 param regionGroupIds string = ''
 @description('When true, expose the demo showcase profiles (one identity per role).')
 param deployDemoProfiles bool = false
+@description('Seed the fake showcase deals/candidates/fund mandate on boot. Turn OFF for a customer jumpstart deploy so the store starts empty.')
+param seedDemoData bool = true
 @allowed([ 'partner', 'deal-team', 'analyst', 'member' ])
 param defaultAgentRole string = 'deal-team'
 @description('Shared Teams->orchestrator secret (per-user identity + OBO Graph token). Empty = auto-derived.')
@@ -283,6 +285,7 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'REGION_GROUP_IDS', value: regionGroupIds }
             { name: 'DEFAULT_AGENT_ROLE', value: defaultAgentRole }
             { name: 'DEMO_PROFILES', value: string(deployDemoProfiles) }
+            { name: 'SEED_DEMO_DATA', value: string(seedDemoData) }
           ]
         }
       ]
@@ -378,6 +381,7 @@ resource teamsApp 'Microsoft.App/containerApps@2024-03-01' = if (deployTeamsApp)
             { name: 'BOT_APP_TYPE', value: botAppType }
             { name: 'BOT_BACKEND_KEY', secretRef: 'bot-backend-key' }
             { name: 'DEMO_PROFILES', value: string(deployDemoProfiles) }
+            { name: 'SEED_DEMO_DATA', value: string(seedDemoData) }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
           ]
         }

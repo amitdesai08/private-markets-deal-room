@@ -335,6 +335,15 @@ function startBackgroundSync() {
 }
 
 // Load persisted state from Cosmos at startup (empty on a fresh datastore).
+// SEED_DEMO_DATA gates the fake showcase deals/candidates below (default on, so a
+// bare `azd up` still demos out of the box). A customer jumpstart deploy sets it to
+// false and boots with an empty, real store, ready for actual connectors instead.
+function seedDemoDataEnabled() {
+  const v = process.env.SEED_DEMO_DATA;
+  if (v === undefined || v === '') return true;
+  return /^(1|true|yes|on)$/i.test(String(v));
+}
+
 export async function hydrate() {
   const info = await initRepo();
   await initConnectorSettings().catch(() => {});
@@ -344,7 +353,7 @@ export async function hydrate() {
     // in memory so the app is usable and so the access-control tests can exercise the
     // real `listDeals` / `advanceDeal` paths rather than a hand-built lookalike. Nothing
     // is persisted, and production always has a repo, so this branch is unreachable there.
-    if (!deals.length) {
+    if (!deals.length && seedDemoDataEnabled()) {
       for (const demo of seededDeals) {
         const dd = clone(demo);
         attachWorkspaces([dd]);
@@ -374,14 +383,17 @@ export async function hydrate() {
     // attachWorkspaces above, so it survives the periodic Cosmos background sync.
     // Seed any missing showcase deals (insert by id, never clobbering progress). A deal
     // that is already persisted is left exactly as it is, so this is safe on every boot
-    // and a redeploy never resets work in flight.
+    // and a redeploy never resets work in flight. Skipped entirely when SEED_DEMO_DATA=false
+    // (customer jumpstart) so no fake records ever reach a real store.
     const haveDealIds = new Set(deals.map((d) => d.id));
-    for (const demo of seededDeals) {
-      if (haveDealIds.has(demo.id)) continue;
-      const dd = clone(demo);
-      attachWorkspaces([dd]);
-      deals.push(dd);
-      persistDeal(dd);
+    if (seedDemoDataEnabled()) {
+      for (const demo of seededDeals) {
+        if (haveDealIds.has(demo.id)) continue;
+        const dd = clone(demo);
+        attachWorkspaces([dd]);
+        deals.push(dd);
+        persistDeal(dd);
+      }
     }
     // THE SAME FOR CANDIDATES, WHICH NOBODY HAD EVER SEEDED.
     //
@@ -392,11 +404,13 @@ export async function hydrate() {
     // tells a reader the list failed to load. Insert by id, never clobbering, exactly as
     // the deals above, so a candidate someone has since screened or passed is left alone.
     const haveCandIds = new Set(candidates.map((c) => c.id));
-    for (const demo of seedCandidates) {
-      if (haveCandIds.has(demo.id)) continue;
-      const cc = clone(demo);
-      candidates.push(cc);
-      persistCand(cc);
+    if (seedDemoDataEnabled()) {
+      for (const demo of seedCandidates) {
+        if (haveCandIds.has(demo.id)) continue;
+        const cc = clone(demo);
+        candidates.push(cc);
+        persistCand(cc);
+      }
     }
     // WHO MAY KNOW A DEAL EXISTS IS POLICY, NOT WORK IN PROGRESS.
     //
@@ -409,15 +423,18 @@ export async function hydrate() {
     // diligence finding on those deals was recorded at runtime, none of it in the
     // fixture, so that would have discarded the substance to correct a flag. These two
     // fields carry no work: nothing writes them at runtime, so the fixture is their only
-    // source and reconciling them can lose nothing.
-    for (const demo of seededDeals) {
-      const live = deals.find((d) => d.id === demo.id);
-      if (!live) continue;
-      const wanted = { pipelineVisible: !!demo.pipelineVisible, confidential: !!demo.confidential };
-      if (!!live.pipelineVisible === wanted.pipelineVisible && !!live.confidential === wanted.confidential) continue;
-      live.pipelineVisible = wanted.pipelineVisible;
-      live.confidential = wanted.confidential;
-      persistDeal(live);
+    // source and reconciling them can lose nothing. Skipped when SEED_DEMO_DATA=false —
+    // there is no fixture to reconcile against on a jumpstart deploy.
+    if (seedDemoDataEnabled()) {
+      for (const demo of seededDeals) {
+        const live = deals.find((d) => d.id === demo.id);
+        if (!live) continue;
+        const wanted = { pipelineVisible: !!demo.pipelineVisible, confidential: !!demo.confidential };
+        if (!!live.pipelineVisible === wanted.pipelineVisible && !!live.confidential === wanted.confidential) continue;
+        live.pipelineVisible = wanted.pipelineVisible;
+        live.confidential = wanted.confidential;
+        persistDeal(live);
+      }
     }
     signalCompanies = await sigRepo.list();
     reseedSequences();

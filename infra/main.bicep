@@ -196,6 +196,8 @@ param regionGroupIds string = ''
 param defaultAgentRole string = 'deal-team'
 @description('Deploy the demo showcase profiles (one named identity per role) so the identity-aware access model is demoable without provisioning real users. Turn OFF for production.')
 param deployDemoProfiles bool = false
+@description('Seed the fake showcase deals/candidates/fund mandate into the store on boot. ON for demos and PoCs. Turn OFF for a customer jumpstart deploy so the store starts empty and is populated only by real connectors.')
+param seedDemoData bool = true
 @description('Shared secret proving Teams->orchestrator server calls (per-user identity + OBO Graph token). Empty = auto-derived stable per-deployment value.')
 @secure()
 param botBackendKey string = ''
@@ -460,6 +462,7 @@ module app 'modules/app.bicep' = {
     regionGroupIds: regionGroupIds
     defaultAgentRole: defaultAgentRole
     deployDemoProfiles: deployDemoProfiles
+    seedDemoData: seedDemoData
     botBackendKey: botBackendKey
     uamiResourceId: core.outputs.uamiResourceId
     uamiClientId: core.outputs.uamiClientId

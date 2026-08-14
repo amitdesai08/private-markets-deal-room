@@ -47,3 +47,8 @@ param orchestratorImage = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:
 
 param enablePrivateEndpoints = true
 param keyVaultPurgeProtection = true
+
+// Hardened prod defaults to no fake data — a real deployment (customer jumpstart or
+// otherwise) should start from an empty store and be populated by real connectors.
+// Set true only if this "prod" environment is itself a hardened demo/PoC.
+param seedDemoData = false

@@ -81,6 +81,20 @@ Identity-aware access is a **parameter, not a configuration step**:
 
 ---
 
+## Demo data vs. a customer jumpstart
+
+`deployDemoProfiles` (above) only controls the showcase **identities**. A separate flag controls the showcase **deals**: `seedDemoData` (or `azd env set SEED_DEMO_DATA false`) — **on by default**, so a bare `azd up` still demos out of the box with ~19 fake deals, candidates and a fake fund mandate.
+
+For a customer jumpstart — deploying this platform for a real firm's use, not a demo — set `seedDemoData = false` before the first deploy. The store then boots empty instead of permanently persisting fake records into the customer's real Cosmos/blob account (the seeding is insert-if-missing, so it never overwrites work in progress, but it also never removes what it already wrote on an earlier boot — there's no "unseed" once `seedDemoData` was ever true against that store).
+
+With an empty store, replace the seeded record with the firm's real data behind the same `/api` + store seam:
+
+- **Deals, candidates, fund mandate** — load them through the existing sourcing input methods ([`app/lib/store.js`](../app/lib/store.js)) or a one-time import script against the same shape as [`app/data/deals.js`](../app/data/deals.js) / [`app/data/candidates.js`](../app/data/candidates.js).
+- **Live signals & market data** — wire real sources through the connector registry in [`app/lib/connectors.js`](../app/lib/connectors.js); see [Data integration](integration/DATA-INTEGRATION.md) for the full "adding a connector" checklist and the entity-resolution seam (`mergeIntel()` in [`app/lib/companies.js`](../app/lib/companies.js)).
+- **System of record sync** (DealCloud, Salesforce, Allvue, etc.) — also documented in [Data integration](integration/DATA-INTEGRATION.md).
+
+---
+
 ## Customize & extend (agentic skills)
 
 - **New agents** — copy [`app/scripts/create_agent.py`](../app/scripts/create_agent.py), edit the name + instructions, and run it to provision your own Foundry specialist agent (it gets the whole read-only research surface via the Deal MCP server automatically). Add its id to [`personaPolicy.js`](../app/lib/personaPolicy.js) / [`personaAgent.js`](../app/lib/personaAgent.js) / [`userPolicy.js`](../app/lib/userPolicy.js) to surface it as an RBAC-governed persona.
@@ -88,7 +102,7 @@ Identity-aware access is a **parameter, not a configuration step**:
 - **New tools** — add a read tool to [`app/lib/mcp/dealServer.js`](../app/lib/mcp/dealServer.js) and every agent discovers it at runtime (no re-provisioning). The **Deal MCP server** (`/mcp`) is also the reusable tool surface for your own hosted / Copilot Studio agents.
 - **New stages & artifacts** — extend the lifecycle in [`app/data/flow.js`](../app/data/flow.js) and add artifact builders in [`app/lib/diligence.js`](../app/lib/diligence.js).
 - **Persistence** — pick the backend with `storeDriver` (`blob` = lean default, `cosmos` = production) behind the single [`app/lib/repo`](../app/lib/repo) seam.
-- **Data** — replace the seeded record with your source of truth behind the single `/api` + store seam; wire your own providers alongside the keyless pack in [`app/lib/providers`](../app/lib/providers).
+- **Data** — set `seedDemoData = false` for a real deployment (see [Demo data vs. a customer jumpstart](#demo-data-vs-a-customer-jumpstart)), then replace the seeded record with your source of truth behind the single `/api` + store seam; wire your own providers alongside the keyless pack in [`app/lib/providers`](../app/lib/providers).
 - **Surfaces** — the Teams tab is the *same build* as the standalone web console; add tabs/cards without touching the backend.
 
 ---

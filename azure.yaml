@@ -9,6 +9,11 @@
 #   full            — also provisions Teams SSO / M365 / bot Entra apps (needs an Entra admin).
 #                     Run `azd up` once to create + register the identity, then `azd up` again
 #                     to wire it into the platform.
+#
+# DEALROOM_MODE only gates identity provisioning. The fake showcase deals/candidates are a
+# separate flag: `azd env set SEED_DEMO_DATA false` before the first deploy for a customer
+# jumpstart (real firm, not a demo) so the store boots empty instead of seeded. See
+# docs/DEPLOY.md#demo-data-vs-a-customer-jumpstart.
 name: deal-room
 metadata:
   template: deal-room-teams@1.0.0
