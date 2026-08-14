@@ -253,6 +253,18 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
     finally { setBusyFor(c.id, false); }
   };
 
+  // Admin-only: pull the pipeline in from a connected CRM / system-of-record connector.
+  const syncSorSource = async (c: Connector) => {
+    setBusyFor(c.id, true);
+    try {
+      const r = await af(`/api/connectors/${c.id}/sync-in`, { method: 'POST' });
+      const out = await r.json().catch(() => ({}));
+      if (r.ok) saySaved(c.id, `✓ Synced — ${out.created} new deal${out.created === 1 ? '' : 's'} pulled in, ${out.skipped} already linked.`);
+      else patch(c.id, { message: r.status === 403 ? 'Only an administrator can sync a CRM / system of record.' : (out.detail || 'That sync did not complete.') });
+    } catch { patch(c.id, { message: 'That sync did not complete.' }); }
+    finally { setBusyFor(c.id, false); }
+  };
+
   if (!rows) return <div className="ds-wrap"><style>{CSS}</style><p className="ds-empty">Loading data sources…</p></div>;
   const activeFree = rows.filter((c) => c.free && c.enabled).length;
   const freeTotal = rows.filter((c) => c.free).length;
@@ -448,6 +460,7 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
                       : <button className="ds-btn primary" disabled={!isAdmin} title={!isAdmin ? 'Only an administrator can change data sources.' : undefined} onClick={() => connect(c)}>Connect</button>
                       ) : null}
                       {c.custom && !c.approved && isAdmin ? <button className="ds-btn primary" disabled={!!busy[c.id]} onClick={() => approveSource(c)}>Approve</button> : null}
+                      {c.kind === 'sor' && c.approved && c.enabled && isAdmin ? <button className="ds-btn" disabled={!!busy[c.id]} title="Pulls in any deal from this CRM not already linked here." onClick={() => syncSorSource(c)}>Sync now</button> : null}
                       {c.custom ? <button className="ds-btn danger" disabled={!!busy[c.id] || (c.kind === 'sor' && !isAdmin)} title={c.kind === 'sor' && !isAdmin ? 'Only an administrator can remove a data source.' : undefined} onClick={() => removeSource(c)}>Remove</button> : null}
                     </span>
                   </div>

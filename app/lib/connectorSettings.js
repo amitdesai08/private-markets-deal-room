@@ -113,6 +113,8 @@ const CUSTOM_ROLES = ['discover', 'confirm', 'quality', 'context', 'system'];
 const SOR_CONFIG_FIELDS = [
   { key: 'baseUrl', label: 'API base URL', placeholder: 'https://your-instance.example.com', kind: 'url' },
   { key: 'healthPath', label: 'Health-check path (appended to base URL)', placeholder: '/services/data/v60.0/limits', kind: 'text' },
+  { key: 'dealsPath', label: 'Deals-list path (for pulling your pipeline in)', placeholder: '/api/v2/deals', kind: 'text' },
+  { key: 'writeBackPath', label: 'Write-back path (for pushing IC decisions out)', placeholder: '/api/v2/deals/decisions', kind: 'text' },
   { key: 'authType', label: 'Authentication', kind: 'select', options: ['apiKey', 'oauthClientCredentials'] },
   { key: 'apiKey', label: 'API key / bearer token', kind: 'secret' },
   { key: 'tokenUrl', label: 'OAuth token URL', placeholder: 'https://login.example.com/services/oauth2/token', kind: 'url' },

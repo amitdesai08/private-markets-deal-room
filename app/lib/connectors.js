@@ -23,6 +23,7 @@ import { fabricDataAgentConfigured, fabricDataAgentInfo } from './fabricDataAgen
 import { isConnectorEnabled, getConnectorConfig, getConnectorConfigRedacted, listCustomConnectors } from './connectorSettings.js';import { m365Configured, m365Connected, m365Ready, m365AppOnly, me as m365Me, m365AppPing } from './m365/graph.js';
 import { assertPublicHttpUrl } from './ssrf.js';
 import { workiqConfigured, workiqConnected, workiqUrl, workiqBackend } from './mcp/workiq.js';
+import { sorAuthHeader } from './sorSync.js';
 
 export const CONNECTORS = [
   {
@@ -347,31 +348,7 @@ async function testSor(c) {
   const t0 = Date.now();
   try {
     await assertPublicHttpUrl(cfg.baseUrl);
-    let authHeader = null;
-    if (cfg.authType === 'oauthClientCredentials') {
-      if (!cfg.tokenUrl || !cfg.clientId || !cfg.clientSecret) {
-        return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'OAuth selected — add the token URL, client ID and secret, then Test.' });
-      }
-      await assertPublicHttpUrl(cfg.tokenUrl);
-      const tokenRes = await fetch(cfg.tokenUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ grant_type: 'client_credentials', client_id: cfg.clientId, client_secret: cfg.clientSecret }),
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!tokenRes.ok) {
-        return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Token request failed · HTTP ${tokenRes.status}` });
-      }
-      const tokenBody = await tokenRes.json().catch(() => ({}));
-      if (!tokenBody.access_token) {
-        return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: 'Token request succeeded but returned no access_token.' });
-      }
-      authHeader = `Bearer ${tokenBody.access_token}`;
-    } else if (cfg.apiKey) {
-      authHeader = `Bearer ${cfg.apiKey}`;
-    } else {
-      return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'No credentials configured yet — add an API key or OAuth client credentials, then Test.' });
-    }
+    const authHeader = await sorAuthHeader(cfg);
     const pingUrl = cfg.baseUrl.replace(/\/$/, '') + (cfg.healthPath || '');
     const res = await fetch(pingUrl, { method: 'GET', headers: { Authorization: authHeader }, signal: AbortSignal.timeout(8000) });
     const latencyMs = Date.now() - t0;
@@ -381,7 +358,7 @@ async function testSor(c) {
     markSync(c.id);
     return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Healthy · authenticated and reachable in ${latencyMs}ms` });
   } catch (e) {
-    return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Unreachable · ${e.name || 'error'}` });
+    return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Unreachable · ${e.message || e.name || 'error'}` });
   }
 }
 

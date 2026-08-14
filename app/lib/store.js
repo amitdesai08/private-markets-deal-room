@@ -37,7 +37,8 @@ import {
   stageIndex as candStageIndex
 } from '../data/candidates.js';
 import { initRepo, repoMode, repoReady, companies as coRepo, deals as dealRepo, signals as sigRepo, recordEvent } from './repo/index.js';
-import { initConnectorSettings } from './connectorSettings.js';
+import { initConnectorSettings, getConnectorConfig } from './connectorSettings.js';
+import { fetchSorDeals, pushIcDecision } from './sorSync.js';
 import { initAccessConfig } from './accessConfig.js';
 import { accessFor, dealAccessLevel } from './userPolicy.js';
 import { primeTokenCache } from './mcp/oauth.js';
@@ -1034,6 +1035,9 @@ export function createDealFromIntake(spec = {}) {
     compliance: [{ check: 'Sanctions / UBO screening', framework: 'KYC', status: 'pending' }],
     activity: [{ actor: spec.createdBy || 'Deal intake', action: 'Deal created via guided intake', when: new Date().toISOString() }],
     issues: [], conditions: [], assumptionSnapshots: [], hoursSaved: 0,
+    // Set when this deal was pulled in from a CRM / system-of-record connector
+    // (see pullSorDeals below) rather than created by hand. Null otherwise.
+    externalRef: spec.externalRef || null,
   };
   deals.push(deal);
   attachWorkspaces([deal]);
@@ -1042,6 +1046,73 @@ export function createDealFromIntake(spec = {}) {
   // the background as soon as the deal is on the platform — no separate launch step.
   startDealProvisioning(deal.id);
   return { deal: derive(deal) };
+}
+
+// ---- CRM / system-of-record sync --------------------------------------------
+// Inbound: pull the firm's pipeline in from a connected `sor` connector, creating a
+// deal for anything not already linked to it. Matched by (connectorId, externalId) —
+// never by company name, since the same company can legitimately be sourced twice
+// under two different deals. Outbound (see advanceDeal below): once a deal that came
+// in this way crosses an IC gate, the decision is pushed back to the same connector.
+function findDealByExternalRef(connectorId, externalId) {
+  return deals.find((d) => d.externalRef && d.externalRef.connectorId === connectorId && d.externalRef.id === externalId) || null;
+}
+
+export async function pullSorDeals(connectorId) {
+  const connector = listConnectors().find((c) => c.id === connectorId);
+  if (!connector) return { error: 'unknown-connector' };
+  if (connector.kind !== 'sor') return { error: 'not-a-sor-connector' };
+  if (connector.custom && !connector.approved) return { error: 'pending-approval' };
+  if (!connector.enabled) return { error: 'disabled' };
+  const cfg = getConnectorConfig(connectorId);
+  const records = await fetchSorDeals(cfg); // throws on auth/network/HTTP failure — caller surfaces it
+  let created = 0, skipped = 0;
+  const dealIds = [];
+  for (const rec of records) {
+    if (findDealByExternalRef(connectorId, rec.externalId)) { skipped += 1; continue; }
+    const out = createDealFromIntake({
+      company: rec.company, sector: rec.sector, subSector: rec.subSector, hq: rec.hq,
+      dealSize: rec.dealSize, currency: rec.currency, thesis: rec.thesis,
+      externalRef: { connectorId, id: rec.externalId, source: connector.name },
+      createdBy: `${connector.name} sync`,
+    });
+    if (out?.deal) { created += 1; dealIds.push(out.deal.id); } else skipped += 1;
+  }
+  return { pulled: records.length, created, skipped, dealIds };
+}
+
+// Push an IC decision back to the deal's SoR connector, if it has one. Best-effort by
+// design — a firm's CRM being briefly unreachable must never be able to block or
+// reverse a decision already recorded in the Deal Room, so callers fire this without
+// awaiting it on the decision path itself (see advanceDeal). Idempotent per gate: a
+// deal only ever pushes the same gate once, so a retry or duplicate call never
+// resends an unchanged decision.
+async function pushDealIcDecision(deal, gate) {
+  if (!deal.externalRef) return;
+  const connector = listConnectors().find((c) => c.id === deal.externalRef.connectorId);
+  if (!connector || connector.kind !== 'sor' || !connector.enabled) return;
+  if (connector.custom && !connector.approved) return;
+  const already = new Set(deal.icWriteBacks || []);
+  if (already.has(gate)) return;
+  const cfg = getConnectorConfig(connector.id);
+  const board = computeICReadiness(deal);
+  const payload = {
+    dealId: deal.externalRef.id,
+    dealRoomDealId: deal.id,
+    gate,
+    stage: deal.stage,
+    verdict: board?.verdict?.state || null,
+    conditions: (deal.conditions || []).map((c) => ({ text: c.text, owner: c.owner, status: c.status })),
+    riskRegister: buildRiskRegister(deal),
+    returns: buildReturnsModel(deal),
+    decidedAt: new Date().toISOString(),
+  };
+  await pushIcDecision(cfg, payload);
+  const fresh = getDealRaw(deal.id);
+  if (fresh) {
+    fresh.icWriteBacks = [...new Set([...(fresh.icWriteBacks || []), gate])];
+    persistDeal(fresh);
+  }
 }
 
 export function listSourcing() {
@@ -3474,9 +3545,15 @@ export async function advanceDeal(id, { persona, overrideReason } = {}) {
       action: crossedGate ? `PURSUE — ${GATE.detail}` : `Advanced to ${next.code} · ${next.title}`,
       when: new Date().toISOString()
     });
-    return { event: 'deal-advanced', detail: { stage: deal.stage, by: persona || null } };
+    return { event: 'deal-advanced', detail: { stage: deal.stage, by: persona || null }, gate: gate || null };
   });
   if (r.error) return r;
+  // Push the IC decision back to the deal's CRM / system-of-record connector, if it has
+  // one — fired without awaiting so a firm's CRM being briefly unreachable can never
+  // block or roll back a decision already recorded here (see pushDealIcDecision above).
+  if (r.gate && r.deal?.externalRef) {
+    pushDealIcDecision(r.deal, r.gate).catch((e) => logEvent(r.deal.id, 'sor-writeback-failed', { gate: r.gate, error: String(e?.message || e) }));
+  }
   return r.deal;
 }
 

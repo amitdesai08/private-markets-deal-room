@@ -112,6 +112,7 @@ import {
   runStep,
   portfolioStats,
   resyncSeededDeals,
+  pullSorDeals,
   hydrate
 } from './lib/store.js';
 import { listDealGroups, createDealGroup, removeDealGroup, reconcileDealGroups } from './lib/dealGroups.js';
@@ -1988,6 +1989,19 @@ api.post('/connectors/:id/config', async (req, res) => {
     res.json({ id: req.params.id, config: out });
   } catch (err) {
     res.status(500).json({ error: 'config update failed', detail: String(err?.message || err) });
+  }
+});
+// Pull the pipeline in from a connected CRM / system-of-record connector — creates a
+// deal for anything not already linked to it (matched by connector + native id, never
+// by name). ADMIN ONLY: this reads real business data out of the firm's own CRM.
+api.post('/connectors/:id/sync-in', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const out = await pullSorDeals(req.params.id);
+    if (out?.error) return res.status(400).json(out);
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: 'sync failed', detail: String(err?.message || err) });
   }
 });
 // In-app OAuth sign-in for MCP connectors: /connectors/:provider/login|callback
