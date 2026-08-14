@@ -187,7 +187,7 @@ const page = (data) => `<!doctype html>
   </div>
 </div>
 
-<div id="caption"></div>
+<div id="caption" class="off"></div>
 
 <div id="bar">
   <div id="track"></div>
