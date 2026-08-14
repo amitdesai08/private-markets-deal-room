@@ -48,8 +48,7 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ scrollTop: 0 }],
     spotlight: 'nav.maintabs',
-    say: `The window has three bands and they never move. Along the top, who you are signed in as, and the assistant.
-      Below that, five tabs — and this is the entire product; there is nothing else to find. Home is what needs you today.
+    say: `Five tabs, and that is the entire product — there is nothing else to find. Home is what needs you today.
       Sourcing and screening is what you are looking at but have not committed to. All deals is what you are actually running.
       Fund and Portfolio is the money. Firm reporting is the numbers you would send an investor. If you ever get lost,
       press a tab and you are back somewhere known.`,
