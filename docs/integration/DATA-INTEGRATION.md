@@ -143,7 +143,14 @@ rather than replaces the firm's books of record:
     **risk register** and **conditions** back to the deal record so the SoR carries the outcome.
 - **Same connector framework.** Model each SoR as a connector (`kind: 'sor'`, `role: 'system'`)
   with a real probe (token refresh + a lightweight `GET`), so status is honest and credentials
-  live in `configFields` — identical to the market-data providers above.
+  live in `configFields` — identical to the market-data providers above. **This connection layer
+  is implemented**: Settings → Data sources → "Connect your CRM / deal database" (admin only,
+  pending-approval like any custom source) registers a `kind: 'sor'` connector with an API base
+  URL, an OAuth client-credentials or API-key credential, and a health-check path — see
+  [`app/lib/connectors.js`](../../app/lib/connectors.js)'s `testSor()` for the real round-trip.
+  What is **not yet built**: the actual inbound pipeline import and outbound IC write-back logic
+  below — today the connector proves reachability + auth only. Wiring the sync itself is the
+  next step, following the same `mergeIntel()` entity-resolution seam as the data feeds in Part A.
 - **Cadence & idempotency.** Sync on a schedule + on decision events; make write-backs
   **idempotent** (keyed on the canonical id + artifact version) so a retry never duplicates.
 - **Governance carries over.** Inbound records inherit the access model; outbound writes run under

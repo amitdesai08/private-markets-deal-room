@@ -20,7 +20,7 @@ import { testFilings, filingsConfigured } from './filings.js';
 import { gdeltNews, gdeltConfigured } from './providers/gdelt.js';
 import { leiLookup, gleifConfigured } from './providers/gleif.js';
 import { fabricDataAgentConfigured, fabricDataAgentInfo } from './fabricDataAgent.js';
-import { isConnectorEnabled, getConnectorConfig, listCustomConnectors } from './connectorSettings.js';import { m365Configured, m365Connected, m365Ready, m365AppOnly, me as m365Me, m365AppPing } from './m365/graph.js';
+import { isConnectorEnabled, getConnectorConfig, getConnectorConfigRedacted, listCustomConnectors } from './connectorSettings.js';import { m365Configured, m365Connected, m365Ready, m365AppOnly, me as m365Me, m365AppPing } from './m365/graph.js';
 import { assertPublicHttpUrl } from './ssrf.js';
 import { workiqConfigured, workiqConnected, workiqUrl, workiqBackend } from './mcp/workiq.js';
 
@@ -134,7 +134,7 @@ const FRESHNESS_SLA_MS = {
   mcp: 15 * 60 * 1000,                        // market-data providers
   m365: 60 * 60 * 1000, workiq: 60 * 60 * 1000,
   edgar: 24 * 60 * 60 * 1000, 'fabric-agent': 24 * 60 * 60 * 1000,
-  database: 24 * 60 * 60 * 1000, custom: 24 * 60 * 60 * 1000,
+  database: 24 * 60 * 60 * 1000, custom: 24 * 60 * 60 * 1000, sor: 24 * 60 * 60 * 1000,
   gleif: 7 * 24 * 60 * 60 * 1000,             // slow-moving entity registry
 };
 const DEFAULT_SLA_MS = 24 * 60 * 60 * 1000;
@@ -166,6 +166,7 @@ function isConfigured(c) {
   if (c.kind === 'm365') return m365Ready();
   if (c.kind === 'workiq') return workiqConnected();
   if (c.kind === 'custom') return c.approved === true && !!getConnectorConfig(c.id).endpoint;
+  if (c.kind === 'sor') return c.approved === true && !!getConnectorConfig(c.id).baseUrl;
   return false;
 }
 
@@ -334,13 +335,63 @@ async function testCustom(c) {
   }
 }
 
+// A user-added CRM / system-of-record connector (DealCloud, Salesforce FSC,
+// Allvue/eFront, or an internal deal database). Honest connectivity: gets a real
+// token (OAuth client-credentials or an API key) and then makes one authenticated
+// GET against the configured health-check path — never faked as "connected".
+async function testSor(c) {
+  const cfg = getConnectorConfig(c.id);
+  if (!cfg.baseUrl) {
+    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'System of record registered — add your API base URL and credentials, then Test.' });
+  }
+  const t0 = Date.now();
+  try {
+    await assertPublicHttpUrl(cfg.baseUrl);
+    let authHeader = null;
+    if (cfg.authType === 'oauthClientCredentials') {
+      if (!cfg.tokenUrl || !cfg.clientId || !cfg.clientSecret) {
+        return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'OAuth selected — add the token URL, client ID and secret, then Test.' });
+      }
+      await assertPublicHttpUrl(cfg.tokenUrl);
+      const tokenRes = await fetch(cfg.tokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ grant_type: 'client_credentials', client_id: cfg.clientId, client_secret: cfg.clientSecret }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!tokenRes.ok) {
+        return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Token request failed · HTTP ${tokenRes.status}` });
+      }
+      const tokenBody = await tokenRes.json().catch(() => ({}));
+      if (!tokenBody.access_token) {
+        return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: 'Token request succeeded but returned no access_token.' });
+      }
+      authHeader = `Bearer ${tokenBody.access_token}`;
+    } else if (cfg.apiKey) {
+      authHeader = `Bearer ${cfg.apiKey}`;
+    } else {
+      return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'No credentials configured yet — add an API key or OAuth client credentials, then Test.' });
+    }
+    const pingUrl = cfg.baseUrl.replace(/\/$/, '') + (cfg.healthPath || '');
+    const res = await fetch(pingUrl, { method: 'GET', headers: { Authorization: authHeader }, signal: AbortSignal.timeout(8000) });
+    const latencyMs = Date.now() - t0;
+    if (!res.ok) {
+      return result(c, { ok: false, status: 'degraded', latencyMs, message: `Reachable but the health check failed · HTTP ${res.status}` });
+    }
+    markSync(c.id);
+    return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Healthy · authenticated and reachable in ${latencyMs}ms` });
+  } catch (e) {
+    return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Unreachable · ${e.name || 'error'}` });
+  }
+}
+
 // Run a real connectivity test for one connector. Databases (unwired) always
 // report disconnected. Soft-cached for CACHE_MS unless force=true.
 export async function testConnector(id, { force = false } = {}) {
   const c = connectorById(id);
   if (!c) return null;
   // Governance: a custom source can't be used until an admin approves it (advisor SC-5).
-  if (c.kind === 'custom' && c.approved !== true) {
+  if ((c.kind === 'custom' || c.kind === 'sor') && c.approved !== true) {
     return result(c, { ok: false, status: 'pending', latencyMs: null, message: 'Awaiting admin approval \u2014 a custom source can\u2019t be tested or used until an admin approves it.' });
   }
   if (!isConnectorEnabled(id)) {
@@ -358,6 +409,7 @@ export async function testConnector(id, { force = false } = {}) {
   if (c.kind === 'm365') return testM365(c);
   if (c.kind === 'workiq') return testWorkiq(c);
   if (c.kind === 'custom') return testCustom(c);
+  if (c.kind === 'sor') return testSor(c);
   return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Integration not wired — no live connection.' });
 }
 
@@ -386,10 +438,11 @@ export function listConnectors() {
       // Freshness vs SLA (advisor SC-7): never / fresh / stale — stale data is
       // labelled and must not silently feed an IC- or LP-facing output.
       freshness: connectorFreshness(c.id),
-      // Runtime-editable config (e.g. WorkIQ MCP URL) surfaced to Settings.
+      // Runtime-editable config (e.g. WorkIQ MCP URL) surfaced to Settings. Secret-typed
+      // fields (API key, OAuth client secret) are redacted — never sent to the client.
       configFields: c.configFields || null,
-      config: c.configFields ? getConnectorConfig(c.id) : undefined,
-      testable: free || c.kind === 'fabric-agent' || (c.kind === 'custom' && c.approved === true) ? true : (c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq' ? configured : false),
+      config: c.configFields ? getConnectorConfigRedacted(c.id) : undefined,
+      testable: free || c.kind === 'fabric-agent' || ((c.kind === 'custom' || c.kind === 'sor') && c.approved === true) ? true : (c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq' ? configured : false),
       connectable: c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq', // can be signed-in via OAuth
       status: !enabled ? 'disabled' : (c.custom && c.approved !== true ? 'pending' : (cached && cached.status !== 'pending' ? cached.status : c.kind === 'database' ? 'disconnected' : configured ? 'unknown' : 'disconnected')),
       latencyMs: cached ? cached.latencyMs : null,

@@ -35,7 +35,7 @@ type Connector = {
   custom?: boolean;
   approved?: boolean;
   freshness?: { status: string; ageMs: number | null; slaMs: number; lastSync: string | null } | null;
-  configFields?: { key: string; label: string; placeholder?: string; kind?: string }[] | null;
+  configFields?: { key: string; label: string; placeholder?: string; kind?: string; options?: string[] }[] | null;
   config?: Record<string, string>;
 };
 
@@ -55,6 +55,7 @@ const TIERS: { key: string; title: string; blurb: string; match: (c: Connector) 
   { key: 'fabric-agent', title: 'Ask your fund data', blurb: 'Natural-language Q&A over the fund\u2019s data.', match: (c) => c.kind === 'fabric-agent' },
   { key: 'mcp', title: 'Subscription providers', blurb: 'Premium vendor data — sign in to connect.', match: (c) => c.kind === 'mcp' },
   { key: 'm365', title: 'Microsoft 365 sign-in', blurb: 'Signs you in so the app knows who you are.', match: (c) => c.kind === 'm365' },  { key: 'workiq', title: 'Your team’s files, chats and email', blurb: 'Files, chats and email already in Microsoft 365 — add the address, then sign in.', match: (c) => c.kind === 'workiq' },  { key: 'database', title: 'Reference only', blurb: 'Shown for context — not connected.', match: (c) => c.kind === 'database' },
+  { key: 'sor', title: 'Your CRM / deal database', blurb: 'Your firm\u2019s system of record — DealCloud, Salesforce, Allvue/eFront or an internal system. Admin only.', match: (c) => c.kind === 'sor' },
   { key: 'custom', title: 'Custom sources', blurb: 'Sources your fund added — shown with their live status.', match: (c) => c.kind === 'custom' },
 ];
 
@@ -67,6 +68,52 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
   const [form, setForm] = useState({ name: '', primaryJob: '', role: 'confirm', endpoint: '' });
   const [addErr, setAddErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+
+  // "Connect your CRM / system of record" form — admin only (real credentials).
+  // A preset just fills in a sensible name/placeholder; the connector itself is
+  // one generic REST-or-OAuth kind so it works with DealCloud, Salesforce FSC,
+  // Allvue/eFront or an internal system without us guessing any vendor's exact API.
+  const SOR_PRESETS: Record<string, { name: string; baseUrl: string; healthPath: string }> = {
+    dealcloud: { name: 'DealCloud', baseUrl: 'https://yourfirm.dealcloud.com', healthPath: '/api/rest/v2/health' },
+    salesforce: { name: 'Salesforce', baseUrl: 'https://yourfirm.my.salesforce.com', healthPath: '/services/data/v60.0/limits' },
+    allvue: { name: 'Allvue / eFront', baseUrl: 'https://yourfirm.allvuesystems.com', healthPath: '/api/health' },
+    other: { name: '', baseUrl: '', healthPath: '' },
+  };
+  const [sorForm, setSorForm] = useState({
+    preset: 'dealcloud', name: 'DealCloud', baseUrl: '', healthPath: '', authType: 'oauthClientCredentials',
+    apiKey: '', tokenUrl: '', clientId: '', clientSecret: '',
+  });
+  const [sorErr, setSorErr] = useState<string | null>(null);
+  const [sorAdding, setSorAdding] = useState(false);
+
+  const pickSorPreset = (preset: string) => {
+    const p = SOR_PRESETS[preset] || SOR_PRESETS.other;
+    setSorForm((f) => ({ ...f, preset, name: p.name || f.name }));
+  };
+
+  const addSorSource = async () => {
+    const name = sorForm.name.trim();
+    if (!name) { setSorErr('Give the connection a name.'); return; }
+    if (!sorForm.baseUrl.trim()) { setSorErr('Add your API base URL.'); return; }
+    setSorAdding(true); setSorErr(null);
+    try {
+      const r = await af('/api/connectors', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'sor', name,
+          primaryJob: `Pull ${name} pipeline and push IC decisions back`,
+          baseUrl: sorForm.baseUrl.trim(), healthPath: sorForm.healthPath.trim(), authType: sorForm.authType,
+          apiKey: sorForm.apiKey.trim(), tokenUrl: sorForm.tokenUrl.trim(), clientId: sorForm.clientId.trim(), clientSecret: sorForm.clientSecret.trim(),
+        }),
+      });
+      if (r.status === 403) { setSorErr('Only an administrator can connect a CRM / system of record.'); return; }
+      if (r.status === 409) { setSorErr(`A source called “${name}” already exists — look for it above.`); return; }
+      if (!r.ok) { setSorErr('Could not add that connection.'); return; }
+      setSorForm({ preset: 'dealcloud', name: 'DealCloud', baseUrl: '', healthPath: '', authType: 'oauthClientCredentials', apiKey: '', tokenUrl: '', clientId: '', clientSecret: '' });
+      await load();
+    } catch { setSorErr('Could not add that connection.'); }
+    finally { setSorAdding(false); }
+  };
 
   const load = () => fetch('/api/connectors').then((r) => (r.ok ? r.json() : [])).then(setRows).catch(() => setRows([]));
   useEffect(() => { load(); }, []);
@@ -132,11 +179,22 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
     finally { setBusyFor(c.id, false); }
   };
 
-  const cfgVal = (c: Connector, key: string) => cfgEdit[c.id]?.[key] ?? (c.config?.[key] ?? '');
+  const cfgVal = (c: Connector, key: string, kind?: string) => {
+    // Secret fields are never sent back from the server in the clear (redacted to a
+    // fixed mask), so the input always starts blank — typing a value replaces it,
+    // leaving it blank on Save keeps whatever is already stored.
+    if (kind === 'secret') return cfgEdit[c.id]?.[key] ?? '';
+    return cfgEdit[c.id]?.[key] ?? (c.config?.[key] ?? '');
+  };
   const setCfg = (id: string, key: string, val: string) =>
     setCfgEdit((p) => ({ ...p, [id]: { ...(p[id] || {}), [key]: val } }));
   const saveConfig = async (c: Connector) => {
-    const config = { ...(c.config || {}), ...(cfgEdit[c.id] || {}) };
+    // Never resubmit a secret's redacted mask as its real value: only include a
+    // secret-typed field in the patch when the admin actually typed something this
+    // session; every other field carries over from the last saved config as before.
+    const secretKeys = new Set((c.configFields || []).filter((f) => f.kind === 'secret').map((f) => f.key));
+    const base = Object.fromEntries(Object.entries(c.config || {}).filter(([k]) => !secretKeys.has(k)));
+    const config = { ...base, ...(cfgEdit[c.id] || {}) };
     setBusyFor(c.id, true);
     // Clearing the edit buffer is what makes a save look committed. Do it only when
     // the server took the settings -- otherwise the typed endpoint and keys vanished
@@ -241,6 +299,56 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
         {addErr ? <p className="ds-add-err">{addErr}</p> : null}
       </div>
 
+      <div className="ds-add">
+        <div className="ds-add-h">
+          <span className="ds-add-t">Connect your CRM / deal database</span>
+          <span className="ds-add-b">
+            Pull your firm’s existing pipeline from DealCloud, Salesforce, Allvue/eFront or an internal system, and push
+            IC decisions back to it. Carries real credentials, so this is <b>admin only</b> and stays <b>pending</b> until
+            an admin approves it, same as any other custom source.
+          </span>
+        </div>
+        {isAdmin ? (
+          <>
+            <div className="ds-add-grid">
+              <select className="ds-cfg-in" value={sorForm.preset} onChange={(e) => pickSorPreset(e.target.value)} title="Which system" aria-label="Which system">
+                <option value="dealcloud">DealCloud</option>
+                <option value="salesforce">Salesforce (FSC)</option>
+                <option value="allvue">Allvue / eFront</option>
+                <option value="other">Other / internal system</option>
+              </select>
+              <input className="ds-cfg-in" placeholder="Name shown in Data sources" value={sorForm.name} maxLength={60}
+                onChange={(e) => setSorForm((f) => ({ ...f, name: e.target.value }))} />
+              <input className="ds-cfg-in" type="url" placeholder="API base URL" value={sorForm.baseUrl} spellCheck={false}
+                onChange={(e) => setSorForm((f) => ({ ...f, baseUrl: e.target.value }))} />
+              <input className="ds-cfg-in" placeholder="Health-check path (e.g. /api/health)" value={sorForm.healthPath} spellCheck={false}
+                onChange={(e) => setSorForm((f) => ({ ...f, healthPath: e.target.value }))} />
+              <select className="ds-cfg-in" value={sorForm.authType} onChange={(e) => setSorForm((f) => ({ ...f, authType: e.target.value }))} title="Authentication" aria-label="Authentication">
+                <option value="oauthClientCredentials">OAuth client credentials</option>
+                <option value="apiKey">API key / bearer token</option>
+              </select>
+              {sorForm.authType === 'apiKey' ? (
+                <input className="ds-cfg-in" type="password" autoComplete="new-password" placeholder="API key / bearer token" value={sorForm.apiKey}
+                  onChange={(e) => setSorForm((f) => ({ ...f, apiKey: e.target.value }))} />
+              ) : (
+                <>
+                  <input className="ds-cfg-in" type="url" placeholder="OAuth token URL" value={sorForm.tokenUrl} spellCheck={false}
+                    onChange={(e) => setSorForm((f) => ({ ...f, tokenUrl: e.target.value }))} />
+                  <input className="ds-cfg-in" placeholder="OAuth client ID" value={sorForm.clientId}
+                    onChange={(e) => setSorForm((f) => ({ ...f, clientId: e.target.value }))} />
+                  <input className="ds-cfg-in" type="password" autoComplete="new-password" placeholder="OAuth client secret" value={sorForm.clientSecret}
+                    onChange={(e) => setSorForm((f) => ({ ...f, clientSecret: e.target.value }))} />
+                </>
+              )}
+              <button className="ds-btn primary" disabled={sorAdding || !sorForm.name.trim() || !sorForm.baseUrl.trim()} onClick={addSorSource}>{sorAdding ? 'Connecting…' : 'Connect'}</button>
+            </div>
+            {sorErr ? <p className="ds-add-err">{sorErr}</p> : null}
+          </>
+        ) : (
+          <p className="ds-add-b">Ask an administrator to connect your firm’s CRM here.</p>
+        )}
+      </div>
+
       {TIERS.map((tier) => {
         const items = rows.filter(tier.match);
         if (!items.length) return null;
@@ -270,8 +378,8 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
                         it as "we are paying for these". The switch means "allowed to be
                         used"; it cannot mean "working" until somebody enters the sign-in
                         details. When the two disagree, show it on the switch itself. */}
-                    <label className={`ds-switch${c.enabled && c.status === 'disconnected' ? ' unusable' : ''}`} title={c.enabled ? (c.status === 'disconnected' ? 'Allowed, but not usable until sign-in details are entered' : 'Enabled') : 'Disabled'}>
-                      <input type="checkbox" checked={c.enabled} disabled={!!busy[c.id]} onChange={() => toggle(c)} aria-label={`${c.name} — ${c.enabled ? 'on, switch off' : 'off, switch on'}`} />
+                    <label className={`ds-switch${c.enabled && c.status === 'disconnected' ? ' unusable' : ''}`} title={c.kind === 'sor' && !isAdmin ? 'Only an administrator can change data sources.' : c.enabled ? (c.status === 'disconnected' ? 'Allowed, but not usable until sign-in details are entered' : 'Enabled') : 'Disabled'}>
+                      <input type="checkbox" checked={c.enabled} disabled={!!busy[c.id] || (c.kind === 'sor' && !isAdmin)} onChange={() => toggle(c)} aria-label={`${c.name} — ${c.enabled ? 'on, switch off' : 'off, switch on'}`} />
                       <span className="ds-slider" />
                     </label>
                   </div>
@@ -283,21 +391,38 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
                   {c.configFields?.length ? (
                     <div className="ds-config">
                       {c.configFields.map((f) => {
-                        const dirty = cfgEdit[c.id]?.[f.key] !== undefined && cfgEdit[c.id][f.key] !== (c.config?.[f.key] ?? '');
+                        const dirty = f.kind === 'secret'
+                          ? !!(cfgEdit[c.id]?.[f.key] && cfgEdit[c.id][f.key].length)
+                          : cfgEdit[c.id]?.[f.key] !== undefined && cfgEdit[c.id][f.key] !== (c.config?.[f.key] ?? '');
                         return (
                           <label key={f.key} className="ds-cfg-row">
                             <span className="ds-cfg-l">{f.label}</span>
                             <span className="ds-cfg-edit">
-                              <input
-                                className="ds-cfg-in"
-                                type={f.kind === 'url' ? 'url' : 'text'}
-                                value={cfgVal(c, f.key)}
-                                placeholder={f.placeholder || ''}
-                                spellCheck={false}
-                                disabled={!!busy[c.id]}
-                                onChange={(e) => setCfg(c.id, f.key, e.target.value)}
-                              />
-                              <button className="ds-btn" disabled={!!busy[c.id] || !dirty} onClick={() => saveConfig(c)}>Save</button>
+                              {f.kind === 'select' ? (
+                                <select
+                                  className="ds-cfg-in"
+                                  value={cfgVal(c, f.key)}
+                                  disabled={!!busy[c.id]}
+                                  onChange={(e) => setCfg(c.id, f.key, e.target.value)}
+                                >
+                                  <option value="">Choose…</option>
+                                  {(f.options || []).map((opt) => (
+                                    <option key={opt} value={opt}>{opt === 'apiKey' ? 'API key / bearer token' : opt === 'oauthClientCredentials' ? 'OAuth client credentials' : opt}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  className="ds-cfg-in"
+                                  type={f.kind === 'url' ? 'url' : f.kind === 'secret' ? 'password' : 'text'}
+                                  value={cfgVal(c, f.key, f.kind)}
+                                  placeholder={f.kind === 'secret' && c.config?.[f.key] ? 'Set — leave blank to keep unchanged' : (f.placeholder || '')}
+                                  spellCheck={false}
+                                  autoComplete={f.kind === 'secret' ? 'new-password' : 'off'}
+                                  disabled={!!busy[c.id]}
+                                  onChange={(e) => setCfg(c.id, f.key, e.target.value)}
+                                />
+                              )}
+                              <button className="ds-btn" disabled={!!busy[c.id] || !dirty || (c.kind === 'sor' && !isAdmin)} title={c.kind === 'sor' && !isAdmin ? 'Only an administrator can change data sources.' : undefined} onClick={() => saveConfig(c)}>Save</button>
                             </span>
                           </label>
                         );
@@ -323,7 +448,7 @@ export default function DataSources({ isAdmin = false }: { isAdmin?: boolean }) 
                       : <button className="ds-btn primary" disabled={!isAdmin} title={!isAdmin ? 'Only an administrator can change data sources.' : undefined} onClick={() => connect(c)}>Connect</button>
                       ) : null}
                       {c.custom && !c.approved && isAdmin ? <button className="ds-btn primary" disabled={!!busy[c.id]} onClick={() => approveSource(c)}>Approve</button> : null}
-                      {c.custom ? <button className="ds-btn danger" disabled={!!busy[c.id]} onClick={() => removeSource(c)}>Remove</button> : null}
+                      {c.custom ? <button className="ds-btn danger" disabled={!!busy[c.id] || (c.kind === 'sor' && !isAdmin)} title={c.kind === 'sor' && !isAdmin ? 'Only an administrator can remove a data source.' : undefined} onClick={() => removeSource(c)}>Remove</button> : null}
                     </span>
                   </div>
                   {c.message ? <p className="ds-msg">{c.message}</p> : null}

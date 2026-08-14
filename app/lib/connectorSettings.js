@@ -102,7 +102,25 @@ export async function setConnectorConfig(id, patch = {}) {
 // PitchBook, Morningstar Direct, an internal API). A custom connector is honest
 // about connectivity: it is a declaration + optional endpoint, tested by a plain
 // reachability probe — never faked as "connected".
-const CUSTOM_ROLES = ['discover', 'confirm', 'quality', 'context'];
+const CUSTOM_ROLES = ['discover', 'confirm', 'quality', 'context', 'system'];
+
+// A 'sor' (system of record) connector is the same governed lifecycle as a plain
+// custom source, but for the firm's own CRM / deal database (DealCloud, Salesforce
+// FSC, Allvue/eFront, or an internal system) — see docs/integration/DATA-INTEGRATION.md.
+// It gets a richer config schema (base URL + API key OR OAuth client-credentials +
+// a health-check path) so its probe is a REAL authenticated round-trip, not just a
+// bare reachability check.
+const SOR_CONFIG_FIELDS = [
+  { key: 'baseUrl', label: 'API base URL', placeholder: 'https://your-instance.example.com', kind: 'url' },
+  { key: 'healthPath', label: 'Health-check path (appended to base URL)', placeholder: '/services/data/v60.0/limits', kind: 'text' },
+  { key: 'authType', label: 'Authentication', kind: 'select', options: ['apiKey', 'oauthClientCredentials'] },
+  { key: 'apiKey', label: 'API key / bearer token', kind: 'secret' },
+  { key: 'tokenUrl', label: 'OAuth token URL', placeholder: 'https://login.example.com/services/oauth2/token', kind: 'url' },
+  { key: 'clientId', label: 'OAuth client ID', kind: 'text' },
+  { key: 'clientSecret', label: 'OAuth client secret', kind: 'secret' },
+];
+const SOR_CONFIG_KEYS = SOR_CONFIG_FIELDS.map((f) => f.key);
+const SOR_SECRET_KEYS = new Set(SOR_CONFIG_FIELDS.filter((f) => f.kind === 'secret').map((f) => f.key));
 
 function slugify(s) {
   return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
@@ -116,26 +134,48 @@ export function isCustomConnector(id) {
   return !!_custom[id];
 }
 
+export function isSorConnector(id) {
+  return _custom[id]?.kind === 'sor';
+}
+
+// Config as safe to hand to any authenticated client: secret-typed fields (API key,
+// OAuth client secret) are reported as present/absent, never in the clear.
+export function getConnectorConfigRedacted(id) {
+  const cfg = getConnectorConfig(id);
+  const out = {};
+  for (const [k, v] of Object.entries(cfg)) {
+    out[k] = SOR_SECRET_KEYS.has(k) ? (v ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' : '') : v;
+  }
+  return out;
+}
+
 // Add a custom connector. Returns the created definition, or { error } on bad input.
 // `taken` is the set of existing (built-in + custom) ids/names to de-dupe against.
+// input.kind === 'sor' registers a CRM / system-of-record connector instead of a
+// plain custom source (see SOR_CONFIG_FIELDS above).
 export async function addCustomConnector(input = {}, taken = { ids: [], names: [] }) {
   const name = String(input.name || '').trim();
   if (!name) return { error: 'name-required' };
   if (name.length > 60) return { error: 'name-too-long' };
   const lc = name.toLowerCase();
   if ((taken.names || []).some((n) => String(n).toLowerCase() === lc)) return { error: 'already-exists' };
-  const role = CUSTOM_ROLES.includes(input.role) ? input.role : 'confirm';
-  const primaryJob = String(input.primaryJob || '').trim().slice(0, 200) || 'Custom data source (added by the fund).';
-  const sweetSpot = String(input.sweetSpot || '').trim().slice(0, 200) || 'Registered as a custom provider.';
+  const isSor = input.kind === 'sor';
+  const role = CUSTOM_ROLES.includes(input.role) ? input.role : (isSor ? 'system' : 'confirm');
+  const primaryJob = String(input.primaryJob || '').trim().slice(0, 200) || (isSor
+    ? 'Pull your firm\u2019s pipeline and push IC decisions back to your CRM / system of record.'
+    : 'Custom data source (added by the fund).');
+  const sweetSpot = String(input.sweetSpot || '').trim().slice(0, 200) || (isSor
+    ? 'DealCloud, Salesforce, Allvue/eFront, or any REST API your firm already uses.'
+    : 'Registered as a custom provider.');
   const takenIds = new Set([...(taken.ids || []), ...Object.keys(_custom)]);
-  const base = 'custom-' + (slugify(name) || 'source');
+  const base = (isSor ? 'sor-' : 'custom-') + (slugify(name) || 'source');
   let id = base;
   let n = 2;
   while (takenIds.has(id)) id = `${base}-${n++}`;
   const def = {
     id,
     name,
-    kind: 'custom',
+    kind: isSor ? 'sor' : 'custom',
     role,
     primaryJob,
     sweetSpot,
@@ -143,12 +183,21 @@ export async function addCustomConnector(input = {}, taken = { ids: [], names: [
     // Governance: a custom source is PENDING until an admin approves it; it cannot be
     // used (tested/enabled) in production until then (advisor SC-5).
     approved: false,
-    configFields: [{ key: 'endpoint', label: 'Endpoint / API URL (optional)', placeholder: 'https://\u2026/api or /mcp', kind: 'url' }],
+    configFields: isSor ? SOR_CONFIG_FIELDS : [{ key: 'endpoint', label: 'Endpoint / API URL (optional)', placeholder: 'https://\u2026/api or /mcp', kind: 'url' }],
   };
   _custom[id] = def;
-  const endpoint = String(input.endpoint || '').trim();
-  if (endpoint) _config[id] = { endpoint };
   await persist();
+  if (isSor) {
+    const patch = {};
+    for (const k of SOR_CONFIG_KEYS) {
+      const v = input[k];
+      if (v !== undefined && v !== null && String(v).trim() !== '') patch[k] = String(v).trim();
+    }
+    if (Object.keys(patch).length) await setConnectorConfig(id, patch);
+  } else {
+    const endpoint = String(input.endpoint || '').trim();
+    if (endpoint) await setConnectorConfig(id, { endpoint });
+  }
   return { ...def };
 }
 

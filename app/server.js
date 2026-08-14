@@ -150,7 +150,7 @@ import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMc
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
 import { listConnectors, testConnector, disconnectConnector } from './lib/connectors.js';
-import { setConnectorEnabled, setConnectorConfig, addCustomConnector, removeCustomConnector, isCustomConnector, approveCustomConnector } from './lib/connectorSettings.js';
+import { setConnectorEnabled, setConnectorConfig, addCustomConnector, removeCustomConnector, isCustomConnector, isSorConnector, approveCustomConnector } from './lib/connectorSettings.js';
 import { withFundMeta, fundMethodology } from './lib/metrics.js';
 import { guardReporting, REPORTING_SOURCE_IDS } from './lib/reportingGuard.js';
 import { certifyReport, listCertifications, getCertification, archiveCertification } from './lib/reportCert.js';
@@ -1903,7 +1903,10 @@ api.get('/connectors', (_req, res) => res.json(listConnectors()));
 // Register a CUSTOM data source (e.g. PitchBook / Morningstar Direct / an internal
 // API) when there is no built-in for it. Honest connectivity — declared + optional
 // endpoint, tested by a reachability probe. Rejected if a source already exists.
+// A CRM / system-of-record connector (kind: 'sor') carries real business-system
+// credentials, so registering one is ADMIN ONLY.
 api.post('/connectors', async (req, res) => {
+  if (req.body?.kind === 'sor' && !requireAdmin(req, res)) return;
   const existing = listConnectors();
   const taken = { ids: existing.map((c) => c.id), names: existing.map((c) => c.name) };
   try {
@@ -1917,9 +1920,11 @@ api.post('/connectors', async (req, res) => {
     res.status(500).json({ error: 'add source failed', detail: String(err?.message || err) });
   }
 });
-// Remove a custom data source (built-in sources cannot be removed).
+// Remove a custom data source (built-in sources cannot be removed). A system-of-record
+// connector holds real credentials, so removing one is ADMIN ONLY.
 api.delete('/connectors/:id', async (req, res) => {
   if (!isCustomConnector(req.params.id)) return res.status(400).json({ error: 'not-custom', detail: 'Only custom sources can be removed.' });
+  if (isSorConnector(req.params.id) && !requireAdmin(req, res)) return;
   try {
     const out = await removeCustomConnector(req.params.id);
     res.json(out);
@@ -1962,7 +1967,9 @@ api.post('/connectors/:id/disconnect', async (req, res) => {
 });
 // Enable/disable a connector from the Data Sources config menu. Persisted; a
 // disabled source is skipped by its provider + reports 'disabled' in the panel.
+// A system-of-record connector holds real credentials, so toggling one is ADMIN ONLY.
 api.post('/connectors/:id/enable', async (req, res) => {
+  if (isSorConnector(req.params.id) && !requireAdmin(req, res)) return;
   const enabled = req.body?.enabled !== false;
   try {
     const out = await setConnectorEnabled(req.params.id, enabled);
@@ -1971,8 +1978,11 @@ api.post('/connectors/:id/enable', async (req, res) => {
     res.status(500).json({ error: 'enable toggle failed', detail: String(err?.message || err) });
   }
 });
-// Set runtime config for a connector (e.g. the WorkIQ MCP endpoint URL). Persisted.
+// Set runtime config for a connector (e.g. the WorkIQ MCP endpoint URL, or a
+// system-of-record's API base URL / credentials). Persisted. A system-of-record
+// connector holds real credentials, so configuring one is ADMIN ONLY.
 api.post('/connectors/:id/config', async (req, res) => {
+  if (isSorConnector(req.params.id) && !requireAdmin(req, res)) return;
   try {
     const out = await setConnectorConfig(req.params.id, req.body?.config || {});
     res.json({ id: req.params.id, config: out });
