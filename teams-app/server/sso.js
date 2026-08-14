@@ -49,17 +49,8 @@ export async function exchangeOnBehalfOf(ssoToken, scopes = ['https://graph.micr
   return result?.accessToken ?? null;
 }
 
-// A VERIFIED identity from the Teams SSO token, or null.
-//
-// This used to base64-decode the payload and return it, with a comment describing that as
-// "minimal ... (no network call)". It checked no signature, no issuer, no audience and no
-// expiry — so `{"oid":"partner","roles":["admin"]}`, base64'd between two dots, was
-// accepted as a signed-in administrator. It was the front door, and it was not locked;
-// every access control downstream of it was decoration.
-//
-// The correct code was already in this repository, guarding /mcp. This is the same:
-// signature against the tenant's JWKS, issuer, audience, and the tenant of the token
-// itself, so one minted elsewhere for an app sharing our audience is refused.
+// A VERIFIED identity from the Teams SSO token, or null. Must check signature, issuer,
+// audience and tenant — an unverified decode of the payload is not an identity.
 export async function identityFromSsoToken(ssoToken) {
   if (!ssoToken || typeof ssoToken !== 'string' || ssoToken.split('.').length !== 3) return null;
   // Unconfigured means unenforceable, and unenforceable must not mean "believe it".

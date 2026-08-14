@@ -1,10 +1,5 @@
 // Filtering, search and sort for the deal list.
 //
-// Every query parameter was ignored. `?stage=D3`, `?q=legal`, `?sort=daysToIC`,
-// `?lane=legal&status=not_started`, `?limit=3` all returned the same rows, so the
-// question an analyst actually asks — "which of my deals has Legal DD not started?" —
-// cost eleven requests and a hand-built table. The answer is one request now.
-//
 // Filtering happens AFTER the caller's access scope has been applied, never before, so a
 // query can only ever narrow what someone may already see. A filter is not a way in.
 
@@ -56,15 +51,9 @@ function matchesIc(d, want) {
   return true;
 }
 
-// Sort keys are named after the fields they sort, because `?sort=daysToIC` is what
-// anyone reading the payload will send. It was the one sort a deal professional actually
-// wants — what is closest to committee — and it was the one that silently did nothing.
-//
-// One rule for direction: plain is ascending, `-` is descending, on every field. Each
-// comparator used to carry its own idea of "most interesting first", so `dealSize` and
-// `readiness` came back descending while `daysToIC` and `company` came back ascending,
-// and `-dealSize` therefore meant ascending. You had to run all five to learn which way
-// each one pointed.
+// Sort keys are named after the fields they sort (`?sort=daysToIC`). One rule for
+// direction, applied uniformly on every field: plain is ascending, `-` prefix is
+// descending — no field gets its own idea of "most interesting first".
 const SORTS = {
   daysToIC: (a, b) => (num(a.daysToIC) ?? 1e9) - (num(b.daysToIC) ?? 1e9),
   dealSize: (a, b) => (num(a.dealSize) ?? -1) - (num(b.dealSize) ?? -1),
@@ -78,14 +67,9 @@ export const SORT_KEYS = Object.keys(SORTS);
 
 const resolveSort = (key) => SORTS[key] ? key : SORT_ALIAS[norm(key)] || null;
 
-// What is wrong with the request, in the words of someone who has to fix it. Silent
-// coercion is the most expensive failure an API has: given a parameter called `ic` beside
-// `stage` and `status`, a reasonable engineer sends `ic=ready`, gets every row back with a
-// 200, and ships it believing it filtered.
-// Every parameter this route understands. Anything else is refused by name: after the
-// API learned to 400 on a bad VALUE, silently ignoring an unknown KEY is worse than
-// before — `?assignedTo=me` returned the whole book with a 200, and a bookmarked URL that
-// looks filtered and is not is a trap.
+// Every parameter this route understands; anything else is refused by name. Silently
+// ignoring an unknown key is worse than rejecting it — a bookmarked URL that looks
+// filtered and is not is a trap.
 export const DEAL_QUERY_KEYS = new Set([
   'q', 'query', 'stage', 'status', 'sector', 'lane', 'laneStatus', 'lane_status',
   'ic', 'icWithinDays', 'assignedTo', 'sort', 'limit', 'offset', 'cb',
@@ -108,11 +92,9 @@ export function validateDealQuery(params = {}, rows = null) {
     if (v === undefined || v === '') continue;
     if (!/^\d+$/.test(String(v).trim())) errors.push(`${key} must be a whole number that is zero or more — got "${v}"`);
   }
-  // Half the filters used to fail silently: ?status=bogus, ?lane=bogus and
-  // ?laneStatus=not-started all answered 200 with an empty array. An empty result that
-  // means "you typed it wrong" is indistinguishable from one that means "no such deals",
-  // and the vocabulary is nowhere in the payload — laneStatus is not_started, with an
-  // underscore, which nobody guesses. Checked against what this caller can actually see.
+  // Known filter VALUES are checked too, not just keys, against what this caller can
+  // actually see — an empty result must not be ambiguous between "wrong value" and "no
+  // matching deals".
   if (Array.isArray(rows)) {
     const known = (pick) => {
       const s = new Set();
@@ -140,12 +122,7 @@ export function validateDealQuery(params = {}, rows = null) {
   return errors;
 }
 
-// Returns the rows plus what was asked for and what it cost, so a list can say "12 of 19"
-// rather than showing twelve and calling itself complete.
-// What is on ONE person, from the deal's own record. "What is on me today" was the
-// analyst's first question of the day and the product had no way to express it: every
-// `why` on the attention list named somebody else, and the only way to guess was to read
-// nine deals by hand.
+// What is outstanding on ONE person, from the deal's own workstreams.
 export function myItemsFor(deal, me) {
   if (!me) return [];
   const out = [];
@@ -178,11 +155,13 @@ const LANE_OWNER_FOR = {
 };
 
 // "On me" means something OUTSTANDING on me. Ownership comes from the workstreams, never
-// from leadAnalyst — that field carries the same default on eighteen of nineteen deals, so
-// filtering on it returned the whole book and called it mine. And a deal whose lane I have
-// finished is a deal I worked, not one asking for me today.
+// from leadAnalyst — that field carries the same default on almost every deal, so filtering
+// on it would return the whole book and call it mine. A finished lane is not asking for me
+// today.
 const isMine = (d, me) => myItemsFor(d, me).length > 0;
 
+// Returns the rows plus what was asked for and what it cost, so a list can say "12 of 19"
+// rather than showing twelve and calling itself complete.
 export function queryDeals(rows, params = {}, me = null) {
   const all = Array.isArray(rows) ? rows : [];
   const q = norm(params.q || params.query);

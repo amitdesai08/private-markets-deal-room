@@ -75,10 +75,8 @@ async function getDemoProfiles() {
   return _demoProfiles || [];
 }
 
-// Switching demo mode has to take effect on the very next request, not up to fifteen
-// seconds later. The switch reloads the page, the reload landed inside this cache, and a
-// switch that reloads you straight back into the old answer reads as a switch that does
-// nothing at all — which is exactly how it was reported.
+// Invalidate on a demo-mode toggle so the next request reflects it immediately,
+// not up to fifteen seconds later.
 app.use((req, _res, next) => {
   if (req.method === 'POST' && /^\/api\/(admin\/)?demo-mode$/.test(req.path || '')) {
     _demoProfiles = null;
@@ -99,10 +97,7 @@ app.get('/api/teams/config', (_req, res) =>
     bot: isBotConfigured(),
     // Which parallel instance this is, for support and telemetry only.
     channel: process.env.DEAL_ROOM_CHANNEL || 'main',
-    // The deal cockpit. It was gated on the instance being the beta while it was
-    // being proved; it is now the way a deal is read, so it is on unless someone
-    // deliberately turns it off. Tying a product decision to the name of an
-    // environment meant promoting the build would silently have left it behind.
+    // Defaults on: this is now how a deal is read, not a beta-only feature flag.
     cockpit: process.env.DEAL_ROOM_COCKPIT !== 'false',
   })
 );
@@ -113,23 +108,16 @@ app.post('/api/teams/context', async (req, res) => {
   const identity = await identityFromSsoToken(ssoToken);
   const asOverride = await resolveDemoOverride(req, identity);                       // demo "view as USER", roster-checked
   const viewAsRole = (String(req.body?.viewAsRole || '').trim() || null); // hierarchy "view as ROLE"
-  // Authoritative access profile from the orchestrator (single policy source): which
-  // agents this user may use + the roles they can view-as. The requesting identity is
-  // the demo override (by name) or the SSO identity, trusted via the shared bot key.
-  // As an IDENTIFIER, not just a display name. The orchestrator stopped matching deal-team
-  // membership on `name` — an unsigned display name is published on the sign-in list, so
-  // asserting one was enough to become a person who is on a confidential deal. asOverride
-  // is already a roster id, which is what oid and upn are for.
+  // requestingUser identifies by id (oid/upn), never by display name — display names
+  // are public on the sign-in list, so a name alone must never grant deal-team membership.
   const requestingUser = asOverride
     ? { oid: asOverride, upn: asOverride, name: asOverride }
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
   let acc = null;
   if (isBackendLive()) {
     try {
-      // Must speak the same contract as every other forwarded call. Sending the bot key
-      // alone proves the app and names nobody, which the orchestrator answers with 401 —
-      // so `acc` came back null and every caller, a real administrator included, fell
-      // through to the `member` fallback and never saw an admin-only tab.
+      // Must use the same auth contract as every other forwarded call (backendAuth), or
+      // the orchestrator answers 401 and the caller falls back to the `member` default.
       const headers = backendAuth({ identity, ssoToken, asOverride, requestingUser });
       const r = await fetch(`${config.backend.url}/api/me/access`, {
         method: 'POST', headers, body: JSON.stringify({ requestingUser, viewAsRole }),
@@ -138,9 +126,8 @@ app.post('/api/teams/context', async (req, res) => {
     } catch { /* fall back to local stage access below */ }
   }
   const fallback = stageAccessFor(asOverride || identity?.upn || '');
-  // The seat comes from the access profile or not at all. With the orchestrator
-  // unreachable there is no policy to consult, so nobody is given a persona — the
-  // page falls back to the untailored view rather than inventing a seat for them.
+  // No policy to consult without the orchestrator, so no persona is given — the page
+  // falls back to the untailored view rather than inventing a seat.
   const persona = await personaRecord(acc?.persona);
   let graphLinked = false;
   try { graphLinked = !!(await exchangeOnBehalfOf(ssoToken)); } catch { graphLinked = false; }
@@ -161,15 +148,10 @@ app.post('/api/teams/context', async (req, res) => {
   });
 });
 
-// Record which showcase profile the signed-in person is acting as, so the CHANNEL BOT
-// answers as that seat too. The tab's switcher was a per-request header, which a bot
-// message never carries — picking "Eleanor Bishop, Partner" changed the tab and left
-// the bot answering as you.
-//
-// Deliberately NOT routed through forwardWithIdentity: that applies the x-dr-as override
-// the tab sends on every request, which would key the record by the profile currently
-// being impersonated instead of by the real person, and the switch would never be
-// reversible. This uses the SSO identity and nothing else.
+// Records which showcase profile the signed-in person is acting as, so the CHANNEL BOT
+// answers as that seat too (the tab's per-request switcher header never reaches a bot
+// message). Uses the SSO identity only, not x-dr-as, so the switch is keyed by the real
+// person and stays reversible.
 app.post('/api/teams/acting-as', async (req, res) => {
   if (!isBackendLive()) return res.status(503).json({ error: 'backend not configured' });
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -215,9 +197,8 @@ app.post('/api/deals/:id/documents/:kind', async (req, res) => {
   if (!isBackendLive()) return res.status(502).json({ error: 'shared-backend-not-configured' });
   const ssoToken = req.body?.ssoToken || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const identity = await identityFromSsoToken(ssoToken);
-  // The fourth proxy that assembled its own credentials, and it drifted the same way the
-  // other three did: it forwarded only an SSO-derived user, so every walkthrough seat
-  // reached the backend as nobody and the deal it was standing on came back "not found".
+  // Must resolve the demo override here too, or a walkthrough seat reaches the backend
+  // as nobody and the deal it's standing on comes back "not found".
   const asOverride = await resolveDemoOverride(req, identity);
   const dest = String(req.query.dest || req.body?.dest || 'download').toLowerCase();
 
@@ -269,12 +250,8 @@ app.post('/api/powerbi/embed', async (req, res) => {
 // shared bot key so the orchestrator gates every agent read by the caller's need-to-know
 // (an agent can't be used to reach a deal the caller can't see). Registered BEFORE the
 // generic proxy so it wins for the chat endpoints.
-// THE CREDENTIALS A FORWARDED REQUEST CARRIES, DECIDED ONCE.
-//
-// Three proxies each assembled this by hand and they drifted the moment the rules changed:
-// the walkthrough credential was added to the deal forwarder and not to the assistant, so
-// every chat entry point answered "Sign in to continue." while the screen beside it worked.
-// Three separate reviewers reported it as the assistant being broken.
+// The one place a forwarded request's credentials are assembled — every proxy route
+// must call this rather than build its own headers, or the rules drift between routes.
 function backendAuth({ identity, ssoToken, asOverride, requestingUser }) {
   const h = { 'content-type': 'application/json' };
   // The app's proof, only when we can say who is asking.
@@ -313,9 +290,8 @@ async function forwardChat(path, req, res) {
     res.status(upstream.status);
     const ct = upstream.headers.get('content-type') || 'application/json';
     res.setHeader('content-type', ct);
-    // An event stream buffered by the proxy is not a stream. `arrayBuffer()` waits for the
-    // last byte, which would have given the reader the same thirty-second wait with more
-    // machinery behind it.
+    // arrayBuffer() waits for the last byte before writing anything — buffering here
+    // defeats an event stream.
     if (/text\/event-stream/i.test(ct) && upstream.body?.getReader) {
       res.setHeader('cache-control', 'no-cache, no-transform');
       res.setHeader('x-accel-buffering', 'no');
@@ -424,48 +400,21 @@ async function workIqUserToken(ssoToken, identity, scopes = GRAPH_WORKIQ_SCOPES)
   }
 }
 
-// The demo "view as USER" switcher, validated instead of trusted.
+// The demo "view as USER" switcher — validated against the roster, never trusted from
+// the caller. It replaces the identity outright, so an unvalidated value would be an
+// impersonation primitive, and it must arrive in a header or body, never a query string
+// (query strings persist in browser history, referrer headers and access logs).
 //
-// This override replaces the signed-in identity outright, so whatever it names is who
-// the orchestrator answers as. Accepting it unchecked made it an impersonation
-// primitive: `?as=admin` on any request from anyone who could load the tab returned the
-// administrator's view. It was also readable from a URL, which means it survives in
-// browser history, referrer headers and access logs.
-//
-// So: the roster is the authority, not the caller. `/api/demo-profiles` returns [] when
-// demo mode is off, which makes this fail closed in production by construction rather
-// than by a second flag someone has to remember to set. And the value must arrive in a
-// header or a body — never a query string.
-// The roster answers WHAT may be asserted and was never asked WHO may assert it, so the
-// whole request was one header: `x-dr-as: admin` against the tab host returned twenty-four
-// deals including two marked confidential, and `admin`, `partner`, `analyst`, `member` are
-// four guesses. An assertion of identity is not identity.
-//
-// So the caller must already have one. The exception is a deployment that has deliberately
-// opened itself for a walkthrough — that is a decision someone makes with an environment
-// variable, knowing what is behind it, and it is off unless set. It is NOT something a
-// browser can decide for itself by sending a header.
+// Narrowing an identity that already exists is fine; asserting one from nothing is not
+// identity. So the override only applies when the caller already has an identity, or the
+// deployment has explicitly opted in via DEMO_OPEN_SIGN_IN — never from a bare header on
+// an anonymous request.
 const DEMO_ACCESS_KEY = String(process.env.DEMO_ACCESS_KEY || '').trim() === 'unset' ? '' : String(process.env.DEMO_ACCESS_KEY || '').trim();
 const OPEN_SIGN_IN = /^(1|true|yes|on)$/i.test(String(process.env.DEMO_OPEN_SIGN_IN || ''));
-// One environment variable used to open all nineteen deals at once, at whatever seat the
-// visitor named — `x-dr-as: admin` on the open host returned Project Onyx at full access
-// and canWrite true, which is the same sentence this file uses to describe the leak it was
-// meant to close. The behaviour had been renamed, not removed.
-//
-// A visitor who has not signed in is capped at `member`: read-only, and shown only the
-// deals the firm has separately marked as known internally. So the walkthrough is still a
-// per-deal decision recorded on the deal, and the environment variable only decides whether
-// a stranger may hold that seat at all.
-// A WALKTHROUGH THAT SHOWS EVERY PERSONA THE SAME THING IS NOT A WALKTHROUGH.
-//
-// This forced every chosen persona down to `member`, so an administrator, a partner and an
-// analyst all saw the same nine deals — and the one thing the showcase exists to
-// demonstrate is that they do not. Flattening the seat was the wrong lever: what a
-// walkthrough must not do is CHANGE anything, and that is enforced on the record, where
-// the orchestrator refuses every write from a walkthrough credential whatever seat it holds.
-//
-// The deployment already made the security decision, once, by setting DEMO_OPEN_SIGN_IN.
-// Within it the personas have to differ or there is nothing to show.
+// DEMO_OPEN_SIGN_IN is an explicit, off-by-default deployment decision — not something a
+// browser can trigger for itself. Within it, personas must still differ (a walkthrough that
+// shows every seat the same thing proves nothing), but every write is refused from a
+// walkthrough credential regardless of which seat it holds.
 async function resolveDemoOverride(req, identity = null) {
   const raw = String(req.headers['x-dr-as'] || req.body?.as || '').trim();
   if (!raw) return '';
@@ -476,19 +425,11 @@ async function resolveDemoOverride(req, identity = null) {
   return hit ? String(hit.id || hit.upn) : '';
 }
 
-// ROUTES THAT MUST KNOW WHO IS ASKING.
-//
-// This forwarder resolves the caller into a trusted identity and hands it to the
-// orchestrator over the bot-key channel. Everything NOT registered against it falls
-// through to the blind proxy, which attaches no bot key — so the orchestrator ignores
-// any identity on those requests and answers as the default role.
-//
-// That default was silently wrong for the home page. /api/home-desk was blind-proxied,
-// so the portfolio briefing was composed for a default deal-team seat no matter who was
-// signed in: an analyst cleared for 4 deals was reading a briefing that named companies
-// from all 19, with their combined enterprise value. The deal list beside it was
-// correctly scoped, so the same screen disagreed with itself. Identity is not a
-// nice-to-have on this route; it is what makes the answer legal to show.
+// Routes that must resolve identity server-side, forwarded with a trusted bot-key header.
+// Anything not registered here falls through to the blind proxy with no identity attached,
+// which answers as the default role regardless of who is actually asking — so any route
+// that composes a personalized answer (e.g. the home briefing) belongs here, not on the
+// blind proxy.
 async function forwardWithIdentity(req, res) {
   if (!isBackendLive()) return proxyToBackend(req, res);
   const ssoToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.body?.ssoToken || '';
@@ -501,11 +442,9 @@ async function forwardWithIdentity(req, res) {
     : (identity ? { oid: identity.oid, upn: identity.upn, name: identity.name, roles: identity.roles, groups: identity.groups } : null);
   const headers = backendAuth({ identity, ssoToken, asOverride, requestingUser });
   if (viewAsRole) headers['x-dr-view-as'] = viewAsRole;
-  // Only attach the delegated token when the caller is genuinely that user. Under a
-  // demo "view as USER" override the seat on screen is NOT the signed-in person, so
-  // handing over their Graph token would read one person's mail while presenting as
-  // another — exactly the confusion the seat lens must never create. It would also let
-  // someone post to a deal channel under their real name while wearing another seat.
+  // Only attach the delegated Graph token when the caller is genuinely that user —
+  // under a demo "view as" override the seat on screen is not the signed-in person, so
+  // their token must not read another seat's mail or post under their real name.
   if (!asOverride) {
     const graphToken = await workIqUserToken(ssoToken, identity, isSendRequest(req) ? GRAPH_SEND_SCOPES : GRAPH_WORKIQ_SCOPES);
     if (graphToken) headers['x-dr-graph-token'] = graphToken;
@@ -526,22 +465,11 @@ async function forwardWithIdentity(req, res) {
   }
 }
 
-// EVERY route under /api goes through the identity forwarder.
-//
-// This was nine hand-kept prefixes and everything else fell through to the blind proxy,
-// which attaches no key by design. That was survivable while the backend answered an
-// unidentified caller as the deploy default — it was the bug, but the product worked.
-// Once the backend started refusing that caller, the same list turned thirty-five routes
-// dark for everyone: fund reporting, market intelligence, the sourcing feed, the signals
-// mailbox and the news desk all returned "Sign in to continue" to people who had.
-//
-// A refusal that states the wrong remedy is worse than a leak in one respect — nobody
-// reports it as a security problem, they report it as the product being broken. And it is
-// the same anti-pattern the backend comment complains about, kept on the other side of the
-// wire: adding a prefix each time is a list, and the list goes stale in both directions.
-//
-// One rule. The forwarder resolves who is asking and hands that to the orchestrator; the
-// orchestrator decides what they may have. That is the only place that decision belongs.
+// Every route under /api goes through the identity forwarder — one rule, not a maintained
+// list of prefixes. A hand-kept list goes stale in both directions: it either leaves a
+// route on the blind proxy (identity silently dropped) or misses a new route entirely
+// (wrongly refused). The forwarder resolves who is asking; the orchestrator decides what
+// they may have. That split is the only place the decision belongs.
 app.use('/api', forwardWithIdentity);
 
 // Teams bootstrap injected into the embedded dashboard (theme sync + SSO notify).
