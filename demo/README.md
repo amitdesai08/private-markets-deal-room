@@ -44,18 +44,37 @@ passing its index — `node demo/capture.mjs 14 15` — and watch it happen with
 
 ## Shorter cuts
 
-[`cuts.mjs`](cuts.mjs) holds alternative edits that reuse screens the walkthrough already
-captured, so a cut costs a Speech call per line and needs no browser at all. `lightning`
-follows [DEMO-LIGHTNING.md](../docs/demos/DEMO-LIGHTNING.md) — fifteen scenes, about six
-minutes.
+Two kinds of shorter deck, for two different reasons.
+
+**The lightning demo** — [DEMO-LIGHTNING.md](../docs/demos/DEMO-LIGHTNING.md), fifteen scenes,
+about six minutes — is its own manifest, [`scenes-lightning.mjs`](scenes-lightning.mjs), captured
+fresh rather than borrowed from the walkthrough. Reusing the walkthrough's frames meant every
+shot was cropped and paced for the 30-minute story — a cursor pointing at a control the
+ten-minute cut never reaches, a spotlight held for a beat the shorter script does not have.
+Building it costs a full capture, same as the walkthrough:
 
 ```powershell
-node demo/build-cut.mjs lightning
-node demo/narrate.mjs      --manifest scenes-lightning.json
-node demo/build-player.mjs --manifest scenes-lightning.json --out lightning.html
-node demo/build-video.mjs  --manifest scenes-lightning.json --out lightning.mp4
+node demo/capture.mjs        --scenes scenes-lightning.mjs --manifest scenes-lightning.json
+node demo/narrate.mjs        --manifest scenes-lightning.json
+node demo/build-player.mjs   --manifest scenes-lightning.json --out lightning.html
+node demo/build-video.mjs    --manifest scenes-lightning.json --out lightning.mp4
 ```
 
+**The runbook cut** — [`cuts.mjs`](cuts.mjs) — genuinely does reuse screens the walkthrough
+already captured, because [DEMO-RUNBOOK.md](../docs/demos/DEMO-RUNBOOK.md) follows the delivery
+team's own spine closely enough that the walkthrough's frames still fit. No browser, no
+capture: only the narration is new, so a cut costs a Speech call per line.
+
+```powershell
+node demo/build-cut.mjs runbook
+node demo/narrate.mjs      --manifest scenes-runbook.json
+node demo/build-player.mjs --manifest scenes-runbook.json --out runbook.html
+node demo/build-video.mjs  --manifest scenes-runbook.json --out runbook.mp4
+```
+
+The runbook cut also draws on scenes the walkthrough never visits — access administration,
+the deal channel, the specialist agents, document templates — captured into their own manifest
+first: `node demo/capture.mjs --scenes scenes-runbook.mjs --manifest scenes-runbook-raw.json`.
 A cut re-orders scenes, so the cursor that pressed through to the next screen is dropped —
 it would be pointing at a control that no longer leads anywhere.
 

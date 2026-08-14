@@ -8,7 +8,7 @@ cannot play video in a page, but any player opens these.
 |---|---|---|---|
 | [`walkthrough.mp4`](media/walkthrough.mp4?raw=1) | 13 min | 11 MB | [DEMO-WALKTHROUGH.md](DEMO-WALKTHROUGH.md) — all eight acts, 30 scenes |
 | [`runbook.mp4`](media/runbook.mp4?raw=1) | 8 min | 7.5 MB | [DEMO-RUNBOOK.md](DEMO-RUNBOOK.md) — the delivery spine, 25 scenes, opens on access |
-| [`lightning.mp4`](media/lightning.mp4?raw=1) | 5 min | 4.6 MB | [DEMO-LIGHTNING.md](DEMO-LIGHTNING.md) — six beats, 15 scenes |
+| [`lightning.mp4`](media/lightning.mp4?raw=1) | 5 min | 5 MB | [DEMO-LIGHTNING.md](DEMO-LIGHTNING.md) — six beats, 15 scenes, its own capture rather than the walkthrough's frames |
 
 The runbook is the only one that reaches the **administrator** screens — access administration
 and document templates — because those render for an admin seat and no other.
@@ -19,9 +19,15 @@ build it in about a minute with [`demo/`](../../demo/), which also regenerates t
 
 ## What is on screen
 
-Captured against **Deal Room** (`ca-dealhub-teams-dev-swc`) on 13 August 2026, seat by seat
-through the demo profiles, so the access rules shown are the ones the server actually
-enforces.
+Captured against **Deal Room** (`ca-dealhub-teams-dev-swc`) on 13–14 August 2026, seat by seat
+through the demo profiles, so the access rules and deal figures shown are the ones the server
+actually returns — not carried over from an older capture or the beta environment.
+
+The walkthrough and the lightning demo are each captured from their own manifest
+([`scenes.mjs`](../../demo/scenes.mjs), [`scenes-lightning.mjs`](../../demo/scenes-lightning.mjs)); the lightning
+deck no longer reuses the walkthrough's screenshots, so its framing and pacing are its own.
+The runbook still borrows the walkthrough's frames where the two decks visit the same screen
+([`cuts.mjs`](../../demo/cuts.mjs)).
 
 The platform was **closed to anonymous callers throughout**. The capture holds an Entra
 identity of its own — a certificate-backed service principal with `DealRoom.Automation` on the
