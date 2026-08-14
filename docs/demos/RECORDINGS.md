@@ -17,6 +17,11 @@ There is also an **interactive player** for each, which is better for presenting
 act, pause on any screen, captions for rooms where audio is awkward. It is not committed —
 build it in about a minute with [`demo/`](../../demo/), which also regenerates these videos.
 
+> 🎬 **Already built and hosted**: the interactive click-throughs (and these same
+> recordings, playable in-browser rather than downloaded) are live on
+> **[Amit's Demos](https://victorious-field-06ec4150f.7.azurestaticapps.net/#/d/private-markets-deal-room)**.
+> That site is access-restricted to approved accounts — ask Amit for access if you land on a sign-in wall.
+
 ## What is on screen
 
 Captured against **Deal Room** (`ca-dealhub-teams-dev-swc`) on 13–14 August 2026, seat by seat

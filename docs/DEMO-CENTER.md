@@ -37,6 +37,12 @@ start demo/build/demo.html
 No credentials required and nothing is installed beyond Node.js. See [`demo/`](../demo/) for
 how the pipeline works if you want to customize the narration or capture new screens.
 
+> 🎬 **Already built and hosted**: this same interactive click-through (and the recordings
+> above, playable in-browser) are live on
+> **[Amit's Demos](https://victorious-field-06ec4150f.7.azurestaticapps.net/#/d/private-markets-deal-room)**
+> — no build step needed. That site is access-restricted to approved accounts; ask Amit for
+> access if you land on a sign-in wall.
+
 ## Run the live product yourself
 
 Deploy in **demo mode** and turn on **demo profiles** — one named identity per role — to walk
