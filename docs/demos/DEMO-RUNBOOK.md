@@ -86,7 +86,7 @@ so you never mix “feature order” with “act order” mid-demo:
 > moving — the story never depends on an external call.
 
 > **60-second pre-flight (before the room):** confirm the **“sign in as”** switcher flips the deal
-> counts (**19 → 8** from the partner to the analyst), the top consumer deal opens with **returns/risks populated**,
+> counts (**24 → 8** from the partner to the analyst), the top consumer deal opens with **returns/risks populated**,
 > and one **Apply ▸** writes to the **audit trail**. If *Apply* is flaky, treat it as optional.
 
 ---
@@ -104,13 +104,13 @@ The demo people are placeholder names — one per access tier, so the access
 **separation and guardrails** are the story. Use the single top-bar **"sign in as"**
 dropdown (it shows **Name — Role**, no clutter):
 
-1. **Eleanor Shellstrop — Partner.** The widest seat in the room: **19 deals**, including the
+1. **Eleanor Shellstrop — Partner.** The widest seat in the room: **24 deals**, including the
    three **confidential** ones she is named on.
-2. **Michael Realman — Administrator.** Every specialist agent, every stage open — and **16
+2. **Michael Realman — Administrator.** Every specialist agent, every stage open — and **21
    deals**. The three confidential deals are **not** among them: they open for the team named
    on them, not for rank.
 3. **Tahani Al-Jamil — Deal Team.** Deal-team agents; **diligence unlocked**; writes findings
-   and the value-creation plan. **16 deals.**
+   and the value-creation plan. **21 deals.**
 4. **Chidi Anagonye — Analyst.** The rail collapses to **his own agent** (read-only) and
    **All deals** drops to **8** — one of them, Harborlight Marine Services, is **status only**.
    He *is* read-in on **Project Onyx**, a confidential carve-out: need-to-know granted by
@@ -120,16 +120,16 @@ dropdown (it shows **Name — Role**, no clutter):
 
 > **The move that lands.** Put two of those numbers side by side: the **analyst opens Project
 > Onyx and the administrator cannot see that it exists**. Each confidential deal adds exactly
-> one to the seat named on it — Fund CFO **17** (Aurora), Principal **17** (Sterling), General
-> Counsel **17** (Onyx) — and sixteen for everybody else. A confidential deal is refused
+> one to the seat named on it — Fund CFO **22** (Aurora), Principal **22** (Sterling), General
+> Counsel **22** (Onyx) — and twenty-one for everybody else. A confidential deal is refused
 > *before* the product asks what your role is. That is a clean team, enforced rather than
 > displayed.
 
 > Two things to call out: **what you see follows who you are** — switch persona and the
 > "Live deals" KPI changes *with* the deal list, not just the stage views; and outside demo
 > mode a real user sees only **their own** view, not the whole tier. No one can grant
-> themselves access they weren't given — it's the information barrier a fund has to
-> enforce, not just display.
+> themselves access they weren't given — Microsoft Entra ID enforces the information barrier
+> a fund has to observe; the product does not maintain a permissions system of its own.
 
 ## 3 · The full deal lifecycle (2 min)
 

@@ -12,8 +12,11 @@
 // element the player should draw attention to; `click` names the control the cursor
 // should be seen pressing on the way to the next scene.
 
+// The real Deal Room, not the beta host — the beta database has different seed data
+// (different deal counts per seat), so a capture against it prints numbers that don't
+// match the docs or a live demo of the real deployment.
 export const BASE = process.env.DEMO_BASE_URL
-  || 'https://ca-dealhub-teams-beta.ambitiousforest-08192d93.swedencentral.azurecontainerapps.io';
+  || 'https://ca-dealhub-teams-dev-swc.ambitiousforest-08192d93.swedencentral.azurecontainerapps.io';
 
 export const ACTS = [
   { n: 0, title: 'Opening' },

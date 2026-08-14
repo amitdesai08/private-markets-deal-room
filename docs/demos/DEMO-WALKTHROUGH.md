@@ -40,7 +40,8 @@ well, **correct it here** rather than working around it live.
   enforced as they are for them."*, with two chips beside it saying what that seat can
   **act on** and what it sees **status only**. Read it aloud once, then dismiss it with the
   **×**. It tells the room this is a demonstration **and** that the access rules on it are
-  real anyway.
+  real anyway — enforced by the same Microsoft Entra ID that already governs the firm's
+  Microsoft 365 tenant, not a permissions table the product invented for itself.
 - The people in the top-bar dropdown are **placeholder names** — Eleanor Shellstrop,
   Chidi Anagonye, and so on. Say so once and nobody will ask again.
 
@@ -114,22 +115,22 @@ deal, what is wrong, and gives you a button to the place where you would fix it.
 **Copy agenda** button beside it.
 
 **5. Untracked follow-ups** *(▤ Composed)* — **the panel people remember.** Somebody
-promised something in a Teams channel and nobody wrote it down. The product found 16
-of them across 14 deals, each quoted verbatim with who said it and by when.
+promised something in a Teams channel and nobody wrote it down. The product found 22
+of them across 19 deals, each quoted verbatim with who said it and by when.
 
 > "It does not chase these for you. It tells you they exist. Every firm in this room
 > has a version of this problem and no way of seeing it."
 
 **6. Deals by stage.** Four blocks — Origination & Screening, Diligence & Approval,
 Execution & Closing, Value & Exit. The header above them gives the total and the
-pre-completion split: *"$8.1B across 19 deals · $6.4B of it pre-completion."* The blocks
+pre-completion split: *"$9.7B across 24 deals · $7.9B of it pre-completion."* The blocks
 add up to exactly that. Press one to see those deals.
 
 **7. Origination funnel.** How many were sourced, screened and shortlisted, and how many
-are still in origination — 16, 10, 5 and 2. Read the note underneath: this is not a
+are still in origination — 22, 16, 10 and 7. Read the note underneath: this is not a
 screening yield, because targets you passed on never entered the record.
 
-**8. Every deal you can see** — all 19 in one list, with a **Compare** control: tick two
+**8. Every deal you can see** — all 24 in one list, with a **Compare** control: tick two
 to four and put them side by side on the same decision fields.
 
 **9. Market intelligence.** Three blocks, and on the demonstration book all three are
@@ -196,11 +197,11 @@ push one into the pipeline"* — and move on.
 One row per deal: whether it is IC-ready, the company, where it is in the sixteen steps,
 what is holding it up, the size, and the committee date.
 
-The header reads *"19 of 19 · the screening funnel"* — everything you are allowed to see,
-including the four still in screening.
+The header reads *"24 of 24 · the screening funnel"* — everything you are allowed to see,
+including the five still in screening.
 
-Across the top are six filters with counts: **All 19 · Not IC-ready 14 · Origination 4 ·
-Diligence 8 · Execution 4 · Value & Exit 3**.
+Across the top are six filters with counts: **All 24 · Not IC-ready 19 · Origination 5 ·
+Diligence 12 · Execution 4 · Value & Exit 3**.
 
 Press any row to open a deal.
 
@@ -365,7 +366,7 @@ Open the person dropdown and choose **Chidi Anagonye — Analyst — Northeast c
 
 Watch what happens:
 
-- **All deals** drops from 19 to **8** — the header reads *"8 of 8 · the screening
+- **All deals** drops from 24 to **8** — the header reads *"8 of 8 · the screening
   funnel"*, and the filters change with it: Origination 1, Diligence 4, Execution 3.
 - A deal they are not cleared for still appears, under a **Status only** heading —
   *"Harborlight Marine Services 🔒 · You are not on this deal team"* — by name and where
@@ -387,7 +388,7 @@ Stay on the analyst and open **Project Onyx**, a confidential carve-out running 
 clean-team protocol. It opens in full — he is *named on it*.
 
 Now switch to **Michael Realman — Administrator**, the most senior seat in the switcher, and
-look for it. It is not there. His list is **16 deals**; the partner's is **19**. Paste the
+look for it. It is not there. His list is **21 deals**; the partner's is **24**. Paste the
 deal's own link into the address bar and the product answers:
 
 > **Deal unavailable.** *"This deal is not open to you. Either it does not exist, or you are
@@ -403,7 +404,7 @@ take-private, the fact that there is something to ask about is itself the leak.
 Three deals in the book are marked confidential, and each adds exactly **one** to the seat
 named on it: the **Fund CFO** sees Aurora Software, the **Principal** sees Project Sterling,
 the **General Counsel** and the **Analyst** see Project Onyx. Every other seat, the
-administrator included, sees sixteen.
+administrator included, sees twenty-one.
 
 > "That is what a clean team is. If there is a compliance officer in the room, this is the
 > part they came for."
@@ -480,13 +481,13 @@ caught without any of these.
 | # | Where | Min | Do this | Say this |
 |---|---|---|---|---|
 | **0** | Before you click | — | — | *"Everything today is a demonstration book — invented companies, invented numbers, and the market and news panels are demonstration data too."* |
-| **1** | **Home** | 4 | Read the briefing. Press **🔍 Evidence**. Then point at **Untracked follow-ups**. | *"16 promises made in a Teams channel that nobody wrote down, across 14 deals. It does not chase them. It tells you they exist."* |
+| **1** | **Home** | 4 | Read the briefing. Press **🔍 Evidence**. Then point at **Untracked follow-ups**. | *"22 promises made in a Teams channel that nobody wrote down, across 19 deals. It does not chase them. It tells you they exist."* |
 | **2** | **Sourcing & screening** → *Sourcing framework* | 4 | Fund mandate, then Investment themes. **Droppable.** | *"A mandate is a rule from your investors. A theme is a partner's judgement. Confusing them is how a fund wastes a quarter."* |
-| **3** | **All deals** | 2 | Read *"19 of 19 · the screening funnel"*. Then open **Helvetia Diagnostics**. | *"Give it fifteen seconds. It is assembling the whole deal — the workstreams, the committee papers, the documents and the audit trail."* |
+| **3** | **All deals** | 2 | Read *"24 of 24 · the screening funnel"*. Then open **Helvetia Diagnostics**. | *"Give it fifteen seconds. It is assembling the whole deal — the workstreams, the committee papers, the documents and the audit trail."* |
 | **4** | **Inside Helvetia** | 8 | *Where to start* line above the pages → **The case** (2 obligations still outstanding; the readiness board lists them) → **The work · Workstreams** (Financial and ESG read *Closed at IC — no write-up on file*; scroll down for the data room) → **💬 Ask the assistant**. | *"That is a records gap, not outstanding work — and knowing the difference is the whole job."* then *"The assistant drafts. The readiness board is the record. Nothing reaches a committee paper unchecked."* |
 | **5** | **Fund & Portfolio** | 4 | Fund → watchlist → portfolio monitoring → **concentration vs LPA limits**. | *"That is the panel that ends a conversation with an LP before it starts."* |
 | **6** | **Firm reporting** | 2 | Power BI banner, then the certification line and who signed it, then *Market data: not connected*. **Droppable.** | *"Nothing reaches an investor until a named person certifies it, and that freezes a dated copy that cannot be edited."* |
-| **7** | **Chidi Anagonye — Analyst**, then **Michael Realman — Administrator** | 4 | 19 → 8 deals · *Harborlight Marine Services 🔒* under **Status only** · open **Project Onyx** as the analyst, then fail to find it as the administrator (16 deals). **Never drop this one.** | *"The analyst opens a deal the administrator cannot see exists, because somebody put his name on it. Rank buys you nothing on a confidential deal."* |
+| **7** | **Chidi Anagonye — Analyst**, then **Michael Realman — Administrator** | 4 | 24 → 8 deals · *Harborlight Marine Services 🔒* under **Status only** · open **Project Onyx** as the analyst, then fail to find it as the administrator (21 deals). **Never drop this one.** | *"The analyst opens a deal the administrator cannot see exists, because somebody put his name on it. Rank buys you nothing on a confidential deal."* |
 | **8** | **⚙ Settings**, then close | 2 | Switch one free source off. | *"You decide what this thing is allowed to look at."* Then **ask for something.** |
 
 **30 minutes. Short of time, drop 2 and 6 → 24.**
