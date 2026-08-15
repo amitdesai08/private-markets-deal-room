@@ -8,8 +8,8 @@ or on the daily mechanics of running one deal (that is the
 vocabulary, and assumes the audience's real question is: *what does this take off my team's
 plate?*
 
-**How long:** about 15 minutes — the seven acts below. If you only have five, run Acts 3, 4
-and 6.
+**How long:** about 15 minutes — the eight acts below. If you only have five, run Acts 1, 4
+and 7.
 
 **A note on how this is framed, and why it is different from the other two walkthroughs.**
 The PE-audience and technical walkthroughs deliberately avoid ROI or hours-saved framing,
@@ -22,7 +22,7 @@ this document** — only the concrete assembly, drafting, tracking and re-entry 
 replaces. If you cannot point to the mechanic behind a saving, do not claim the saving.
 
 > **There is a narrated version of this walkthrough.** [`demo/`](../../demo/) builds a
-> click-through of all seven acts — captured against the running product, voiced by Azure AI
+> click-through of all eight acts — captured against the running product, voiced by Azure AI
 > Speech. Build it with `--scenes scenes-business.mjs`.
 
 ---
@@ -33,9 +33,10 @@ replaces. If you cannot point to the mechanic behind a saving, do not claim the 
 - **Say this once, out loud, at the start:**
 
   > "Everything on screen is an invented demonstration book — the companies, the people, the
-  > numbers. What I want you to watch for is not the data, it's the six places this removes a
-  > manual task your team does today: compiling status, screening, drafting, tracking
-  > follow-ups, re-entering data between systems, and pulling together a report."
+  > numbers. What I want you to watch for is not the data, it's the seven places this removes
+  > a manual task your team does today, or a piece of friction that slows it down: ease of use,
+  > compiling status, deal flow, drafting, tracking follow-ups, re-entering data between
+  > systems, and pulling together a report."
 
 - This walkthrough is signed in as a **partner** for most of it — the seat that feels a firm's
   operating overhead most directly, day to day.
@@ -52,7 +53,19 @@ Let the product load on the **Home** screen.
 
 ---
 
-## Act 2 · The day starts already triaged (2 min)
+## Act 2 · Ease of use — one tool, not six (1 min)
+
+No new screen; stay on Home and note where you already are.
+
+> "Before we get into the deals, notice where we are: inside Microsoft Teams, the same app your
+> team already has open all day. There's no new login, no separate portal to remember, and
+> nothing here that isn't already part of a normal work day. That's worth saying plainly,
+> because a tool a firm doesn't actually use doesn't save anyone anything, no matter how good
+> it is on paper."
+
+---
+
+## Act 3 · The day starts already triaged (2 min)
 
 1. Point at the **daily briefing** — a written paragraph, not a chart, at the top of Home.
 
@@ -69,18 +82,19 @@ Let the product load on the **Home** screen.
 
 ---
 
-## Act 3 · Screening at scale, not by headcount (2 min)
+## Act 4 · Deal flow — screening at scale, not by headcount (2 min)
 
 Open **Sourcing & screening**.
 
 > "Every incoming signal is screened against the fund's own mandate automatically, before an
 > analyst spends an afternoon on a company the fund was never going to be permitted to buy. The
-> screening still happens — it just no longer costs an analyst-hour per candidate to find out a
-> deal doesn't clear the mandate. That hour goes to the deals that do clear it."
+> screening still happens; it just doesn't cost an analyst-hour per candidate to find out a
+> deal doesn't clear the mandate. That's the real lever on deal flow: not doing more work, but
+> getting a real look at more of the right candidates with the same team."
 
 ---
 
-## Act 4 · The blank page is gone (3 min)
+## Act 5 · The blank page is gone (3 min)
 
 1. Open a deal (Helvetia Diagnostics) → **Papers**.
 
@@ -99,7 +113,7 @@ Open **Sourcing & screening**.
 
 ---
 
-## Act 5 · Nothing promised gets forgotten (2 min)
+## Act 6 · Nothing promised gets forgotten (2 min)
 
 Back on **Home**, point at **Untracked follow-ups**.
 
@@ -111,7 +125,7 @@ Back on **Home**, point at **Untracked follow-ups**.
 
 ---
 
-## Act 6 · One system from source to exit (3 min)
+## Act 7 · One system from source to exit (3 min)
 
 1. Open **Fund & Portfolio**.
 
@@ -129,7 +143,7 @@ Back on **Home**, point at **Untracked follow-ups**.
 
 ---
 
-## Act 7 · Reporting without the scramble (2 min)
+## Act 8 · Reporting without the scramble (2 min)
 
 Open **Firm reporting**.
 
@@ -143,14 +157,16 @@ Open **Firm reporting**.
 
 ## Close
 
-> "Every saving in this walkthrough came from removing a manual assembly step, not from a
-> promise about speed: the briefing nobody compiles by hand, the IC pack that starts as a
-> finished draft, the follow-up that surfaces itself, the fund and portfolio record that never
-> needs re-entering, the report that certifies itself rather than getting rebuilt every quarter.
-> And it runs inside Microsoft Teams, so it isn't a new place for your team to learn to work."
+> "So here's the why, not just the what. Productivity: every saving in this walkthrough came
+> from removing a manual assembly step, not a promise about speed. Deal flow: screening that
+> doesn't cost an analyst-hour per candidate means the same team gets a real look at more of
+> the pipeline. And ease of use: none of it required a new tool, because it's Microsoft Teams
+> your team already runs all day. That's the actual comparison against what a firm does today.
+> It isn't a faster version of the old process. It's the old process with the manual assembly
+> taken out of it."
 
-**Then ask for something.** A working session with your deal team to map these six tasks
-against how your firm runs them today, or a conversation about a pilot on one live deal.
+**Then ask for something.** A working session with your deal team to map these tasks against
+how your firm runs them today, or a conversation about a pilot on one live deal.
 
 ---
 
@@ -172,12 +188,13 @@ against how your firm runs them today, or a conversation about a pilot on one li
 | # | Act | Screen | The line that lands |
 |---|---|---|---|
 | 1 | Opening | Home | "Not the features — the hours it gives back." |
-| 2 | Triaged day | Home → Needs attention | "The list three people used to assemble before a Monday call." |
-| 3 | Screening at scale | Sourcing & screening | "That hour goes to the deals that clear the mandate." |
-| 4 | Blank page gone | Deal → Papers, The case | "The job becomes improving a draft that already exists." |
-| 5 | Nothing forgotten | Home → Untracked follow-ups | "It notices the commitment exists and puts it in front of a person." |
-| 6 | One system | Fund & Portfolio, Data sources | "No double entry between the system you track pipeline in and the one you ran the deal in." |
-| 7 | Reporting | Firm reporting | "Certified, or plainly marked draft — never ambiguous." |
+| 2 | Ease of use | Home | "It's Microsoft Teams your team already has open all day." |
+| 3 | Triaged day | Home → Needs attention | "The list three people used to assemble before a Monday call." |
+| 4 | Deal flow | Sourcing & screening | "The same team gets a real look at more of the pipeline." |
+| 5 | Blank page gone | Deal → Papers, The case | "The job becomes improving a draft that already exists." |
+| 6 | Nothing forgotten | Home → Untracked follow-ups | "It notices the commitment exists and puts it in front of a person." |
+| 7 | One system | Fund & Portfolio, Data sources | "No double entry between the system you track pipeline in and the one you ran the deal in." |
+| 8 | Reporting | Firm reporting | "Certified, or plainly marked draft — never ambiguous." |
 
 **Three traps:**
 1. Don't quote a percentage or an hours-saved figure that isn't grounded in a named mechanic —
@@ -190,10 +207,11 @@ against how your firm runs them today, or a conversation about a pilot on one li
 
 ## The one-paragraph version
 
-> "The Deal Room removes six specific manual tasks from how a firm runs deals: compiling a
-> daily status briefing, screening incoming signals against the fund's mandate by hand, drafting
-> a first-cut IC memo from a blank page, tracking down commitments made in conversation that
+> "The Deal Room removes seven specific pieces of friction from how a firm runs deals: a new
+> tool nobody wants to learn (it's Microsoft Teams already), compiling a daily status
+> briefing, screening incoming signals against the fund's mandate by hand, drafting a
+> first-cut IC memo from a blank page, tracking down commitments made in conversation that
 > nobody wrote down, re-entering data between the system you track pipeline in and the one you
-> ran the deal in, and rebuilding an investor report from scratch every quarter. It does this
-> inside Microsoft Teams, on your own Azure tenant, so it is not a new place for your team to
-> learn to work — just fewer places where their time goes to assembly instead of judgment."
+> ran the deal in, and rebuilding an investor report from scratch every quarter. Productivity,
+> deal flow and ease of use, all from removing manual assembly, not from a faster version of
+> the same process."

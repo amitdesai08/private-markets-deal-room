@@ -12,8 +12,8 @@ export { BASE } from './scenes.mjs';
 export const ACTS = [
   { n: 150, title: 'Opening' },
   { n: 151, title: 'Identity — resolved server-side' },
-  { n: 152, title: 'Agent isolation' },
-  { n: 153, title: 'Connector governance' },
+  { n: 152, title: 'Agent isolation, and agentic workflows' },
+  { n: 153, title: 'Connector governance, and Work IQ' },
   { n: 154, title: 'Audit trail' },
   { n: 155, title: 'Footprint and deploy' },
 ];
@@ -26,7 +26,7 @@ export const SCENES = [
     seat: 'admin',
     steps: [{ goto: '#/overview' }, { waitText: 'Daily briefing' }, { scrollTop: 0 }],
     say: `The Deal Room deploys with one command into your own Azure subscription and your own Microsoft Entra
-      tenant. It is not multi-tenant SaaS — your data never leaves a resource group you control. Six things are
+      tenant. It's not multi-tenant SaaS, and your data never leaves a resource group you control. Six things are
       worth your attention in the next ten minutes, and none of them are the five tabs a deal team uses.`,
   },
   {
@@ -37,8 +37,8 @@ export const SCENES = [
     steps: [{ clickText: 'All deals' }, { wait: 2500 }, { scrollTop: 0 }],
     click: 'text:All deals',
     say: `Every deal read resolves through Entra ID on the server before a row is sent to the browser. This
-      administrator seat sees twenty-one deals — not a client-side filter, the number of rows the server ever
-      sent. A client can state who it is; it can never widen its own access.`,
+      administrator seat sees twenty-one deals, and that's not a client-side filter. It's the number of rows the
+      server ever sent. A client can state who it is; it can never widen its own access.`,
   },
   {
     id: 'tcl-02-analyst-narrower',
@@ -47,8 +47,8 @@ export const SCENES = [
     seat: 'analyst',
     keepBanner: true,
     steps: [{ selectSeat: 'analyst' }, { wait: 4000 }, { clickText: 'All deals' }, { wait: 3000 }, { scrollTop: 0 }],
-    say: `Switch the identity to an analyst and the same API route now returns eight deals. There is no
-      permissions table in this application — the role and the need-to-know grants live in the Entra directory
+    say: `Switch the identity to an analyst and the same API route now returns eight deals. There's no
+      permissions table in this application. The role and the need-to-know grants live in the Entra directory
       this firm already runs, and the product reads it rather than duplicating it.`,
   },
   {
@@ -58,20 +58,33 @@ export const SCENES = [
     seat: 'admin',
     steps: [{ selectSeat: 'admin' }, { wait: 3000 }, { openDeal: 'Helvetia' }, { wait: 3000 }, { clickText: '💬 Ask the assistant' }, { wait: 2500 }],
     click: 'text:💬 Ask the assistant',
-    say: `Every agent belongs to one of two classes set in a registry: internal-data agents read this firm's
-      governed record and cannot reach the public web; the one external-web agent reaches the open internet and
-      cannot reach a deal record. That boundary is checked on every tool call, server-side, before it runs.`,
+    say: `Every agent belongs to one of two classes set in a registry. Internal-data agents read this firm's
+      governed record and can't reach the public web; the one external-web agent reaches the open internet and
+      can't reach a deal record. That boundary is checked on every tool call, server-side, before it runs.`,
+  },
+  {
+    id: 'tcl-03b-agentic',
+    act: 152,
+    title: 'One orchestrator routes; the model doesn\u2019t',
+    seat: 'admin',
+    keepBanner: true,
+    steps: [{ wait: 500 }],
+    say: `And this assistant isn't one model guessing at everything. A Deal Orchestrator reads the question,
+      decides which specialists actually need to weigh in, calls only those, and composes one answer that names
+      who it consulted. That routing is a fixed decision tree, not something a prompt can talk its way around.`,
   },
   {
     id: 'tcl-04-connectors',
     act: 153,
     title: 'Nothing reports connected until it actually is',
     seat: 'admin',
-    steps: [{ closeOverlay: true }, { clickText: '⚙' }, { wait: 2000 }, { clickText: 'Data sources' }, { wait: 2500 }, { scrollTo: 'Add a data source' }],
+    steps: [{ closeOverlay: true }, { clickText: '⚙' }, { wait: 2000 }, { clickText: 'Data sources' }, { wait: 2500 }, { scrollTo: 'files, chats and email' }],
     click: 'text:Data sources',
-    say: `Every connector — free public filings, subscription market data, the firm's own Microsoft 365 mailbox,
-      or a self-registered source — is tested with a real round trip, never a static badge. A self-registered
-      source, including the firm's own CRM or deal database, stays pending until an administrator approves it.`,
+    say: `Every connector, from free public filings to a self-registered source, is tested with a real round
+      trip, never a static badge. Work IQ, further down, is the same idea applied to this firm's own SharePoint
+      files, Teams messages and mail: reads run as the signed-in user over Microsoft Graph, so Microsoft 365
+      enforces that person's own permissions on top of the deal's need-to-know. A self-registered source,
+      including the firm's own CRM, stays pending until an administrator approves it.`,
   },
   {
     id: 'tcl-05-audit',
@@ -90,10 +103,10 @@ export const SCENES = [
     title: 'Six resource groups, one identity, no secrets',
     seat: 'admin',
     steps: [{ closeOverlay: true }, { scrollTop: 0 }],
-    say: `The deployed footprint is six Bicep resource groups, every Azure-to-Azure call authorised by one
-      user-assigned managed identity and an RBAC role assignment scoped to exactly the resource it touches. There
-      is no connection string or API key anywhere in the running application. Private networking to take the data
-      plane off the public internet entirely is one switch, off by default for a lean pilot.`,
+    say: `The deployed footprint is six Bicep resource groups, and every Azure-to-Azure call is authorised by one
+      user-assigned managed identity and an RBAC role assignment scoped to exactly the resource it touches.
+      There's no connection string or API key anywhere in the running application. Private networking, which
+      takes the data plane off the public internet entirely, is one switch, off by default for a lean pilot.`,
   },
   {
     id: 'tcl-07-close',
@@ -104,6 +117,6 @@ export const SCENES = [
     say: `One command stands this up on your own tenant. A customer jumpstart deployment turns the demo seeding
       off with a single flag, so the store starts empty and is populated only through your own connectors. Every
       identity decision, every document and every conversation runs through the Entra ID, SharePoint and Teams this
-      firm already operates — nothing new to secure separately.`,
+      firm already operates. There's nothing new to secure separately.`,
   },
 ];

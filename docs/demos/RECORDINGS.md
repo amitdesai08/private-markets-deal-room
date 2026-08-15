@@ -20,9 +20,9 @@ administration and document templates — because those render for an admin seat
 
 | Recording | Length | Size | Follows |
 |---|---|---|---|
-| [`technical.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/technical.mp4) | 8 min | 7.5 MB | [DEMO-WALKTHROUGH-TECHNICAL.md](DEMO-WALKTHROUGH-TECHNICAL.md) — 15 scenes: identity trust seam, agent isolation, connector governance, audit trail, Azure footprint |
-| [`runbook-technical.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook-technical.mp4) | 6 min | 5.5 MB | [DEMO-RUNBOOK-TECHNICAL.md](DEMO-RUNBOOK-TECHNICAL.md) — 14 scenes, reuses the walkthrough's frames, names REST routes and env vars |
-| [`technical-lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/technical-lightning.mp4) | 3 min | 2.7 MB | [DEMO-LIGHTNING-TECHNICAL.md](DEMO-LIGHTNING-TECHNICAL.md) — 8 scenes, its own capture |
+| [`technical.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/technical.mp4) | 9 min | 8.3 MB | [DEMO-WALKTHROUGH-TECHNICAL.md](DEMO-WALKTHROUGH-TECHNICAL.md) — 17 scenes: identity trust seam, agent isolation, agentic workflows, connector governance and Work IQ, audit trail, Azure footprint |
+| [`runbook-technical.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook-technical.mp4) | 7 min | 6.4 MB | [DEMO-RUNBOOK-TECHNICAL.md](DEMO-RUNBOOK-TECHNICAL.md) — 16 scenes, reuses the walkthrough's frames, names REST routes and env vars |
+| [`technical-lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/technical-lightning.mp4) | 3 min | 3.2 MB | [DEMO-LIGHTNING-TECHNICAL.md](DEMO-LIGHTNING-TECHNICAL.md) — 9 scenes, its own capture |
 
 This track never claims a formal certification (SOC 2, ISO 27001, a pentest) as a vendor
 deliverable — those stay the deploying firm's to obtain, and the scripts say so explicitly.
@@ -31,9 +31,9 @@ deliverable — those stay the deploying firm's to obtain, and the scripts say s
 
 | Recording | Length | Size | Follows |
 |---|---|---|---|
-| [`business.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/business.mp4) | 5 min | 4.4 MB | [DEMO-WALKTHROUGH-BUSINESS.md](DEMO-WALKTHROUGH-BUSINESS.md) — 11 scenes across seven acts |
-| [`runbook-business.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook-business.mp4) | 5 min | 4.2 MB | [DEMO-RUNBOOK-BUSINESS.md](DEMO-RUNBOOK-BUSINESS.md) — reuses the walkthrough's frames |
-| [`business-lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/business-lightning.mp4) | 2 min | 1.8 MB | [DEMO-LIGHTNING-BUSINESS.md](DEMO-LIGHTNING-BUSINESS.md) — 6 scenes, its own capture |
+| [`business.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/business.mp4) | 5 min | 5.0 MB | [DEMO-WALKTHROUGH-BUSINESS.md](DEMO-WALKTHROUGH-BUSINESS.md) — 12 scenes across eight acts |
+| [`runbook-business.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook-business.mp4) | 5 min | 4.7 MB | [DEMO-RUNBOOK-BUSINESS.md](DEMO-RUNBOOK-BUSINESS.md) — reuses the walkthrough's frames |
+| [`business-lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/business-lightning.mp4) | 2 min | 2.5 MB | [DEMO-LIGHTNING-BUSINESS.md](DEMO-LIGHTNING-BUSINESS.md) — 7 scenes, its own capture |
 
 This track intentionally departs from the PE and technical tracks' no-ROI-framing convention —
 its audience's own question is where a firm's operating time goes. Every saving named in it is

@@ -26,17 +26,17 @@ Full provenance and what's on screen: [recordings index](demos/RECORDINGS.md).
 
 | Recording | Length | Size | Follows the script |
 |---|---|---|---|
-| [`technical.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/technical.mp4) | 8 min | 7.5 MB | [The technical walkthrough](demos/DEMO-WALKTHROUGH-TECHNICAL.md) — identity, agent isolation, connector governance, audit, Azure footprint |
-| [`runbook-technical.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook-technical.mp4) | 6 min | 5.5 MB | [The technical runbook](demos/DEMO-RUNBOOK-TECHNICAL.md) — names REST routes and env vars |
-| [`technical-lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/technical-lightning.mp4) | 3 min | 2.7 MB | [The technical lightning cut](demos/DEMO-LIGHTNING-TECHNICAL.md) — six beats |
+| [`technical.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/technical.mp4) | 9 min | 8.3 MB | [The technical walkthrough](demos/DEMO-WALKTHROUGH-TECHNICAL.md) — identity, agentic workflows, connector governance and Work IQ, audit, Azure footprint |
+| [`runbook-technical.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook-technical.mp4) | 7 min | 6.4 MB | [The technical runbook](demos/DEMO-RUNBOOK-TECHNICAL.md) — names REST routes and env vars |
+| [`technical-lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/technical-lightning.mp4) | 3 min | 3.2 MB | [The technical lightning cut](demos/DEMO-LIGHTNING-TECHNICAL.md) — six beats |
 
 ### Business audience — CEO, CFO, Managing Partner, Managing Director
 
 | Recording | Length | Size | Follows the script |
 |---|---|---|---|
-| [`business.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/business.mp4) | 5 min | 4.4 MB | [The business walkthrough](demos/DEMO-WALKTHROUGH-BUSINESS.md) — operating capacity, seven acts |
-| [`runbook-business.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook-business.mp4) | 5 min | 4.2 MB | [The business runbook](demos/DEMO-RUNBOOK-BUSINESS.md) — the delivery-team spine |
-| [`business-lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/business-lightning.mp4) | 2 min | 1.8 MB | [The business lightning cut](demos/DEMO-LIGHTNING-BUSINESS.md) — five beats |
+| [`business.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/business.mp4) | 5 min | 5.0 MB | [The business walkthrough](demos/DEMO-WALKTHROUGH-BUSINESS.md) — operating capacity, eight acts |
+| [`runbook-business.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook-business.mp4) | 5 min | 4.7 MB | [The business runbook](demos/DEMO-RUNBOOK-BUSINESS.md) — the delivery-team spine |
+| [`business-lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/business-lightning.mp4) | 2 min | 2.5 MB | [The business lightning cut](demos/DEMO-LIGHTNING-BUSINESS.md) — six beats |
 
 ## Drive it yourself — the interactive walkthrough
 
@@ -103,16 +103,16 @@ time.
 
 | Script | Length | Best for |
 |---|---|---|
-| [**The technical walkthrough**](demos/DEMO-WALKTHROUGH-TECHNICAL.md) | 15 min | An architecture or security review: identity, data sovereignty, connector governance, the audit trail, the Azure footprint. |
-| [**The technical runbook**](demos/DEMO-RUNBOOK-TECHNICAL.md) | 15 min (8 min safe fallback) | A delivery engineer presenting to IT/security; names REST routes, env vars and Bicep parameters. |
+| [**The technical walkthrough**](demos/DEMO-WALKTHROUGH-TECHNICAL.md) | 18 min | An architecture or security review: identity, data sovereignty, agentic workflows, connector governance and Work IQ, the audit trail, the Azure footprint. |
+| [**The technical runbook**](demos/DEMO-RUNBOOK-TECHNICAL.md) | 18 min (8 min safe fallback) | A delivery engineer presenting to IT/security; names REST routes, env vars and Bicep parameters. |
 | [**The technical lightning cut**](demos/DEMO-LIGHTNING-TECHNICAL.md) | 10 min (3 min at its shortest) | A short technical slot that still lands the security-boundary differentiator. |
 
 ### Business audience — CEO, CFO, Managing Partner, Managing Director
 
 | Script | Length | Best for |
 |---|---|---|
-| [**The business walkthrough**](demos/DEMO-WALKTHROUGH-BUSINESS.md) | 15 min | Firm leadership evaluating operating capacity — every claim names the manual task it removes, no invented percentages. |
-| [**The business runbook**](demos/DEMO-RUNBOOK-BUSINESS.md) | 15 min (8 min safe fallback) | A delivery team presenting to leadership; the same six mechanics, with feature/API references. |
+| [**The business walkthrough**](demos/DEMO-WALKTHROUGH-BUSINESS.md) | 15 min | Firm leadership evaluating operating capacity, productivity, deal flow and ease of use — every claim names the manual task it removes, no invented percentages. |
+| [**The business runbook**](demos/DEMO-RUNBOOK-BUSINESS.md) | 15 min (8 min safe fallback) | A delivery team presenting to leadership; the same mechanics, with feature/API references. |
 | [**The business lightning cut**](demos/DEMO-LIGHTNING-BUSINESS.md) | 10 min (3 min at its shortest) | A calendar-slot-sized cut for a CEO/CFO/Managing Partner. |
 
 ---
