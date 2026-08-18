@@ -4,6 +4,13 @@ Everything you need to show The Deal Room, or watch it shown, in one place: reco
 download and play right now, an interactive walkthrough you can drive yourself, and the scripts
 a presenter follows to run a live session.
 
+> 🛠️ **Building a new audience track, or improving an existing one?** Don't start from
+> scratch — [`.github/skills/demo-production/`](../.github/skills/demo-production/SKILL.md) is
+> a GitHub Copilot skill that packages the exact process (scene manifests, the capture →
+> narrate → build pipeline, the calibrated narration-style bar, and the markdown script
+> templates) used to build all three tracks below. Any teammate's Copilot session in this repo
+> can use it directly.
+
 ---
 
 ## Watch a recording
