@@ -42,6 +42,21 @@ export function Tag({ kind: _kind }: { kind: 'live' | 'ext' | 'new' }) {
   return null;
 }
 
+// A small, honest attribution for content that came from a real integration rather
+// than the platform's own record — shown only where that is actually true, and only
+// in demo mode (call sites gate on `demoMode`; this component does not, since it has
+// no way to know the caller's context). The label names the SYSTEM the content came
+// from, not "AI" — WorkIQ and M365 material is retrieved, not generated.
+const POWERED_BY_LABEL: Record<string, string> = {
+  workiq: 'Powered by WorkIQ',
+  m365: 'Powered by Teams & SharePoint',
+  web: 'Powered by live web search',
+  fabric: 'Powered by Microsoft Fabric',
+};
+export function PoweredBy({ source }: { source: keyof typeof POWERED_BY_LABEL | string }) {
+  return <span className="poweredby">{POWERED_BY_LABEL[source] || `Powered by ${source}`}</span>;
+}
+
 // A cited narrative. Citations are real buttons: they are a drill-down control,
 // so they have to be reachable by keyboard and announced as interactive.
 export function Narrative({

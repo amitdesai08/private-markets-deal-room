@@ -703,6 +703,7 @@ function summarize(deal) {
     thesis: d.thesis,
     readiness: d.readiness,
     daysToIC: d.daysToIC,
+    baselineDays: d.baselineDays,
     projectedDaysSaved: d.projectedDaysSaved,
     hoursSaved: d.hoursSaved,
     targetICDate: d.targetICDate,
@@ -2294,6 +2295,20 @@ export function getCohort(stage, identity, viewAsRole = null) {
       ? `Nothing is waiting at this step. All ${reached} candidate${reached === 1 ? ' that has' : 's that have'} reached it ${reached === 1 ? 'has' : 'have'} already been actioned and moved on — the count above is how many passed through, not how many are queued.`
       : 'No candidate has reached this step yet.';
   return { stage, fundName: fund.name, candidates: list, reached, emptyNote };
+}
+
+// How long the ACTIVE screening cohort has actually been sitting there — not a
+// target, a measurement. `sourcedAt` is set once, when a candidate first enters the
+// funnel, and never touched again, so "now minus sourcedAt" for everything still
+// active IS the real answer to "how long have these been in screening". Scoped the
+// same way the cohort itself is, so this can never quote a count the caller could
+// not otherwise see.
+export function avgActiveScreeningDays(identity, viewAsRole = null) {
+  const active = scopeCandidates(identity, viewAsRole)(candidates.filter((c) => c.disposition === 'active' && c.sourcedAt));
+  if (!active.length) return null;
+  const now = Date.now();
+  const totalDays = active.reduce((s, c) => s + (now - new Date(c.sourcedAt).getTime()) / 86400000, 0);
+  return { avgDays: Math.round(totalDays / active.length), count: active.length };
 }
 
 // Only O2 (Auto Screen) and O3 (Triage) run a per-candidate assessment agent.

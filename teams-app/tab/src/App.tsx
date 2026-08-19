@@ -792,6 +792,8 @@ button { color: inherit; }
 .aicard { border-color: var(--ai-br); }
 .aicard > .hd { background: var(--ai-bg); }
 .aibadge { font-size: 10.5px; font-weight: 700; padding: 1.5px 7px; border-radius: 999px; color: var(--ai); background: var(--ai-bg); border: 1px solid var(--ai-br); white-space: nowrap; }
+/* Distinct from .aibadge on purpose — this names a real integration, not an AI claim. */
+.poweredby { font-size: 10.5px; font-weight: 700; padding: 1.5px 8px; border-radius: 999px; color: var(--accent); background: var(--chip); border: 1px solid var(--accent); white-space: nowrap; }
 .narr { font-size: 13.5px; line-height: 1.65; }
 .narr p { margin: 0 0 9px; }
 .narr b { font-weight: 650; }
@@ -1075,6 +1077,20 @@ details[open] > summary:before { content: "\\25BE "; }
 .fcount { font-size: 20px; font-weight: 700; }
 .flabel { font-size: 12px; }
 .fkey { color: var(--muted); font-size: 11px; }
+/* --- deal lifecycle bar: how long the process actually takes, not where the money sits --- */
+.lifecycle { padding: 4px 16px 16px; }
+.lc-bar { display: flex; gap: 3px; height: 34px; margin: 10px 0 6px; border-radius: 8px; overflow: hidden; }
+.lc-seg { display: flex; align-items: center; justify-content: center; min-width: 36px; color: var(--accent-fg); font-size: 12px; font-weight: 700; }
+.lc-seg.lc-good { background: var(--good); }
+.lc-seg.lc-warn { background: var(--warn); }
+.lc-seg.lc-bad { background: var(--bad); }
+.lc-days { white-space: nowrap; }
+.lc-labels { display: flex; gap: 3px; }
+.lc-label { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); min-width: 0; }
+.lc-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.lc-dot.lc-good { background: var(--good); }
+.lc-dot.lc-warn { background: var(--warn); }
+.lc-dot.lc-bad { background: var(--bad); }
 .empty-panel { padding: 20px 16px; color: var(--muted); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .linkbtn { border: none; background: none; color: var(--accent); cursor: pointer; font: inherit; font-weight: 600; padding: 0; }
 .deals { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; padding: 14px 16px; }

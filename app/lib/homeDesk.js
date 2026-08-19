@@ -85,6 +85,42 @@ const PHASES = [
 ];
 const phaseOf = (d) => PHASES.find((p) => p.re.test(`${d.stage || ''} ${d.stageName || ''}`)) || null;
 
+// How long the pipeline actually takes to move, not a snapshot of where it sits.
+// Every number here comes from a field the record already carries for another
+// reason — nothing is invented to build this bar:
+//   screening   — passed in from the active origination cohort's real `sourcedAt`
+//                 (see store.js avgActiveScreeningDays); this file never sees
+//                 candidates directly.
+//   diligence   — `baselineDays` is the same 45-day planning figure agents.js
+//                 already quotes ("9 days ahead of the 45-day baseline"); days
+//                 elapsed toward it is baselineDays - daysToIC, for deals still
+//                 pre-IC.
+//   execution   — `daysToIC` runs negative once the target IC date has passed, so
+//                 for a deal already past it, -daysToIC IS days since IC — the
+//                 same field, just read as elapsed instead of remaining.
+// Targets are internal planning benchmarks (labelled as such in the UI), the same
+// role ATTENTION_PREVIEW or SCREENING_TARGET_DAYS play elsewhere in this codebase —
+// not a claim about what the data itself proves.
+const SCREENING_TARGET_DAYS = 14;
+const EXECUTION_TARGET_DAYS = 30;
+function buildLifecycle(deals, avgScreeningDays) {
+  const preIC = deals.filter((d) => typeof d.daysToIC === 'number' && d.daysToIC >= 0 && typeof d.baselineDays === 'number');
+  const diligenceDays = preIC.length
+    ? Math.round(preIC.reduce((s, d) => s + Math.max(0, d.baselineDays - d.daysToIC), 0) / preIC.length)
+    : null;
+  const postIC = deals.filter((d) => typeof d.daysToIC === 'number' && d.daysToIC < 0
+    && !/owned|exit|value/i.test(`${d.status || ''} ${d.stage || ''} ${d.stageName || ''}`));
+  const executionDays = postIC.length
+    ? Math.round(postIC.reduce((s, d) => s - d.daysToIC, 0) / postIC.length)
+    : null;
+  const stages = [
+    { key: 'screening', label: 'Screening', days: avgScreeningDays?.avgDays ?? null, target: SCREENING_TARGET_DAYS, count: avgScreeningDays?.count ?? 0 },
+    { key: 'diligence', label: 'Diligence to IC', days: diligenceDays, target: 45, count: preIC.length },
+    { key: 'execution', label: 'IC to close', days: executionDays, target: EXECUTION_TARGET_DAYS, count: postIC.length },
+  ].filter((s) => s.days != null && s.count > 0);
+  return stages.length ? { stages } : null;
+}
+
 // Ranked on the IC readiness VERDICT (lib/icReadiness.js), not on deal.readiness — that
 // field is a hand-entered percentage and would make the top of the queue sortable by
 // whoever was most optimistic with a slider. The verdict instead derives from facts that
@@ -568,7 +604,7 @@ function portfolioCommitments(deals, rawFor, limit = 6, laneLabels = []) {
 // `rawFor` resolves a list summary back to its full deal record, which the Work IQ
 // corpus needs (workstream leads and sponsors are stripped from summaries). It defaults to
 // the identity function so the builder stays testable with plain objects.
-export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatLabel = null, persona = null, demoMode = false, rawFor = (d) => d } = {}) {
+export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatLabel = null, persona = null, demoMode = false, rawFor = (d) => d, avgScreeningDays = null } = {}) {
   // One rotating index across the whole attention queue, so no two rows open the same way.
   const headFrames = { next: 0 };
   const list = Array.isArray(deals) ? deals.filter(Boolean) : [];
@@ -1089,6 +1125,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
   }).filter((p) => p.count > 0);
 
   const workiq = portfolioCommitments(list, rawFor, 6, seat.laneLabels);
+  const lifecycle = buildLifecycle(list, avgScreeningDays);
 
   // ---- what this seat owns, counted ----------------------------------------
   // Only meaningful for a lane seat; computed once and reused by the tiles and the
@@ -1572,6 +1609,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
     phases,
     workiq,
     kpis,
+    lifecycle,
     counts: { deals: list.length, attention: attention.length, notReady, conditional, openObligations, icReady, commitments: workiq.total, laneOpen, laneNotStarted, laneBlocking, laneDueBeforeIC },
   };
 }

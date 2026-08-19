@@ -16,7 +16,7 @@
 // one can be turned off, and the choice is kept per persona. See dashLayout.ts.
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
-import { Narrative, SourceList, Tag, clock, STATUS_TEXT, isPostIC, readinessText, type Para } from './deskUi';
+import { Narrative, SourceList, Tag, PoweredBy, clock, STATUS_TEXT, isPostIC, readinessText, type Para } from './deskUi';
 import { DASH_MODULES, readHidden, writeHidden, rememberWho, type ModuleKey } from './dashLayout';
 import { CMP_ROWS } from './CompareDeals';
 import type { Pipeline, Deal, MarketIntel, BackendConfig } from './types';
@@ -46,6 +46,7 @@ type HomeDesk = {
   phases: { key: string; label: string; count: number; capital: number }[];
   workiq: { total: number; deals: number; yours?: number; items: HomeCommitment[]; all?: HomeCommitment[] };
   kpis: { key: string; label: string; value: string; sub: string }[];
+  lifecycle?: { stages: { key: string; label: string; days: number; target: number; count: number }[] } | null;
   counts: { deals: number; attention: number; icReady: number; commitments: number };
 };
 
@@ -456,6 +457,7 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
             this. It is the thing you read each morning, so name it after that. */}
         <h3>Daily briefing</h3>
               <Tag kind="new" />
+              {demoMode ? <PoweredBy source="workiq" /> : null}
               <span className="spacer" />
               {/* A partner reads this before a 7am call in a car. She asked to send it
                   to herself and there was no way to get a single word of it off the
@@ -642,6 +644,7 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
                 <span className="aibadge">▤ Composed</span>
                 <h3>Untracked follow-ups</h3>
                 <Tag kind="new" />
+                {demoMode ? <PoweredBy source="m365" /> : null}
                 <span className="spacer" />
                 <span className="chip">{home.workiq.total} across {home.workiq.deals} deal{home.workiq.deals === 1 ? '' : 's'}</span>
                 {home.workiq.yours ? <span className="chip warn">{home.workiq.yours} yours</span> : null}
@@ -781,6 +784,35 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
             </div>
           ))}
         </div>
+        {/* The tiles above answer "where does the money sit". This answers the other
+            question a partner actually asks: is the process itself fast or slow? Every
+            number is measured from what is currently active — not a target dressed up
+            as an outcome. */}
+        {home?.lifecycle?.stages?.length ? (() => {
+          const stages = home.lifecycle!.stages;
+          const totalDays = stages.reduce((s, st) => s + st.days, 0) || 1;
+          const toneOf = (days: number, target: number) => (days <= target ? 'good' : days <= target * 1.3 ? 'warn' : 'bad');
+          return (
+            <div className="lifecycle">
+              <div className="panel-h" style={{ padding: '14px 16px 0' }}><span>Deal lifecycle</span><span className="muted">Average time currently spent at each stage</span></div>
+              <div className="lc-bar">
+                {stages.map((st) => (
+                  <div key={st.key} className={`lc-seg lc-${toneOf(st.days, st.target)}`} style={{ flex: st.days / totalDays }} title={`${st.label}: ${st.days}d average (target ${st.target}d), ${st.count} deal${st.count === 1 ? '' : 's'}`}>
+                    <span className="lc-days">{st.days}d</span>
+                  </div>
+                ))}
+              </div>
+              <div className="lc-labels">
+                {stages.map((st) => (
+                  <div key={st.key} className="lc-label" style={{ flex: st.days / totalDays }}>
+                    <span className={`lc-dot lc-${toneOf(st.days, st.target)}`} />
+                    {st.label} · {st.count} deal{st.count === 1 ? '' : 's'} · target {st.target}d
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })() : null}
       </section>
       ) : null}
 

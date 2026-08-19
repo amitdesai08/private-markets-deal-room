@@ -58,6 +58,7 @@ import {
   getPipelineFunnel,
   getStage1Funnel,
   getCohort,
+  avgActiveScreeningDays,
   getPipeline,
   canonicalCompanies,
   canonicalCompany,
@@ -718,6 +719,7 @@ api.get('/home-desk', (req, res) => {
       || (demoModeActive() && ALL_PERSONA_IDS.includes(access?.role) ? access.role : null),
     demoMode: demoModeActive(),
     rawFor: (d) => getDealRaw(d.id),
+    avgScreeningDays: avgActiveScreeningDays(identity, viewAs),
   }));
 });
 // Portfolio counters, scoped to the caller. These are the numbers that head the
