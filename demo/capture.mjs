@@ -4,6 +4,12 @@
 //   node demo/capture.mjs 13 14      only those scene indexes
 //   DEMO_HEADED=1 node demo/capture.mjs   watch it happen
 //
+// Also captures an EXTERNAL target — a resource the user built themselves (a Foundry
+// deployment, an ADF pipeline, any other Azure UI), when the manifest exports a `TARGET`
+// with `kind: 'external'`. See ../.github/skills/demo-production/references/scene-schema.md
+// for the manifest shape; the short version: no seat, no demo-mode auth — a human signs in
+// once in the opened browser and this reuses that session on later runs.
+//
 // Output: demo/build/shots/<id>.png and demo/build/scenes.json.
 
 import { mkdir, writeFile, rm, readFile } from 'node:fs/promises';
@@ -11,6 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launch } from './lib/cdp.mjs';
 import { tabToken } from './lib/token.mjs';
+import { waitForEnter } from './lib/prompt.mjs';
 
 const arg = (flag, fallback) => {
   const i = process.argv.indexOf(flag);
@@ -20,7 +27,11 @@ const arg = (flag, fallback) => {
 // The runbook visits screens the walkthrough never does, and keeps them in its own manifest.
 const SCENES_MODULE = arg('--scenes', 'scenes.mjs');
 const MANIFEST = arg('--manifest', 'scenes.json');
-const { BASE, SCENES, ACTS } = await import(`./${SCENES_MODULE}`);
+const { BASE, SCENES, ACTS, TARGET = { kind: 'dealroom' } } = await import(`./${SCENES_MODULE}`);
+// Every existing manifest omits TARGET, so this is 'dealroom' for all of them — nothing
+// below changes their behavior. Only a manifest that explicitly opts in with
+// `export const TARGET = { kind: 'external', ... }` takes the external code paths.
+const EXTERNAL = TARGET.kind === 'external';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'build');
@@ -110,14 +121,29 @@ async function settle(s) {
   await sleep(500);
 }
 
+// These steps assume the Deal Room's own demo-mode URL scheme, seat switcher, deal list and
+// "viewing as" banner — none of which exist on an external target's own UI. Thrown early and
+// clearly, the same way an unknown verb is, rather than silently doing nothing useful.
+const DEALROOM_ONLY_STEPS = new Set(['selectSeat', 'openDeal', 'dismissBanner', 'gotoConfidential', 'closeOverlay']);
+
 async function runStep(s, step, state) {
   const [verb, arg] = Object.entries(step)[0];
+  if (EXTERNAL && DEALROOM_ONLY_STEPS.has(verb)) {
+    throw new Error(`'${verb}' is Deal Room-only and not available when TARGET.kind is 'external' — use goto/wait/waitText/scrollTo/scrollTop/clickText/click instead`);
+  }
 
   switch (verb) {
     case 'goto':
-      await s.navigate(`${BASE}/?dr_as=${state.seat}${arg}`);
-      await inject(s);
-      await s.waitFor(`!document.body.innerText.includes('Loading your deals')`, { timeout: 90000, label: 'app load' });
+      if (EXTERNAL) {
+        // An absolute URL is used as-is; anything else is a path against TARGET.baseUrl —
+        // there is no demo-mode seat query param to add, because there is no demo mode.
+        await s.navigate(/^https?:\/\//.test(arg) ? arg : `${TARGET.baseUrl}${arg}`);
+        await inject(s);
+      } else {
+        await s.navigate(`${BASE}/?dr_as=${state.seat}${arg}`);
+        await inject(s);
+        await s.waitFor(`!document.body.innerText.includes('Loading your deals')`, { timeout: 90000, label: 'app load' });
+      }
       break;
 
     case 'wait':
@@ -262,39 +288,64 @@ async function main() {
   }
   await mkdir(SHOTS, { recursive: true });
 
+  // External captures need a real, human sign-in — headless can never complete that, and
+  // there is no demo-mode token to fall back on. A fresh profile every run would also mean
+  // signing in again every run, so this one persists (git-ignored, never the app's own data).
+  if (EXTERNAL && !process.env.DEMO_HEADED) {
+    throw new Error("external captures require DEMO_HEADED=1 — headless can't complete a real sign-in. Re-run with DEMO_HEADED=1 set.");
+  }
+  const profileDir = EXTERNAL
+    ? (TARGET.profileDir || path.join(HERE, '.external-profile', (TARGET.baseUrl || SCENES_MODULE).replace(/[^a-z0-9]+/gi, '-')))
+    : null;
+
   const s = await launch({
     width: WIDTH, height: HEIGHT, scale: SCALE,
     headless: !process.env.DEMO_HEADED,
+    userDataDir: profileDir,
   });
 
-  // The tab refuses anonymous callers, so prove an identity before driving it. Without a
-  // token the seat headers are ignored and every scene captures the signed-out state.
-  const token = await tabToken();
-  if (token) {
-    await s.setHeaders({ Authorization: `Bearer ${token}` });
-    console.log('  authenticated as the demo automation service principal');
-  } else {
-    console.log('  WARNING: no token — continuing unauthenticated, which needs DEMO_OPEN_SIGN_IN');
+  if (!EXTERNAL) {
+    // The tab refuses anonymous callers, so prove an identity before driving it. Without a
+    // token the seat headers are ignored and every scene captures the signed-out state.
+    const token = await tabToken();
+    if (token) {
+      await s.setHeaders({ Authorization: `Bearer ${token}` });
+      console.log('  authenticated as the demo automation service principal');
+    } else {
+      console.log('  WARNING: no token — continuing unauthenticated, which needs DEMO_OPEN_SIGN_IN');
+    }
   }
 
   const state = { seat: 'partner', lastDealUrl: null, lastClick: null };
   const manifest = [];
 
   try {
-    // Prime the session once so the first scene is not paying for a cold start.
-    await s.navigate(`${BASE}/?dr_as=partner#/overview`);
-    await inject(s);
-    await s.waitFor(`document.body.innerText.includes('Daily briefing')`, { timeout: 120000, label: 'first load' });
+    if (EXTERNAL) {
+      // First run in a fresh profile: the human signs in themselves (see
+      // external-resource-access.md — this is the interactive-credential path, never
+      // scripted). A later run against the same profileDir usually finds the session
+      // still valid and this becomes a formality — still worth the pause, since a silently
+      // expired session would otherwise capture a sign-in page as if it were the product.
+      if (TARGET.baseUrl) await s.navigate(TARGET.baseUrl);
+      if (TARGET.skipSignInPause !== true) {
+        await waitForEnter(`Sign in to ${TARGET.baseUrl || 'the target'} in the browser window that just opened.`);
+      }
+    } else {
+      // Prime the session once so the first scene is not paying for a cold start.
+      await s.navigate(`${BASE}/?dr_as=partner#/overview`);
+      await inject(s);
+      await s.waitFor(`document.body.innerText.includes('Daily briefing')`, { timeout: 120000, label: 'first load' });
+    }
 
     for (const [i, scene] of list.entries()) {
       const label = `${String(i + 1).padStart(2, '0')}/${list.length} ${scene.id}`;
       try {
-        if (scene.seat && scene.seat !== state.seat) {
+        if (!EXTERNAL && scene.seat && scene.seat !== state.seat) {
           await runStep(s, { selectSeat: scene.seat }, state);
         }
         await inject(s);
         for (const step of scene.steps || []) await runStep(s, step, state);
-        if (!scene.keepBanner) await runStep(s, { dismissBanner: true }, state);
+        if (!EXTERNAL && !scene.keepBanner) await runStep(s, { dismissBanner: true }, state);
         await inject(s);
         await settle(s);
 
@@ -331,7 +382,7 @@ async function main() {
     path.join(OUT, MANIFEST),
     JSON.stringify({
       capturedAt: new Date().toISOString(),
-      base: BASE,
+      base: EXTERNAL ? TARGET.baseUrl : BASE,
       viewport: { width: WIDTH, height: HEIGHT, scale: SCALE },
       acts: ACTS,
       // Keep the canonical scene order however few of them this run touched.

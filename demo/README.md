@@ -105,6 +105,30 @@ Point it somewhere else with `DEMO_BASE_URL`, including a local
 | `DEMO_RATE` | `-6%` | Narration pace. |
 | `SPEECH_KEY` / `SPEECH_REGION` | read from Azure | Skip the CLI lookup. |
 
+## Capturing something else — a resource you built, not this app
+
+`capture.mjs` can drive any URL, not just this product, when a manifest exports a `TARGET`:
+
+```js
+export const TARGET = { kind: 'external', baseUrl: 'https://ai.azure.com/build/overview?wsid=...' };
+```
+
+```powershell
+DEMO_HEADED=1 node demo/capture.mjs --scenes scenes-my-thing.mjs --manifest scenes-my-thing.json
+node demo/narrate.mjs      --manifest scenes-my-thing.json
+node demo/build-player.mjs --manifest scenes-my-thing.json --out my-thing.html
+```
+
+Headless is refused for an external target — there is no demo mode to sign in for you, so the
+first run pauses for you to sign in in the browser window that opens, then reuses that session
+from `demo/.external-profile/` (git-ignored) on later runs. Only the generic steps work —
+`goto`, `wait`, `waitText`, `scrollTo`, `scrollTop`, `clickText`, `click` — the Deal Room-only
+ones (`selectSeat`, `openDeal`, `dismissBanner`, `gotoConfidential`, `closeOverlay`) throw
+immediately if used, since there's no seat switcher or demo banner on someone else's product.
+See [`scenes-external-example.mjs`](scenes-external-example.mjs) for a starting template, and
+[the demo-production skill's external-resource-access guide](../.github/skills/demo-production/references/external-resource-access.md)
+for deciding *whose* credential should be signed in before you start.
+
 ## Running it as a service principal
 
 `narrate.mjs` asks the Azure CLI for a token, so it works as whoever is signed in. For

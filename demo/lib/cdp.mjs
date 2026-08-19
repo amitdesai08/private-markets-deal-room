@@ -5,7 +5,7 @@
 // target list, and the built-in WebSocket to speak CDP. That is the whole dependency list.
 
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -112,9 +112,14 @@ export class Session {
   }
 }
 
-export async function launch({ width = 1440, height = 900, scale = 2, headless = true } = {}) {
+export async function launch({ width = 1440, height = 900, scale = 2, headless = true, userDataDir = null } = {}) {
   const exe = process.env.DEMO_BROWSER || await findBrowser();
-  const profile = await mkdtemp(path.join(tmpdir(), 'dealroom-demo-'));
+  // A caller-supplied profile is how an external capture keeps a real sign-in session
+  // between runs — it is never deleted on close. The default temp profile (every existing
+  // Deal Room manifest) is unchanged: fresh every run, always cleaned up.
+  const persistent = !!userDataDir;
+  const profile = persistent ? userDataDir : await mkdtemp(path.join(tmpdir(), 'dealroom-demo-'));
+  if (persistent) await mkdir(profile, { recursive: true });
   const port = 9000 + Math.floor(Math.random() * 900);
 
   const args = [
@@ -166,7 +171,8 @@ export async function launch({ width = 1440, height = 900, scale = 2, headless =
     try { ws.close(); } catch { /* already gone */ }
     try { proc.kill(); } catch { /* already gone */ }
     await sleep(400);
-    await rm(profile, { recursive: true, force: true }).catch(() => {});
+    // A persistent profile carries the signed-in session forward to the next run.
+    if (!persistent) await rm(profile, { recursive: true, force: true }).catch(() => {});
   };
   return s;
 }
