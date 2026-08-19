@@ -7,6 +7,10 @@ dist/
 build/
 **/dist/
 
+# Persistent browser profile for external-target demo captures — carries a real signed-in
+# session (cookies/tokens), never the app's own demo data. Never commit this.
+demo/.external-profile/
+
 # Logs
 *.log
 npm-debug.log*

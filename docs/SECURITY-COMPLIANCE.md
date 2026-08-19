@@ -53,6 +53,22 @@ warrant fitness for any specific regulatory regime.
 - **Bootstrap admin:** a day-0 administrator is set at deploy time, so first-run setup has a
   guaranteed admin who then assigns everyone else.
 
+> **Scope of this claim:** the above describes the deployed product's own runtime path. This
+> repository separately ships an *optional, developer-invoked* demo-production tool
+> (`scripts/setup-demo-access.ps1`) that can create a short-lived, least-privilege service
+> principal — scoped to one resource a developer names, and only ever after that developer
+> explicitly approves the exact plan — for capturing a demo of an Azure resource built outside
+> this product (a Foundry deployment, an ADF pipeline, and similar). It is never invoked by the
+> running application, never runs unattended, and any credential it creates is written to a
+> git-ignored local file — it never reaches the deployed product's auth path or this
+> repository's tracked contents. The same script, and the decision procedure behind it, are
+> also part of the canonical, standalone
+> [`amitdesai08/demo-production-skill`](https://github.com/amitdesai08/demo-production-skill)
+> repo that this repo's copy of the demo-production skill is installed from, so the identical
+> scoping and approval rules apply when the skill is used outside this repository too. See
+> [external-resource-access.md](../.github/skills/demo-production/references/external-resource-access.md)
+> for the full procedure.
+
 ## 3. Data sovereignty — agent isolation
 
 The AI agents are split into two hard classes with a boundary enforced **server-side**, at

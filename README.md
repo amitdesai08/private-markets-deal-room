@@ -229,7 +229,11 @@ act structure, narration and the capture pipeline — is packaged as a **[GitHub
 skill](.github/skills/demo-production/SKILL.md)**, so any teammate's Copilot session in this repo
 can build one. Ask it for just the **story** first — an AI-generated demo narrative, a reviewable
 script grounded in real features rather than an invented pitch — before committing to a full
-recording.
+recording. The skill is fully portable and product-agnostic — its canonical source is a
+separate, standalone repo, **[`amitdesai08/demo-production-skill`](https://github.com/amitdesai08/demo-production-skill)**,
+which ships its own installer and generic reference implementation so it can build a full demo
+(click-through, narrated video, written talk track) of whatever you're working on in any other
+Copilot session too, not just this repo.
 
 > 🎬 **[Open the Demo Center →](docs/DEMO-CENTER.md)** · 🔐 [Access model](docs/ACCESS-MODEL.md)
 

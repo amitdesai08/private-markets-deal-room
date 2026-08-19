@@ -1,28 +1,33 @@
-# Demoing a resource you built yourself — access, not just capture
+# Deciding access — whose credential captures the demo
 
-The pipeline in this skill was built to demo **The Deal Room itself**, and that case needs no
-external credential: `demo mode` + demo profiles remove the need for real Entra sign-in, and
-every scene drives the app's own Playwright-scriptable UI. That assumption breaks the moment
-the demo is of something else the user built — a Foundry agent or model deployment, an Azure
-Data Factory pipeline, an AKS workload, a Logic App, anything else that lives in the user's own
-Azure subscription. That resource is gated by real RBAC, the skill has no standing access to it,
-and capturing it (screenshots, a Foundry playground run, a pipeline trigger, a monitoring view)
-means **doing something against a real Azure resource under some identity** — so decide whose,
-deliberately, before scripting anything.
+Capturing a real, gated product or resource means **doing something against it under some
+identity** — there is no scripted-login shortcut, and this skill has no standing access to
+anything by default. So before writing a single capture step, decide **whose** credential the
+capture will use, deliberately, rather than letting it default to whatever happens to be signed
+in.
 
 **All three mechanical steps below — verify, plan, create — are one script,
-[`scripts/setup-demo-access.ps1`](../../../../scripts/setup-demo-access.ps1); nothing in this
-file needs to be typed out by hand as a one-off `az` command.** The decisions (which resource,
-interactive vs. SPN, which role) are still yours to make and, where noted, the user's to
-approve — the script only performs the Azure calls once a decision is made.
+[`reference-implementation/setup-demo-access.ps1`](../reference-implementation/setup-demo-access.ps1);
+nothing in this file needs to be typed out by hand as a one-off `az` command.** The decisions
+(which resource, interactive vs. SPN, which role) are still yours to make and, where noted, the
+user's to approve — the script only performs the Azure calls once a decision is made. (This
+script is Azure-specific; if the subject lives on a different cloud or has no cloud resource at
+all, the same decision procedure still applies — just perform the verify/plan/create steps with
+that platform's own CLI/API instead.)
 
-## Recognise when this applies
+**This file is about access — who's allowed to look.** Once that's settled, the actual
+click-through/narrated-video capture is a separate concern, covered in
+[`scene-schema.md`](scene-schema.md) and [`../reference-implementation/CONFIGURE.md`](../reference-implementation/CONFIGURE.md):
+`capture.mjs` drives any URL your `scenes.mjs` names, using the interactive session you just
+verified (or signed into) here — it never touches the SPN path below at all, since a real
+browser click-through needs a human's own signed-in session, not an API credential.
 
-If the audience track's subject is **the product this repo builds** (The Deal Room), this file
-does not apply — carry on with [`new-track-guide.md`](new-track-guide.md) as normal. If the ask
-is instead "demo my Foundry deployment", "record a walkthrough of our ADF pipeline", "show off
-the [thing] I built in Azure" — anything whose capture requires reaching a **resource the user
-owns outside this repo** — stop before writing a single capture step and work out access first.
+## When this applies
+
+Always, unless the subject has its own built-in, credential-free demo mode (a product you
+control that ships a demo/sandbox mode is the one real exception). For anything else — your own
+app behind real sign-in, a Foundry deployment, an ADF pipeline, any other gated resource — stop
+before writing a single capture step and work out access first.
 
 ## Decision procedure — work through this in order, don't leave it to judgment mid-task
 
@@ -49,7 +54,7 @@ add later if it turns out to be needed. Never default to creating an SPN "to be 
 **3. Interactive path → verify, then proceed without further prompting.**
 Run:
 ```powershell
-./scripts/setup-demo-access.ps1 -Verify -ResourceId <the resource ID from step 1>
+reference-implementation/setup-demo-access.ps1 -Verify -ResourceId <the resource ID from step 1>
 ```
 If it reports success, continue — no need to ask permission to *look at* a resource the user
 just asked you to demo. If it fails (wrong tenant, no role assignment, resource not visible from
@@ -60,12 +65,12 @@ blindly or prompt for a password/secret.
 Creating an identity and assigning it a role is a real, mutating change to the user's tenant —
 treat it the same as any other action that touches shared infrastructure:
    a. Pick the least-privilege role **yourself** — don't ask the user to know Azure RBAC. Use
-      the azure-rbac skill if this workspace has it; otherwise use the starting points in
+      an RBAC-guidance skill if this workspace has one; otherwise use the starting points in
       [the role table below](#a-least-privilege-starting-point-when-no-rbac-skill-is-available)
       for the resource type, and state which role and why.
    b. Run the script in plan mode and show its output verbatim — don't paraphrase it:
       ```powershell
-      ./scripts/setup-demo-access.ps1 -Plan -ResourceId <resource ID> -Role "<role from 4a>"
+      reference-implementation/setup-demo-access.ps1 -Plan -ResourceId <resource ID> -Role "<role from 4a>"
       ```
       This prints the exact SPN name, role and scope without creating anything.
    c. **Ask for explicit confirmation of that plan.** This is the one step in this whole
@@ -73,12 +78,12 @@ treat it the same as any other action that touches shared infrastructure:
    d. Once approved, re-run the **identical command** with `-CreateSpn` in place of `-Plan` —
       same `-ResourceId` and `-Role`, so what gets created matches exactly what was approved:
       ```powershell
-      ./scripts/setup-demo-access.ps1 -CreateSpn -ResourceId <resource ID> -Role "<same role>"
+      reference-implementation/setup-demo-access.ps1 -CreateSpn -ResourceId <resource ID> -Role "<same role>"
       ```
       The script writes the credential straight to a git-ignored `.env.spn-demo-*` file (never
       to the console, never into any file this skill's pipeline reads narration or manifests
-      from) and prints only the file path. Do not go around the script and print, log or
-      relay the secret value yourself.
+      from) and prints only the file path. Do not go around the script and print, log or relay
+      the secret value yourself.
 
 **5. Either path → record it in the disclaimer.**
 No prompting needed here — just do it, per "Say so in the demo itself" below.
@@ -110,55 +115,54 @@ the right default when:
 - nothing needs to run unattended or be handed to somebody else.
 
 **Verify before you script anything.** Don't assume standing access — run
-`./scripts/setup-demo-access.ps1 -Verify -ResourceId <resource ID>` and confirm it reports the
-resource you intend to capture. If that check fails — wrong tenant, no role assignment,
-resource in a subscription the current session can't see — **stop and ask** which account or
-subscription to use rather than guessing, retrying blindly, or (never) prompting for a password
-or secret.
+`reference-implementation/setup-demo-access.ps1 -Verify -ResourceId <resource ID>` and confirm
+it reports the resource you intend to capture. If that check fails — wrong tenant, no role
+assignment, resource in a subscription the current session can't see — **stop and ask** which
+account or subscription to use rather than guessing, retrying blindly, or (never) prompting for
+a password or secret.
 
 ### 2. A scoped, least-privilege service principal — the repeatable path
 
 Provision a dedicated SPN when the capture needs to run **unattended** (a schedule, a CI
 pipeline), needs to be **handed to someone else** (a teammate, a demo-refresh job) without
-sharing the user's own credentials, or will be **re-run often enough** that interactive
-re-auth every time is a real workflow cost.
+sharing the user's own credentials, or will be **re-run often enough** that interactive re-auth
+every time is a real workflow cost.
 
 - **Pick the narrowest built-in role, scoped to the resource, not the resource group or
-  subscription.** If this workspace has the **azure-rbac** skill (or equivalent least-privilege
-  guidance) available, use it to choose the role — that is exactly the job it exists for. As a
-  concrete starting point: a Foundry project/deployment typically needs a project-scoped
-  **Azure AI Developer** or **Cognitive Services User** role, never subscription-level
-  **Contributor**; an ADF pipeline typically needs **Data Factory Contributor** (to trigger
-  runs) or a read-only monitoring role (to only capture run history), scoped to that one Data
-  Factory resource. Confirm the actual minimal role against the resource's own RBAC
-  documentation rather than assuming one of these examples is exactly right for your case.
+  subscription.** If this workspace has RBAC-guidance tooling available, use it to choose the
+  role — that is exactly the job it exists for. As a concrete starting point: a Foundry
+  project/deployment typically needs a project-scoped **Azure AI Developer** or **Cognitive
+  Services User** role, never subscription-level **Contributor**; an ADF pipeline typically
+  needs **Data Factory Contributor** (to trigger runs) or a read-only monitoring role (to only
+  capture run history), scoped to that one Data Factory resource. Confirm the actual minimal
+  role against the resource's own RBAC documentation rather than assuming one of these examples
+  is exactly right for your case.
 - **Prefer workload identity federation over a client secret.** `setup-demo-access.ps1` always
   creates a client-secret SPN — it is the fallback that works everywhere without extra setup.
   If the capture runs somewhere that supports federated credentials instead (GitHub Actions, a
   managed-identity-capable host), prefer that and skip the script's secret path entirely; the
   script says so in its own output as a reminder, since federation setup is specific to where
   the capture runs and isn't something one script can generalize.
-- **Never let the secret touch this repo.** The script already enforces this — it writes the
-  credential straight to a git-ignored `.env.spn-demo-*` file (matching the `.env.*` pattern
-  this repo already ignores everywhere else) and never prints it to the console. Don't go
-  around that: never copy the secret into a scene manifest, a narrative doc, a commit, or a
-  chat message yourself.
+- **Never let the secret touch anywhere it could be committed.** The script already enforces
+  this — it writes the credential straight to a git-ignored `.env.spn-demo-*` file and never
+  prints it to the console. Don't go around that: never copy the secret into a scene manifest, a
+  narrative doc, a commit, or a chat message yourself.
 - **Name, tag and record it.** The script already names the SPN as a demo-capture identity
   (`spn-demo-<resource>-capture`) and tags it (`demo-capture`, `managed-by:demo-production-skill`)
   so it never reads as an unexplained SPN later — the remaining step is yours: note its
   existence — what it can reach, who created it, and when — in the track's narrative or runbook
   disclaimer (see below). An SPN nobody remembers creating is a standing security liability, not
   a convenience; plan for its removal or credential rotation when the track is retired or
-  refreshed, the same way you'd plan to
-  revoke any other access grant that's outlived its purpose.
+  refreshed, the same way you'd plan to revoke any other access grant that's outlived its
+  purpose.
 
 ## Say so in the demo itself
 
-The existing walkthrough docs already open with a spoken "before you start" disclaimer (which
-seat to sign in as, what to say out loud). A track that demos an external resource extends that
-same disclaimer with **whose credential the capture depends on** — the presenter's own signed-in
-session, or a named demo SPN — so whoever delivers the demo later knows what it depends on and
-isn't surprised by an expired secret or a revoked role assignment mid-session.
+The existing walkthrough docs should already open with a spoken "before you start" disclaimer
+(which seat to sign in as, what to say out loud). A track that demos an external resource
+extends that same disclaimer with **whose credential the capture depends on** — the presenter's
+own signed-in session, or a named demo SPN — so whoever delivers the demo later knows what it
+depends on and isn't surprised by an expired secret or a revoked role assignment mid-session.
 
 ## Quick recap
 

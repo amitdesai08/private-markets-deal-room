@@ -12,7 +12,20 @@ a presenter follows to run a live session.
 > can use it directly. Just want the **story** for a new audience, not a full recording yet?
 > Ask it to generate an **AI demo narrative** — a reviewable script (acts + narration lines,
 > each grounded in a real feature) that costs no capture or Speech-synthesis time, and drops
-> straight into a full production run later if you decide to build one.
+> straight into a full production run later if you decide to build one. Demoing something
+> **you** built instead of The Deal Room — a Foundry deployment, an ADF pipeline, any other
+> Azure resource? The skill handles access too: it verifies your signed-in session for a
+> one-off capture, or plans and — **only after you explicitly approve the exact plan** —
+> creates a least-privilege, tagged service principal for a repeatable one, via
+> [`scripts/setup-demo-access.ps1`](../scripts/setup-demo-access.ps1). Any credential it
+> creates is written to a git-ignored local file, never to this repository or the console.
+> The skill itself is fully portable and product-agnostic — it doesn't require this repo or
+> The Deal Room at all. Its canonical source lives in a separate, standalone repo,
+> [`amitdesai08/demo-production-skill`](https://github.com/amitdesai08/demo-production-skill),
+> which ships its own generic reference implementation and an installer (`install.ps1`) that
+> copies the skill into any other Copilot session — GitHub Copilot, Claude Code, or a shared
+> `.agents/skills/` convention — so it can build a demo of whatever you're working on there,
+> not just this product.
 
 ---
 
