@@ -224,6 +224,13 @@ seeded pipeline ships **confidential deals** and a real **need-to-know grant**: 
 analyst and a confidential take-private is invisible, yet she has full access to the one deal
 she's named on. Switch to the partner and it opens.
 
+Need a demo for an audience that isn't covered yet? The whole production process — research,
+act structure, narration and the capture pipeline — is packaged as a **[GitHub Copilot
+skill](.github/skills/demo-production/SKILL.md)**, so any teammate's Copilot session in this repo
+can build one. Ask it for just the **story** first — an AI-generated demo narrative, a reviewable
+script grounded in real features rather than an invented pitch — before committing to a full
+recording.
+
 > 🎬 **[Open the Demo Center →](docs/DEMO-CENTER.md)** · 🔐 [Access model](docs/ACCESS-MODEL.md)
 
 ---

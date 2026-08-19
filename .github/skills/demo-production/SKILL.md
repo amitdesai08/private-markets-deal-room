@@ -1,6 +1,6 @@
 ---
 name: demo-production
-description: 'Build, refresh, or produce a narrated demo track for The Deal Room using the demo/ capture-narrate-build pipeline. Use when asked to: build a new demo, create an audience-specific demo (technical, business, executive, IT, security, CTO, CFO, partner, PE), add a lightning cut, add a delivery runbook, record a narrated walkthrough, produce a click-through demo, add or fix voiceover/narration, refresh demo content, or publish/update recordings in docs/demos or an internal demo gallery.'
+description: 'Build, refresh, or produce a narrated demo track for The Deal Room using the demo/ capture-narrate-build pipeline, generate just the demo narrative on its own, or demo a resource the user built themselves (a Foundry deployment, an Azure Data Factory pipeline, or any other Azure resource) with properly scoped access. Use when asked to: generate an AI demo narrative, draft a demo script, write a narrative for a new audience, build a new demo, create an audience-specific demo (technical, business, executive, IT, security, CTO, CFO, partner, PE), demo my own Foundry/ADF/Azure resource, set up access or a service principal for a demo, add a lightning cut, add a delivery runbook, record a narrated walkthrough, produce a click-through demo, add or fix voiceover/narration, refresh demo content, or publish/update recordings in docs/demos or an internal demo gallery.'
 ---
 
 # Demo production (The Deal Room)
@@ -13,6 +13,27 @@ a markdown script a live presenter can read from.
 
 Read this file first. It is the entry point; the `references/` files below are loaded only
 when you reach the step that needs them.
+
+## Decide when you can, ask when you can't — this applies throughout
+
+This skill is meant to run with as few interruptions as possible, but not by guessing past a
+genuine unknown. The rule is the same at every decision point below and in every reference file:
+
+- If the answer is already implied by what the user asked (the audience, the track, whether it's
+  a one-off or repeatable), **decide it yourself and say what you decided and why** — don't ask
+  a question whose answer was already given.
+- If there's a safe, reversible, clearly-better-than-nothing default (narrative length, which
+  built-in role to try first), **take the default and say so** rather than stopping to confirm
+  something low-stakes.
+- If the missing fact can only come from the user (which resource, which audience, whether to
+  spend real production cost moving from a draft into a full recording), or the next action is
+  hard to reverse or touches something outside this repo (creating a service principal,
+  assigning it a role), **stop and ask one specific question** — never a vague "does this look
+  right?" — rather than guessing or proceeding silently.
+
+The two places this matters most have their own worked-through decision procedures: drafting a
+narrative (below) and demoing an external resource (below) — read those before improvising your
+own judgment call on either.
 
 ## The three-asset model
 
@@ -28,6 +49,33 @@ Each asset is: a `demo/scenes-<track>[-lightning].mjs` manifest (fresh capture) 
 `demo/cuts.mjs` entry (reused frames), a narrated `.mp4` in `docs/demos/media/`, an interactive
 `.html` player, and a markdown script in `docs/demos/DEMO-{WALKTHROUGH,LIGHTNING,RUNBOOK}[-TRACK].md`.
 
+## Just want the script? Generate an AI demo narrative first
+
+Not every ask is for a full recording. If what's wanted is the **story** — the act structure
+and the scene-by-scene narration lines, as a document a human can read and mark up before any
+capture or Speech-synthesis budget is spent — that's a **demo narrative**, and it's a
+deliverable on its own. See
+[`references/ai-narrative-generation.md`](references/ai-narrative-generation.md) for the exact
+output format (`docs/demos/narratives/NARRATIVE-<TRACK>.md`) and how it plugs into the full
+workflow below once it's approved — the narrative's acts and narration lines drop straight into
+the scene manifests at Step 3, so writing it well now saves rewriting it later.
+
+## Demoing a resource you built yourself, not The Deal Room
+
+The capture pipeline below assumes its subject is this repo's own app, which needs no external
+credential (demo mode removes the need for real sign-in). If the ask is instead to demo **a
+resource the user built** — a Foundry deployment, an Azure Data Factory pipeline, or any other
+Azure resource outside this repo — that assumption doesn't hold: the skill has no standing
+access to it, and capturing it means acting against a real resource under some identity. Work
+out **whose** — the user's own signed-in credentials for a one-off run, or a dedicated,
+least-privilege service principal for anything repeatable or handed off — **before** writing a
+single capture step. The verify/plan/create steps are automated —
+[`scripts/setup-demo-access.ps1`](../../../scripts/setup-demo-access.ps1) runs them; only the
+role and resource decisions, and the SPN-creation confirmation, are yours. See
+[`references/external-resource-access.md`](references/external-resource-access.md) for the
+full decision guide, the least-privilege SPN checklist, and how to say so in the demo's own
+disclaimer.
+
 ## When you're asked for a new audience track
 
 1. **Research the audience's real value proposition first.** Don't guess. Read the actual
@@ -36,9 +84,12 @@ Each asset is: a `demo/scenes-<track>[-lightning].mjs` manifest (fresh capture) 
    one. Never invent a feature, a statistic, or a percentage that doesn't trace to something
    real in the codebase. See [`references/new-track-guide.md`](references/new-track-guide.md)
    for the research checklist and the exact three-tier act structure to follow, with the
-   PE/technical/business tracks as worked examples.
+   PE/technical/business tracks as worked examples. If the track demos an external resource
+   (see above), resolve access **before** this research step touches that resource.
 2. **Design the acts before writing scenes.** 6–9 acts for a walkthrough, one scene per act
-   beat, ~15–17 scenes total. Write the act list first, then one `say` narration per scene.
+   beat, ~15–17 scenes total. Write the act list first, then one `say` narration per scene. If
+   an approved demo narrative already exists for this track (see above), this step is already
+   done — reuse its acts and lines verbatim rather than redrafting them.
 3. **Write the scene manifest(s).** Follow the exact schema and step vocabulary in
    [`references/scene-schema.md`](references/scene-schema.md) — capture.mjs throws on any verb
    not in that list, and several steps have ordering requirements (e.g. `gotoConfidential`)
@@ -85,7 +136,7 @@ Same references apply, in a different order:
 5. Re-copy the rebuilt `.mp4`s into `docs/demos/media/`, update the two index docs, re-test,
    commit, push, and republish if you maintain an external gallery.
 
-## The five gotchas that will cost you a rebuild if you skip the references
+## The six gotchas that will cost you a rebuild — or a security problem — if you skip the references
 
 These are listed here only as a memory jog — each is covered in full, with the exact fix, in
 the linked reference file. Do not treat this list as sufficient on its own.
@@ -107,3 +158,7 @@ the linked reference file. Do not treat this list as sufficient on its own.
    already exists. Verify the real on-screen text and conditions in the product's own source
    before writing a `scrollTo`/`spotlight` spec against it, rather than inferring it from a
    markdown doc. → [`scene-schema.md`](references/scene-schema.md).
+6. Demoing a resource outside this repo (a Foundry deployment, an ADF pipeline, ...) with no
+   plan for whose credential captures it is how a demo quietly turns into standing,
+   unaccounted-for access — decide interactive-vs-SPN and least-privilege scope **before**
+   capturing, not after. → [`external-resource-access.md`](references/external-resource-access.md).

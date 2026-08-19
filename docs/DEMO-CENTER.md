@@ -9,7 +9,10 @@ a presenter follows to run a live session.
 > a GitHub Copilot skill that packages the exact process (scene manifests, the capture →
 > narrate → build pipeline, the calibrated narration-style bar, and the markdown script
 > templates) used to build all three tracks below. Any teammate's Copilot session in this repo
-> can use it directly.
+> can use it directly. Just want the **story** for a new audience, not a full recording yet?
+> Ask it to generate an **AI demo narrative** — a reviewable script (acts + narration lines,
+> each grounded in a real feature) that costs no capture or Speech-synthesis time, and drops
+> straight into a full production run later if you decide to build one.
 
 ---
 
