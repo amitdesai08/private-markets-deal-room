@@ -6,12 +6,17 @@ export type Persona = { id: string; name?: string; title?: string } | null;
 
 // The IC-readiness verdict, computed once in app/lib/icReadiness.js and carried on every
 // deal summary. The UI renders this sentence; it does not compute its own. `gating` names
-// the outstanding items. At the status access tier the backend strips headline/gating and
-// leaves only `state`, so both are optional here by design, not by laziness.
+// the outstanding items as pre-joined sentences; `gatingItems` carries the SAME facts one
+// level less joined, one entry per outstanding thing, for a UI that wants to show each as
+// its own chip rather than parse a sentence back apart. At the status access tier the
+// backend strips headline/gating/gatingItems and leaves only `state`, so all three are
+// optional here by design, not by laziness.
+export type GatingItem = { kind: 'required' | 'workstream' | 'risk' | 'obligation'; label: string; owner?: string | null; reason?: string | null };
 export type ICVerdict = {
   state?: 'READY' | 'CONDITIONAL' | 'NOT-READY';
   headline?: string | null;
   gating?: string[];
+  gatingItems?: GatingItem[];
   phase?: 'origination' | 'diligence' | 'post-committee';
   basis?: string | null;
 };

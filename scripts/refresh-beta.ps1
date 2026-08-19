@@ -130,7 +130,13 @@ if (-not $Verify) {
 $base = 'https://' + (az containerapp show -n $BETA_ORCH -g $RG --query 'properties.configuration.ingress.fqdn' -o tsv)
 $key  = az containerapp show -n $BETA_ORCH -g $RG --query "properties.template.containers[0].env[?name=='BOT_BACKEND_KEY'].value | [0]" -o tsv
 if (-not $key) { Die 'BOT_BACKEND_KEY is not a plain env var on the beta app; cannot call the admin route' }
-$headers = @{ 'x-bot-key' = $key; 'x-dr-user' = '{"upn":"admin","name":"Demo Administrator"}' }
+# Role resolution matches identity DIRECTORY ids (oid/upn), never a display name — see
+# app/lib/userPolicy.js `roleForUser`. Sending upn alone used to resolve to admin before
+# that hardened; now it resolves to `member`, and the reseed/verify calls below ran as a
+# member that cannot see half the deals, so verify failed with the confidential deals
+# reporting "missing"/404 while the reseed itself had actually applied all 19. Both oid
+# and upn have to be the admin sentinel for this script's ADMIN_IDS entry to match.
+$headers = @{ 'x-bot-key' = $key; 'x-dr-user' = '{"oid":"admin","upn":"admin","name":"Demo Administrator"}' }
 
 # Responses are cached by Invoke-RestMethod when the URL is identical, which has already
 # produced one false "the deploy didn't take" diagnosis. Every call gets a fresh URL.

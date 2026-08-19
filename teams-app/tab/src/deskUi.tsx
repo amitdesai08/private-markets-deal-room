@@ -57,6 +57,82 @@ export function PoweredBy({ source }: { source: keyof typeof POWERED_BY_LABEL | 
   return <span className="poweredby">{POWERED_BY_LABEL[source] || `Powered by ${source}`}</span>;
 }
 
+// A percentage read as a sentence ("65% IC-ready") is the same fact eight words say
+// worse than one bar does. The fill is the number; the label beside it is there for
+// screen readers and for anyone scanning too fast to register a bar's exact length.
+export function ReadinessMeter({ pct, tone }: { pct: number; tone: 'bad' | 'warn' | 'good' | 'muted' }) {
+  const v = Math.max(0, Math.min(100, Math.round(pct)));
+  return (
+    <span className="rmeter" title={`${v}% IC-ready`}>
+      <span className="rmeter-track"><span className={`rmeter-fill rm-${tone}`} style={{ width: `${v}%` }} /></span>
+      <span className="rmeter-pct">{v}%</span>
+    </span>
+  );
+}
+
+// What is outstanding, named one thing at a time rather than read as a single joined
+// sentence ("3 required items outstanding: X, Y, Z; 2 workstreams blocking: A (owner)
+// — reason"). Each chip is one fact; a reader scans six short shapes instead of
+// parsing one long one. Capped, with the rest folded into a plain "+N more" chip
+// rather than growing the row without bound.
+export function GatingChips({ items, max = 5 }: { items?: { kind: string; label: string; owner?: string | null; reason?: string | null }[]; max?: number }) {
+  if (!items || !items.length) return null;
+  const shown = items.slice(0, max);
+  const rest = items.length - shown.length;
+  return (
+    <div className="gchips">
+      {shown.map((it, i) => (
+        <span key={i} className={`gchip gc-${it.kind}`} title={it.reason || undefined}>
+          {it.owner ? `${it.label} · ${it.owner}` : it.label}
+        </span>
+      ))}
+      {rest > 0 ? <span className="gchip gc-more">+{rest} more</span> : null}
+    </div>
+  );
+}
+
+// A palette to draw a person's initials against, chosen deterministically from their
+// name so the same person is always the same colour without the record having to
+// carry one. A row of names is a list; a row of coloured initials is faces — the
+// follow-up queue and the deal team both read as "who", not "what string".
+const AVATAR_PALETTE = ['#7c3aed', '#be123c', '#0d9488', '#b45309', '#0369a1', '#4d7c0f', '#a21caf', '#c2410c'];
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+export function Avatar({ name, size = 26 }: { name: string; size?: number }) {
+  const initials = name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || '?';
+  const color = AVATAR_PALETTE[hashStr(name) % AVATAR_PALETTE.length];
+  return (
+    <span className="avatar" style={{ width: size, height: size, background: color, fontSize: Math.round(size * 0.42) }} title={name}>
+      {initials}
+    </span>
+  );
+}
+
+export type Highlight = { key: string; icon: string; value: string; label: string; tone: 'bad' | 'warn' | 'good' | 'muted' };
+
+// The briefing used to open on a paragraph — read it or skip it, there was no third
+// option. These are the same facts the paragraphs below state in prose, at a glance,
+// so the card has something to show before it has anything to say. It stays visible
+// even when the prose is collapsed; the prose is what you read once, this is what you
+// check every morning.
+export function BriefingHighlights({ items }: { items?: Highlight[] }) {
+  if (!items || !items.length) return null;
+  return (
+    <div className="bhi">
+      {items.map((h) => (
+        <div key={h.key} className={`bhi-card bhi-${h.tone}`}>
+          <span className="bhi-icon">{h.icon}</span>
+          <span className="bhi-v">{h.value}</span>
+          <span className="bhi-l">{h.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // A cited narrative. Citations are real buttons: they are a drill-down control,
 // so they have to be reachable by keyboard and announced as interactive.
 export function Narrative({

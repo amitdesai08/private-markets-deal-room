@@ -794,6 +794,19 @@ button { color: inherit; }
 .aibadge { font-size: 10.5px; font-weight: 700; padding: 1.5px 7px; border-radius: 999px; color: var(--ai); background: var(--ai-bg); border: 1px solid var(--ai-br); white-space: nowrap; }
 /* Distinct from .aibadge on purpose — this names a real integration, not an AI claim. */
 .poweredby { font-size: 10.5px; font-weight: 700; padding: 1.5px 8px; border-radius: 999px; color: var(--accent); background: var(--chip); border: 1px solid var(--accent); white-space: nowrap; }
+/* Briefing highlights — a glance-level row of numbers, visible even with the write-up
+   collapsed, so the card has something to show before it has anything to say. */
+.bhi { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 14px; }
+.bhi-card { display: flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--chip); }
+.bhi-icon { font-size: 15px; line-height: 1; }
+.bhi-v { font-size: 16px; font-weight: 800; }
+.bhi-l { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.bhi-card.bhi-good { border-color: var(--good-br); background: var(--good-bg); }
+.bhi-card.bhi-good .bhi-v { color: var(--good); }
+.bhi-card.bhi-warn { border-color: var(--warn-br); background: var(--warn-bg); }
+.bhi-card.bhi-warn .bhi-v { color: var(--warn); }
+.bhi-card.bhi-bad { border-color: var(--bad-br); background: var(--bad-bg); }
+.bhi-card.bhi-bad .bhi-v { color: var(--bad); }
 .narr { font-size: 13.5px; line-height: 1.65; }
 .narr p { margin: 0 0 9px; }
 .narr b { font-weight: 650; }
@@ -1091,6 +1104,26 @@ details[open] > summary:before { content: "\\25BE "; }
 .lc-dot.lc-good { background: var(--good); }
 .lc-dot.lc-warn { background: var(--warn); }
 .lc-dot.lc-bad { background: var(--bad); }
+/* A percentage read as prose vs. read as a bar — the readiness meter on the
+   attention queue. */
+.rmeter { display: inline-flex; align-items: center; gap: 6px; }
+.rmeter-track { width: 56px; height: 6px; border-radius: 999px; background: var(--chip); overflow: hidden; flex: none; }
+.rmeter-fill { display: block; height: 100%; border-radius: 999px; }
+.rmeter-fill.rm-good { background: var(--good); }
+.rmeter-fill.rm-warn { background: var(--warn); }
+.rmeter-fill.rm-bad { background: var(--bad); }
+.rmeter-fill.rm-muted { background: var(--muted); }
+.rmeter-pct { font-size: 12px; font-weight: 700; }
+/* What is outstanding, as chips instead of one joined sentence. */
+.gchips { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+.gchip { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--chip); white-space: nowrap; }
+.gchip.gc-required { color: var(--warn); border-color: var(--warn-br); background: var(--warn-bg); }
+.gchip.gc-workstream { color: var(--bad); border-color: var(--bad-br); background: var(--bad-bg); }
+.gchip.gc-risk { color: var(--bad); border-color: var(--bad-br); background: var(--bad-bg); }
+.gchip.gc-obligation { color: var(--warn); border-color: var(--warn-br); background: var(--warn-bg); }
+.gchip.gc-more { color: var(--muted); font-weight: 500; }
+/* A name, coloured — the follow-up queue reads as faces, not a column of strings. */
+.avatar { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: #fff; font-weight: 700; flex: none; line-height: 1; }
 .empty-panel { padding: 20px 16px; color: var(--muted); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .linkbtn { border: none; background: none; color: var(--accent); cursor: pointer; font: inherit; font-weight: 600; padding: 0; }
 .deals { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; padding: 14px 16px; }

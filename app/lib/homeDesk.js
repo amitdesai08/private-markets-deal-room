@@ -183,6 +183,7 @@ function assess(deal, raw) {
   try { ic = computeICReadiness(raw); } catch { ic = null; }
   const v = ic?.verdict || null;
   const gating = v?.gating || [];
+  const gatingItems = v?.gatingItems || [];
   const phase = ic?.phase || dealPhase(deal);
   const state = phase === 'origination' ? null : (v?.state || null);
 
@@ -201,7 +202,7 @@ function assess(deal, raw) {
     return {
       rank: 8, tag: 'Diligence not started', tone: 'muted',
       why: 'No diligence workstream has been opened yet, so the target committee date is a plan rather than a booking.',
-      impact: 'Nothing has slipped, because nothing has started. The date only becomes real once a workstream is opened against it.', basis: 'Deal record — workstreams', verdict: state, gating: [],
+      impact: 'Nothing has slipped, because nothing has started. The date only becomes real once a workstream is opened against it.', basis: 'Deal record — workstreams', verdict: state, gating: [], gatingItems: [],
     };
   }
 
@@ -215,7 +216,7 @@ function assess(deal, raw) {
       impact: 'Either the date moves with a written reason, or the gap becomes the story at IC.',
       basis: 'Deal record — target IC date vs current step',
       impactOptions,
-      verdict: state, gating,
+      verdict: state, gating, gatingItems,
     };
   }
   if (pre && typeof icDays === 'number' && icDays <= 21 && state === 'NOT-READY') {
@@ -237,7 +238,7 @@ function assess(deal, raw) {
       })(),
       basis: 'IC readiness board',
       impactOptions,
-      verdict: state, gating,
+      verdict: state, gating, gatingItems,
     };
   }
   const lanes = raw.workstreams || deal.workstreams || [];
@@ -249,7 +250,7 @@ function assess(deal, raw) {
       impact: 'Nothing is wrong yet — but nothing is moving either, and the clock is.',
       basis: 'Workstream progress',
       impactOptions,
-      verdict: state, gating,
+      verdict: state, gating, gatingItems,
     };
   }
   // Conditions rank ABOVE a generic not-ready deal, not below it. A condition is a dated
@@ -298,7 +299,7 @@ function assess(deal, raw) {
         : 'Conditions left open at the meeting come back as post-completion obligations.',
       basis: post ? 'Deal record — open conditions and uncleared compliance checks' : 'IC readiness board — committee conditions',
       impactOptions,
-      verdict: state, gating,
+      verdict: state, gating, gatingItems,
     };
   }
   if (state === 'NOT-READY') {
@@ -317,12 +318,12 @@ function assess(deal, raw) {
       })(),
       basis: 'IC readiness board',
       impactOptions,
-      verdict: state, gating,
+      verdict: state, gating, gatingItems,
     };
   }
   if (state === 'READY') {
     if (phase === 'post-committee') {
-      return { rank: 8, tag: 'In execution', tone: 'good', why: 'Past IC with nothing outstanding on the record.', impact: 'Nothing here needs a decision. It is on this list so the book is complete, not because it is waiting on anyone.', basis: 'Deal record — open conditions and compliance checks', verdict: state, gating };
+      return { rank: 8, tag: 'In execution', tone: 'good', why: 'Past IC with nothing outstanding on the record.', impact: 'Nothing here needs a decision. It is on this list so the book is complete, not because it is waiting on anyone.', basis: 'Deal record — open conditions and compliance checks', verdict: state, gating, gatingItems };
     }
     // A deal that is READY with a committee date inside a fortnight is the most
     // actionable row on a chair's page, and at rank 8 it fell off the bottom of a
@@ -340,11 +341,11 @@ function assess(deal, raw) {
         rank: 1, tag: 'Ready — take it to IC', tone: 'good',
         why: `Papers on record and no blocking workstreams, with IC ${icDays === 0 ? 'today' : `in ${icDays} day${icDays === 1 ? '' : 's'}`}.`,
         impact: 'This one needs an agenda slot, not more work.',
-        basis: 'IC readiness board', verdict: state, gating,
+        basis: 'IC readiness board', verdict: state, gating, gatingItems,
       }
-      : { rank: 8, tag: 'IC-ready', tone: 'good', why: 'Papers on record, no blocking workstreams, no unresolved risk findings.', impact: 'The work is done and no committee date is booked. What this needs is a slot in the diary, not more diligence.', basis: 'IC readiness board', verdict: state, gating };
+      : { rank: 8, tag: 'IC-ready', tone: 'good', why: 'Papers on record, no blocking workstreams, no unresolved risk findings.', impact: 'The work is done and no committee date is booked. What this needs is a slot in the diary, not more diligence.', basis: 'IC readiness board', verdict: state, gating, gatingItems };
   }
-  return { rank: 6, tag: 'On track', tone: 'good', why: `Progressing on plan at ${readiness}% completion.`, impact: null, basis: 'IC readiness board', verdict: state, gating, phase };
+  return { rank: 6, tag: 'On track', tone: 'good', why: `Progressing on plan at ${readiness}% completion.`, impact: null, basis: 'IC readiness board', verdict: state, gating, gatingItems, phase };
 }
 
 // ---------------------------------------------------------------------------
@@ -1557,6 +1558,22 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
   }
   if (workiq.total) suggestions.push('Show me untracked follow-ups across all deals');
 
+  // A glance-level summary of facts the narrative above also states in prose, built
+  // once and independent of seat kind — every seat's opener covers different ground,
+  // but everyone benefits from a row of numbers before a paragraph of reading. This is
+  // deliberately redundant with the prose: the prose is read once, this is glanced at
+  // every time the page opens.
+  const urgentCount = attention.filter((a) => a.tone === 'bad').length;
+  const highlights = [
+    { key: 'deals', icon: '📁', value: String(list.length), label: `deal${list.length === 1 ? '' : 's'} in view`, tone: 'muted' },
+    ...(capitalUnknown ? [] : [{ key: 'ev', icon: '💰', value: money(capital), label: 'enterprise value', tone: 'muted' }]),
+    ...(attention.length ? [{ key: 'atrisk', icon: urgentCount ? '⚠️' : '✅', value: String(urgentCount), label: `of ${attention.length} at risk of slipping IC`, tone: urgentCount ? 'bad' : 'good' }] : []),
+    ...(nearest ? [{ key: 'nextic', icon: '📅', value: `${nearest.daysToIC}d`, label: `next IC — ${nearest.company}`, tone: nearest.daysToIC <= 3 ? 'warn' : 'muted' }] : []),
+    ...(icReady ? [{ key: 'icready', icon: '✅', value: String(icReady), label: 'ready for IC', tone: 'good' }] : []),
+    ...(openObligations ? [{ key: 'conditions', icon: '📋', value: String(openObligations), label: 'post-IC with open conditions', tone: 'warn' }] : []),
+    ...(workiq.total ? [{ key: 'followups', icon: '💬', value: String(workiq.total), label: `untracked follow-up${workiq.total === 1 ? '' : 's'} · ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'}`, tone: 'warn' }] : []),
+  ];
+
   return {
     generatedAt: new Date().toISOString(),
     roleLabel: roleLabel || null,
@@ -1576,7 +1593,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
       laneLabels: seat.laneLabels,
       tailored: !seat.unbound,
     },
-    briefing: { ...c.result(), suggestions: suggestions.slice(0, 5) },
+    briefing: { ...c.result(), suggestions: suggestions.slice(0, 5), highlights },
     attention,
     // WHY the queue is empty, decided here rather than guessed in the page.
     //

@@ -647,7 +647,7 @@ export function applyStatusTier(s) {
   // outstanding: Findings / red-flag report, KYC / compliance cleared" — which is the
   // per-lane and per-check substance in prose. The state alone survives, because a
   // metadata seat is entitled to know a deal is not ready without being told why.
-  if (s.icVerdict) s.icVerdict = { state: s.icVerdict.state, headline: null, gating: [], phase: s.icVerdict.phase, basis: null };
+  if (s.icVerdict) s.icVerdict = { state: s.icVerdict.state, headline: null, gating: [], gatingItems: [], phase: s.icVerdict.phase, basis: null };
   // Enterprise value was masked on the deal card and then published everywhere else:
   // the "Deals by stage" column ("$300M · Diligence & Approval · 1 deal" when the
   // restricted deal is the only one in that stage), the header total, the next-IC
@@ -730,7 +730,7 @@ function summarize(deal) {
     // look different on three screens. This is the engine's own sentence, computed once.
     icVerdict: (() => {
       const b = computeICReadiness(deal);
-      return { state: b.verdict.state, headline: b.verdict.headline, gating: b.verdict.gating, phase: b.verdict.phase, basis: b.verdict.basis || null };
+      return { state: b.verdict.state, headline: b.verdict.headline, gating: b.verdict.gating, gatingItems: b.verdict.gatingItems || [], phase: b.verdict.phase, basis: b.verdict.basis || null };
     })(),
     // A partner put four deals side by side to decide which to take to committee and
     // the table she got compared stage, readiness and days -- process, all of it. Not

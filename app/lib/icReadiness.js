@@ -352,6 +352,11 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
       ...dedupedChecks.map((c) => `${c.check}${c.framework ? ` (${c.framework})` : ''} not cleared`),
     ];
     const unevidenced = blocking.map((b) => `${b.label} — ${b.reasons.join(', ')}`);
+    const outstandingItems = [
+      ...openConditions.map((c) => ({ kind: 'obligation', label: c.text || c.id, owner: c.owner || null, reason: null })),
+      ...dedupedChecks.map((c) => ({ kind: 'obligation', label: `${c.check}${c.framework ? ` (${c.framework})` : ''}`, owner: null, reason: 'not cleared' })),
+      ...blocking.map((b) => ({ kind: 'workstream', label: b.label, owner: b.owner || null, reason: (b.reasons || [])[0] || null })),
+    ];
     // The register was the one list this branch never read, so a signed deal shipped
     // "Past the IC decision — nothing outstanding on the record" in the same payload as
     // counts.unresolvedRisks: 2, over a case page printing both of them.
@@ -385,6 +390,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
         state: 'CONDITIONAL',
         headline: `Past the IC decision — ${parts.join(' and ')}.${registerPhrase}`,
         gating: outstanding,
+        gatingItems: outstandingItems,
         openConditions: openConditions.length,
         openComplianceChecks: dedupedChecks.length,
         // Reported on this branch too. They came back empty on signed deals while
@@ -411,6 +417,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
         ? `Past the IC decision — the committee attached no obligation that is still open, and every diligence workstream has recorded something.${registerPhrase} What no workstream has reported on is listed under what is not yet known.`
         : 'Past the IC decision — the committee attached no obligation that is still open, and every diligence workstream has recorded something. What no workstream has reported on is listed under what is not yet known.',
       gating: [],
+      gatingItems: [],
       openConditions: 0,
       openComplianceChecks: 0,
       registerConditions,
@@ -421,10 +428,15 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
     };
   }
 
+  // `gatingItems` carries the SAME facts as `gating` (below), one level less joined —
+  // one entry per outstanding thing, never a pre-joined sentence — so a UI can render
+  // each as its own chip instead of parsing a sentence back apart to find the pieces.
   const gating = [];
+  const gatingItems = [];
   if (!required.allComplete) {
     const missing = required.items.filter((i) => !i.complete).map((i) => i.label);
     gating.push(`${missing.length} required item${missing.length === 1 ? '' : 's'} outstanding: ${missing.join(', ')}`);
+    for (const label of missing) gatingItems.push({ kind: 'required', label, owner: null, reason: null });
   }
   if (blocking.length) {
     // "1 workstream blocking: Legal DD" made a partner open Outlook to find out who to
@@ -444,6 +456,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
       return why ? `${head} — ${why}` : head;
     });
     gating.push(`${blocking.length} workstream${blocking.length === 1 ? '' : 's'} blocking: ${named.join(', ')}`);
+    for (const b of blocking) gatingItems.push({ kind: 'workstream', label: b.label, owner: b.owner || null, reason: (b.reasons || [])[0] || null });
   }
   // A BARE COUNT WITH NOTHING BEHIND IT, AND ON MOST DEALS IT COUNTED A BLOCKER TWICE.
   //
@@ -462,7 +475,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
   });
   for (const r of hardRisks) {
     const title = String(r.title || '').trim();
-    if (title) gating.push(title);
+    if (title) { gating.push(title); gatingItems.push({ kind: 'risk', label: title, owner: r.owner || null, reason: null }); }
   }
 
   let state, headline;
@@ -491,7 +504,7 @@ function verdict({ required, blocking, unresolvedRisks, conditions, phase, deal 
         ? `IC-ready — required papers complete and no blocking workstreams. ${open} item${open === 1 ? '' : 's'} on the register ${open === 1 ? 'is' : 'are'} carried as ${open === 1 ? 'a condition' : 'conditions'} to evidence at signing; none gates the committee.`
         : `IC-ready — required papers complete and no blocking workstreams. ${open} item${open === 1 ? '' : 's'} on the risk register ${open === 1 ? 'is' : 'are'} still open and ${open === 1 ? 'does' : 'do'} not gate the committee.`;
   }
-  return { state, headline, gating, openConditions: openConditions.length, registerConditions, conditionsTotal: openConditions.length + registerConditions, phase };
+  return { state, headline, gating, gatingItems, openConditions: openConditions.length, registerConditions, conditionsTotal: openConditions.length + registerConditions, phase };
 }
 
 // The material rows of the deal's own risk register, in the shape the readiness board

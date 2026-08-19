@@ -16,16 +16,16 @@
 // one can be turned off, and the choice is kept per persona. See dashLayout.ts.
 import { useEffect, useState } from 'react';
 import { af } from './authFetch';
-import { Narrative, SourceList, Tag, PoweredBy, clock, STATUS_TEXT, isPostIC, readinessText, type Para } from './deskUi';
+import { Narrative, SourceList, Tag, PoweredBy, ReadinessMeter, GatingChips, Avatar, BriefingHighlights, clock, STATUS_TEXT, isPostIC, readinessText, type Para, type Highlight } from './deskUi';
 import { DASH_MODULES, readHidden, writeHidden, rememberWho, type ModuleKey } from './dashLayout';
 import { CMP_ROWS } from './CompareDeals';
-import type { Pipeline, Deal, MarketIntel, BackendConfig } from './types';
+import type { Pipeline, Deal, MarketIntel, BackendConfig, GatingItem } from './types';
 
 type HomeAttention = {
   id: string; rank: number; dealId: string; company: string; stageName?: string | null;
   readiness: number; icInDays?: number | null;
   tag: string; tone: 'bad' | 'warn' | 'good' | 'muted'; why: string; impact?: string | null; basis?: string;
-  laneLabel?: string | null; laneProgress?: number | null; placedBy?: string | null; gating?: string[];
+  laneLabel?: string | null; laneProgress?: number | null; placedBy?: string | null; gating?: string[]; gatingItems?: GatingItem[];
 };
 type HomeCommitment = {
   dealId: string; company: string; author: string; headline: string; quote?: string;
@@ -40,7 +40,7 @@ type HomeDesk = {
   roleLabel?: string | null;
   seatLabel?: string | null;
   seat?: HomeSeat | null;
-  briefing: { generatedAt: string; paragraphs: Para[]; sources: string[]; suggestions: string[] };
+  briefing: { generatedAt: string; paragraphs: Para[]; sources: string[]; suggestions: string[]; highlights?: Highlight[] };
   attention: HomeAttention[];
   attentionEmpty?: string | null;
   phases: { key: string; label: string; count: number; capital: number }[];
@@ -415,6 +415,73 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
 
   return (
     <div className="dash">
+      {/* Where the live capital sits, and how fast it is moving — first on the page
+          on purpose. A partner's first question on opening this product is "where do
+          things stand", and a coloured bar answers that in the time it takes to look,
+          before a single paragraph of the briefing has been read. */}
+      {shows('phases') ? (
+      <section className="panel">
+        {/* The qualifier excluded the owned and exiting deals and the tiles underneath
+            then displayed them as a fourth column, so the disclaimer was disproved by
+            the very next line: "$6.4B across 16" sat on top of tiles summing to $8.1B
+            across 19. The tiles are the truth; the header now describes them and names
+            the pre-completion subset rather than pretending the rest are not there.
+            "and deals you cannot open" read as an addition too — they are already in
+            the count, with their size withheld. */}
+        {(() => {
+          // A tile whose deals are all restricted prints an em dash, so its capital is not
+          // on the screen and must not be in the total either.
+          const visible = byPhase.filter((p) => p.restricted !== p.count);
+          const shownValue = visible.reduce((s, p) => s + shownAs(p.capital), 0);
+          const shownCount = byPhase.reduce((s, p) => s + p.count, 0);
+          const restricted = byPhase.reduce((s, p) => s + p.restricted, 0);
+          const preShown = visible.filter((p) => p.key !== 'value')
+            .reduce((s, p) => s + shownAs(p.capital), 0);
+          return (
+            <div className="panel-h"><span>Deals by stage</span><span className="muted">{money(shownValue)} across {shownCount} deal{shownCount === 1 ? '' : 's'}{excludedHoldings ? ` · ${money(preShown)} of it pre-completion` : ''}{restricted ? ` · includes ${restricted} you cannot open, size withheld` : ''}</span></div>
+          );
+        })()}
+        <div className="funnel">
+          {byPhase.map((ph) => (
+            <div key={ph.key} className="fstep">
+              <div className="fcount">{ph.restricted === ph.count ? '—' : money(ph.capital)}</div>
+              <div className="flabel">{ph.label}</div>
+              <div className="fkey">{ph.count} deal{ph.count === 1 ? '' : 's'}{ph.restricted ? ` · ${ph.restricted} restricted` : ''}</div>
+            </div>
+          ))}
+        </div>
+        {/* The tiles above answer "where does the money sit". This answers the other
+            question a partner actually asks: is the process itself fast or slow? Every
+            number is measured from what is currently active — not a target dressed up
+            as an outcome. */}
+        {home?.lifecycle?.stages?.length ? (() => {
+          const stages = home.lifecycle!.stages;
+          const totalDays = stages.reduce((s, st) => s + st.days, 0) || 1;
+          const toneOf = (days: number, target: number) => (days <= target ? 'good' : days <= target * 1.3 ? 'warn' : 'bad');
+          return (
+            <div className="lifecycle">
+              <div className="panel-h" style={{ padding: '14px 16px 0' }}><span>Deal lifecycle</span><span className="muted">Average time currently spent at each stage</span></div>
+              <div className="lc-bar">
+                {stages.map((st) => (
+                  <div key={st.key} className={`lc-seg lc-${toneOf(st.days, st.target)}`} style={{ flex: st.days / totalDays }} title={`${st.label}: ${st.days}d average (target ${st.target}d), ${st.count} deal${st.count === 1 ? '' : 's'}`}>
+                    <span className="lc-days">{st.days}d</span>
+                  </div>
+                ))}
+              </div>
+              <div className="lc-labels">
+                {stages.map((st) => (
+                  <div key={st.key} className="lc-label" style={{ flex: st.days / totalDays }}>
+                    <span className={`lc-dot lc-${toneOf(st.days, st.target)}`} />
+                    {st.label} · {st.count} deal{st.count === 1 ? '' : 's'} · target {st.target}d
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })() : null}
+      </section>
+      ) : null}
+
       {/* ================= Portfolio cockpit =================
           Prose in the wide column — the four figures, the briefing, then what needs a
           person. Lists in the narrow one — the committee agenda and the follow-ups.
@@ -471,8 +538,11 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
               <button className="btn link compact" onClick={() => window.print()} disabled={!home}>⎙ Print</button>
               <button className="btn link compact" onClick={() => setEvidence((v) => !v)}>🔍 Evidence</button>
               <button className="btn link compact" onClick={loadHome}>↻ Refresh</button>
-              <button className="btn link compact" onClick={() => setBriefOpen((v) => !v)}>{briefOpen ? 'Hide' : 'Show'}</button>
+              <button className="btn link compact" onClick={() => setBriefOpen((v) => !v)}>{briefOpen ? 'Hide the write-up' : 'Show the write-up'}</button>
             </div>
+            {/* Stays visible even with the write-up collapsed — the numbers are what
+                gets checked every morning, the paragraphs are what gets read once. */}
+            <BriefingHighlights items={home?.briefing?.highlights} />
             {briefOpen ? (
               <div className="bd">
                 {homeLoading && !home ? (
@@ -562,9 +632,13 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
                   {/* Round 9 suppressed the readiness percentage on post-IC deals in the
                       pipeline cards 400px below this and missed this list, so one screen
                       said "Helvetia 68% IC-ready" and "Helvetia Approved at IC". */}
-                  <span>📊 {isPostIC((a as any).status) ? 'Approved at IC' : `${a.readiness}% IC-ready`}</span>
+                  {isPostIC((a as any).status) ? <span>📊 Approved at IC</span> : <ReadinessMeter pct={a.readiness} tone={a.tone} />}
                     {typeof a.icInDays === 'number' && !isPostIC((a as any).status) ? <span>📅 {a.icInDays > 0 ? `IC in ${a.icInDays}d` : a.icInDays === 0 ? 'IC today' : `IC was ${-a.icInDays}d ago`}</span> : null}
                 </div>
+                {/* The prose above says WHY the row is here; the chips say WHAT is
+                    outstanding, one item at a time — the same facts `why` already
+                    names, shown rather than told. */}
+                <GatingChips items={a.gatingItems} max={4} />
                 {a.impact ? <div className="impact">⚡ {a.impact}</div> : null}
                 {/* Why this row is where it is. A ranked list that cannot answer
                     "why is this above that?" does not survive its first partner. */}
@@ -614,7 +688,7 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
               {agendaRows.map((d, i) => {
                 const v = (d as any).icVerdict?.state;
                 const state = v === 'READY' ? 'Ready for committee' : v === 'CONDITIONAL' ? 'Ready with conditions' : 'Not ready for committee';
-                const owes: string[] = ((d as any).icVerdict?.gating || []).slice(0, 2);
+                const owesItems: GatingItem[] = ((d as any).icVerdict?.gatingItems || []).slice(0, 6);
                 return (
                   <div className="commit" key={d.id}>
                     <div className="att-t">
@@ -622,7 +696,13 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
                       <span className={`chip${v === 'READY' ? '' : ' warn'}`}>{state}</span>
                       <span className="chip">{d.daysToIC}d</span>
                     </div>
-                    <div className="sub">{owes.length ? `Still owes: ${owes.join('; ')}` : 'Nothing outstanding on the readiness board.'}</div>
+                    {/* Was one sentence — "Still owes: 4 required items outstanding:
+                        Final IC memo, IC memo sections approved…; 2 workstreams
+                        blocking: Legal DD (Simone Garnett) — not started…" — a single
+                        run-on line a partner had to parse to find the one item she
+                        needed. Chips let her scan it in the same second she scans the
+                        company name. */}
+                    {owesItems.length ? <GatingChips items={owesItems} max={6} /> : <div className="sub">Nothing outstanding on the readiness board.</div>}
                     <div className="acts">
                       {/* The company is the heading of this row. Repeating it in the button
                           made every action on the screen a different width and a different
@@ -658,6 +738,7 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
                     return (
                     <div className="commit" key={key}>
                       <div className="att-t">
+                        <Avatar name={c.author} />
                         <span className="name">{c.author}</span>
                         <span className="chip">{c.company}</span>
                         {c.laneLabel ? <span className="sub">{c.laneLabel}</span> : null}
@@ -750,70 +831,6 @@ export default function Dashboard({ pipeline, deals, dealsLoading, market, confi
             This changes what you see and nothing else — not what a deal records, and not who is allowed to see it.
           </div>
         </section>
-      ) : null}
-
-      {/* Where the live capital sits in the process */}
-      {shows('phases') ? (
-      <section className="panel">
-        {/* The qualifier excluded the owned and exiting deals and the tiles underneath
-            then displayed them as a fourth column, so the disclaimer was disproved by
-            the very next line: "$6.4B across 16" sat on top of tiles summing to $8.1B
-            across 19. The tiles are the truth; the header now describes them and names
-            the pre-completion subset rather than pretending the rest are not there.
-            "and deals you cannot open" read as an addition too — they are already in
-            the count, with their size withheld. */}
-        {(() => {
-          // A tile whose deals are all restricted prints an em dash, so its capital is not
-          // on the screen and must not be in the total either.
-          const visible = byPhase.filter((p) => p.restricted !== p.count);
-          const shownValue = visible.reduce((s, p) => s + shownAs(p.capital), 0);
-          const shownCount = byPhase.reduce((s, p) => s + p.count, 0);
-          const restricted = byPhase.reduce((s, p) => s + p.restricted, 0);
-          const preShown = visible.filter((p) => p.key !== 'value')
-            .reduce((s, p) => s + shownAs(p.capital), 0);
-          return (
-            <div className="panel-h"><span>Deals by stage</span><span className="muted">{money(shownValue)} across {shownCount} deal{shownCount === 1 ? '' : 's'}{excludedHoldings ? ` · ${money(preShown)} of it pre-completion` : ''}{restricted ? ` · includes ${restricted} you cannot open, size withheld` : ''}</span></div>
-          );
-        })()}
-        <div className="funnel">
-          {byPhase.map((ph) => (
-            <div key={ph.key} className="fstep">
-              <div className="fcount">{ph.restricted === ph.count ? '—' : money(ph.capital)}</div>
-              <div className="flabel">{ph.label}</div>
-              <div className="fkey">{ph.count} deal{ph.count === 1 ? '' : 's'}{ph.restricted ? ` · ${ph.restricted} restricted` : ''}</div>
-            </div>
-          ))}
-        </div>
-        {/* The tiles above answer "where does the money sit". This answers the other
-            question a partner actually asks: is the process itself fast or slow? Every
-            number is measured from what is currently active — not a target dressed up
-            as an outcome. */}
-        {home?.lifecycle?.stages?.length ? (() => {
-          const stages = home.lifecycle!.stages;
-          const totalDays = stages.reduce((s, st) => s + st.days, 0) || 1;
-          const toneOf = (days: number, target: number) => (days <= target ? 'good' : days <= target * 1.3 ? 'warn' : 'bad');
-          return (
-            <div className="lifecycle">
-              <div className="panel-h" style={{ padding: '14px 16px 0' }}><span>Deal lifecycle</span><span className="muted">Average time currently spent at each stage</span></div>
-              <div className="lc-bar">
-                {stages.map((st) => (
-                  <div key={st.key} className={`lc-seg lc-${toneOf(st.days, st.target)}`} style={{ flex: st.days / totalDays }} title={`${st.label}: ${st.days}d average (target ${st.target}d), ${st.count} deal${st.count === 1 ? '' : 's'}`}>
-                    <span className="lc-days">{st.days}d</span>
-                  </div>
-                ))}
-              </div>
-              <div className="lc-labels">
-                {stages.map((st) => (
-                  <div key={st.key} className="lc-label" style={{ flex: st.days / totalDays }}>
-                    <span className={`lc-dot lc-${toneOf(st.days, st.target)}`} />
-                    {st.label} · {st.count} deal{st.count === 1 ? '' : 's'} · target {st.target}d
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })() : null}
-      </section>
       ) : null}
 
       {/* Origination funnel */}
