@@ -81,8 +81,10 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ scrollTo: 'Daily briefing' }],
     spotlight: 'text:Daily briefing',
-    say: `Then comes the daily briefing. The first thing on the page isn't a chart — it's somebody telling you what
-      happened, written in full sentences for whoever's signed in. A partner and an analyst read different briefings
+    say: `Then comes the daily briefing, with a row of small highlight cards sitting just above it: deal count,
+      capital at work, what's at risk, what's ready for committee, the same facts spelled out at a glance before you
+      read a word. The first thing written out isn't a chart, though; it's somebody telling you what happened,
+      written in full sentences for whoever's signed in. A partner and an analyst read different briefings
       from the very same record. See the small badge in the corner? It says Composed, meaning the platform assembled
       these sentences from the record using a fixed template. No person typed it and no AI wrote it, so it can never
       change a deal's status. Where a badge says AI instead, a language model has actually read the record and
@@ -106,9 +108,10 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ clickText: '🔍 Evidence' }, { scrollTo: 'What needs my attention' }],
     spotlight: 'text:What needs my attention',
-    say: `Below the briefing sits a queue, ordered by whichever committee is soonest. Each row names the deal, says
-      what's wrong with it, and carries a button straight to the place where that gets fixed. It behaves less like a
-      notification and more like a route into the work itself.`,
+    say: `Below the briefing sits a queue, ordered by whichever committee is soonest. Each row now shows a small
+      readiness meter instead of a bare percentage, and the exact chips still blocking it instead of a sentence to
+      parse, plus a button straight to the place where that gets fixed. It behaves less like a notification and more
+      like a route into the work itself.`,
   },
   {
     id: '06-home-agenda',
@@ -142,7 +145,9 @@ export const SCENES = [
     spotlight: 'text:Deals by stage',
     say: `Four blocks follow: origination and screening, diligence and approval, execution and closing, and value
       and exit. The header states the total capital and the pre-completion split, and the four blocks add up to
-      exactly that figure. Select a block, and it filters straight down to those deals.`,
+      exactly that figure. Right below it, a lifecycle bar shows how many days deals are actually spending in
+      screening, diligence and execution, drawn from real dates on the record, not a target anyone set. Select a
+      block, and it filters straight down to those deals.`,
   },
   {
     id: '09-home-market',

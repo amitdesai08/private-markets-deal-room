@@ -37,8 +37,9 @@ export const SCENES = [
     steps: [{ scrollTo: 'What needs my attention' }],
     spotlight: 'text:What needs my attention',
     say: `This morning briefing and the "What needs my attention" list underneath it are the status assembly a
-      chief of staff or an associate usually does before a Monday pipeline call. It's current the moment the page
-      opens, and every line opens to the source behind it.`,
+      chief of staff or an associate usually does before a Monday pipeline call, down to a readiness meter and the
+      exact chips still blocking each deal instead of a paragraph to parse. It's current the moment the page opens,
+      and every line opens to the source behind it.`,
   },
   {
     id: 'bcl-01b-dealflow',

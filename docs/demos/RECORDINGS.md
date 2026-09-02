@@ -9,9 +9,9 @@ and business — each pairing a walkthrough, a delivery runbook and a lightning 
 
 | Recording | Length | Size | Follows |
 |---|---|---|---|
-| [`walkthrough.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/walkthrough.mp4) | 12 min | 10.6 MB | [DEMO-WALKTHROUGH.md](DEMO-WALKTHROUGH.md) — all eight acts, 30 scenes |
-| [`runbook.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook.mp4) | 8 min | 7.7 MB | [DEMO-RUNBOOK.md](DEMO-RUNBOOK.md) — the delivery spine, 25 scenes, opens on access |
-| [`lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/lightning.mp4) | 5 min | 4.8 MB | [DEMO-LIGHTNING.md](DEMO-LIGHTNING.md) — six beats, 15 scenes, its own capture rather than the walkthrough's frames |
+| [`walkthrough.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/walkthrough.mp4) | 13 min | 12.2 MB | [DEMO-WALKTHROUGH.md](DEMO-WALKTHROUGH.md) — all eight acts, 30 scenes |
+| [`runbook.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook.mp4) | 8 min | 8.0 MB | [DEMO-RUNBOOK.md](DEMO-RUNBOOK.md) — the delivery spine, 25 scenes, opens on access |
+| [`lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/lightning.mp4) | 6 min | 5.6 MB | [DEMO-LIGHTNING.md](DEMO-LIGHTNING.md) — six beats, 15 scenes, its own capture rather than the walkthrough's frames |
 
 The runbook is the only one of the three that reaches the **administrator** screens — access
 administration and document templates — because those render for an admin seat and no other.
@@ -20,9 +20,9 @@ administration and document templates — because those render for an admin seat
 
 | Recording | Length | Size | Follows |
 |---|---|---|---|
-| [`technical.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/technical.mp4) | 9 min | 8.3 MB | [DEMO-WALKTHROUGH-TECHNICAL.md](DEMO-WALKTHROUGH-TECHNICAL.md) — 17 scenes: identity trust seam, agent isolation, agentic workflows, connector governance and Work IQ, audit trail, Azure footprint |
-| [`runbook-technical.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook-technical.mp4) | 7 min | 6.4 MB | [DEMO-RUNBOOK-TECHNICAL.md](DEMO-RUNBOOK-TECHNICAL.md) — 16 scenes, reuses the walkthrough's frames, names REST routes and env vars |
-| [`technical-lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/technical-lightning.mp4) | 3 min | 3.2 MB | [DEMO-LIGHTNING-TECHNICAL.md](DEMO-LIGHTNING-TECHNICAL.md) — 9 scenes, its own capture |
+| [`technical.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/technical.mp4) | 9 min | 7.9 MB | [DEMO-WALKTHROUGH-TECHNICAL.md](DEMO-WALKTHROUGH-TECHNICAL.md) — 17 scenes: identity trust seam, agent isolation, agentic workflows, connector governance and Work IQ, audit trail, Azure footprint |
+| [`runbook-technical.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook-technical.mp4) | 7 min | 6.1 MB | [DEMO-RUNBOOK-TECHNICAL.md](DEMO-RUNBOOK-TECHNICAL.md) — 16 scenes, reuses the walkthrough's frames, names REST routes and env vars |
+| [`technical-lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/technical-lightning.mp4) | 3 min | 3.0 MB | [DEMO-LIGHTNING-TECHNICAL.md](DEMO-LIGHTNING-TECHNICAL.md) — 9 scenes, its own capture |
 
 This track never claims a formal certification (SOC 2, ISO 27001, a pentest) as a vendor
 deliverable — those stay the deploying firm's to obtain, and the scripts say so explicitly.
@@ -31,9 +31,9 @@ deliverable — those stay the deploying firm's to obtain, and the scripts say s
 
 | Recording | Length | Size | Follows |
 |---|---|---|---|
-| [`business.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/business.mp4) | 5 min | 5.0 MB | [DEMO-WALKTHROUGH-BUSINESS.md](DEMO-WALKTHROUGH-BUSINESS.md) — 12 scenes across eight acts |
-| [`runbook-business.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook-business.mp4) | 5 min | 4.7 MB | [DEMO-RUNBOOK-BUSINESS.md](DEMO-RUNBOOK-BUSINESS.md) — reuses the walkthrough's frames |
-| [`business-lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/business-lightning.mp4) | 2 min | 2.5 MB | [DEMO-LIGHTNING-BUSINESS.md](DEMO-LIGHTNING-BUSINESS.md) — 7 scenes, its own capture |
+| [`business.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/business.mp4) | 6 min | 4.9 MB | [DEMO-WALKTHROUGH-BUSINESS.md](DEMO-WALKTHROUGH-BUSINESS.md) — 12 scenes across eight acts |
+| [`runbook-business.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/runbook-business.mp4) | 5 min | 4.5 MB | [DEMO-RUNBOOK-BUSINESS.md](DEMO-RUNBOOK-BUSINESS.md) — reuses the walkthrough's frames |
+| [`business-lightning.mp4`](https://raw.githubusercontent.com/amitdesai08/private-markets-deal-room/main/docs/demos/media/business-lightning.mp4) | 2 min | 2.4 MB | [DEMO-LIGHTNING-BUSINESS.md](DEMO-LIGHTNING-BUSINESS.md) — 7 scenes, its own capture |
 
 This track intentionally departs from the PE and technical tracks' no-ROI-framing convention —
 its audience's own question is where a firm's operating time goes. Every saving named in it is
@@ -56,10 +56,14 @@ build it in about a minute with [`demo/`](../../demo/), which also regenerates t
 
 ## What is on screen
 
-Captured against **Deal Room** (`ca-dealhub-teams-dev-swc`) on 13–14 August 2026, seat by seat
+Captured against **Deal Room** (`ca-dealhub-teams-dev-swc`) on 1–2 September 2026, seat by seat
 through the demo profiles, so the access rules and deal figures shown are the ones the server
-actually returns — not carried over from an older capture or the beta environment. Narrated in
-**en-US-AndrewNeural**, a neutral American voice, not a regional one.
+actually returns — not carried over from an older capture or the beta environment. This refresh
+follows the promotion of a new Home-screen pass (readiness meters and gating chips in place of
+raw percentages and status sentences, a deal lifecycle bar, briefing highlight cards, and the
+modular dashboard) from beta to production; narration was touched only where a scene visibly
+shows one of those elements, and every other line is unchanged from the prior recording.
+Narrated in **en-US-AndrewNeural**, a neutral American voice, not a regional one.
 
 The walkthrough and the lightning demo of every track are each captured from their own
 manifest — [`scenes.mjs`](../../demo/scenes.mjs) / [`scenes-lightning.mjs`](../../demo/scenes-lightning.mjs)

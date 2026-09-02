@@ -61,7 +61,9 @@ export const SCENES = [
     say: `Most firms start the day with someone, an associate, a chief of staff, pulling together what needs
       attention: which deals are slipping toward committee, what changed since yesterday, what a partner should
       look at first. That assembly work happens here automatically, every time the page loads, straight from the
-      deal record. Nobody wrote this paragraph. It read the pipeline and wrote itself.`,
+      deal record, with a row of small cards above it holding the numbers a partner would ask for first: deal count,
+      capital at work, what's at risk, what's ready for committee. Nobody wrote this paragraph. It read the pipeline
+      and wrote itself.`,
   },
   {
     id: 'bc-02-needs-attention',
@@ -71,10 +73,11 @@ export const SCENES = [
     steps: [{ scrollTo: 'What needs my attention' }],
     spotlight: 'text:What needs my attention',
     click: 'text:🔍 Evidence',
-    say: `"What needs my attention" is the deals slipping toward committee, ranked, with a plain reason and a
-      one-click way in. This is the list a partner used to ask three people to put together before a Monday
-      pipeline call. Here it's current the moment the page opens, and every figure behind it opens to its source,
-      so it replaces not just the list, but the trust exercise of checking whether the list is right.`,
+    say: `"What needs my attention" is the deals slipping toward committee, ranked, with a small readiness meter,
+      the exact chips still blocking committee, and a one-click way in. This is the list a partner used to ask three
+      people to put together before a Monday pipeline call. Here it's current the moment the page opens, and every
+      figure behind it opens to its source, so it replaces not just the list, but the trust exercise of checking
+      whether the list is right.`,
   },
 
   // ─── Act 202 · Deal flow — screening at scale ───────────────────────────────

@@ -43,10 +43,11 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ scrollTo: 'Daily briefing' }],
     spotlight: 'text:Daily briefing',
-    say: `The first thing on the page is not a dashboard. It is somebody telling you what happened, written in full
-      sentences for the seat currently signed in. A small badge in the corner says Composed, meaning the platform
-      assembled these sentences from the record using a fixed template. No person typed it and no AI model wrote it,
-      so it can never change a deal's status.`,
+    say: `A row of small highlight cards sits above the page: deal count, capital at work, what's at risk, what's
+      ready for committee. Below that isn't a dashboard, though: it's somebody telling you what happened, written in
+      full sentences for the seat currently signed in. A small badge in the corner says Composed, meaning the
+      platform assembled these sentences from the record using a fixed template. No person typed it and no AI model
+      wrote it, so it can never change a deal's status.`,
   },
   {
     id: 'lt-02-home-evidence',
