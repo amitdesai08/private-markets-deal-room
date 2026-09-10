@@ -1,0 +1,9 @@
+{
+  "name": "deal-room-demo",
+  "private": true,
+  "type": "module",
+  "description": "Capture, narrate and build the Deal Room demo tracks.",
+  "dependencies": {
+    "microsoft-cognitiveservices-speech-sdk": "^1.51.0"
+  }
+}

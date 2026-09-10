@@ -15,6 +15,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as sdk from 'microsoft-cognitiveservices-speech-sdk';
 
 const run = promisify(execFile);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -122,13 +123,62 @@ async function synthesise(auth, text, outPath, spec) {
   return buf.length;
 }
 
+// WORD TIMINGS, WITHOUT RE-VOICING ANYTHING.
+//
+// The video times each highlight to the moment its phrase is actually spoken, which needs
+// per-word timestamps. The REST endpoint above does not emit them; the SDK does, as
+// wordBoundary events. So this runs the SAME SSML through the SDK purely to harvest the
+// timings and throws the audio away — a track that has already been voiced keeps exactly
+// the audio it shipped with, which is the point: the narration is not being redone.
+async function harvestWords(authToken, text) {
+  const cfg = sdk.SpeechConfig.fromAuthorizationToken(authToken, REGION);
+  const synth = new sdk.SpeechSynthesizer(cfg, null);
+  const words = [];
+  synth.wordBoundary = (_s, e) => {
+    const raw = String(e.text || '').trim();
+    if (!raw) return;
+    // The engine intermittently emits a boundary whose text is the whole REMAINING line
+    // rather than a single token. Measured here: a 507-character span reported as a *word*
+    // (not punctuation, so the usual guard misses it), sitting in the slot where "Room"
+    // belonged. Dropping it outright loses that word and desynchronises every later cue;
+    // the span always begins with the word it stands in for, so keep that and discard the
+    // rest.
+    const text = /\s/.test(raw) ? raw.split(/\s+/)[0] : raw;
+    const start = e.audioOffset / 1e7;
+    // If the covered word also arrives on its own — which it does in some lines but not
+    // others — the two would double up and shift the phrase index.
+    const prev = words[words.length - 1];
+    if (prev && prev.text === text && Math.abs(prev.start - start) < 0.05) return;
+    const dur = (e.duration || 0) / 1e7;
+    words.push({
+      text,
+      kind: /punctuation/i.test(String(e.boundaryType)) ? 'punct' : 'word',
+      start,
+      dur,
+      end: start + dur,
+    });
+  };
+  try {
+    await new Promise((resolve, reject) => {
+      synth.speakSsmlAsync(ssml(text), (r) => (
+        r.reason === sdk.ResultReason.SynthesizingAudioCompleted
+          ? resolve(r)
+          : reject(new Error(r.errorDetails || `synthesis reason ${r.reason}`))
+      ), reject);
+    });
+  } finally {
+    synth.close();
+  }
+  return words;
+}
+
 async function main() {
   const manifestPath = path.join(OUT, MANIFEST);
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   await mkdir(AUDIO, { recursive: true });
 
   const auth = await speechAuth();
-  let made = 0, kept = 0;
+  let made = 0, kept = 0, timed = 0;
 
   for (const scene of manifest.scenes) {
     for (const f of FORMATS) {
@@ -153,13 +203,34 @@ async function main() {
       }
       made++;
     }
+
+    // The timing sidecar is independent of the audio: an already-voiced scene keeps its
+    // MP3 and only gains the timings, so this can be run over a finished track without
+    // re-recording a syllable of it.
+    const wordsFile = `${scene.id}.words.json`;
+    const wordsAbs = path.join(AUDIO, wordsFile);
+    const hasWords = await stat(wordsAbs).then((st) => st.size > 0).catch(() => false);
+    if (hasWords && !FORCE) {
+      scene.words = `audio/${wordsFile}`;
+    } else {
+      try {
+        const words = await harvestWords(auth.replace(/^Bearer /, ''), scene.say);
+        await writeFile(wordsAbs, JSON.stringify(words), 'utf8');
+        scene.words = `audio/${wordsFile}`;
+        timed++;
+      } catch (e) {
+        // A missing sidecar costs a scene its cue timing, not its narration — say so and
+        // carry on rather than failing a whole track over it.
+        console.log(`  ! ${scene.id}: no word timings (${String(e?.message || e).slice(0, 80)})`);
+      }
+    }
   }
 
   manifest.voice = VOICE;
   await writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
 
   const total = manifest.scenes.reduce((a, s) => a + (s.seconds || 0), 0);
-  console.log(`\n${made} synthesised, ${kept} already present`);
+  console.log(`\n${made} synthesised, ${kept} already present, ${timed} newly timed`);
   console.log(`narration runs about ${Math.round(total / 60)} minutes in ${VOICE}`);
 }
 

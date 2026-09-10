@@ -1164,6 +1164,7 @@ async function main() {
           say: scene.say.replace(/\s+/g, ' ').trim(),
           image: `shots/${file}`, spotlight: toPage(spotlight),
           ...(spotlights.length > 1 ? { spotlights: spotlights.map(toPage) } : {}),
+          ...(scene.cues ? { cues: scene.cues } : {}),
           ...(clip ? { video: clip, pointer: `clips/${scene.id}.pointer.json` } : {}),
           click: toPage(click),
         });

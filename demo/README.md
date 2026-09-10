@@ -21,22 +21,32 @@ room where audio is awkward. Space plays and pauses, arrow keys move.
 | Piece | What it does |
 |---|---|
 | [`scenes.mjs`](scenes.mjs) | The demo as data — one entry per scene: what the browser does, and what the narrator says over the result. **Change the demo here and nowhere else.** |
-| [`capture.mjs`](capture.mjs) | Drives the real product through every scene and writes one screenshot each. |
-| [`narrate.mjs`](narrate.mjs) | Sends each scene's narration to Azure AI Speech and writes an MP3. |
+| [`capture.mjs`](capture.mjs) | Drives the real product through every scene. Writes a screenshot each, and with `--video` a recorded clip and the pointer path that goes with it. |
+| [`narrate.mjs`](narrate.mjs) | Sends each scene's narration to Azure AI Speech and writes an MP3, plus a `.words.json` sidecar of per-word timings. The sidecar is independent of the audio, so an already-voiced track gains timings without being re-recorded. |
 | [`build-player.mjs`](build-player.mjs) | Assembles `build/demo.html` from the three. |
-| [`build-video.mjs`](build-video.mjs) | Renders the same scenes to an MP4, for sharing off-GitHub. |
+| [`build-video.mjs`](build-video.mjs) | Renders the scenes to an MP4: the recorded clips where capture made them, the stills where it did not, with the pointer, the highlight and the chapter card drawn over the top. |
+| [`build-cursor.mjs`](build-cursor.mjs) | Renders the pointer and click-ring PNGs the video draws. Run once. |
+| [`build-title-cards.mjs`](build-title-cards.mjs) | Renders one chapter card per scene. Re-run when a scene title changes. |
 | [`cuts.mjs`](cuts.mjs) | Shorter edits of the walkthrough — same screens, tighter narration. |
 | [`build-cut.mjs`](build-cut.mjs) | Assembles a cut's manifest from screens already captured. |
 | [`lib/cdp.mjs`](lib/cdp.mjs) | A small Chrome DevTools Protocol client. |
+| [`lib/cues.mjs`](lib/cues.mjs) | Finds where a cue phrase is spoken, from the narration's own word timings. |
 
 ## Building it
 
 ```powershell
-node demo/capture.mjs        # ~10 min — screenshots into build/shots
-node demo/narrate.mjs        # ~1 min  — narration into build/audio
-node demo/build-player.mjs   # instant — writes build/demo.html
-node demo/build-video.mjs    # ~3 min  — writes build/walkthrough.mp4
+npm --prefix demo install     # once   — the Speech SDK, for per-word timings
+node demo/build-cursor.mjs    # once   — pointer + click-ring PNGs
+
+node demo/capture.mjs --video --teams   # ~20 min — clips + pointer tracks into build/clips
+node demo/narrate.mjs                   # ~2 min  — narration + word timings into build/audio
+node demo/build-title-cards.mjs         # instant — one chapter card per scene
+node demo/build-player.mjs              # instant — writes build/demo.html
+node demo/build-video.mjs               # ~5 min  — writes build/walkthrough.mp4
 ```
+
+Drop `--video --teams` from the capture to fall back to stills in a standalone browser; the
+video build renders whichever of the two a scene has.
 
 `build/` is generated and git-ignored. Re-run one broken scene without losing the rest by
 passing its index — `node demo/capture.mjs 14 15` — and watch it happen with
