@@ -41,6 +41,10 @@ export const SCENES = [
     // The breadth of the platform as it is named, then the written summary as the line turns
     // to what the firm already knows.
     spotlight: ['nav.maintabs', 'text:Daily briefing'],
+    // The tab strip as the line names what the platform covers. The briefing is on screen but
+    // this line never mentions it, so it gets no cue rather than a box timed to nothing.
+    cues: ['one place to run', null],
+    pointAt: [0],
     say: `This is the Deal Room — one place to run a private equity deal. It's built on Microsoft 365, Teams and
       Entra ID, the tools a firm already runs and trusts. Almost everything here comes from an invented
       demonstration book: invented companies, invented people, invented numbers, nothing confidential anywhere.
@@ -87,6 +91,9 @@ export const SCENES = [
     // badge in its corner. 'exact:' keeps the middle one on the chip rather than growing back
     // out to the card the other two already frame.
     spotlight: ['text:Daily briefing', 'exact:deals in view', '.aicard .hd'],
+    // The panel names itself, so cue 0 derives from the selector. The other two are the
+    // narrator's own words for the cards and the badge.
+    cues: [null, 'deal count', 'the small badge'],
     say: `Then comes the daily briefing, with a row of small highlight cards sitting just above it: deal count,
       capital at work, what's at risk, what's ready for committee, the same facts spelled out at a glance before you
       read a word. The first thing written out isn't a chart, though; it's somebody telling you what happened,
@@ -103,6 +110,7 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ scrollTo: 'Daily briefing' }, { clickText: '🔍 Evidence' }, { wait: 1800 }],
     spotlight: 'text:Daily briefing',
+    cues: ['that briefing'],
     say: `Every numbered claim in that briefing shows its own working. Press Evidence, and each sentence opens back
       to the deal, the workstream, or the filing it came from \u2014 nobody has to take it on faith.`,
     click: 'text:🔍 Evidence',
@@ -114,6 +122,7 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ clickText: '🔍 Evidence' }, { scrollTo: 'What needs my attention' }],
     spotlight: 'text:What needs my attention',
+    cues: ['sits a queue'],
     say: `Below the briefing sits a queue, ordered by whichever committee is soonest. Each row now shows a small
       readiness meter instead of a bare percentage, and the exact chips still blocking it instead of a sentence to
       parse, plus a button straight to the place where that gets fixed. It behaves less like a notification and more
@@ -126,6 +135,7 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ scrollTo: 'Next IC agenda' }],
     spotlight: 'text:Next IC agenda',
+    cues: ['asked to decide'],
     say: `Next comes what the committee is actually being asked to decide, in order, with what each deal still owes
       spelled out beside it. There's a Copy agenda button right next to it, because somebody still has to send that
       email on Sunday night.`,
@@ -137,6 +147,7 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ scrollTo: 'Untracked follow-ups' }],
     spotlight: 'text:Untracked follow-ups',
+    cues: ['such promises'],
     say: `This is the panel people tend to remember. Somebody promised something in a Teams channel and nobody wrote
       it down. The product found twenty-two such promises across nineteen deals, each quoted word for word along with
       who said it and by when. It doesn't chase these commitments down — it just surfaces that they exist, which is a
@@ -149,6 +160,7 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ scrollTo: 'Deals by stage' }],
     spotlight: 'text:Deals by stage',
+    cues: ['Four blocks follow'],
     say: `Four blocks follow: origination and screening, diligence and approval, execution and closing, and value
       and exit. The header states the total capital and the pre-completion split, and the four blocks add up to
       exactly that figure. Right below it, a lifecycle bar shows how many days deals are actually spending in
@@ -260,6 +272,9 @@ export const SCENES = [
     steps: [{ clickText: '📁 Data room' }, { wait: 3000 }, { scrollTo: '00_Administration' }],
     // The room as a whole, then one real folder as the line turns to opening a document.
     spotlight: ['.vdr-grid', 'exact:00_Administration'],
+    // A folder is a thing you would put your hand on before opening it; the grid is not.
+    cues: ['sits the data room', 'numbered folders'],
+    pointAt: [1],
     say: `Further down the same page sits the data room: fourteen numbered folders, the named adviser on each
       workstream, and the playbook templates. This isn't a copy of a firm's data room — it's that data room, live in
       SharePoint, simply opened from here. Nothing was migrated, and nothing ever left the tenant.`,

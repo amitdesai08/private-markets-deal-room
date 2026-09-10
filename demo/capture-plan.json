@@ -4,154 +4,78 @@
     "height": 1080,
     "scale": 2
   },
-  "aims": {
-    "03-home-briefing": [
-      {
-        "x": 256,
-        "y": 120,
-        "w": 849,
-        "h": 806
-      },
-      {
-        "x": 257,
-        "y": 121,
-        "w": 847,
-        "h": 87
-      }
-    ],
-    "13-deal-brief": [
-      {
-        "x": 16,
-        "y": 546,
-        "w": 1140,
-        "h": 434
-      }
-    ],
-    "16-deal-dataroom": [
-      {
-        "x": 17,
-        "y": 541,
-        "w": 1886,
-        "h": 131
-      }
-    ],
-    "17-deal-assistant": [
-      {
-        "x": 1481,
-        "y": 215,
-        "w": 439,
-        "h": 865
-      }
-    ],
-    "07-home-followups": [
-      {
-        "x": 1117,
-        "y": 124,
-        "w": 547,
-        "h": 1340
-      }
-    ],
-    "09-home-market": [
-      {
-        "x": 256,
-        "y": 685,
-        "w": 1408,
-        "h": 380
-      }
-    ],
-    "23-seat-analyst": [
-      {
-        "x": 240,
-        "y": 153,
-        "w": 1440,
-        "h": 840
-      }
-    ],
-    "23b-seat-analyst-locked": [
-      {
-        "x": 257,
-        "y": 926,
-        "w": 1406,
-        "h": 50
-      }
-    ],
-    "26-seat-admin-refused": [
-      {
-        "x": 0,
-        "y": 199,
-        "w": 1920,
-        "h": 51
-      }
-    ],
-    "27-settings": [
-      {
-        "x": 260,
-        "y": 215,
-        "w": 1400,
-        "h": 66
-      }
-    ]
-  },
+  "aims": {},
   "durations": {
-    "00-open": 28.1,
-    "03-home-briefing": 29.1,
-    "13-deal-brief": 23.1,
-    "16-deal-dataroom": 18.1,
-    "17-deal-assistant": 26.1,
-    "07-home-followups": 24.1,
-    "09-home-market": 22.1,
-    "23-seat-analyst": 20.1,
-    "23b-seat-analyst-locked": 22.1,
-    "26-seat-admin-refused": 24.1,
-    "27-settings": 21.1,
-    "28-close": 22.1
+    "00-open": 33.52,
+    "01-layout": 26.75,
+    "02-home-figures": 29.84,
+    "03-home-briefing": 48.97,
+    "04-home-evidence": 13.86,
+    "05-home-attention": 22.36,
+    "06-home-agenda": 14.96,
+    "07-home-followups": 24.54,
+    "08-home-stages": 31.57,
+    "09-home-market": 26.12,
+    "10-sourcing-pipeline": 24.73,
+    "11-sourcing-framework": 44.8,
+    "12-deals-list": 29.12,
+    "13-deal-brief": 26.89,
+    "14-deal-case": 18.28,
+    "15-deal-work": 32,
+    "16-deal-dataroom": 20.03,
+    "17-deal-assistant": 40.19,
+    "18-fund-capital": 19.5,
+    "19-fund-monitoring": 37.91,
+    "20-fund-concentration": 16.33,
+    "21-report": 55.24,
+    "22-seat-partner": 14.1,
+    "23-seat-analyst": 31.72,
+    "23b-seat-analyst-locked": 34.09,
+    "24-seat-analyst-onyx": 11.8,
+    "25-seat-admin": 16.88,
+    "26-seat-admin-refused": 35.44,
+    "27-settings": 22.33,
+    "28-close": 32.82
   },
   "cues": {
     "00-open": [
-      17.14,
-      21.19
+      1.85,
+      null
+    ],
+    "02-home-figures": [
+      5.96
     ],
     "03-home-briefing": [
-      8.53,
-      12.47,
-      21.57
+      null,
+      5.77,
+      25.48
     ],
-    "13-deal-brief": [
-      8.47
+    "04-home-evidence": [
+      1.97
     ],
-    "16-deal-dataroom": [
-      4.88,
-      9.51
+    "05-home-attention": [
+      1.64
     ],
-    "17-deal-assistant": [
-      8.22
+    "06-home-agenda": [
+      3
     ],
     "07-home-followups": [
-      8.72
+      8.31
+    ],
+    "08-home-stages": [
+      0.87
     ],
     "09-home-market": [
-      11.73
+      1.62
     ],
-    "23-seat-analyst": [
-      null,
-      7.14
-    ],
-    "23b-seat-analyst-locked": [
-      4.48
-    ],
-    "26-seat-admin-refused": [
-      11.16
-    ],
-    "27-settings": [
-      9.27
+    "16-deal-dataroom": [
+      2.28,
+      4.13
     ]
   },
   "points": {
     "00-open": [
       0
-    ],
-    "03-home-briefing": [
-      2
     ],
     "16-deal-dataroom": [
       1
