@@ -45,6 +45,29 @@ space or render time unless you have a specific reason — the file-size differe
 the visible quality difference, especially once the MP4 is scaled/compressed again by
 `build-video.mjs`, is not.
 
+## Headed capture: the window is the frame, so size the window
+
+Everything above assumes headless, where the page is whatever size you declare. A **headed**
+run — needed whenever a real sign-in or a host application is involved — is the opposite:
+`Emulation.setDeviceMetricsOverride` renders the page at a size the window does not have, which
+produces a capture that does not match what is on screen.
+
+Do not declare a size. Measure what the browser chrome costs and set the window so the *page*
+lands on the target:
+
+1. Fill the screen once and compare the window size to `window.innerWidth/innerHeight` — the
+   difference is the chrome.
+2. Set the window to `target + chrome`, then re-measure and correct. Two or three iterations
+   converge exactly.
+3. If the screen cannot fit the request, **keep the aspect ratio** and scale down.
+
+Aspect ratio matters more than size here. The video is 16:9, and a window of another shape gets
+scaled to width and cropped from the top — so it is the bottom of the app that is lost. A
+1710×1307 window (roughly 4:3) would have cost ~390px off the bottom of the content.
+
+Do not let the profile's remembered bounds decide this either: "whatever it was last time" is
+not a specification, and it silently changes between runs.
+
 ## How to verify a capture actually came out at the resolution you expect
 
 Don't just eyeball the screenshot in a small preview pane — check the actual pixel dimensions
