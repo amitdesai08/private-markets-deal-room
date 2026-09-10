@@ -1,0 +1,29 @@
+{
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "scale": 2
+  },
+  "aims": {},
+  "durations": {
+    "tc-00-open": 32.48,
+    "tc-01-layout": 30.61,
+    "tc-02-seat-switch": 28.64,
+    "tc-03-seat-analyst": 36.11,
+    "tc-04-restricted-deal": 39.06,
+    "tc-05-assistant-scope": 38.1,
+    "tc-05b-agentic": 36.92,
+    "tc-06-datasources": 32.34,
+    "tc-06b-workiq": 46.84,
+    "tc-07-connector-approval": 27.97,
+    "tc-08-crm-connector": 46.81,
+    "tc-09-apply": 22.96,
+    "tc-10-audit": 26.1,
+    "tc-11-architecture": 41.34,
+    "tc-12-network": 28.6,
+    "tc-13-deploy": 27.64,
+    "tc-14-close": 29.58
+  },
+  "cues": {},
+  "points": {}
+}

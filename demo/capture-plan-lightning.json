@@ -1,0 +1,27 @@
+{
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "scale": 2
+  },
+  "aims": {},
+  "durations": {
+    "lt-00-open": 33.01,
+    "lt-01-home-briefing": 29.32,
+    "lt-02-home-evidence": 14.36,
+    "lt-03-home-followups": 26.48,
+    "lt-04-sourcing-framework": 27.16,
+    "lt-05-deal-brief": 20.58,
+    "lt-06-deal-case": 16.09,
+    "lt-07-deal-work": 23,
+    "lt-08-deal-assistant": 23.63,
+    "lt-09-seat-analyst": 26.32,
+    "lt-10-seat-analyst-locked": 23.68,
+    "lt-11-seat-analyst-onyx": 10.98,
+    "lt-12-seat-admin-refused": 35.22,
+    "lt-13-report": 34.38,
+    "lt-14-close": 28.02
+  },
+  "cues": {},
+  "points": {}
+}

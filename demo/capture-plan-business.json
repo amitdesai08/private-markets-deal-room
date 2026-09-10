@@ -1,0 +1,28 @@
+{
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "scale": 2
+  },
+  "aims": {},
+  "durations": {
+    "bc-00-open": 33.56,
+    "bc-00b-easeofuse": 23.8,
+    "bc-01-briefing": 33.56,
+    "bc-02-needs-attention": 28.12,
+    "bc-03-sourcing": 31.6,
+    "bc-04-open-deal": 31.57,
+    "bc-05-readiness": 23.68,
+    "bc-06-follow-ups": 26.87,
+    "bc-07-fund": 24.85,
+    "bc-08-crm": 29.84,
+    "bc-09-report": 28.72,
+    "bc-10-close": 35.32
+  },
+  "cues": {
+    "bc-02-needs-attention": [
+      0.76
+    ]
+  },
+  "points": {}
+}

@@ -52,6 +52,12 @@ async function main() {
       say,
       image: src.image,
       spotlight: src.spotlight || null,
+      ...(src.spotlights ? { spotlights: src.spotlights } : {}),
+      // The recording and its pointer path come along too, or a cut of a filmed walkthrough
+      // would silently fall back to the stills. The cut writes its own, usually shorter,
+      // narration, so the clip will not be the same length as the line over it — the video
+      // build fits it, and says so when the take is too long to fit at all.
+      ...(src.video ? { video: src.video, pointer: src.pointer } : {}),
       // A cut re-orders scenes, so a cursor pointing at the control that led to the *next*
       // screen in the walkthrough would now point somewhere that never follows.
       click: null,

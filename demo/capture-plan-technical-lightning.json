@@ -1,0 +1,21 @@
+{
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "scale": 2
+  },
+  "aims": {},
+  "durations": {
+    "tcl-00-open": 19.16,
+    "tcl-01-identity": 19.31,
+    "tcl-02-analyst-narrower": 18.2,
+    "tcl-03-agent-isolation": 20.44,
+    "tcl-03b-agentic": 19.57,
+    "tcl-04-connectors": 32.99,
+    "tcl-05-audit": 18.61,
+    "tcl-06-footprint": 27.42,
+    "tcl-07-close": 25.14
+  },
+  "cues": {},
+  "points": {}
+}

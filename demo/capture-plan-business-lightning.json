@@ -1,0 +1,23 @@
+{
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "scale": 2
+  },
+  "aims": {},
+  "durations": {
+    "bcl-00-open": 22.91,
+    "bcl-01-briefing": 22.52,
+    "bcl-01b-dealflow": 21.85,
+    "bcl-02-papers": 19,
+    "bcl-03-followups": 17.15,
+    "bcl-04-fund-crm": 21.35,
+    "bcl-05-close": 27.61
+  },
+  "cues": {
+    "bcl-01-briefing": [
+      2.12
+    ]
+  },
+  "points": {}
+}

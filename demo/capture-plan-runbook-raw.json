@@ -1,0 +1,20 @@
+{
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "scale": 2
+  },
+  "aims": {},
+  "durations": {
+    "rb-notifications": 27.13,
+    "rb-channel": 35.8,
+    "rb-papers": 28.88,
+    "rb-assistant-apply": 32.46,
+    "rb-audit": 17.44,
+    "rb-specialists": 31.84,
+    "rb-sources": 34.28,
+    "rb-templates": 33.16
+  },
+  "cues": {},
+  "points": {}
+}
