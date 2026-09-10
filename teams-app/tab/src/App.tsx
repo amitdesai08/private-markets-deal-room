@@ -1349,6 +1349,9 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .drawer-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .drawer-chat { flex: none; width: min(440px, 42%); min-width: 320px; display: flex; background: var(--bg); border-left: 1px solid var(--border); }
 .drawer-chat .chatpanel { flex: 1; max-width: none; border-left: none; }
+/* The panel's own wide toggle sets a class on itself, but in a deal the width is owned by
+   this wrapper -- without this the control flips its icon and nothing moves. */
+.drawer-chat:has(.chatpanel.wide) { width: min(980px, 72%); }
 /* Below about 980px there is not room for a deal and a conversation side by side, so
    the assistant goes back to sitting over the deal -- but over the DEAL, never over
    the deal's header, which is where the buttons a partner reaches for actually live. */

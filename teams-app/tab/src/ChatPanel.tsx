@@ -351,7 +351,10 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
 }
 
 const CHAT_EXTRA_CSS = `
-.chatpanel .msg-actions { margin-top: 6px; }
+/* nowrap because the bubble is a flex item sized to its content: a short answer makes a
+   narrow bubble, and without this the wider footer inside it wraps one character per line. */
+.chatpanel .msg-actions { margin-top: 6px; white-space: nowrap; }
+.chatpanel .bubble .tools { white-space: nowrap; }
 .chatpanel .save-wiq { font: inherit; font-size: 11px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--muted); cursor: pointer; }
 .chatpanel .save-wiq:hover:not(:disabled) { border-color: var(--accent, #6ea8fe); color: var(--accent, #6ea8fe); }
 .chatpanel .saved-tag { font-size: 11px; color: var(--good); }
