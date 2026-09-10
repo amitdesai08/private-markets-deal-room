@@ -71,6 +71,7 @@ async function askGrounded(question) {
     system: 'You are a Microsoft Fabric Data Agent answering strictly from the provided Deal Room lakehouse market-intelligence JSON. Be concise. Cite the specific companies, deals or metrics you used. If the data does not contain the answer, say so plainly — never invent numbers.',
     user: `Lakehouse data (JSON):\n${context}\n\nQuestion: ${question}`,
     maxTokens: 500,
+    label: 'fabric-data',
   }).catch(() => null);
   if (!answer) {
     return { mode: 'unconfigured', answer: 'Fund reporting data is not connected, so questions in plain English are off. An administrator can connect it under Settings — Data sources.', citations: [] };

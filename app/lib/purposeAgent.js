@@ -25,7 +25,7 @@ import { screenText } from './contentSafety.js';
 import { dealAccessLevel } from './userPolicy.js';
 import { lensBlock } from './personaLens.js';
 import { workiqNotesContext } from './workiqMemory.js';
-import { houseStyle, normalisingEmitter } from './ai.js';
+import { houseStyle, normalisingEmitter, recordResponsesUsage } from './ai.js';
 import { answerFromRecord } from './knownAnswers.js';
 import { consumeSse, readResponseStream } from './sse.js';
 import { figuresBlock, enforceFigures } from './diligence.js';
@@ -164,6 +164,7 @@ async function invokeAgent(agentName, input, previousResponseId, onDelta) {
   const body = { model: AGENT_MODEL, input, agent_reference: { name: agentName, type: 'agent_reference' } };
   if (previousResponseId) body.previous_response_id = previousResponseId;
   const data = onDelta ? await streamResponses(body, onDelta) : await postResponses(body);
+  recordResponsesUsage(`purpose-agent:${agentName}`, data?.usage);
   return { text: extractOutputText(data), responseId: data.id };
 }
 

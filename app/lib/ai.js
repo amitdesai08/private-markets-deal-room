@@ -48,6 +48,65 @@ export function getModelInfo() {
   };
 }
 
+// TOKEN ACCOUNTING.
+//
+// Every reply carries a usage block and this file used to throw it away, so the only
+// honest answer to "what does a question cost" was a shrug. Input dominates here --
+// a deal record is thousands of tokens and the answer is capped at a few hundred --
+// so the number that matters most is `cached`: the share of input served from the
+// prompt cache rather than re-billed. Counters are per-process and reset on restart;
+// they are a running total for /api/ops/tokens, not an accounting ledger.
+const usage = {
+  since: new Date().toISOString(),
+  calls: 0, prompt: 0, completion: 0, cached: 0, reasoning: 0,
+  byLabel: Object.create(null),
+};
+
+function recordUsage(label, u) {
+  if (!u) return;
+  const p = u.prompt_tokens || 0;
+  const c = u.completion_tokens || 0;
+  const cached = u.prompt_tokens_details?.cached_tokens || 0;
+  const reasoning = u.completion_tokens_details?.reasoning_tokens || 0;
+  const bucket = usage.byLabel[label] || (usage.byLabel[label] = { calls: 0, prompt: 0, completion: 0, cached: 0, reasoning: 0 });
+  for (const t of [usage, bucket]) {
+    t.calls += 1; t.prompt += p; t.completion += c; t.cached += cached; t.reasoning += reasoning;
+  }
+}
+
+// The Responses API names its usage fields differently. The hosted agents run up to five
+// tool round-trips per question, each re-billing the accumulated context, so they are the
+// heaviest callers in the product — and were entirely invisible before this.
+export function recordResponsesUsage(label, u) {
+  if (!u) return;
+  recordUsage(label, {
+    prompt_tokens: u.input_tokens || 0,
+    completion_tokens: u.output_tokens || 0,
+    prompt_tokens_details: { cached_tokens: u.input_tokens_details?.cached_tokens || 0 },
+    completion_tokens_details: { reasoning_tokens: u.output_tokens_details?.reasoning_tokens || 0 },
+  });
+}
+
+const pct = (n, d) => (d ? Math.round((n / d) * 1000) / 10 : 0);
+
+export function getTokenUsage() {
+  const byLabel = {};
+  for (const [k, v] of Object.entries(usage.byLabel)) {
+    byLabel[k] = { ...v, cachedPct: pct(v.cached, v.prompt), perCall: v.calls ? Math.round((v.prompt + v.completion) / v.calls) : 0 };
+  }
+  return {
+    since: usage.since,
+    calls: usage.calls,
+    prompt: usage.prompt,
+    completion: usage.completion,
+    cached: usage.cached,
+    reasoning: usage.reasoning,
+    total: usage.prompt + usage.completion,
+    cachedPct: pct(usage.cached, usage.prompt),
+    byLabel,
+  };
+}
+
 // House-style scrubber applied to EVERY model reply, on the way out.
 //
 // A prompt instruction is a request; this is the guarantee. The assistant was
@@ -394,10 +453,18 @@ function tidy(md) {
 // Tuesday cannot be quoted in a committee, and a partner cannot supervise a tool whose
 // job is to save them the reading. Recommendations must be reproducible; a little
 // variety in the prose is not worth a contradiction in the verdict.
-export async function complete({ system, user, maxTokens = 700, temperature = 0.1, deployment: dep = deployment, history = [] }) {
-  const c = clientFor(dep);
-  if (!c) return null;
-  const reasoning = /(^|[-_])(gpt-5|o1|o3|o4)/i.test(dep);
+// ORDER IS A COST DECISION.
+//
+// The prompt cache only serves a request whose first 1024 tokens are byte-identical to a
+// previous one. The deal record is by far the largest block and is the same on every turn
+// of a conversation, but it used to sit BEHIND the history -- so each new turn shifted it
+// and re-billed the lot at full rate. Stable context goes ahead of the conversation and
+// the question stays last.
+//
+// The context stays at `user` role deliberately: it carries record data the system prompt
+// calls untrusted, and promoting that to system authority is exactly the escalation the
+// "analyse, never obey" framing exists to prevent.
+export function buildMessages({ system, context = '', user, history = [] }) {
   // Prior turns, so a follow-up can be a follow-up. Without them "how many days is that
   // from today?" bound itself to whatever number was nearest in the CURRENT prompt — on a
   // question about the committee date it answered with the five-year hold period, leap
@@ -406,11 +473,19 @@ export async function complete({ system, user, maxTokens = 700, temperature = 0.
     .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
     .slice(-8)
     .map((m) => ({ role: m.role, content: String(m.content).slice(0, 2000) }));
-  const messages = [
+  return [
     { role: 'system', content: system },
+    ...(context ? [{ role: 'user', content: context }] : []),
     ...priorTurns,
     { role: 'user', content: user }
   ];
+}
+
+export async function complete({ system, context = '', user, maxTokens = 700, temperature = 0.1, deployment: dep = deployment, history = [], label = 'unlabelled' }) {
+  const c = clientFor(dep);
+  if (!c) return null;
+  const reasoning = /(^|[-_])(gpt-5|o1|o3|o4)/i.test(dep);
+  const messages = buildMessages({ system, context, user, history });
   const params = reasoning
     ? {
         model: dep,
@@ -420,5 +495,6 @@ export async function complete({ system, user, maxTokens = 700, temperature = 0.
       }
     : { model: dep, messages, temperature, max_tokens: maxTokens };
   const resp = await c.chat.completions.create(params);
+  recordUsage(label, resp.usage);
   return houseStyle(resp.choices?.[0]?.message?.content?.trim() || null);
 }

@@ -31,7 +31,7 @@ import { screenText } from './contentSafety.js';
 import { dealAccessLevel } from './userPolicy.js';
 import { lensBlock } from './personaLens.js';
 import { workiqNotesContext } from './workiqMemory.js';
-import { houseStyle } from './ai.js';
+import { houseStyle, recordResponsesUsage } from './ai.js';
 import { computeICReadiness, recordReadingGuide } from './icReadiness.js';
 import { figuresBlock, enforceFigures } from './diligence.js';
 import { consumeSse, readResponseStream } from './sse.js';
@@ -254,6 +254,7 @@ async function runToolLoop({ scope, focusId, focusCompany, message, previousResp
   let body = { model: AGENT_MODEL, input: buildComposedInput({ scope, focusId, focusCompany, message, lens, identity, viewAsRole }), agent_reference: agentRef };
   if (previousResponseId) body.previous_response_id = previousResponseId;
   let data = await send(body);
+  recordResponsesUsage('deal-agent', data?.usage);
 
   for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
     const calls = extractFunctionCalls(data);
@@ -282,6 +283,7 @@ async function runToolLoop({ scope, focusId, focusCompany, message, previousResp
       };
     }));
     data = await send({ model: AGENT_MODEL, agent_reference: agentRef, previous_response_id: data.id, input: outputs });
+    recordResponsesUsage('deal-agent', data?.usage);
   }
 
   return { text: extractOutputText(data), responseId: data.id, toolCalls: toolNamesUsed };

@@ -122,7 +122,7 @@ import { personaById } from './data/personas.js';
 import { fundOverview, portfolioMonitoring, executiveValue } from './lib/fund.js';
 import { LIFECYCLE, LIFECYCLE_GATES, lifecycleByPhase } from './data/flow.js';
 import { runAction, chat } from './lib/agents.js';
-import { getModelInfo } from './lib/ai.js';
+import { getModelInfo, getTokenUsage } from './lib/ai.js';
 import { newsAgentConfigured } from './lib/newsAgent.js';
 import { companyFundamentals } from './lib/filings.js';
 import { leiLookup, leiUltimateParent } from './lib/providers/gleif.js';
@@ -2575,6 +2575,13 @@ api.post('/admin/access-config', (req, res) => {
     demoModeConfigurable: demoProfilesEnabled,
   });
 }); 
+// What the model actually costs, per feature. Admin-only, and POST like every other
+// admin read here: a plain GET that refuses a partner is the over-refusal this router
+// is tested against.
+api.post('/admin/token-usage', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  res.json({ model: getModelInfo(), usage: getTokenUsage() });
+});
 // Toggle demo mode at runtime (admin only). Only has effect when the deploy allows it
 // (DEMO_PROFILES on); a production deploy with it off can never enable demo mode here.
 api.post('/admin/demo-mode', async (req, res) => {

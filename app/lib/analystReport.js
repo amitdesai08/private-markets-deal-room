@@ -31,7 +31,7 @@ async function callModel(system, userRich, userSafe) {
   let lastErr = null;
   for (const a of attempts) {
     try {
-      const out = await complete({ system, user: a.user, maxTokens: 550, deployment: a.dep });
+      const out = await complete({ system, user: a.user, maxTokens: 550, deployment: a.dep, label: 'analyst-report' });
       if (out) return out;
     } catch (err) {
       lastErr = err;
