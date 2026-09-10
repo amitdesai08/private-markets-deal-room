@@ -38,6 +38,9 @@ export const SCENES = [
     title: 'The Deal Room',
     seat: 'partner',
     steps: [{ goto: '#/overview' }, { waitText: 'Daily briefing' }, { scrollTop: 0 }],
+    // The breadth of the platform as it is named, then the written summary as the line turns
+    // to what the firm already knows.
+    spotlight: ['nav.maintabs', 'text:Daily briefing'],
     say: `This is the Deal Room — one place to run a private equity deal. It's built on Microsoft 365, Teams and
       Entra ID, the tools a firm already runs and trusts. Almost everything here comes from an invented
       demonstration book: invented companies, invented people, invented numbers, nothing confidential anywhere.
@@ -80,7 +83,10 @@ export const SCENES = [
     title: 'The daily briefing',
     seat: 'partner',
     steps: [{ scrollTo: 'Daily briefing' }],
-    spotlight: 'text:Daily briefing',
+    // The narration reaches the briefing itself first, then the figures above it, then the
+    // badge in its corner. 'exact:' keeps the middle one on the chip rather than growing back
+    // out to the card the other two already frame.
+    spotlight: ['text:Daily briefing', 'exact:deals in view', '.aicard .hd'],
     say: `Then comes the daily briefing, with a row of small highlight cards sitting just above it: deal count,
       capital at work, what's at risk, what's ready for committee, the same facts spelled out at a glance before you
       read a word. The first thing written out isn't a chart, though; it's somebody telling you what happened,
@@ -215,6 +221,7 @@ export const SCENES = [
     title: 'It tells you where to start',
     seat: 'partner',
     steps: [{ openDeal: 'Helvetia' }, { wait: 4000 }, { scrollTop: 0 }],
+    spotlight: '.aicard',
     say: `Opening Helvetia Diagnostics shows the shape every deal takes: five pages in the same order every time,
       covering where the deal stands, the case for it, the work underway, the numbers, and the paperwork. Above those
       pages sits a single line stating where to start, the urgency behind it, and a button leading straight there.
@@ -250,7 +257,9 @@ export const SCENES = [
     act: 4,
     title: 'Your data room, not a copy of it',
     seat: 'partner',
-    steps: [{ scrollTo: 'Data room' }],
+    steps: [{ clickText: '📁 Data room' }, { wait: 3000 }, { scrollTo: '00_Administration' }],
+    // The room as a whole, then one real folder as the line turns to opening a document.
+    spotlight: ['.vdr-grid', 'exact:00_Administration'],
     say: `Further down the same page sits the data room: fourteen numbered folders, the named adviser on each
       workstream, and the playbook templates. This isn't a copy of a firm's data room — it's that data room, live in
       SharePoint, simply opened from here. Nothing was migrated, and nothing ever left the tenant.`,
@@ -261,6 +270,21 @@ export const SCENES = [
     title: 'The assistant drafts; the board decides',
     seat: 'partner',
     steps: [{ clickText: '💬 Ask the assistant' }, { wait: 2500 }],
+    // Asked on camera, not before it: the question is typed a character at a time, sent, and
+    // the answer streams in while the narration is still describing what the assistant does.
+    // The wait for the answer is cut rather than filmed — see `perform` in capture.mjs.
+    // Widened first, so the answer is read in the room it deserves.
+    perform: [
+      { click: 'aside.chatpanel .iconbtn[aria-label="Widen the assistant"]' },
+      { wait: 900 },
+      { type: { selector: 'aside.chatpanel textarea.input', text: 'Is this ready for IC, and what is blocking it?' } },
+      { wait: 600 },
+      { press: 'Enter' },
+      { wait: 900 },
+      { waitJs: `!(document.querySelector('aside.chatpanel button.send')||{}).textContent.includes('…')` },
+      { wait: 1600 },
+    ],
+    spotlight: 'aside.chatpanel',
     say: `Asking the assistant what's still outstanding before this deal can close brings up an answer drawn
       entirely from this deal's own record, with its sources shown. A Focus box at the top of the chat is set to this
       deal, so a question about a different one gets declined rather than answered. The assistant can roam, but only
@@ -343,7 +367,40 @@ export const SCENES = [
     title: 'The analyst sees eight',
     seat: 'analyst',
     keepBanner: true,
-    steps: [{ selectSeat: 'analyst' }, { wait: 4000 }, { clickText: 'All deals' }, { wait: 3000 }, { scrollTop: 0 }],
+    // The narration says "switch to the analyst experience", so the switch is on camera and
+    // the list is seen narrowing, rather than already narrow when the scene opens.
+    seatOnCamera: true,
+    // The switch is the whole point, so it has to be SEEN happening. Fired at scene start it
+    // completed within three seconds, leaving the analyst view already on screen by the time
+    // the narration said we were switching. Holding the partner list first means the line
+    // lands on the change itself: twenty-four deals becoming eight, in place.
+    //
+    // Waits on conditions rather than a stopwatch after that, and the seat change skips its
+    // blanket settle because the condition below is the real one.
+    steps: [
+      { wait: 2300 },
+      { point: 'select.viewas' },
+      // The box has to be seen on Eleanor before it can be seen changing. Without this the
+      // pointer arrives and the seat switches in the same quarter second, and the first
+      // highlight is a blink nobody reads.
+      { wait: 1100 },
+      { selectSeat: { seat: 'analyst', settle: 0 } },
+      // The name reads Chidi the moment the value is set, so Eleanor's box comes off then —
+      // not when the layout finally shifts half a second later.
+      { clearHighlight: true },
+      { waitMoved: 'select.viewas' },
+      { highlight: 'select.viewas' },
+      { waitText: 'Now viewing as another seat' },
+      { wait: 400 },
+      { clickText: 'All deals' },
+      { waitJs: "!!document.querySelector('.dealsview')" },
+      { wait: 400 },
+      { scrollTop: 0 },
+    ],
+    // The control that does the switching, at the moment the narration says to switch, then
+    // the list it narrows. Pointing at the result without ever showing the cause was what
+    // made this scene read as a screen changing by itself.
+    spotlight: ['select.viewas', '.dealsview'],
     say: `Chidi Anagonye is an analyst covering the Northeast, and under his seat, All deals drops from twenty-four
       to eight. The filters change to match: one in origination, four in diligence, three in execution. Value and
       Exit disappears entirely, because he has no deal in that stage. The filters describe his own world rather than
@@ -357,6 +414,16 @@ export const SCENES = [
     seat: 'analyst',
     keepBanner: true,
     steps: [{ scrollTo: 'Status only' }],
+    // Measured AFTER `perform`, which opens the deal — so the list row this used to name is
+    // gone by then, and both a 'text:' and an 'in:.dv-row' spec reported unresolved. What is
+    // on screen is the status-only header the analyst gets instead of the deal.
+    spotlight: '.drawer-head',
+    // Opened on camera: the narration is about what the analyst is shown when he asks for a
+    // deal he is not cleared for, which only lands if the asking is seen.
+    perform: [
+      { clickText: 'Harborlight Marine Services' },
+      { wait: 2600 },
+    ],
     say: `Further down, a deal he's not cleared for still appears, under a status-only heading: Harborlight Marine
       Services, locked, because he's not on that deal team. It shows up by name and by where it stands, with no
       valuation, no diligence, and no documents attached — honest that the deal exists rather than pretending
@@ -393,6 +460,7 @@ export const SCENES = [
     seat: 'admin',
     keepBanner: true,
     steps: [{ gotoConfidential: true }, { wait: 4000 }, { scrollTop: 0 }],
+    spotlight: '.drawer-head',
     say: `Opening that same deal's own link directly as the administrator, the product answers with deal
       unavailable: either it doesn't exist, or the signed-in seat isn't on its deal team. It refuses without ever
       confirming which is true, because on an unannounced take-private, the mere fact that there's something worth
@@ -408,6 +476,7 @@ export const SCENES = [
     title: 'You decide what it may look at',
     seat: 'partner',
     steps: [{ selectSeat: 'partner' }, { wait: 3000 }, { clickText: '⚙' }, { wait: 3000 }, { scrollTop: 0 }],
+    spotlight: '.set-demo',
     say: `Settings lists every outside source the product may draw on, and any of them can be switched off: company
       filings, news, the legal-entity register, web search. The paid providers further down read not connected,
       since this fund doesn't subscribe to them. It's entirely up to the fund to decide what this platform is
@@ -420,6 +489,7 @@ export const SCENES = [
     title: 'The close',
     seat: 'partner',
     steps: [{ clickText: 'Home' }, { wait: 3000 }, { scrollTop: 0 }],
+    spotlight: 'nav.maintabs',
     say: `The deal material itself never leaves a firm's own Microsoft tenant: the data room is its SharePoint, and
       the conversation is its Teams channel, embedded right inside the deal itself rather than a separate tab to go
       find. The mail and calendar are its own too. It's one place to run a deal, built on tools a firm already pays
