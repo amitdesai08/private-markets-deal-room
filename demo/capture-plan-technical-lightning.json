@@ -16,6 +16,30 @@
     "tcl-06-footprint": 27.42,
     "tcl-07-close": 25.14
   },
-  "cues": {},
-  "points": {}
+  "cues": {
+    "tcl-01-identity": [
+      7.93
+    ],
+    "tcl-02-analyst-narrower": [
+      0.81,
+      5.25
+    ],
+    "tcl-03-agent-isolation": [
+      4.83
+    ],
+    "tcl-03b-agentic": [
+      4.06
+    ],
+    "tcl-04-connectors": [
+      8.69
+    ],
+    "tcl-05-audit": [
+      9.45
+    ]
+  },
+  "points": {
+    "tcl-02-analyst-narrower": [
+      0
+    ]
+  }
 }

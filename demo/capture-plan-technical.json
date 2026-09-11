@@ -24,6 +24,16 @@
     "tc-13-deploy": 27.64,
     "tc-14-close": 29.58
   },
-  "cues": {},
+  "cues": {
+    "tc-01-layout": [
+      0.86
+    ],
+    "tc-06b-workiq": [
+      9.07
+    ],
+    "tc-07-connector-approval": [
+      7.18
+    ]
+  },
   "points": {}
 }

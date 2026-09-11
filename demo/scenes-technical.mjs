@@ -44,6 +44,7 @@ export const SCENES = [
     seat: 'admin',
     steps: [{ scrollTop: 0 }],
     spotlight: 'nav.maintabs',
+    cues: ['Five tabs'],
     say: `Five tabs are the whole product surface a deal team sees. That smallness is deliberate, and it's also
       not the interesting part of this walk-through. What sits behind those five tabs is one shared backend, a
       server-side identity boundary, two classes of AI agent that can't cross into each other's data, and a
@@ -148,6 +149,7 @@ export const SCENES = [
     seat: 'admin',
     steps: [{ scrollTo: 'files, chats and email' }],
     spotlight: 'text:files, chats and email',
+    cues: ['SharePoint files'],
     say: `Scroll down and there's a second kind of connector entirely. This is Work IQ, the set of tools that let
       an internal agent read this firm's own SharePoint files, Teams channel messages and mail through Microsoft
       Graph. It isn't a bolt-on integration; it's the same Graph app registration Teams already uses, so a read
@@ -163,6 +165,7 @@ export const SCENES = [
     seat: 'admin',
     steps: [{ scrollTo: 'Add a data source' }],
     spotlight: 'text:Add a data source',
+    cues: ['registered here'],
     say: `A data source the fund adds itself, an internal API or a provider without a built-in connector, is
       registered here but marked pending. It can't be tested, enabled, or used by any agent until an administrator
       approves it. That approval gate exists for exactly the reason a security reviewer would raise it: a

@@ -27,14 +27,14 @@ export const SCENES = [
   {
     id: 'lt-00-open',
     act: 50,
-    title: 'The Deal Room in ten minutes',
+    title: 'The Deal Room, the short version',
     seat: 'partner',
     steps: [{ goto: '#/overview' }, { waitText: 'Daily briefing' }, { scrollTop: 0 }],
     say: `This is the Deal Room, one place to run a private equity deal, built on Microsoft 365, Microsoft Teams and
       Microsoft Entra ID, the tools a firm already runs and already trusts. Almost everything shown here comes from
       an invented demonstration book, with invented companies, invented people and invented numbers. A handful of
       real public companies do appear, because the screener has picked them up from public filings that are already
-      public information. Six things are worth attention in the next ten minutes.`,
+      public information. Six things are worth attention in the next few minutes.`,
   },
   {
     id: 'lt-01-home-briefing',
@@ -43,6 +43,7 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ scrollTo: 'Daily briefing' }],
     spotlight: 'text:Daily briefing',
+    cues: ['telling you what happened'],
     say: `A row of small highlight cards sits above the page: deal count, capital at work, what's at risk, what's
       ready for committee. Below that isn't a dashboard, though: it's somebody telling you what happened, written in
       full sentences for the seat currently signed in. A small badge in the corner says Composed, meaning the
@@ -56,6 +57,7 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ scrollTo: 'Daily briefing' }, { clickText: '🔍 Evidence' }, { wait: 1800 }],
     spotlight: 'text:Daily briefing',
+    cues: ['Every numbered claim'],
     click: 'text:🔍 Evidence',
     say: `Every numbered claim in that briefing opens back to the deal, the workstream or the filing it came from
       with a single press of Evidence, answering the question that stops every committee: where did this number come
@@ -68,6 +70,7 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ clickText: '🔍 Evidence' }, { scrollTo: 'Untracked follow-ups' }],
     spotlight: 'text:Untracked follow-ups',
+    cues: ['twenty-two promises'],
     say: `This is the panel people tend to remember: twenty-two promises made in Teams channels that nobody wrote
       down, across nineteen deals, each quoted word for word along with who said it and by when, read straight out
       of the same Teams conversations a deal team already holds. It does not chase these commitments down; it simply

@@ -20,8 +20,14 @@
     "bc-10-close": 35.32
   },
   "cues": {
+    "bc-01-briefing": [
+      13.8
+    ],
     "bc-02-needs-attention": [
       0.76
+    ],
+    "bc-06-follow-ups": [
+      10.99
     ]
   },
   "points": {}

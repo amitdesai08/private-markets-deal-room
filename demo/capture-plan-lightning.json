@@ -22,6 +22,16 @@
     "lt-13-report": 34.38,
     "lt-14-close": 28.02
   },
-  "cues": {},
+  "cues": {
+    "lt-01-home-briefing": [
+      11.21
+    ],
+    "lt-02-home-evidence": [
+      0.8
+    ],
+    "lt-03-home-followups": [
+      3.25
+    ]
+  },
   "points": {}
 }

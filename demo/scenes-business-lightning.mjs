@@ -24,7 +24,7 @@ export const SCENES = [
     title: 'The hours this gives back',
     seat: 'partner',
     steps: [{ goto: '#/overview' }, { waitText: 'Daily briefing' }, { scrollTop: 0 }],
-    say: `Ten minutes on the Deal Room, from a Managing Partner's seat, not the features, the hours. Everything
+    say: `A few minutes on the Deal Room, from a Managing Partner's seat, not the features, the hours. Everything
       here comes from one governed deal record, running inside Microsoft Teams your team already uses all day, so
       there's no new tool to learn. Every saving I point out is a specific manual task this removes, not a number
       I'm asking you to take on faith.`,
@@ -71,6 +71,7 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ closeOverlay: true }, { clickText: 'Home' }, { wait: 2000 }, { scrollTo: 'Untracked follow-ups' }],
     spotlight: 'text:Untracked follow-ups',
+    cues: ['surfaces those automatically'],
     say: `Every firm loses a promise made in a Teams thread that nobody writes down. This surfaces those
       automatically, across every deal. It's the overhead of "who was supposed to follow up on that" removed at
       the source, not chased down after the fact.`,

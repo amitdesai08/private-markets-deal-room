@@ -17,6 +17,9 @@
   "cues": {
     "bcl-01-briefing": [
       2.12
+    ],
+    "bcl-03-followups": [
+      5.34
     ]
   },
   "points": {}

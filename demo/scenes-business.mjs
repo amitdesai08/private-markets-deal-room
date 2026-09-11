@@ -58,6 +58,7 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ scrollTop: 0 }],
     spotlight: 'text:Daily briefing',
+    cues: ['happens here automatically'],
     say: `Most firms start the day with someone, an associate, a chief of staff, pulling together what needs
       attention: which deals are slipping toward committee, what changed since yesterday, what a partner should
       look at first. That assembly work happens here automatically, every time the page loads, straight from the
@@ -130,6 +131,7 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ closeOverlay: true }, { clickText: 'Home' }, { wait: 2000 }, { scrollTo: 'Untracked follow-ups' }],
     spotlight: 'text:Untracked follow-ups',
+    cues: ['surfaces those automatically'],
     say: `Every firm loses time to a commitment made verbally or in a Teams thread that nobody wrote down, and
       somebody has to rediscover it weeks later, usually the hard way. This surfaces those automatically across
       every deal channel. It doesn't chase them; it simply notices they exist and puts them in front of a person.

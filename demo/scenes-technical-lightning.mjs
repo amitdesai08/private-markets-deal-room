@@ -27,7 +27,7 @@ export const SCENES = [
     steps: [{ goto: '#/overview' }, { waitText: 'Daily briefing' }, { scrollTop: 0 }],
     say: `The Deal Room deploys with one command into your own Azure subscription and your own Microsoft Entra
       tenant. It's not multi-tenant SaaS, and your data never leaves a resource group you control. Six things are
-      worth your attention in the next ten minutes, and none of them are the five tabs a deal team uses.`,
+      worth your attention in the next few minutes, and none of them are the five tabs a deal team uses.`,
   },
   {
     id: 'tcl-01-identity',
@@ -36,6 +36,8 @@ export const SCENES = [
     seat: 'admin',
     steps: [{ clickText: 'All deals' }, { wait: 2500 }, { scrollTop: 0 }],
     click: 'text:All deals',
+    spotlight: '.dealsview',
+    cues: ['twenty-one deals'],
     say: `Every deal read resolves through Entra ID on the server before a row is sent to the browser. This
       administrator seat sees twenty-one deals, and that's not a client-side filter. It's the number of rows the
       server ever sent. A client can state who it is; it can never widen its own access.`,
@@ -47,6 +49,11 @@ export const SCENES = [
     seat: 'analyst',
     keepBanner: true,
     steps: [{ selectSeat: 'analyst' }, { wait: 4000 }, { clickText: 'All deals' }, { wait: 3000 }, { scrollTop: 0 }],
+    // The seat control is the thing being operated, so the hand goes there; the list is the
+    // consequence and only needs the box.
+    spotlight: ['select.viewas', '.dealsview'],
+    cues: ['Switch the identity', 'eight deals'],
+    pointAt: [0],
     say: `Switch the identity to an analyst and the same API route now returns eight deals. There's no
       permissions table in this application. The role and the need-to-know grants live in the Entra directory
       this firm already runs, and the product reads it rather than duplicating it.`,
@@ -58,6 +65,8 @@ export const SCENES = [
     seat: 'admin',
     steps: [{ selectSeat: 'admin' }, { wait: 3000 }, { openDeal: 'Helvetia' }, { wait: 3000 }, { clickText: '💬 Ask the assistant' }, { wait: 2500 }],
     click: 'text:💬 Ask the assistant',
+    spotlight: 'aside.chatpanel',
+    cues: ['Internal-data agents'],
     say: `Every agent belongs to one of two classes set in a registry. Internal-data agents read this firm's
       governed record and can't reach the public web; the one external-web agent reaches the open internet and
       can't reach a deal record. That boundary is checked on every tool call, server-side, before it runs.`,
@@ -69,6 +78,8 @@ export const SCENES = [
     seat: 'admin',
     keepBanner: true,
     steps: [{ wait: 500 }],
+    spotlight: 'aside.chatpanel',
+    cues: ['Deal Orchestrator'],
     say: `And this assistant isn't one model guessing at everything. A Deal Orchestrator reads the question,
       decides which specialists actually need to weigh in, calls only those, and composes one answer that names
       who it consulted. That routing is a fixed decision tree, not something a prompt can talk its way around.`,
@@ -80,6 +91,8 @@ export const SCENES = [
     seat: 'admin',
     steps: [{ closeOverlay: true }, { clickText: '⚙' }, { wait: 2000 }, { clickText: 'Data sources' }, { wait: 2500 }, { scrollTo: 'files, chats and email' }],
     click: 'text:Data sources',
+    spotlight: 'text:files, chats and email',
+    cues: ['Work IQ'],
     say: `Every connector, from free public filings to a self-registered source, is tested with a real round
       trip, never a static badge. Work IQ, further down, is the same idea applied to this firm's own SharePoint
       files, Teams messages and mail: reads run as the signed-in user over Microsoft Graph, so Microsoft 365
@@ -93,6 +106,8 @@ export const SCENES = [
     seat: 'partner',
     steps: [{ closeOverlay: true }, { selectSeat: 'partner' }, { wait: 3000 }, { openDeal: 'Helvetia' }, { wait: 3000 }, { clickText: 'Audit trail' }, { wait: 2500 }],
     click: 'text:Audit trail',
+    spotlight: 'text:Audit trail',
+    cues: ['audit trail records'],
     say: `The assistant proposes; a person presses Apply, and that write is governed by the caller's own role,
       the same as a human typing it directly. The audit trail records who did what and when, with a "via
       assistant, you approved" badge on every assistant-applied change.`,
