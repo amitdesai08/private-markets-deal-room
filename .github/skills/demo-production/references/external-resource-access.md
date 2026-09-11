@@ -1,5 +1,12 @@
 # Deciding access — whose credential captures the demo
 
+## Contents
+- When this applies
+- Decision procedure, in order
+- Two ways to get access, and when to use which
+- Saying so in the demo itself
+- Quick recap
+
 Capturing a real, gated product or resource means **doing something against it under some
 identity** — there is no scripted-login shortcut, and this skill has no standing access to
 anything by default. So before writing a single capture step, decide **whose** credential the
@@ -7,8 +14,9 @@ capture will use, deliberately, rather than letting it default to whatever happe
 in.
 
 **All three mechanical steps below — verify, plan, create — are one script,
-[`reference-implementation/setup-demo-access.ps1`](../reference-implementation/setup-demo-access.ps1);
-nothing in this file needs to be typed out by hand as a one-off `az` command.** The decisions
+`reference-implementation/setup-demo-access.ps1` (wherever you copied `reference-implementation/`
+into your project); nothing in this file needs to be typed out by hand as a one-off `az`
+command.** The decisions
 (which resource, interactive vs. SPN, which role) are still yours to make and, where noted, the
 user's to approve — the script only performs the Azure calls once a decision is made. (This
 script is Azure-specific; if the subject lives on a different cloud or has no cloud resource at
@@ -17,7 +25,7 @@ that platform's own CLI/API instead.)
 
 **This file is about access — who's allowed to look.** Once that's settled, the actual
 click-through/narrated-video capture is a separate concern, covered in
-[`scene-schema.md`](scene-schema.md) and [`../reference-implementation/CONFIGURE.md`](../reference-implementation/CONFIGURE.md):
+[`scene-schema.md`](scene-schema.md) and `reference-implementation/CONFIGURE.md`:
 `capture.mjs` drives any URL your `scenes.mjs` names, using the interactive session you just
 verified (or signed into) here — it never touches the SPN path below at all, since a real
 browser click-through needs a human's own signed-in session, not an API credential.

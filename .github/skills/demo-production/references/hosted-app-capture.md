@@ -1,5 +1,17 @@
 # Capturing an app hosted inside another app
 
+## Contents
+- When you need this
+- The app is in a different process, and invisible by default
+- The split that makes this work
+- Three coordinate spaces, and the rule for each
+- Measuring the offset after dismissing host chrome, and per scene
+- Host state is long-lived: set it, never assume it
+- Navigation must stay inside the frame
+- Opening the tab automatically
+- Sizing the window to the video's resolution
+- Aims measured standalone do not transfer
+
 ## When you need this
 
 The product is normally *used* inside a host application — a chat/collaboration tab, an intranet
