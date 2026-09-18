@@ -687,7 +687,7 @@ export default function App() {
 
       <div className="layout">
         {openDealId && seatReady ? (
-          <DealDetail key={openDealId} dealId={openDealId} canViewStage2={canViewStage2} canWrite={canWrite} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} backLabel={backLabel} initialTab={dealTab || undefined} onTabChange={setDealTab} demoMode={isDemoMode}
+          <DealDetail key={openDealId} dealId={openDealId} canViewStage2={canViewStage2} canWrite={canWrite} isAdmin={isAdmin} agents={visibleAgents} deals={deals} viewAsRole={viewAsRole} onChanged={refreshData} onClose={() => setOpenDealId('')} backLabel={backLabel} initialTab={dealTab || undefined} onTabChange={setDealTab} demoMode={isDemoMode}
             />
         ) : openDealId ? (
           /* A deal link opens the deal before anyone has been identified, and the first

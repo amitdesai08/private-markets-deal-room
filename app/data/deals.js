@@ -832,7 +832,9 @@ export const demoStageDeals = [
       { actor: 'Eleanor Shellstrop', action: 'IC approved with conditions: dual-source reagents, leverage ≤ 4.25x', when: hoursAgo(160) },
       { actor: 'David Osei', action: 'Dual-source reagent condition evidenced and closed out', when: hoursAgo(96) },
       { actor: 'David Osei', action: 'Locked debt package at 4.2x; funds-flow drafted', when: hoursAgo(30) },
-      { actor: 'Shawn Reese', action: 'Circulated SPA v7 with the negotiated CP list', when: hoursAgo(10) }
+      { actor: 'David Osei', action: 'Recorded reagent supplier concentration as a closing risk', when: hoursAgo(26), via: 'assistant' },
+      { actor: 'Shawn Reese', action: 'Circulated SPA v7 with the negotiated CP list', when: hoursAgo(10) },
+      { actor: 'Eleanor Shellstrop', action: 'Closed the leverage condition after reviewing the final debt package', when: hoursAgo(6), via: 'assistant' }
     ],
     hoursSaved: 34
   },

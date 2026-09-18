@@ -148,6 +148,7 @@ const REGION_LABEL: Record<string, string> = { northeast: 'Northeast', southeast
 type Tab = 'cockpit' | 'workflow' | 'threads' | 'docdesk' | 'stages' | 'overview' | 'workspace' | 'research' | 'ic' | 'case' | 'artifacts' | 'documents' | 'activity';
 type ResolveTarget = { tab: Tab; step?: string };
 type ActivityEntry = { actor?: string; action?: string; when?: string; via?: string | null };
+type TokenUsage = { since: string; calls: number; prompt: number; completion: number; cached: number; reasoning: number; total: number; cachedPct: number };
 
 // A tab label is a promise about what is behind it. Six of these used to name a
 // SHAPE rather than a subject — "Overview", "Workspace", "Activity" — and three
@@ -286,7 +287,7 @@ const pathLabel = (t: Tab): string => {
   return g.tabs.length > 1 ? `${g.label} · ${SUB_LABEL[t] || TAB_LABEL[t]}` : g.label;
 };
 
-export default function DealDetail({ dealId, canViewStage2, canWrite, agents, deals, viewAsRole, onChanged, initialTab, onTabChange, demoMode }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string; initialTab?: string; onTabChange?: (t: string) => void; demoMode?: boolean }) {
+export default function DealDetail({ dealId, canViewStage2, canWrite, isAdmin, agents, deals, viewAsRole, onChanged, initialTab, onTabChange, demoMode }: { dealId: string; canViewStage2: boolean; canWrite?: boolean; isAdmin?: boolean; agents: Agent[]; deals: Deal[]; viewAsRole?: string; onChanged?: () => void; onClose: () => void; backLabel?: string; initialTab?: string; onTabChange?: (t: string) => void; demoMode?: boolean }) {
   const [deal, setDeal] = useState<DealFull | null>(null);
   const [ic, setIc] = useState<ICReadiness | null>(null);
   const [flow, setFlow] = useState<Flow | null>(null);
@@ -294,6 +295,7 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
   const [citations, setCitations] = useState<Citations | null>(null);
   const [citationsFailed, setCitationsFailed] = useState(false);
   const [activity, setActivity] = useState<ActivityEntry[] | null>(null);
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage | null>(null);
   const [loading, setLoading] = useState(true);
   // Start on the brief. This used to start on 'overview' and switch once
   // /api/teams/config came back, so on every deal open the reader watched one screen
@@ -522,8 +524,9 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
       rows.sort((a: ActivityEntry, b: ActivityEntry) => new Date(b.when || 0).getTime() - new Date(a.when || 0).getTime());
       setActivity(rows);
     }).catch(() => setActivity([]));
+    if (isAdmin) af('/api/admin/token-usage', { method: 'POST' }).then((r) => (r.ok ? r.json() : null)).then(setTokenUsage).catch(() => setTokenUsage(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, dealId]);
+  }, [tab, dealId, isAdmin]);
 
   // Lazily list the deal's SharePoint data-room documents when the tab opens. The
   // data room auto-provisions on first access (no manual launch) — while that runs the
@@ -1763,6 +1766,22 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, agents, de
               {tab === 'activity' && (
                 <section className="dd-panel">
                   <div className="dd-panel-h">Activity &amp; audit trail<span className="muted">who did what, and when</span></div>
+                  {isAdmin && tokenUsage ? (
+                    <div style={{ margin: '4px 14px 10px', padding: '10px 12px', border: '1px solid var(--border)', background: 'var(--surface)', borderRadius: 6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                        <strong style={{ fontSize: 12.5 }}>AI token usage</strong>
+                        <span className="muted" style={{ fontSize: 10.5 }}>since {new Date(tokenUsage.since).toLocaleString('en-GB')}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))', gap: 8, marginTop: 8 }}>
+                        {[['Model calls', tokenUsage.calls], ['Prompt', tokenUsage.prompt], ['Completion', tokenUsage.completion], ['Cached', `${tokenUsage.cached.toLocaleString()} (${tokenUsage.cachedPct}%)`], ['Reasoning', tokenUsage.reasoning], ['Total', tokenUsage.total]].map(([label, value]) => (
+                          <div key={label}>
+                            <div className="muted" style={{ fontSize: 10 }}>{label}</div>
+                            <div style={{ fontSize: 14, fontWeight: 700 }}>{typeof value === 'number' ? value.toLocaleString() : value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   <div style={{ padding: '4px 14px 14px' }}>
                     {activity == null ? <div className="muted" style={{ fontSize: 12, padding: '8px 0' }}>Loading activity…</div>
                       : !activity.length ? <div className="muted" style={{ fontSize: 12, padding: '8px 0' }}>No activity recorded yet.</div>

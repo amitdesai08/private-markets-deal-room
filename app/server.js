@@ -2558,6 +2558,10 @@ function requireAdmin(req, res) {
   }
   return access;
 }
+api.post('/admin/token-usage', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  res.json(getTokenUsage());
+});
 // Read the current access config + the catalogs the builder UI needs.
 api.post('/admin/access-config', (req, res) => {
   if (!requireAdmin(req, res)) return;
