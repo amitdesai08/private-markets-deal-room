@@ -13,7 +13,16 @@ type CompareCol = { seat: string; label: string; text: string; role?: string; pe
 type Any = Record<string, any>;
 // `status` is what the assistant is doing while there is nothing to show yet — the reader
 // waits a real amount of time for a multi-specialist answer and deserves to know why.
-type Msg = { role: 'user' | 'agent'; text: string; source?: string; tools?: string[]; pending?: boolean; status?: string; proposed?: ProposedAction[]; applied?: string[]; saved?: boolean; question?: string; compare?: CompareCol[] };
+type Msg = { role: 'user' | 'agent'; text: string; source?: string; tools?: string[]; agentsUsed?: string[]; pending?: boolean; status?: string; proposed?: ProposedAction[]; applied?: string[]; saved?: boolean; question?: string; compare?: CompareCol[] };
+
+const SPECIALIST_LABELS: Record<string, string> = {
+  'deal-room-sourcing': 'Sourcing',
+  'deal-room-screening': 'Screening',
+  'deal-room-diligence': 'Diligence',
+  'deal-room-modeling': 'Modelling',
+  'deal-room-ic-memo': 'IC memo',
+  'deal-room-value-creation': 'Value creation',
+};
 
 const DEAL_STARTERS = [
   'Is this ready for IC, and what is blocking it?',
@@ -115,13 +124,13 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
       // the recommendation while the reasoning is still being written.
       const streaming = agent.kind === 'orchestrator';
       const res = await af(streaming ? '/api/deal-agent/stream' : endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-      let data: Any = null;
+      let data: Any | null = null;
+      let status = '';
       if (streaming && /text\/event-stream/i.test(res.headers.get('content-type') || '') && res.body) {
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
         let shown = '';
-        let status = '';
         const paint = () => setThreads((tt) => { const arr = (tt[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: shown, pending: !shown, status: shown ? undefined : status }; return { ...tt, [threadKey]: arr }; });
         for (;;) {
           const { done, value } = await reader.read();
@@ -150,9 +159,10 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
       }
       const reply = data?.reply || data?.error || 'No response.';
       const tools = Array.isArray(data?.toolCalls) && data.toolCalls.length ? Array.from(new Set(data.toolCalls)) as string[] : undefined;
+      const agentsUsed = Array.isArray(data?.agentsUsed) && data.agentsUsed.length ? Array.from(new Set(data.agentsUsed)) as string[] : undefined;
       const proposed = Array.isArray(data?.proposedActions) && data.proposedActions.length ? data.proposedActions as ProposedAction[] : undefined;
       if (data?.responseId) setPrevId((p) => ({ ...p, [threadKey]: data.responseId }));
-      setThreads((t) => { const arr = (t[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: reply, source: data?.source, tools, proposed }; return { ...t, [threadKey]: arr }; });
+      setThreads((t) => { const arr = (t[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: reply, source: data?.source, tools, agentsUsed, status: status || undefined, proposed }; return { ...t, [threadKey]: arr }; });
     } catch (e: any) {
       setThreads((t) => { const arr = (t[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: `Sorry — I couldn't reach the assistant (${String(e?.message || e)}).`, source: 'error' }; return { ...t, [threadKey]: arr }; });
     } finally { setSending(false); }
@@ -288,7 +298,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
                     {m.status ? <span className="typing-status">{m.status}…</span> : null}
                   </span>
                 )
-                    : m.role === 'agent' ? (<><div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />{m.tools?.length ? <div className="tools">Sources: {m.tools.join(', ')}</div> : m.source === 'live' ? (
+                    : m.role === 'agent' ? (<><div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />{m.status ? <div className="completed-status">{m.status}</div> : null}{m.agentsUsed?.length ? <div className="consulted">Consulted: {m.agentsUsed.map((key) => SPECIALIST_LABELS[key] || key).join(', ')}</div> : null}{m.tools?.length ? <div className="tools">Sources: {m.tools.join(', ')}</div> : m.source === 'live' ? (
                       // The word "live", alone, under every answer. It means the answer was
                       // written just now against the current record rather than replayed
                       // from a script -- which is worth saying, but "live" on its own is
@@ -354,6 +364,8 @@ const CHAT_EXTRA_CSS = `
 /* nowrap because the bubble is a flex item sized to its content: a short answer makes a
    narrow bubble, and without this the wider footer inside it wraps one character per line. */
 .chatpanel .msg-actions { margin-top: 6px; white-space: nowrap; }
+.chatpanel .completed-status { margin-top: 7px; font-size: 11px; color: var(--muted); }
+.chatpanel .consulted { margin-top: 7px; font-size: 11px; font-weight: 650; color: var(--accent, #6ea8fe); }
 .chatpanel .bubble .tools { white-space: nowrap; }
 .chatpanel .save-wiq { font: inherit; font-size: 11px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--muted); cursor: pointer; }
 .chatpanel .save-wiq:hover:not(:disabled) { border-color: var(--accent, #6ea8fe); color: var(--accent, #6ea8fe); }
