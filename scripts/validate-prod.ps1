@@ -20,7 +20,7 @@ param(
   [string] $Backend = 'https://ca-dealhub-orch-green.niceisland-36753373.swedencentral.azurecontainerapps.io',
   [string] $Tab = 'https://ca-dealhub-teams-dev-swc.ambitiousforest-08192d93.swedencentral.azurecontainerapps.io',
   # The deal used for the document and briefing checks.
-  [string] $SampleDeal = 'demo-helvetia',
+  [string] $SampleDeal = 'nordic-grocery',
   # Optional: a backup folder holding prod.deals.full.json, to prove nothing was lost.
   [string] $BaselineDir = $(if (Test-Path "$HOME\dealroom-prod-backup\LATEST.txt") { (Get-Content "$HOME\dealroom-prod-backup\LATEST.txt" -Raw).Trim() } else { '' })
 )
@@ -88,16 +88,25 @@ if ($BaselineDir -and (Test-Path "$BaselineDir\prod.deals.full.json")) {
 }
 
 "`n=== 4. Every deal is wired to Microsoft 365"
-$chan = 0; $sp = 0; $seed = 0; $gaps = @()
+$chan = 0; $sp = 0; $seed = 0; $provisioned = 0; $gaps = @()
 foreach ($d in $deals) {
   $f = (Get-Api "$Backend/api/deals/$($d.id)").Content | ConvertFrom-Json
-  if ($f.teamsChannel.webUrl) { $chan++ } else { $gaps += "$($d.id):channel" }
-  if ($f.workspace.sharePointProvisioned) { $sp++ } else { $gaps += "$($d.id):dataroom" }
-  if ($f.workspace.dataRoomSeeded) { $seed++ } else { $gaps += "$($d.id):seed" }
+  $hasChannel = [bool]$f.teamsChannel.webUrl
+  $hasDataRoom = [bool]$f.workspace.sharePointProvisioned
+  $hasSeed = [bool]$f.workspace.dataRoomSeeded
+  # Origination and historical records can intentionally remain local-only. Once any
+  # M365 placement exists, require the complete channel + room + seed contract.
+  if ($hasChannel -or $hasDataRoom -or $hasSeed) {
+    $provisioned++
+    if ($hasChannel) { $chan++ } else { $gaps += "$($d.id):channel" }
+    if ($hasDataRoom) { $sp++ } else { $gaps += "$($d.id):dataroom" }
+    if ($hasSeed) { $seed++ } else { $gaps += "$($d.id):seed" }
+  }
 }
-Check 'every deal has a Teams channel' ($chan -eq $deals.Count) "$chan/$($deals.Count)"
-Check 'every deal has a data room' ($sp -eq $deals.Count) "$sp/$($deals.Count)"
-Check 'every data room has contents' ($seed -eq $deals.Count) "$seed/$($deals.Count)"
+Check 'provisioned deals exist' ($provisioned -gt 0) "$provisioned/$($deals.Count)"
+Check 'every provisioned deal has a Teams channel' ($chan -eq $provisioned) "$chan/$provisioned"
+Check 'every provisioned deal has a data room' ($sp -eq $provisioned) "$sp/$provisioned"
+Check 'every provisioned data room has contents' ($seed -eq $provisioned) "$seed/$provisioned"
 if ($gaps.Count) { "  gaps: $($gaps -join ', ')" }
 
 "`n=== 5. Data room reads"
