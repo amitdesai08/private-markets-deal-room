@@ -129,6 +129,7 @@ time.
 | [**The technical walkthrough**](demos/DEMO-WALKTHROUGH-TECHNICAL.md) | 18 min | An architecture or security review: identity, data sovereignty, agentic workflows, connector governance and Work IQ, the audit trail, the Azure footprint. |
 | [**The technical runbook**](demos/DEMO-RUNBOOK-TECHNICAL.md) | 18 min (8 min safe fallback) | A delivery engineer presenting to IT/security; names REST routes, env vars and Bicep parameters. |
 | [**The technical lightning cut**](demos/DEMO-LIGHTNING-TECHNICAL.md) | 10 min (3 min at its shortest) | A short technical slot that still lands the security-boundary differentiator. |
+| [**Azure Portal integration proof**](demos/DEMO-AZURE-PORTAL-INTEGRATIONS.md) ([Word](demos/DEMO-AZURE-PORTAL-INTEGRATIONS.docx)) | 5 min optional module | A presenter-driven, read-only portal click-through of runtime, managed identity, scoped RBAC, Foundry and telemetry. Not an automated recording. |
 
 ### Business audience — CEO, CFO, Managing Partner, Managing Director
 

@@ -27,6 +27,7 @@ param mcpAudience string
 param mcpRequiredScope string
 param m365ClientId string
 param m365TenantId string
+param workiqMailboxUser string = ''
 @secure()
 param m365ClientSecret string
 @secure()
@@ -79,6 +80,10 @@ param logAnalyticsName string
 param appInsightsConnectionString string
 param foundryEndpoint string
 param foundryProjectEndpoint string = ''
+param foundryIqSearchEndpoint string = ''
+param foundryIqKnowledgeBase string = ''
+param foundryIqKnowledgeSource string = ''
+param foundryIqApiVersion string = '2026-04-01'
 param contentSafetyEndpoint string = ''
 param cosmosEndpoint string = ''
 param cosmosDatabase string = 'dealroom'
@@ -242,6 +247,10 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AZURE_OPENAI_DEPLOYMENT', value: appModelDeployment }
             { name: 'AZURE_OPENAI_API_VERSION', value: '2024-12-01-preview' }
             { name: 'FOUNDRY_PROJECT_ENDPOINT', value: foundryProjectEndpoint }
+            { name: 'FOUNDRY_IQ_SEARCH_ENDPOINT', value: foundryIqSearchEndpoint }
+            { name: 'FOUNDRY_IQ_KNOWLEDGE_BASE', value: foundryIqKnowledgeBase }
+            { name: 'FOUNDRY_IQ_KNOWLEDGE_SOURCE', value: foundryIqKnowledgeSource }
+            { name: 'FOUNDRY_IQ_API_VERSION', value: foundryIqApiVersion }
             { name: 'AZURE_CLIENT_ID', value: uamiClientId }
             { name: 'DEAL_ROOM_REGION', value: location }
             { name: 'WORKSPACE_TENANT', value: workspaceTenant }
@@ -266,6 +275,7 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'MCP_REQUIRED_SCOPE', value: mcpRequiredScope }
             { name: 'M365_CLIENT_ID', value: m365ClientId }
             { name: 'M365_TENANT_ID', value: empty(m365TenantId) ? entraTenantId : m365TenantId }
+            { name: 'WORKIQ_MAILBOX_USER', value: workiqMailboxUser }
             { name: 'M365_TEAM_ID', value: m365TeamId }
             { name: 'TEAMS_APP_CATALOG_ID', value: teamsAppCatalogId }
             { name: 'M365_PUBLISH_GROUP', value: m365PublishGroup }

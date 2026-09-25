@@ -5,8 +5,9 @@ engineers who would actually operate this — anyone evaluating whether The Deal
 and sensible to deploy, not anyone evaluating whether it helps run a deal. It assumes you know
 Azure, Entra ID and enterprise security review, and assumes nothing about private equity.
 
-**How long:** about 18 minutes at a walking pace — the eight acts below add up to roughly
-that. If you only have five, run Acts 2, 5 and 7.
+**How long:** about 18 minutes at a walking pace, or about 21 minutes when the optional live
+[Azure Portal integration proof](DEMO-AZURE-PORTAL-INTEGRATIONS.md) replaces the diagram-only
+footprint segment. If you only have five, run Acts 2, 5 and 7.
 
 **Before you present it once,** sit with this document open beside the live product and click
 through it. Every screen name and claim below was checked against the product and the
@@ -131,7 +132,7 @@ unset.
 
 ---
 
-## Act 5 · Connector governance, and Work IQ (3 min)
+## Act 5 · Connector governance, Foundry IQ, and Work IQ (4 min)
 
 1. Open **Settings ⚙ → Data sources**. Point at the mix: free public filings and news
    (SEC EDGAR, GLEIF, GDELT), subscription market-data providers reached over OAuth, the
@@ -153,14 +154,41 @@ unset.
 > Ask the external news agent the same question and it has no path to any of this — the same
 > boundary from Act 3 holds here too."
 
-3. Scroll to **Custom sources**. A self-registered connector shows **Pending approval**.
+3. Find **Approved diligence knowledge** and point at its Azure AI Search endpoint, Foundry IQ
+   knowledge-base name, and real **Test** action. In a connected environment, open a deal and ask:
+   **"Which approved diligence tests and IC evidence standards apply to this sector?"**
+
+> "This is the Foundry IQ use case: an IC evidence brief grounded in the firm's approved
+> diligence playbook. Azure AI Search runs agentic retrieval over the configured knowledge
+> base and returns source references with the answer. The Deal Orchestrator receives only the
+> target's sector, subsector and stage — never its name, figures, findings or documents — then
+> applies those cited standards to the separately governed deal record. If retrieval returns
+> no citation, the assistant says the playbook does not contain the evidence instead of filling
+> the gap from model memory."
+
+4. Return Home, open **Helvetia Diagnostics → Workstreams**, and scroll to **Files, chats &
+   email on this deal**. Show the Teams thread, data-room files, mailbox items, and the durable
+   shared conclusions immediately above them.
+
+> "This is what the connection changes inside a deal. Work IQ brings the Teams discussion,
+> SharePoint files and deal mail into one governed view beside the workstreams. The shared
+> notes persist conclusions across people and sessions, while every source stays identifiable."
+
+5. Select **Ask the assistant to summarise this channel**.
+
+> "The channel action opens the same deal-scoped assistant with the question grounded in the
+> source on screen. In Teams, Graph reads use the signed-in person's delegated token. A
+> background process can use the read-only application identity, and Copilot can reach the
+> same governed tools through the Streamable HTTP MCP endpoint."
+
+6. Return to **Settings → Data sources**, then scroll to **Custom sources**. A self-registered connector shows **Pending approval**.
 
 > "A data source the fund adds itself can't be tested, enabled, or used by any agent until an
 > administrator approves it. That gate exists for the reason a security review would raise it:
 > a self-registered outbound connection is a real attack surface, and this platform won't let
 > one go live silently."
 
-4. Scroll to **Your CRM / deal database**. This is the newest connector, and the one this
+7. Scroll to **Your CRM / deal database**. This is the newest connector, and the one this
    audience tends to ask about first.
 
 > "A firm's existing CRM or deal database, DealCloud, Salesforce, Allvue, or an internal
@@ -196,6 +224,10 @@ unset.
 
 This act does not need a screen — it is the moment to open the
 [architecture diagrams](../ARCHITECTURE.md) alongside the product, or simply talk through it.
+For an Azure-literate audience, replace this act with the five-minute
+[Azure Portal integration proof](DEMO-AZURE-PORTAL-INTEGRATIONS.md): resource groups → Container
+Apps revisions → managed identity and scoped RBAC → Foundry deployments → Application Insights
+→ back to Work IQ. It is deliberately read-only and avoids secret and data blades.
 
 > "The deployed footprint is subscription-scoped Bicep, split into six resource groups: app,
 > ai, data, integration, core, network, so each domain can be governed and costed on its own.

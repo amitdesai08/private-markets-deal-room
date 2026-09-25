@@ -20,10 +20,12 @@ import { testFilings, filingsConfigured } from './filings.js';
 import { gdeltNews, gdeltConfigured } from './providers/gdelt.js';
 import { leiLookup, gleifConfigured } from './providers/gleif.js';
 import { fabricDataAgentConfigured, fabricDataAgentInfo } from './fabricDataAgent.js';
-import { isConnectorEnabled, getConnectorConfig, getConnectorConfigRedacted, listCustomConnectors } from './connectorSettings.js';import { m365Configured, m365Connected, m365Ready, m365AppOnly, me as m365Me, m365AppPing } from './m365/graph.js';
+import { isConnectorEnabled, getConnectorConfig, getConnectorConfigRedacted, listCustomConnectors } from './connectorSettings.js';
+import { m365Connected, m365Ready, m365AppOnly, me as m365Me, m365AppPing } from './m365/graph.js';
 import { assertPublicHttpUrl } from './ssrf.js';
 import { workiqConfigured, workiqConnected, workiqUrl, workiqBackend } from './mcp/workiq.js';
 import { sorAuthHeader } from './sorSync.js';
+import { foundryIqConfigured, foundryIqInfo, retrieveFoundryIq } from './foundryIq.js';
 
 export const CONNECTORS = [
   {
@@ -69,6 +71,16 @@ export const CONNECTORS = [
     id: 'fabric-agent', name: 'Fund reporting data', kind: 'fabric-agent', role: 'quality',
     primaryJob: 'Ask the fund’s own data in plain English',
     sweetSpot: 'Questions over comps, findings, IC precedents & financials'
+  },
+  {
+    id: 'foundry-iq', name: 'Approved diligence knowledge', kind: 'foundry-iq', role: 'context',
+    primaryJob: 'Cited answers from the firm’s approved diligence and Investment Committee playbook',
+    sweetSpot: 'Apply required tests, evidence standards and approval guidance to the deal without exposing its record',
+    configFields: [
+      { key: 'searchEndpoint', label: 'Azure AI Search endpoint', placeholder: 'https://your-search.search.windows.net', kind: 'url' },
+      { key: 'knowledgeBase', label: 'Foundry IQ knowledge base', placeholder: 'ic-diligence-playbook', kind: 'text' },
+      { key: 'knowledgeSource', label: 'Knowledge source (optional)', placeholder: 'approved-diligence-guidance', kind: 'text' },
+    ]
   },
   {
     id: 'edgar', name: 'SEC EDGAR', kind: 'edgar', role: 'confirm',
@@ -135,6 +147,7 @@ const FRESHNESS_SLA_MS = {
   mcp: 15 * 60 * 1000,                        // market-data providers
   m365: 60 * 60 * 1000, workiq: 60 * 60 * 1000,
   edgar: 24 * 60 * 60 * 1000, 'fabric-agent': 24 * 60 * 60 * 1000,
+  'foundry-iq': 24 * 60 * 60 * 1000,
   database: 24 * 60 * 60 * 1000, custom: 24 * 60 * 60 * 1000, sor: 24 * 60 * 60 * 1000,
   gleif: 7 * 24 * 60 * 60 * 1000,             // slow-moving entity registry
 };
@@ -164,6 +177,7 @@ function isConfigured(c) {
   if (c.kind === 'gdelt') return gdeltConfigured();
   if (c.kind === 'gleif') return gleifConfigured();
   if (c.kind === 'fabric-agent') return fabricDataAgentConfigured();
+  if (c.kind === 'foundry-iq') return foundryIqConfigured();
   if (c.kind === 'm365') return m365Ready();
   if (c.kind === 'workiq') return workiqConnected();
   if (c.kind === 'custom') return c.approved === true && !!getConnectorConfig(c.id).endpoint;
@@ -265,6 +279,25 @@ async function testFabricAgent(c) {
     return result(c, { ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id), message: `Ready · ${label}` });
   } catch (e) {
     return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Error · ${String(e.message || e).slice(0, 80)}` });
+  }
+}
+
+async function testFoundryIq(c) {
+  if (!foundryIqConfigured()) {
+    return result(c, { ok: false, status: 'disconnected', latencyMs: null, message: 'Not configured — add the Azure AI Search endpoint and Foundry IQ knowledge base.' });
+  }
+  const t0 = Date.now();
+  try {
+    const response = await retrieveFoundryIq('Return the title of one approved diligence or Investment Committee guidance source. If none exists, say so.');
+    const latencyMs = Date.now() - t0;
+    markSync(c.id);
+    const info = foundryIqInfo();
+    return result(c, {
+      ok: true, status: 'connected', latencyMs, lastSync: getLastSync(c.id),
+      message: `Healthy · ${info.knowledgeBase} retrieved ${response.citations.length} cited source${response.citations.length === 1 ? '' : 's'} in ${latencyMs}ms`,
+    });
+  } catch (e) {
+    return result(c, { ok: false, status: 'degraded', latencyMs: Date.now() - t0, message: `Knowledge retrieval failed · ${String(e.message || e).slice(0, 100)}` });
   }
 }
 
@@ -383,6 +416,7 @@ export async function testConnector(id, { force = false } = {}) {
   if (c.kind === 'gdelt') return testGdelt(c);
   if (c.kind === 'gleif') return testGleif(c);
   if (c.kind === 'fabric-agent') return testFabricAgent(c);
+  if (c.kind === 'foundry-iq') return testFoundryIq(c);
   if (c.kind === 'm365') return testM365(c);
   if (c.kind === 'workiq') return testWorkiq(c);
   if (c.kind === 'custom') return testCustom(c);
@@ -419,7 +453,7 @@ export function listConnectors() {
       // fields (API key, OAuth client secret) are redacted — never sent to the client.
       configFields: c.configFields || null,
       config: c.configFields ? getConnectorConfigRedacted(c.id) : undefined,
-      testable: free || c.kind === 'fabric-agent' || ((c.kind === 'custom' || c.kind === 'sor') && c.approved === true) ? true : (c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq' ? configured : false),
+      testable: free || c.kind === 'fabric-agent' || c.kind === 'foundry-iq' || ((c.kind === 'custom' || c.kind === 'sor') && c.approved === true) ? true : (c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq' ? configured : false),
       connectable: c.kind === 'mcp' || c.kind === 'm365' || c.kind === 'workiq', // can be signed-in via OAuth
       status: !enabled ? 'disabled' : (c.custom && c.approved !== true ? 'pending' : (cached && cached.status !== 'pending' ? cached.status : c.kind === 'database' ? 'disconnected' : configured ? 'unknown' : 'disconnected')),
       latencyMs: cached ? cached.latencyMs : null,

@@ -159,11 +159,40 @@ export const SCENES = [
       same question and it has no path to any of this, because that boundary from a moment ago holds here too.`,
   },
   {
+    id: 'tc-06c-workiq-corpus',
+    act: 103,
+    title: 'Work IQ in a deal — Teams, SharePoint and mail in one governed view',
+    seat: 'admin',
+    steps: [{ closeOverlay: true }, { openDeal: 'Helvetia' }, { wait: 2000 }, { clickText: 'Workstreams' }, { wait: 1500 }, { scrollTo: 'Files, chats & email on this deal' }],
+    spotlight: 'text:Files, chats & email on this deal',
+    cues: ['Teams discussion, SharePoint files and deal mail'],
+    say: `This is what that connection changes inside a live deal. Work IQ brings the Helvetia Teams discussion,
+      SharePoint files and deal mail into one governed view beside the workstreams. The shared notes above it
+      persist conclusions across people and sessions, so the finance partner can pick up a technology finding
+      without asking for the same diligence twice. Each source stays identifiable. The application isn't
+      flattening mail, chat and documents into an unexplained model answer.`,
+  },
+  {
+    id: 'tc-06d-workiq-assistant',
+    act: 103,
+    title: 'Work IQ grounds the assistant from the source in front of you',
+    seat: 'admin',
+    steps: [{ clickText: 'Ask the assistant to summarise this channel' }, { wait: 3500 }],
+    click: 'text:Ask the assistant to summarise this channel',
+    spotlight: 'aside.chatpanel',
+    cues: ['opens the same deal-scoped assistant'],
+    say: `The channel action opens the same deal-scoped assistant with the question already grounded in the source
+      on screen. In Teams, its Graph read uses the signed-in person's delegated token. A background job can use
+      the read-only application identity, and an external Copilot can reach the same four tools through the
+      platform's Streamable HTTP MCP endpoint. Those are different callers, but they share one governed tool
+      contract and one need-to-know boundary.`,
+  },
+  {
     id: 'tc-07-connector-approval',
     act: 103,
     title: 'A self-registered source is pending until an administrator approves it',
     seat: 'admin',
-    steps: [{ scrollTo: 'Add a data source' }],
+    steps: [{ closeOverlay: true }, { clickText: '⚙' }, { wait: 1500 }, { clickText: 'Data sources' }, { wait: 2000 }, { scrollTo: 'Add a data source' }],
     spotlight: 'text:Add a data source',
     cues: ['registered here'],
     say: `A data source the fund adds itself, an internal API or a provider without a built-in connector, is

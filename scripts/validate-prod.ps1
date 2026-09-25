@@ -5,15 +5,18 @@
 # if it broke: a deal that lost its data room, a briefing that will not open, a tab
 # that is quietly pointing at the wrong backend.
 #
-# The bot key is NOT stored here. Pass it in, or put it in DEAL_ROOM_BOT_KEY.
+# Credentials are NOT stored here. Prefer the read-only walkthrough key in production;
+# the bot-key fallback only works where asserted identities are explicitly trusted.
 #
-#   $env:DEAL_ROOM_BOT_KEY = '<key>'; .\scripts\validate-prod.ps1
+#   $env:DEAL_ROOM_DEMO_KEY = '<key>'; .\scripts\validate-prod.ps1
 #
 # Read-only: it lists, fetches and compares. It never writes to a deal.
 
 [CmdletBinding()]
 param(
   [string] $BotKey = $env:DEAL_ROOM_BOT_KEY,
+  [string] $DemoKey = $env:DEAL_ROOM_DEMO_KEY,
+  [string] $DemoAs = 'desaiamit',
   [string] $Backend = 'https://ca-dealhub-orch-green.niceisland-36753373.swedencentral.azurecontainerapps.io',
   [string] $Tab = 'https://ca-dealhub-teams-dev-swc.ambitiousforest-08192d93.swedencentral.azurecontainerapps.io',
   # The deal used for the document and briefing checks.
@@ -23,19 +26,14 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-if (-not $BotKey) { throw 'No bot key. Pass -BotKey or set DEAL_ROOM_BOT_KEY.' }
-# The key proves which app is calling and never proved who is asking, though the backend
-# used to treat it as if it did — so this script ran as the deploy default, which is the
-# most privileged seat there is, and certified a view no real person would ever be shown.
-# It says who it is now, like every other caller.
-$h = @{
-  'x-bot-key' = $BotKey
-  'x-dr-as'   = 'desaiamit'
-  # An oid the deployment actually knows. This used to carry name='desaiamit' and rely on
-  # the name resolving a role; display names stopped granting anything, because asserting
-  # one was how a stranger became a person on a confidential deal — and this script quietly
-  # collapsed to the member seat and reported eleven deals as LOST.
-  'x-dr-user' = '{"oid":"admin","upn":"admin"}'
+if (-not $DemoKey -and -not $BotKey) { throw 'No credential. Pass -DemoKey or set DEAL_ROOM_DEMO_KEY.' }
+$h = if ($DemoKey) {
+  # Production refuses asserted identities. The walkthrough credential names a roster
+  # person, is deployment-held, and is read-only, which is exactly this validator's job.
+  @{ 'x-dr-demo-key' = $DemoKey; 'x-dr-demo-as' = $DemoAs }
+} else {
+  # Compatibility for non-production deployments that explicitly trust asserted callers.
+  @{ 'x-bot-key' = $BotKey; 'x-dr-user' = '{"oid":"admin","upn":"admin"}' }
 }
 $pass = 0; $fail = 0
 

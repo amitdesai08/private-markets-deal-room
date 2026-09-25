@@ -45,6 +45,9 @@ export const INTERNAL_TOOLS = new Set([
   // Work IQ (M365 work-data) reads over MCP — SharePoint files, Teams threads, mailbox.
   // INTERNAL-DATA: the external-web news scout can never call these (guard refuses it).
   'workiq_search_files', 'workiq_read_channel', 'workiq_search_mail', 'workiq_search',
+  // Foundry IQ: approved firm playbooks through Azure AI Search. The dispatch layer
+  // sends classification context only; confidential deal facts remain in Deal Room.
+  'foundry_iq_search',
 ]);
 
 // Web / egress tool names. Internal-data agents may NEVER call any of these — the guard

@@ -12,7 +12,7 @@ param suffix string
 param tags object
 param enablePrivateEndpoints bool
 param searchSku string
-@description('Provision Azure AI Search. Off by default — the app does not use it; enable only for a feature that needs search / vector retrieval.')
+@description('Provision Azure AI Search for Foundry IQ knowledge retrieval. Off by default for lean deployments.')
 param deploySearch bool = false
 param openAiDeployments array
 @description('Principal ID of the core UAMI granted data-plane access to the AI services.')
@@ -25,8 +25,7 @@ var netDefaultAction = enablePrivateEndpoints ? 'Deny' : 'Allow'
 var roleIds = {
   cognitiveServicesOpenAIUser: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
   cognitiveServicesUser: 'a97b65f3-24c7-4388-baec-2e87135dc908'
-  searchIndexDataContributor: '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
-  searchServiceContributor: '7ca78c08-252a-4471-8644-bb5ff32d4ba0'
+  searchIndexDataReader: '1407120a-92aa-4202-b7e9-c0e197c71c8f'
 }
 
 // Azure AI Foundry (AIServices account with project management) — hosts Azure OpenAI deployments
@@ -206,22 +205,23 @@ resource raContentSafetyUser 'Microsoft.Authorization/roleAssignments@2022-04-01
   }
 }
 
-resource raSearchIndexContrib 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deploySearch) {
-  name: guid(search.id, uamiPrincipalId, roleIds.searchIndexDataContributor)
+resource raSearchIndexReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deploySearch) {
+  name: guid(search.id, uamiPrincipalId, roleIds.searchIndexDataReader)
   scope: search
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleIds.searchIndexDataContributor)
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleIds.searchIndexDataReader)
     principalId: uamiPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
 
-resource raSearchServiceContrib 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deploySearch) {
-  name: guid(search.id, uamiPrincipalId, roleIds.searchServiceContributor)
-  scope: search
+// Foundry IQ answer synthesis calls the model as the Search service identity.
+resource raSearchFoundryUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deploySearch) {
+  name: guid(foundry.id, search.id, roleIds.cognitiveServicesUser)
+  scope: foundry
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleIds.searchServiceContributor)
-    principalId: uamiPrincipalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleIds.cognitiveServicesUser)
+    principalId: search!.identity.principalId
     principalType: 'ServicePrincipal'
   }
 }

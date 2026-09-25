@@ -1,0 +1,58 @@
+[
+  {
+    "id": "ic-approval-standard",
+    "title": "Investment Committee approval standard",
+    "workstream": "approval",
+    "stages": ["D3", "D4"],
+    "source_path": "skills/ic-memo/SKILL.md",
+    "content": "Before an Investment Committee decision, assemble the thesis, market and competitive position, commercial, financial and legal diligence findings, returns, risks, comparables and precedents, recommendation, and explicit conditions to approve. The readiness view must identify required artifacts, blocking workstreams, changed assumptions, unresolved risks, the exact IC ask and conditions, and a READY, CONDITIONAL or NOT-READY verdict. Lead with conviction, then state risks and conditions. The agent stages the output for partner sign-off and never grants approval."
+  },
+  {
+    "id": "ic-citation-standard",
+    "title": "IC evidence and citation standard",
+    "workstream": "approval",
+    "stages": ["D3", "D4"],
+    "source_path": "skills/ic-memo/SKILL.md",
+    "content": "Every numeric claim in an Investment Committee memo must map to a source fact or cited document. Run a citation audit, flag unsourced figures, and correct them before finalizing. A memo must not be finalized with a non-clean citation audit. The committee deck must use the same decision-grade, source-backed case as the memo."
+  },
+  {
+    "id": "diligence-workstream-standard",
+    "title": "Diligence workstream coverage standard",
+    "workstream": "operational",
+    "stages": ["D1", "D2"],
+    "source_path": "skills/dd-checklist/SKILL.md",
+    "content": "The diligence plan must cover Commercial, Financial, Legal, Tax, Tech and AI, Operations, and ESG. Each lane requires an accountable owner, key questions, and an evidence list. Evidence should be reconciled against the data room, deal-channel decisions, and prior findings. Each managing director may update only their own lane so attribution remains enforceable."
+  },
+  {
+    "id": "risk-escalation-standard",
+    "title": "Diligence risk escalation and IC gate",
+    "workstream": "approval",
+    "stages": ["D1", "D2", "D3", "D4"],
+    "source_path": "skills/dd-checklist/SKILL.md",
+    "content": "Roll diligence findings into the risk register using severity multiplied by likelihood and classify them red, amber or green. Identify findings that gate Investment Committee readiness. A red finding without a mitigation path is IC-blocking until resolved. Evidence of resolution or an explicit mitigation path is therefore required before the deal can be represented as ready."
+  },
+  {
+    "id": "financial-model-standard",
+    "title": "Financial model and returns evidence standard",
+    "workstream": "financial",
+    "stages": ["D2", "D3"],
+    "source_path": "skills/lbo-model/SKILL.md",
+    "content": "The LBO analysis must include sources and uses at the entry multiple, debt tranches sized to the leverage test, covenant headroom, an operating case covering revenue, EBITDA, capex and working capital, and a debt schedule covering cash sweep and mandatory amortization. Show base, upside and downside IRR and MOIC against the stated hurdle, plus sensitivity to the two or three most important value drivers. Tie every input to the deal record or a cited comparable and stage the model for human review."
+  },
+  {
+    "id": "commercial-evidence-standard",
+    "title": "Commercial diligence evidence standard",
+    "workstream": "commercial",
+    "stages": ["D1", "D2"],
+    "source_path": "skills/dd-checklist/SKILL.md",
+    "content": "Commercial diligence must have a named owner, explicit key questions, and a documented evidence list. Retrieve available evidence from the governed data room, reconcile it with deal-channel decisions and prior findings, and record resulting risks by severity and likelihood. Missing evidence that supports a red finding must be treated as an Investment Committee gate until a mitigation path is documented."
+  },
+  {
+    "id": "technology-evidence-standard",
+    "title": "Technology, cyber and AI diligence evidence standard",
+    "workstream": "technology",
+    "stages": ["D1", "D2"],
+    "source_path": "skills/dd-checklist/SKILL.md",
+    "content": "Technology and AI diligence is a required diligence lane. It must have an accountable owner, key questions, and an evidence list grounded in available data-room documents, deal-channel decisions, and prior findings. Findings enter the same severity and likelihood risk register as other lanes. Any red technology, cyber or AI finding without a mitigation path blocks Investment Committee readiness."
+  }
+]

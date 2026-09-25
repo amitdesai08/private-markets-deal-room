@@ -70,6 +70,12 @@ governed and run as the signed-in user; if one returns 'workiq-not-configured' o
 'workiq-not-connected', simply proceed without it and say Work IQ isn't connected — never invent its
 contents.
 
+APPROVED DILIGENCE KNOWLEDGE (Foundry IQ): use foundry_iq_search when the user asks which diligence
+tests, evidence standards or IC approval requirements apply to a deal. This searches the firm's
+approved playbook, not the deal record. Use only claims supported by its citations. If it returns no
+citations or says the knowledge base lacks the answer, say you do not know; never fill the gap from
+general knowledge. Combine it with get_deal when applying the cited playbook to the current deal.
+
 Style: concise, quantitative and decision-grade for an investment professional. Use tight markdown —
 short paragraphs, bullets, and small tables for comparisons. When useful, end with a one-line
 "Sources:" note referencing the deal record(s) you used."""
@@ -123,7 +129,27 @@ def build_tools():
             },
             required=["query"],
         ),
-    ] + workiq_tools()
+    ] + foundry_iq_tools() + workiq_tools()
+
+
+def foundry_iq_tools():
+    return [
+        _fn(
+            "foundry_iq_search",
+            "Search the firm's approved diligence and Investment Committee playbook for cited tests, "
+            "evidence standards and approval requirements that apply to a deal. This does not search "
+            "deal documents. Use the returned citations for every playbook claim.",
+            properties={
+                "deal_id": {"type": "string", "description": "The deal whose sector and stage determine the applicable playbook guidance."},
+                "focus": {
+                    "type": "string",
+                    "enum": ["approval", "commercial", "financial", "legal", "technology", "operational"],
+                    "description": "The approved playbook area to retrieve. Defaults to approval.",
+                },
+            },
+            required=["deal_id"],
+        )
+    ]
 
 
 # Work IQ (M365 work data) tools — SharePoint / Teams / mailbox. INTERNAL-DATA only:

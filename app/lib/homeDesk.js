@@ -605,7 +605,7 @@ function portfolioCommitments(deals, rawFor, limit = 6, laneLabels = []) {
 // `rawFor` resolves a list summary back to its full deal record, which the Work IQ
 // corpus needs (workstream leads and sponsors are stripped from summaries). It defaults to
 // the identity function so the builder stays testable with plain objects.
-export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatLabel = null, persona = null, demoMode = false, rawFor = (d) => d, avgScreeningDays = null } = {}) {
+export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatLabel = null, persona = null, demoMode = false, mailboxConnected = false, rawFor = (d) => d, avgScreeningDays = null } = {}) {
   // One rotating index across the whole attention queue, so no two rows open the same way.
   const headFrames = { next: 0 };
   const list = Array.isArray(deals) ? deals.filter(Boolean) : [];
@@ -1126,6 +1126,12 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
   }).filter((p) => p.count > 0);
 
   const workiq = portfolioCommitments(list, rawFor, 6, seat.laneLabels);
+  const channelSourceNote = mailboxConnected
+    ? 'The shared Microsoft 365 mailbox is configured for Work IQ app-only mail search.'
+    : 'The channels are composed from the deal record; no Microsoft 365 mailbox is connected yet.';
+  const channelSourceBasis = mailboxConnected
+    ? 'Deal channels and configured Work IQ shared mailbox'
+    : 'Deal channels, composed from the deal record until Microsoft 365 is connected';
   const lifecycle = buildLifecycle(list, avgScreeningDays);
 
   // ---- what this seat owns, counted ----------------------------------------
@@ -1280,7 +1286,7 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
           'Deal record — target IC date',
         );
         if (workiq.total) {
-          c.add(`${workiq.total} follow-up${workiq.total === 1 ? '' : 's'} raised in the deal channels ${workiq.total === 1 ? 'has' : 'have'} no matching task here — those land on you before they land on anyone else. The channels are composed from the deal record; no Microsoft 365 mailbox is connected yet.`, 'Deal channels, composed from the deal record until Microsoft 365 is connected');
+          c.add(`${workiq.total} follow-up${workiq.total === 1 ? '' : 's'} raised in the deal channels ${workiq.total === 1 ? 'has' : 'have'} no matching task here — those land on you before they land on anyone else. ${channelSourceNote}`, channelSourceBasis);
         }
         return true;
       }
@@ -1406,8 +1412,8 @@ export function buildHomeDesk(deals = [], { role = null, roleLabel = null, seatL
     c.add(
       workiq.yours
         ? `${workiq.total} follow-up${workiq.total === 1 ? '' : 's'} raised in the deal channels ${workiq.total === 1 ? 'has' : 'have'} no matching task here — ${workiq.yours} of them yours.`
-        : `${workiq.total} follow-up${workiq.total === 1 ? '' : 's'} raised in the deal channels across ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'} ${workiq.total === 1 ? 'has' : 'have'} no matching task here. The channels are composed from the deal record; no Microsoft 365 mailbox is connected yet.`,
-      'Deal channels, composed from the deal record until Microsoft 365 is connected',
+        : `${workiq.total} follow-up${workiq.total === 1 ? '' : 's'} raised in the deal channels across ${workiq.deals} deal${workiq.deals === 1 ? '' : 's'} ${workiq.total === 1 ? 'has' : 'have'} no matching task here. ${channelSourceNote}`,
+      channelSourceBasis,
     );
   }
 

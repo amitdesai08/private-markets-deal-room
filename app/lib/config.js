@@ -44,6 +44,12 @@ export const config = Object.freeze({
     newsAgentName: str(env.NEWS_AGENT_NAME, 'deal-room-news-scout'),
     newsAgentModel: str(env.NEWS_AGENT_MODEL, 'gpt-5-mini'),
   },
+  foundryIq: {
+    searchEndpoint: trimUrl(env.FOUNDRY_IQ_SEARCH_ENDPOINT || env.AZURE_SEARCH_ENDPOINT, ''),
+    knowledgeBase: str(env.FOUNDRY_IQ_KNOWLEDGE_BASE, '').trim(),
+    knowledgeSource: str(env.FOUNDRY_IQ_KNOWLEDGE_SOURCE, '').trim(),
+    apiVersion: str(env.FOUNDRY_IQ_API_VERSION, '2026-04-01').trim(),
+  },
   cosmos: {
     endpoint: str(env.COSMOS_ENDPOINT, ''),
     database: str(env.COSMOS_DATABASE, 'dealroom'),
@@ -80,6 +86,7 @@ export const config = Object.freeze({
     tenantId: str(env.M365_TENANT_ID, 'organizations'),
     clientId: str(env.M365_CLIENT_ID, ''),
     clientSecret: str(env.M365_CLIENT_SECRET, ''),
+    mailboxUser: str(env.WORKIQ_MAILBOX_USER, '').trim(),
     teamName: str(env.M365_TEAM_NAME, 'The Deal Room'),
     teamId: str(env.M365_TEAM_ID, ''),
   },

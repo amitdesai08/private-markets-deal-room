@@ -43,6 +43,9 @@ param openAiDeployments = [
 // ── Data + search ────────────────────────────────────────────────────────────
 param cosmosDatabaseName = 'dealroom'     // keep — the app default (containers auto-created)
 param searchSku = 'basic'
+param deploySearch = false                // set true after creating the approved Foundry IQ knowledge base
+param foundryIqKnowledgeBase = ''         // e.g. 'ic-diligence-playbook'; empty = disconnected
+param foundryIqKnowledgeSource = ''       // optional source name within that knowledge base
 param storageSku = 'Standard_LRS'
 
 // ── Optional platform services (off by default for a lean first deploy) ───────
@@ -71,6 +74,7 @@ param mcpRequiredScope = 'deals.read'
 // M365 delegated connector (Teams channels + SharePoint VDR provisioning).
 param m365ClientId = ''                   // Entra app (client) id for the M365 connector
 param m365TenantId = ''                   // defaults to entraTenantId when empty
+param workiqMailboxUser = ''              // shared mailbox UPN for app-only Work IQ mail search
 param m365TeamId = ''                     // pinned parent Teams team id (one channel per deal); empty = find/create
 param teamsAppCatalogId = ''              // org-catalog teamsApp id (install Deal Dashboard app + bot); empty skips install
 param m365PublishGroup = 'Private Equity Deals'  // group whose members each deal channel is published to

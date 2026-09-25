@@ -53,6 +53,7 @@ const TIERS: { key: string; title: string; blurb: string; match: (c: Connector) 
   { key: 'free', title: 'Free & open (no subscription)', blurb: 'Free public market & company data — on by default.', match: (c) => c.free && c.kind !== 'web' },
   { key: 'web', title: 'Live web search', blurb: 'Searches the open web for market news and signals. Charged by use.', match: (c) => c.kind === 'web' },
   { key: 'fabric-agent', title: 'Ask your fund data', blurb: 'Natural-language Q&A over the fund\u2019s data.', match: (c) => c.kind === 'fabric-agent' },
+  { key: 'foundry-iq', title: 'Approved diligence knowledge', blurb: 'Cited playbooks and IC standards from Foundry IQ.', match: (c) => c.kind === 'foundry-iq' },
   { key: 'mcp', title: 'Subscription providers', blurb: 'Premium vendor data — sign in to connect.', match: (c) => c.kind === 'mcp' },
   { key: 'm365', title: 'Microsoft 365 sign-in', blurb: 'Signs you in so the app knows who you are.', match: (c) => c.kind === 'm365' },  { key: 'workiq', title: 'Your team’s files, chats and email', blurb: 'Files, chats and email already in Microsoft 365 — add the address, then sign in.', match: (c) => c.kind === 'workiq' },  { key: 'database', title: 'Reference only', blurb: 'Shown for context — not connected.', match: (c) => c.kind === 'database' },
   { key: 'sor', title: 'Your CRM / deal database', blurb: 'Your firm\u2019s system of record — DealCloud, Salesforce, Allvue/eFront or an internal system. Admin only.', match: (c) => c.kind === 'sor' },
@@ -68,6 +69,7 @@ const HUB_SPOKES: { key: string; label: string; detail: string; match: (c: Conne
   { key: 'web', label: 'Live web & news', detail: 'Open-web market signals', match: (c) => c.kind === 'web' },
   { key: 'mcp', label: 'Market data providers', detail: 'Morningstar · LSEG · Moody\u2019s', match: (c) => c.kind === 'mcp' },
   { key: 'fabric-agent', label: 'Fund data', detail: 'Ask-your-fund-data (Fabric)', match: (c) => c.kind === 'fabric-agent' },
+  { key: 'foundry-iq', label: 'Diligence knowledge', detail: 'Cited playbooks (Foundry IQ)', match: (c) => c.kind === 'foundry-iq' },
   { key: 'sor', label: 'Your CRM', detail: 'Pipeline in, decisions out', match: (c) => c.kind === 'sor' },
 ];
 

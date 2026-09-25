@@ -93,11 +93,24 @@ export const SCENES = [
     click: 'text:Data sources',
     spotlight: 'text:files, chats and email',
     cues: ['Work IQ'],
-    say: `Every connector, from free public filings to a self-registered source, is tested with a real round
-      trip, never a static badge. Work IQ, further down, is the same idea applied to this firm's own SharePoint
+    say: `Every connector, from free public filings to a self-registered source, doesn't report connected until
+      it's passed a real round trip. It's never a static badge. Work IQ, further down, is the same idea applied to this firm's own SharePoint
       files, Teams messages and mail: reads run as the signed-in user over Microsoft Graph, so Microsoft 365
       enforces that person's own permissions on top of the deal's need-to-know. A self-registered source,
-      including the firm's own CRM, stays pending until an administrator approves it.`,
+      including the firm's own CRM, can't move data until an administrator approves it.`,
+  },
+  {
+    id: 'tcl-04b-workiq-live',
+    act: 153,
+    title: 'Work IQ inside a deal, not only on a settings screen',
+    seat: 'admin',
+    steps: [{ closeOverlay: true }, { openDeal: 'Helvetia' }, { wait: 2000 }, { clickText: 'Workstreams' }, { wait: 1500 }, { scrollTo: 'Files, chats & email on this deal' }],
+    spotlight: 'text:Files, chats & email on this deal',
+    cues: ['Teams, SharePoint and mail'],
+    say: `Inside Helvetia, this isn't an architecture label anymore. Teams, SharePoint and mail sit beside durable shared
+      conclusions, and each item can ground the deal-scoped assistant without erasing where it came from. Delegated Graph reads run as the signed-in
+      person, while app-only background access stays read-only. The same governed tools can also be exposed to
+      Copilot over the platform's Streamable HTTP MCP endpoint.`,
   },
   {
     id: 'tcl-05-audit',

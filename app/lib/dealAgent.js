@@ -35,6 +35,7 @@ import { houseStyle, recordResponsesUsage } from './ai.js';
 import { computeICReadiness, recordReadingGuide } from './icReadiness.js';
 import { figuresBlock, enforceFigures } from './diligence.js';
 import { consumeSse, readResponseStream } from './sse.js';
+import { icPlaybookQuery, retrieveFoundryIq } from './foundryIq.js';
 
 const PROJECT_ENDPOINT = config.foundry.projectEndpoint;
 const AGENT_NAME = config.foundry.dealAgentName;
@@ -235,8 +236,29 @@ const TOOL_STATUS = {
   deal_documents: 'Looking through the papers',
   workiq_search: 'Searching the deal channel',
   workiq_documents: 'Looking through the papers',
+  foundry_iq_search: 'Searching approved diligence knowledge',
   list_deals: 'Reading the deal list',
 };
+
+async function dispatchFoundryIq(args, context) {
+  const dealId = context.scope === 'deal' ? context.focusId : args?.deal_id;
+  if (!dealId) return { error: 'deal_id-required' };
+  const deal = dispatchTool('get_deal', { deal_id: dealId, sections: ['summary'] }, context);
+  if (deal?.error || deal?.accessLevel === 'status') return deal;
+  const focus = ['approval', 'commercial', 'financial', 'legal', 'technology', 'operational'].includes(args?.focus)
+    ? args.focus
+    : 'approval';
+  const response = await retrieveFoundryIq(icPlaybookQuery(deal, focus));
+  return {
+    useCase: 'IC playbook evidence',
+    focus,
+    answer: response.answer,
+    citations: response.citations,
+    note: response.citations.length
+      ? 'Use only the cited playbook evidence. Keep deal-specific conclusions grounded in the Deal Room record.'
+      : 'No cited playbook evidence was returned. Say that the approved knowledge base did not contain supporting evidence.',
+  };
+}
 
 async function runToolLoop({ scope, focusId, focusCompany, message, previousResponseId, identity, viewAsRole, lens, onDelta, onReset, onStatus }) {
   const agentRef = { name: AGENT_NAME, type: 'agent_reference' };
@@ -271,11 +293,14 @@ async function runToolLoop({ scope, focusId, focusCompany, message, previousResp
       // tool before it runs (no path to exfiltrate deal data), regardless of what the
       // model emitted. Governed reads/writes fall through to dispatchTool as before.
       const denied = guardInternalToolCall(AGENT_NAME, call.name);
+      const context = { scope, focusId, focusCompany, identity, viewAsRole };
       const result = denied
         ? denied
-        : call.name.startsWith('workiq_')
-          ? await dispatchWorkiq(call.name, call.args, { hidden: hiddenCompanyNames(identity, viewAsRole) })
-          : dispatchTool(call.name, call.args, { scope, focusId, focusCompany, identity, viewAsRole });
+        : call.name === 'foundry_iq_search'
+          ? await dispatchFoundryIq(call.args, context)
+          : call.name.startsWith('workiq_')
+            ? await dispatchWorkiq(call.name, call.args, { hidden: hiddenCompanyNames(identity, viewAsRole) })
+            : dispatchTool(call.name, call.args, context);
       return {
         type: 'function_call_output',
         call_id: call.callId,

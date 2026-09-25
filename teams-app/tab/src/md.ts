@@ -16,6 +16,9 @@ function inline(s: string): string {
   // bold then italic
   t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   t = t.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
+  // Models commonly use underscores for emphasis. Require non-word boundaries so
+  // identifiers such as deal_room_id keep their literal underscores.
+  t = t.replace(/(^|[^\w])_([^_\n]+)_(?!\w)/g, '$1<em>$2</em>');
   // links [text](http…) — only http/https targets. The URL charset excludes
   // quotes, angle brackets, parens and whitespace so a crafted URL can never break
   // out of the href="…" attribute (attribute-injection XSS).

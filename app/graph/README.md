@@ -1,3 +1,33 @@
+# Work IQ shared mailbox
+
+For app-only mailbox search, bind Work IQ to a dedicated shared mailbox rather than allowing
+the connector to choose arbitrary user mailboxes. The setup script creates the mailbox, a
+mail-enabled security group, and an Exchange Application Access Policy that restricts the
+connector application's `Mail.Read` permission to that group:
+
+```powershell
+./scripts/setup-workiq-mailbox.ps1 `
+  -Domain contoso.onmicrosoft.com `
+  -AppId <M365-connector-client-id> `
+  -AdminUser admin@contoso.onmicrosoft.com
+```
+
+If browser authentication loops in the local environment, add `-UseDeviceCode`. Seed fictional
+demo messages afterward with one isolated Graph device-code sign-in:
+
+```powershell
+./scripts/seed-workiq-mailbox.ps1 -MailboxAddress dealroom.workiq@contoso.onmicrosoft.com
+```
+
+Set `workiqMailboxUser` in the deployment parameters to the resulting mailbox UPN. This emits
+`WORKIQ_MAILBOX_USER` into the orchestrator and makes it the default target for app-only
+`workiq_search_mail` calls. Delegated calls still use `/me` and therefore remain scoped to the
+signed-in user's mailbox.
+
+Application access policies can take over an hour to propagate. Use the script's
+`Test-ApplicationAccessPolicy` result for the initial check, then run the connector test again
+after propagation.
+
 # Mailbox signals → Deal Sourcing (O1) via Microsoft Graph
 
 Wires a real mailbox into the **O1 · Deal Sourcing** signal flow using a Graph

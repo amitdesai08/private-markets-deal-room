@@ -71,8 +71,17 @@ param openAiDeployments array = [
 ])
 param searchSku string = 'standard'
 
-@description('Provision Azure AI Search (unused by the app — off by default to save ~$75/mo; enable for a search / vector feature).')
+@description('Provision Azure AI Search for Foundry IQ knowledge retrieval. Off by default to save ~$75/mo.')
 param deploySearch bool = false
+
+@description('Existing Foundry IQ knowledge base to expose to the app. Empty keeps the connector disconnected; this template does not create knowledge content.')
+param foundryIqKnowledgeBase string = ''
+
+@description('Optional Search knowledge source to target within the Foundry IQ knowledge base.')
+param foundryIqKnowledgeSource string = ''
+
+@description('Azure AI Search knowledge-base API version. Use preview only when answer synthesis is required and accepted for the environment.')
+param foundryIqApiVersion string = '2026-04-01'
 
 @description('Log Analytics daily ingestion cap in GB (-1 = unlimited).')
 param logAnalyticsDailyQuotaGb int = -1
@@ -232,6 +241,9 @@ param m365ClientId string = ''
 
 @description('Entra tenant ID for the M365 delegated login (defaults to entraTenantId when set).')
 param m365TenantId string = ''
+
+@description('Shared mailbox UPN used by app-only Work IQ mail search. Empty requires callers to provide a mailbox explicitly.')
+param workiqMailboxUser string = ''
 
 @description('Client secret for the M365 delegated login app registration.')
 @secure()
@@ -433,6 +445,7 @@ module app 'modules/app.bicep' = {
     mcpRequiredScope: mcpRequiredScope
     m365ClientId: m365ClientId
     m365TenantId: m365TenantId
+    workiqMailboxUser: workiqMailboxUser
     m365ClientSecret: m365ClientSecret
     mcpReadonlyKey: mcpReadonlyKey
     m365TeamId: m365TeamId
@@ -472,6 +485,10 @@ module app 'modules/app.bicep' = {
     appInsightsConnectionString: core.outputs.appInsightsConnectionString
     foundryEndpoint: ai.outputs.foundryEndpoint
     foundryProjectEndpoint: ai.outputs.foundryProjectEndpoint
+    foundryIqSearchEndpoint: ai.outputs.searchEndpoint
+    foundryIqKnowledgeBase: foundryIqKnowledgeBase
+    foundryIqKnowledgeSource: foundryIqKnowledgeSource
+    foundryIqApiVersion: foundryIqApiVersion
     contentSafetyEndpoint: ai.outputs.contentSafetyEndpoint
     cosmosEndpoint: data.outputs.cosmosEndpoint
     cosmosDatabase: data.outputs.cosmosDatabaseName

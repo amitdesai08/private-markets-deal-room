@@ -30,9 +30,11 @@ param openAiDeployments = [
 param appModelDeployment = 'gpt-5-mini'
 
 param searchSku = 'basic'
-// Azure AI Search is UNUSED by the app (~$75/mo standing cost). Kept true here to
-// avoid an unattended deletion on redeploy; set to false to remove it and save.
+// Azure AI Search hosts the Foundry IQ diligence playbook knowledge base.
 param deploySearch = true
+param foundryIqKnowledgeBase = 'dealroom-ic-playbook'
+param foundryIqKnowledgeSource = 'dealroom-ic-playbook-source'
+param foundryIqApiVersion = '2026-08-01-preview'
 // Cap Log Analytics ingestion at 1 GB/day in dev (well above actual usage). -1 = unlimited.
 param logAnalyticsDailyQuotaGb = 1
 param storageSku = 'Standard_LRS'

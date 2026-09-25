@@ -139,6 +139,7 @@ import { corpusForDeal } from './lib/workiqCorpus.js';
 // Real Teams channel reads, brought INTO the app. Governed by the same Work IQ
 // dispatcher the agent tools use, so channel access is consented + audited once.
 import { readChannelMessages } from './lib/mcp/workiq.js';
+import { workIqGraphConfigured } from './lib/m365/workIqGraph.js';
 // Sending is imported DIRECTLY from the Graph backend, not through dispatchWorkiq.
 // The Work IQ dispatcher deliberately degrades a failed read to the demo corpus, which
 // is right for reads and catastrophic for writes: a send that quietly "succeeded" into
@@ -718,6 +719,7 @@ api.get('/home-desk', (req, res) => {
     persona: personaForIdentity(identity)
       || (demoModeActive() && ALL_PERSONA_IDS.includes(access?.role) ? access.role : null),
     demoMode: demoModeActive(),
+    mailboxConnected: workIqGraphConfigured() && !!config.m365.mailboxUser,
     rawFor: (d) => getDealRaw(d.id),
     avgScreeningDays: avgActiveScreeningDays(identity, viewAs),
   }));

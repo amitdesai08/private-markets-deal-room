@@ -70,6 +70,16 @@ test('two seats on the SAME deals get different tiles, different queue and diffe
   assert.notEqual(text(supply), text(chair), 'the briefing must differ by seat');
 });
 
+test('the briefing does not call a configured Work IQ mailbox disconnected', () => {
+  const options = { role: 'deal-team', roleLabel: 'Deal Team', persona: 'principal', rawFor: (d) => getDealRaw(d.id) };
+  const disconnected = text(buildHomeDesk(deals, options));
+  const connected = text(buildHomeDesk(deals, { ...options, mailboxConnected: true }));
+
+  assert.match(disconnected, /no Microsoft 365 mailbox is connected yet/i);
+  assert.doesNotMatch(connected, /no Microsoft 365 mailbox is connected yet/i);
+  assert.match(connected, /shared Microsoft 365 mailbox is configured for Work IQ app-only mail search/i);
+});
+
 test('a lane seat is told about ITS lane, and the numbers on the tiles match the prose', () => {
   const hd = build('supply-md');
   assert.equal(hd.seat.kind, 'lane');

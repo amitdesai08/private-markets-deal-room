@@ -12,7 +12,9 @@
 >   the [PE-audience runbook](DEMO-RUNBOOK.md).
 >
 > **All three technical assets tell the same story.** The walkthrough runs 18 minutes, the
-> lightning cut 10.
+> lightning cut 10. The optional live
+> [Azure Portal integration proof](DEMO-AZURE-PORTAL-INTEGRATIONS.md) makes the walkthrough
+> roughly 21 minutes by replacing its diagram-only footprint segment.
 
 An 18-minute guided demo of The Deal Room's **platform**, for delivery teams presenting to an
 IT or security review. It does not walk a deal team's five tabs — that is the
@@ -28,8 +30,10 @@ architecture or security review actually asks about, in the order they are usual
 - **Say this once, out loud:** "Everything on screen is an invented demonstration book. What
   we're reviewing is what's underneath it — this deploys into your own Azure subscription and
   your own Entra tenant, not a multi-tenant SaaS product."
-- Have the [architecture diagrams](../ARCHITECTURE.md) open in a second tab — Acts 7 and 8
-  below are easier said while pointing at them than clicked through live.
+- Have the [architecture diagrams](../ARCHITECTURE.md) open in a second tab as the fallback for
+  Acts 7 and 8. For an Azure-literate audience, pre-open the tabs in the
+  [Azure Portal integration proof](DEMO-AZURE-PORTAL-INTEGRATIONS.md) and use that read-only
+  click path instead.
 
 ---
 
@@ -96,13 +100,25 @@ Still on the assistant panel, no new navigation needed.
 > routing itself is a fixed decision tree the model doesn't get a vote on, which is what stops
 > a clever prompt from talking its way into a tool call it was never routed to make."
 
-## 5 · Connector governance, and Work IQ (3 min)
+## 5 · Connector governance, Foundry IQ, and Work IQ (4 min)
 
 1. **Settings ⚙ → Data sources.** Point out the honest reachability test on every connector,
    no static "connected" badge.
 2. Scroll to **Work IQ**.
-3. Scroll to **Custom sources**, pending until an administrator approves.
-4. Scroll to **Your CRM / deal database.**
+3. Find **Approved diligence knowledge**. Show the Search endpoint, knowledge-base name and
+   **Test** action. In a deal, ask which approved diligence tests and IC evidence standards
+   apply to its sector.
+4. Return Home and open **Helvetia Diagnostics → Workstreams**. Scroll to **Files, chats &
+  email on this deal** and show Teams, SharePoint, mail and shared notes together.
+5. Select **Ask the assistant to summarise this channel** to open a source-grounded prompt.
+6. Return to **Settings → Data sources**. Scroll to **Custom sources**, pending until an
+  administrator approves, then **Your CRM / deal database**.
+
+> "Foundry IQ, in `app/lib/foundryIq.js`, calls the Azure AI Search knowledge-base retrieve
+> API with the app's managed identity. The supporting use case is an IC playbook evidence
+> brief: only sector, subsector, stage and a fixed diligence focus leave the app; deal identity
+> and figures do not. The tool returns bounded passages and citation ids, and the agent is
+> instructed to say the approved knowledge base lacks evidence when no citation is returned."
 
 > "Work IQ, in `app/lib/m365/workIqGraph.js`, backs four governed tools over Microsoft Graph:
 > search_files, read_channel_messages, search_mail and search. Delegated mode is preferred and
@@ -110,6 +126,11 @@ Still on the assistant panel, no new navigation needed.
 > permissions on top of our deal need-to-know. App-only client credentials are the fallback for
 > background agent work, and that path is read-only by design. The same surface is exposed to
 > Copilot and Copilot Studio via `lib/mcp/workiqServer.js`."
+
+> "The deal view makes those mechanics visible. `WorkIqPanel.tsx` composes the deal's Teams
+> thread, SharePoint files, mailbox items and durable cross-persona notes without erasing their
+> provenance. Selecting a source opens the same scoped assistant with a source-specific prompt;
+> it doesn't grant the model a broader identity or bypass the deal gate."
 
 > "The system-of-record connector: `POST /api/connectors` with `kind: 'sor'`, admin-gated end
 > to end. Register, configure, enable and remove all require the administrator role
@@ -133,6 +154,13 @@ Still on the assistant panel, no new navigation needed.
 ## 7 · The Azure footprint (2 min)
 
 Talk through this alongside the [architecture diagrams](../ARCHITECTURE.md).
+
+For a live infrastructure review, replace this section with the five-minute
+[Azure Portal integration proof](DEMO-AZURE-PORTAL-INTEGRATIONS.md). Its canonical order is:
+resource groups → Container Apps revisions → managed identity and scoped RBAC → Foundry model
+deployments → Application Insights → back to **Settings → Data sources → Work IQ**. Do not
+open secret values, data explorers, raw traces, mailbox contents, or account-switching UI
+while sharing the screen.
 
 > "Subscription-scoped Bicep, six resource groups: app, ai, data, integration, core, network,
 > so each domain is governed and costed on its own. Every Azure-to-Azure call is authorised by

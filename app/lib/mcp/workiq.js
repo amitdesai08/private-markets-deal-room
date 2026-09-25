@@ -33,7 +33,7 @@ export const WORKIQ_PROVIDER = 'workiq';
 const GRAPH_BACKEND = Object.freeze({
   workiq_search_files: (a) => wiSearchFiles(a.query, a),
   workiq_search:       (a) => wiSearch(a.query, a),
-  workiq_search_mail:  (a) => wiSearchMail(a),
+  workiq_search_mail:  (a) => wiSearchMail({ ...a, user: a.user || config.m365.mailboxUser || undefined }),
   workiq_read_channel: (a) => wiReadChannel(a),
 });
 
