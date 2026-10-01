@@ -26,7 +26,8 @@ $pages = @(
   @{ index = 1; out = 'docs\diagrams\how-it-fits-together.svg' },
   @{ index = 2; out = 'docs\diagrams\identity-trust-seam.svg' },
   @{ index = 3; out = 'docs\diagrams\azure-architecture.svg' },
-  @{ index = 4; out = 'docs\diagrams\resource-interaction.svg' }
+  @{ index = 4; out = 'docs\diagrams\resource-interaction.svg' },
+  @{ index = 5; out = 'docs\diagrams\agent-iq-orchestration.svg' }
 )
 
 foreach ($p in $pages) {

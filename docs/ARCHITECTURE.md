@@ -13,7 +13,7 @@
 One backend holds the data and does the thinking. Two surfaces show it: a Teams channel tab
 with a conversational bot, and the same build served as a standalone web console. M365 Copilot
 and hosted agents reach the same deal tools through an Entra-secured MCP endpoint. Models come
-from Azure AI Foundry over managed identity, so there are no keys in the app. The whole thing
+from Microsoft Foundry over managed identity, so there are no keys in the app. The whole thing
 is subscription-agnostic Bicep on Azure Container Apps.
 
 ---
@@ -58,7 +58,7 @@ optional private path.
 | Resource group | What lives there |
 |---|---|
 | **app** | The two container apps and their environment, the registry, the bot registration and the Function App. |
-| **ai** | Azure AI Foundry models and embeddings, Bing grounding, AI Search. |
+| **ai** | Microsoft Foundry models and embeddings, Bing grounding, AI Search. |
 | **data** | The deal store — a storage account by default, Cosmos DB when you need it — and Fabric capacity. |
 | **integration** | API Management, Service Bus and Event Grid for event-driven signals. |
 | **core** | Key Vault, the user-assigned managed identity, Log Analytics and Application Insights. |
@@ -93,6 +93,22 @@ scoped to exactly that resource.
 
 ---
 
+## Multi-agent and IQ orchestration
+
+The assistant uses four evidence paths — Foundry IQ, Fabric IQ, Work IQ and Web IQ — behind one
+server-owned policy boundary. A selectively hosted router classifies the prompt without reading
+source data; the Node orchestrator validates that decision, applies identity and deal scope, and
+then performs the governed capability or A2A handoff. Mixed internal-data and public-web prompts
+are refused before either source is called.
+
+![Governed agent and IQ orchestration](diagrams/agent-iq-orchestration.svg)
+
+The [agent and IQ architecture reference](diagrams/agent-iq-a2a.md) records the live deployment
+truth and implementation sources. Its traces are operational — route, handoff, source and
+synthesis — and do not expose private model reasoning.
+
+---
+
 ## What runs where
 
 | Tier | Container app | Role |
@@ -116,7 +132,7 @@ scoped to exactly that resource.
 
 ## The diagrams themselves
 
-All four drawings above live in one draw.io file —
+All five drawings above live in one draw.io file —
 [`docs/diagrams/deal-room-architecture.drawio`](diagrams/deal-room-architecture.drawio), one
 page per diagram. That file is the source; the SVGs beside it are generated from it and
 committed, because GitHub renders SVG inside a page and cannot render `.drawio`.
@@ -141,6 +157,7 @@ icons are inlined into the SVG, so nothing is fetched at view time.
 | If you want to | Read |
 |---|---|
 | Understand the internals | [How it works](HOW-IT-WORKS.md) |
+| Understand agent and IQ orchestration | [Agent and IQ architecture](diagrams/agent-iq-a2a.md) |
 | Know who can see what | [Access model](ACCESS-MODEL.md) |
 | Deploy it | [Deploy guide](DEPLOY.md) |
 | Connect real market data | [Data integration](integration/DATA-INTEGRATION.md) |
