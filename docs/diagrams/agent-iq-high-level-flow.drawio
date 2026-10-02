@@ -1,97 +1,309 @@
-<mxfile host="Electron" agent="Mozilla/5.0" version="26.0.16">
+<mxfile host="Electron" agent="Mozilla/5.0">
   <diagram name="High level design flow" id="agent-iq-high-level-flow">
-    <mxGraphModel background="#FFFFFF" dx="2200" dy="1060" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1060" math="0" shadow="0">
+    <mxGraphModel dx="468" dy="409" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1060" background="#FFFFFF" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-
-        <mxCell id="title" value="The Deal Room · high-level agent and IQ design flow" style="text;html=1;align=left;verticalAlign=middle;fontSize=26;fontStyle=1;fontColor=#1A1A1A;" vertex="1" parent="1"><mxGeometry x="40" y="28" width="1100" height="38" as="geometry" /></mxCell>
-        <mxCell id="subtitle" value="The Node orchestrator owns execution. The hosted router returns policy only; IQ peers and purpose agents perform the work through bounded handoffs." style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5B5B5B;" vertex="1" parent="1"><mxGeometry x="42" y="70" width="1350" height="24" as="geometry" /></mxCell>
-
-        <mxCell id="usersBox" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#49657A;strokeWidth=1;dashed=1;dashPattern=6 4;" vertex="1" parent="1"><mxGeometry x="45" y="370" width="160" height="150" as="geometry" /></mxCell>
-        <mxCell id="usersIcon" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/identity/Users.svg;" vertex="1" parent="1"><mxGeometry x="93" y="410" width="64" height="64" as="geometry" /></mxCell>
-        <mxCell id="usersLabel" value="&lt;b&gt;Deal team&lt;/b&gt;&#10;Partners · analysts · operators" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#1A1A1A;" vertex="1" parent="1"><mxGeometry x="55" y="478" width="140" height="34" as="geometry" /></mxCell>
-
-        <mxCell id="surfaceIcon" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/Bot_Services.svg;" vertex="1" parent="1"><mxGeometry x="274" y="397" width="56" height="56" as="geometry" /></mxCell>
-        <mxCell id="surface" value="&lt;b&gt;The Deal Room&lt;/b&gt;&#10;Teams tab · bot · web console&#10;Microsoft Entra SSO" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontColor=#1A1A1A;fontSize=11;align=left;spacingLeft=84;" vertex="1" parent="1"><mxGeometry x="260" y="375" width="290" height="105" as="geometry" /></mxCell>
-
-        <mxCell id="nodeIcon" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/other/Worker_Container_App.svg;" vertex="1" parent="1"><mxGeometry x="664" y="385" width="64" height="64" as="geometry" /></mxCell>
-        <mxCell id="node" value="&lt;b&gt;Deal Room Node Orchestrator&lt;/b&gt;&#10;identity + deal scope&#10;canonical IQ registry&#10;sovereignty guard + dispatch" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontColor=#1A1A1A;fontSize=12;align=left;spacingLeft=112;" vertex="1" parent="1"><mxGeometry x="630" y="350" width="350" height="150" as="geometry" /></mxCell>
-
-        <mxCell id="routerIcon" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/AI_Foundry.svg;" vertex="1" parent="1"><mxGeometry x="687" y="151" width="56" height="56" as="geometry" /></mxCell>
-        <mxCell id="router" value="&lt;b&gt;Hosted IQ Policy Router&lt;/b&gt;&#10;deal-room-hosted-iq-router:1&#10;prompt only · no source tools&#10;&lt;font color=&quot;#8A3D07&quot;&gt;Returns bounded route JSON&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontColor=#1A1A1A;fontSize=11;align=left;spacingLeft=96;" vertex="1" parent="1"><mxGeometry x="655" y="125" width="350" height="120" as="geometry" /></mxCell>
-
-        <mxCell id="policyLink" value="policy prompt · route decision only" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=2;dashed=1;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=10;fontColor=#5B4382;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="node" target="router"><mxGeometry relative="1" as="geometry"><mxPoint x="18" y="0" as="offset" /></mxGeometry></mxCell>
-        <mxCell id="usersSurface" value="signed-in request" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#176B8A;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="usersBox" target="surface"><mxGeometry relative="1" as="geometry"><mxPoint y="-10" as="offset" /></mxGeometry></mxCell>
-        <mxCell id="surfaceNode" value="verified identity + deal scope" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#176B8A;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="surface" target="node"><mxGeometry relative="1" as="geometry"><mxPoint y="-10" as="offset" /></mxGeometry></mxCell>
-
-        <mxCell id="iqHeading" value="IQ EXECUTION ROUTES" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#44546A;" vertex="1" parent="1"><mxGeometry x="1145" y="108" width="300" height="22" as="geometry" /></mxCell>
-        <mxCell id="evidenceHeading" value="GROUNDED EVIDENCE" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#44546A;" vertex="1" parent="1"><mxGeometry x="1735" y="108" width="300" height="22" as="geometry" /></mxCell>
-
-        <mxCell id="foundryIcon" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/AI_Foundry.svg;" vertex="1" parent="1"><mxGeometry x="1030" y="159" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="foundry" value="&lt;b&gt;Foundry IQ&lt;/b&gt;&#10;deal-room-foundry-iq&#10;governed capability" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontSize=11;align=left;spacingLeft=80;" vertex="1" parent="1"><mxGeometry x="1150" y="140" width="330" height="86" as="geometry" /></mxCell>
-        <mxCell id="searchIcon" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/app_services/Search_Services.svg;" vertex="1" parent="1"><mxGeometry x="1550" y="159" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="search" value="&lt;b&gt;Azure AI Search&lt;/b&gt;&#10;firm playbooks · citations" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9A9A9A;strokeWidth=1;fontSize=11;align=left;spacingLeft=80;" vertex="1" parent="1"><mxGeometry x="1740" y="140" width="330" height="86" as="geometry" /></mxCell>
-
-        <mxCell id="fabricIcon" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/storage/Storage_Accounts.svg;" vertex="1" parent="1"><mxGeometry x="1030" y="279" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="fabric" value="&lt;b&gt;Fabric IQ&lt;/b&gt;&#10;deal-room-fabric&#10;governed capability" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontSize=11;align=left;spacingLeft=80;" vertex="1" parent="1"><mxGeometry x="1150" y="260" width="330" height="86" as="geometry" /></mxCell>
-        <mxCell id="lakeIcon" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/storage/Storage_Accounts.svg;" vertex="1" parent="1"><mxGeometry x="1550" y="279" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="lake" value="&lt;b&gt;Microsoft Fabric&lt;/b&gt;&#10;OneLake · Fabric Data Agent" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9A9A9A;strokeWidth=1;fontSize=11;align=left;spacingLeft=80;" vertex="1" parent="1"><mxGeometry x="1740" y="260" width="330" height="86" as="geometry" /></mxCell>
-
-        <mxCell id="workIcon" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/identity/Azure_Active_Directory.svg;" vertex="1" parent="1"><mxGeometry x="1030" y="399" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="work" value="&lt;b&gt;Work IQ Agent&lt;/b&gt;&#10;deal-room-work-iq&#10;A2A · delegated user" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontSize=11;align=left;spacingLeft=80;" vertex="1" parent="1"><mxGeometry x="1150" y="380" width="330" height="86" as="geometry" /></mxCell>
-        <mxCell id="m365Icon" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/identity/Users.svg;" vertex="1" parent="1"><mxGeometry x="1550" y="399" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="m365" value="&lt;b&gt;Microsoft 365&lt;/b&gt;&#10;Teams · SharePoint · Outlook" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9A9A9A;strokeWidth=1;fontSize=11;align=left;spacingLeft=80;" vertex="1" parent="1"><mxGeometry x="1740" y="380" width="330" height="86" as="geometry" /></mxCell>
-
-        <mxCell id="webIcon" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/general/Globe.svg;" vertex="1" parent="1"><mxGeometry x="1030" y="519" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="web" value="&lt;b&gt;Web IQ Agent&lt;/b&gt;&#10;deal-room-web-iq&#10;A2A · public only" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B146C2;strokeWidth=2;fontSize=11;align=left;spacingLeft=80;" vertex="1" parent="1"><mxGeometry x="1150" y="500" width="330" height="86" as="geometry" /></mxCell>
-        <mxCell id="publicIcon" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/general/Globe.svg;" vertex="1" parent="1"><mxGeometry x="1550" y="519" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="public" value="&lt;b&gt;Public web sources&lt;/b&gt;&#10;current public intelligence only" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B146C2;strokeWidth=1;fontSize=11;align=left;spacingLeft=80;" vertex="1" parent="1"><mxGeometry x="1740" y="500" width="330" height="86" as="geometry" /></mxCell>
-
-        <mxCell id="routeTrunk" value="governed dispatch" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#176B8A;exitX=1;exitY=0.48;entryX=0;entryY=0.5;" edge="1" parent="1" source="node" target="work"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1080" y="422" /></Array><mxPoint y="-12" as="offset" /></mxGeometry></mxCell>
-        <mxCell id="routeFoundry" value="internal" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=9;fontColor=#176B8A;exitX=1;exitY=0.18;entryX=0;entryY=0.5;" edge="1" parent="1" source="node" target="foundry"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1080" y="377" /><mxPoint x="1080" y="183" /></Array></mxGeometry></mxCell>
-        <mxCell id="routeFabric" value="internal" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=9;fontColor=#176B8A;exitX=1;exitY=0.33;entryX=0;entryY=0.5;" edge="1" parent="1" source="node" target="fabric"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1050" y="400" /><mxPoint x="1050" y="303" /></Array></mxGeometry></mxCell>
-        <mxCell id="routeWeb" value="public only" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B146C2;strokeWidth=2;endArrow=block;endFill=1;fontSize=9;fontColor=#8A3D96;exitX=1;exitY=0.82;entryX=0;entryY=0.5;" edge="1" parent="1" source="node" target="web"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1080" y="473" /><mxPoint x="1080" y="543" /></Array></mxGeometry></mxCell>
-        <mxCell id="foundryEvidence" value="grounded retrieval" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#176B8A;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="foundry" target="search"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="fabricEvidence" value="analytics" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#176B8A;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="fabric" target="lake"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="workEvidence" value="user-scoped" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#176B8A;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="work" target="m365"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="webEvidence" value="public only" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B146C2;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#8A3D96;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="web" target="public"><mxGeometry relative="1" as="geometry" /></mxCell>
-
-        <mxCell id="boundary" value="MIXED INTERNAL + PUBLIC REQUESTS ARE REFUSED BEFORE ANY SOURCE CALL" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF4CE;strokeColor=#C87919;strokeWidth=1;fontColor=#5A3308;fontSize=10;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1150" y="610" width="920" height="34" as="geometry" /></mxCell>
-
-        <mxCell id="purposeHeading" value="PURPOSE-AGENT A2A FLOW" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#44546A;" vertex="1" parent="1"><mxGeometry x="655" y="710" width="350" height="22" as="geometry" /></mxCell>
-        <mxCell id="purposeIcon" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/Bot_Services.svg;" vertex="1" parent="1"><mxGeometry x="625" y="783" width="56" height="56" as="geometry" /></mxCell>
-        <mxCell id="purpose" value="&lt;b&gt;Deal Room Orchestrator Agent&lt;/b&gt;&#10;deal-room-orchestrator&#10;selects at most two specialists&#10;synthesizes one grounded answer" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontSize=11;align=left;spacingLeft=112;" vertex="1" parent="1"><mxGeometry x="630" y="755" width="350" height="130" as="geometry" /></mxCell>
-
-        <mxCell id="sourcing" value="&lt;b&gt;Sourcing Agent&lt;/b&gt;&#10;deal-room-sourcing" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7A57C2;strokeWidth=1;fontSize=10;" vertex="1" parent="1"><mxGeometry x="1200" y="720" width="250" height="68" as="geometry" /></mxCell>
-        <mxCell id="screening" value="&lt;b&gt;Screening Agent&lt;/b&gt;&#10;deal-room-screening" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7A57C2;strokeWidth=1;fontSize=10;" vertex="1" parent="1"><mxGeometry x="1510" y="720" width="250" height="68" as="geometry" /></mxCell>
-        <mxCell id="diligence" value="&lt;b&gt;Diligence Agent&lt;/b&gt;&#10;deal-room-diligence" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7A57C2;strokeWidth=1;fontSize=10;" vertex="1" parent="1"><mxGeometry x="1820" y="720" width="250" height="68" as="geometry" /></mxCell>
-        <mxCell id="modeling" value="&lt;b&gt;Modeling Agent&lt;/b&gt;&#10;deal-room-modeling" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7A57C2;strokeWidth=1;fontSize=10;" vertex="1" parent="1"><mxGeometry x="1200" y="860" width="250" height="68" as="geometry" /></mxCell>
-        <mxCell id="icmemo" value="&lt;b&gt;IC Memo Agent&lt;/b&gt;&#10;deal-room-ic-memo" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7A57C2;strokeWidth=1;fontSize=10;" vertex="1" parent="1"><mxGeometry x="1510" y="860" width="250" height="68" as="geometry" /></mxCell>
-        <mxCell id="value" value="&lt;b&gt;Value Creation Agent&lt;/b&gt;&#10;deal-room-value-creation" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7A57C2;strokeWidth=1;fontSize=10;" vertex="1" parent="1"><mxGeometry x="1820" y="860" width="250" height="68" as="geometry" /></mxCell>
-
-        <mxCell id="surfaceIconTop" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/Bot_Services.svg;" vertex="1" parent="1"><mxGeometry x="284" y="397" width="56" height="56" as="geometry" /></mxCell>
-        <mxCell id="nodeIconTop" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/other/Worker_Container_App.svg;" vertex="1" parent="1"><mxGeometry x="664" y="385" width="64" height="64" as="geometry" /></mxCell>
-        <mxCell id="routerIconTop" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/AI_Foundry.svg;" vertex="1" parent="1"><mxGeometry x="687" y="151" width="56" height="56" as="geometry" /></mxCell>
-        <mxCell id="foundryIconTop" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/AI_Foundry.svg;" vertex="1" parent="1"><mxGeometry x="1178" y="159" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="searchIconTop" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/app_services/Search_Services.svg;" vertex="1" parent="1"><mxGeometry x="1768" y="159" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="fabricIconTop" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/storage/Storage_Accounts.svg;" vertex="1" parent="1"><mxGeometry x="1178" y="279" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="lakeIconTop" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/storage/Storage_Accounts.svg;" vertex="1" parent="1"><mxGeometry x="1768" y="279" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="workIconTop" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/identity/Azure_Active_Directory.svg;" vertex="1" parent="1"><mxGeometry x="1178" y="399" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="m365IconTop" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/identity/Users.svg;" vertex="1" parent="1"><mxGeometry x="1768" y="399" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="webIconTop" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/general/Globe.svg;" vertex="1" parent="1"><mxGeometry x="1178" y="519" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="publicIconTop" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/general/Globe.svg;" vertex="1" parent="1"><mxGeometry x="1768" y="519" width="48" height="48" as="geometry" /></mxCell>
-        <mxCell id="purposeIconTop" value="" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/Bot_Services.svg;" vertex="1" parent="1"><mxGeometry x="664" y="783" width="56" height="56" as="geometry" /></mxCell>
-
-        <mxCell id="nodePurpose" value="A2A delegation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#5B4382;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="node" target="purpose"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="purposeSourcing" value="consult + findings" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=2;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=9;fontColor=#5B4382;exitX=1;exitY=0.35;entryX=0;entryY=0.5;" edge="1" parent="1" source="purpose" target="sourcing"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1120" y="800" /><mxPoint x="1120" y="754" /></Array></mxGeometry></mxCell>
-        <mxCell id="purposeScreening" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=1;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=1;exitY=0.25;entryX=0.5;entryY=0;" edge="1" parent="1" source="purpose" target="screening"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1100" y="788" /><mxPoint x="1100" y="680" /><mxPoint x="1635" y="680" /></Array></mxGeometry></mxCell>
-        <mxCell id="purposeDiligence" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=1;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=1;exitY=0.15;entryX=0.5;entryY=0;" edge="1" parent="1" source="purpose" target="diligence"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1080" y="774" /><mxPoint x="1080" y="660" /><mxPoint x="1945" y="660" /></Array></mxGeometry></mxCell>
-        <mxCell id="purposeModeling" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=1;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=1;exitY=0.65;entryX=0;entryY=0.5;" edge="1" parent="1" source="purpose" target="modeling"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1120" y="840" /><mxPoint x="1120" y="894" /></Array></mxGeometry></mxCell>
-        <mxCell id="purposeIc" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=1;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=1;exitY=0.75;entryX=0.5;entryY=1;" edge="1" parent="1" source="purpose" target="icmemo"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1100" y="852" /><mxPoint x="1100" y="970" /><mxPoint x="1635" y="970" /></Array></mxGeometry></mxCell>
-        <mxCell id="purposeValue" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=1;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=1;exitY=0.85;entryX=0.5;entryY=1;" edge="1" parent="1" source="purpose" target="value"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1080" y="866" /><mxPoint x="1080" y="990" /><mxPoint x="1945" y="990" /></Array></mxGeometry></mxCell>
-
-        <mxCell id="stamp" value="The Deal Room · high-level design flow · Microsoft Azure + Foundry" style="text;html=1;align=right;verticalAlign=middle;fontSize=10;fontColor=#7F7F7F;" vertex="1" parent="1"><mxGeometry x="1630" y="1010" width="440" height="20" as="geometry" /></mxCell>
+        <mxCell id="title" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=26;fontStyle=1;fontColor=#1A1A1A;" value="The Deal Room · high-level agent and IQ design flow" vertex="1">
+          <mxGeometry height="38" width="1100" x="40" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5B5B5B;" value="The Node orchestrator owns execution. The hosted router returns policy only; IQ peers and purpose agents perform the work through bounded handoffs and one-round peer review." vertex="1">
+          <mxGeometry height="24" width="1350" x="42" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="usersBox" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#49657A;strokeWidth=1;dashed=1;dashPattern=6 4;" value="" vertex="1">
+          <mxGeometry height="150" width="160" x="17" y="352.5" as="geometry" />
+        </mxCell>
+        <mxCell id="usersIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/identity/Users.svg;" value="" vertex="1">
+          <mxGeometry height="64" width="64" x="65" y="393" as="geometry" />
+        </mxCell>
+        <mxCell id="usersLabel" parent="1" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#1A1A1A;" value="&lt;b&gt;Deal team&lt;/b&gt;&#xa;Partners · analysts · operators" vertex="1">
+          <mxGeometry height="34" width="140" x="55" y="478" as="geometry" />
+        </mxCell>
+        <mxCell id="surfaceIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/Bot_Services.svg;" value="" vertex="1">
+          <mxGeometry height="56" width="56" x="274" y="397" as="geometry" />
+        </mxCell>
+        <mxCell id="surface" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontColor=#1A1A1A;fontSize=11;align=left;spacingLeft=84;" value="&lt;b&gt;The Deal Room&lt;/b&gt;&#xa;Teams tab · bot · web console&#xa;Microsoft Entra SSO" vertex="1">
+          <mxGeometry height="105" width="290" x="260" y="375" as="geometry" />
+        </mxCell>
+        <mxCell id="nodeIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/other/Worker_Container_App.svg;" value="" vertex="1">
+          <mxGeometry height="64" width="64" x="664" y="385" as="geometry" />
+        </mxCell>
+        <mxCell id="Kqx0VKTxeQfJSu_FQn1H-2" edge="1" parent="1" source="node" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fillColor=#1ba1e2;strokeColor=#006EAF;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1147.34" y="425.03" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Kqx0VKTxeQfJSu_FQn1H-5" connectable="0" parent="Kqx0VKTxeQfJSu_FQn1H-2" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fontColor=#176B8A;fontFamily=Helvetica;fontStyle=0;labelBackgroundColor=default;" value="Governed Dispatch" vertex="1">
+          <mxGeometry relative="1" x="0.1923" y="-3" as="geometry">
+            <mxPoint x="20" y="52" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="node" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontColor=#1A1A1A;fontSize=12;align=left;spacingLeft=112;" value="&lt;b&gt;Deal Room Node Orchestrator&lt;/b&gt;&#xa;identity + deal scope&#xa;canonical IQ registry&#xa;sovereignty guard + dispatch" vertex="1">
+          <mxGeometry height="150" width="350" x="630" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="routerIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/AI_Foundry.svg;" value="" vertex="1">
+          <mxGeometry height="56" width="56" x="687" y="151" as="geometry" />
+        </mxCell>
+        <mxCell id="router" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontColor=#1A1A1A;fontSize=11;align=left;spacingLeft=96;" value="&lt;b&gt;Hosted IQ Policy Router&lt;/b&gt;&#xa;deal-room-hosted-iq-router:1&#xa;prompt only · no source tools&#xa;&lt;font color=&quot;#8A3D07&quot;&gt;Returns bounded route JSON&lt;/font&gt;" vertex="1">
+          <mxGeometry height="120" width="350" x="655" y="125" as="geometry" />
+        </mxCell>
+        <mxCell id="policyLink" edge="1" parent="1" source="node" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=2;dashed=1;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=10;fontColor=#5B4382;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" target="router" value="policy prompt · route decision only">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="18" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="usersSurface" edge="1" parent="1" source="usersBox" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#176B8A;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="surface" value="signed-in request">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="surfaceNode" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#176B8A;exitX=1.019;exitY=0.53;entryX=0.002;entryY=0.533;entryDx=0;entryDy=0;entryPerimeter=0;exitDx=0;exitDy=0;exitPerimeter=0;" target="node" value="verified identity + deal scope">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-10" as="offset" />
+            <mxPoint x="550.0000000000002" y="430.6500000000001" as="sourcePoint" />
+            <mxPoint x="622.3900000000001" y="429.95000000000005" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="iqHeading" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#44546A;" value="IQ EXECUTION ROUTES" vertex="1">
+          <mxGeometry height="22" width="300" x="1145" y="108" as="geometry" />
+        </mxCell>
+        <mxCell id="evidenceHeading" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#44546A;" value="GROUNDED EVIDENCE" vertex="1">
+          <mxGeometry height="22" width="300" x="1735" y="108" as="geometry" />
+        </mxCell>
+        <mxCell id="foundryIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/AI_Foundry.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1076" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="foundry" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontSize=11;align=left;spacingLeft=80;" value="&lt;b&gt;Foundry IQ&lt;/b&gt;&#xa;deal-room-foundry-iq&#xa;governed capability" vertex="1">
+          <mxGeometry height="86" width="330" x="1150" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="searchIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/app_services/Search_Services.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1550" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="search" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9A9A9A;strokeWidth=1;fontSize=11;align=left;spacingLeft=80;" value="&lt;b&gt;Azure AI Search&lt;/b&gt;&#xa;firm playbooks · citations" vertex="1">
+          <mxGeometry height="86" width="330" x="1740" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="fabricIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/storage/Storage_Accounts.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1076" y="322" as="geometry" />
+        </mxCell>
+        <mxCell id="fabric" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontSize=11;align=left;spacingLeft=80;" value="&lt;b&gt;Fabric IQ&lt;/b&gt;&#xa;deal-room-fabric&#xa;governed capability" vertex="1">
+          <mxGeometry height="86" width="330" x="1150" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="lakeIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/storage/Storage_Accounts.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1550" y="245" as="geometry" />
+        </mxCell>
+        <mxCell id="lake" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9A9A9A;strokeWidth=1;fontSize=11;align=left;spacingLeft=80;" value="&lt;b&gt;Microsoft Fabric&lt;/b&gt;&#xa;OneLake · Fabric Data Agent" vertex="1">
+          <mxGeometry height="86" width="330" x="1740" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="workIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/identity/Azure_Active_Directory.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1076" y="426" as="geometry" />
+        </mxCell>
+        <mxCell id="work" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontSize=11;align=left;spacingLeft=80;" value="&lt;b&gt;Work IQ Agent&lt;/b&gt;&#xa;deal-room-work-iq&#xa;A2A · delegated user" vertex="1">
+          <mxGeometry height="86" width="330" x="1150" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="m365Icon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/identity/Users.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1550" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="m365" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9A9A9A;strokeWidth=1;fontSize=11;align=left;spacingLeft=80;" value="&lt;b&gt;Microsoft 365&lt;/b&gt;&#xa;Teams · SharePoint · Outlook" vertex="1">
+          <mxGeometry height="86" width="330" x="1740" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="webIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/general/Globe.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1005" y="471" as="geometry" />
+        </mxCell>
+        <mxCell id="web" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B146C2;strokeWidth=2;fontSize=11;align=left;spacingLeft=80;" value="&lt;b&gt;Web IQ Agent&lt;/b&gt;&#xa;deal-room-web-iq&#xa;A2A · public only" vertex="1">
+          <mxGeometry height="86" width="330" x="1150" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="publicIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/general/Globe.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1550" y="480" as="geometry" />
+        </mxCell>
+        <mxCell id="public" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B146C2;strokeWidth=1;fontSize=11;align=left;spacingLeft=80;" value="&lt;b&gt;Public web sources&lt;/b&gt;&#xa;current public intelligence only" vertex="1">
+          <mxGeometry height="86" width="330" x="1740" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="routeFoundry" edge="1" parent="1" source="node" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=9;fontColor=#176B8A;exitX=1;exitY=0.18;entryX=0;entryY=0.5;" target="foundry" value="internal">
+          <mxGeometry relative="1" x="0.6974" y="-10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1060.45" y="377.03" />
+              <mxPoint x="1060.45" y="183.03" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="routeFabric" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=9;fontColor=#176B8A;exitX=1;exitY=0.33;entryX=0;entryY=0.5;" value="internal">
+          <mxGeometry relative="1" x="-0.0851" y="20" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="979.97" y="394.76" />
+              <mxPoint x="1129.41" y="394.76" />
+              <mxPoint x="1129.41" y="273.52" />
+            </Array>
+            <mxPoint x="980.0000000000005" y="369.98" as="sourcePoint" />
+            <mxPoint x="1149.9999999999995" y="273.48" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="routeWeb" edge="1" parent="1" source="node" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B146C2;strokeWidth=2;endArrow=block;endFill=1;fontSize=9;fontColor=#8A3D96;exitX=1;exitY=0.82;entryX=0;entryY=0.5;" target="web" value="public only">
+          <mxGeometry relative="1" x="-0.0106" y="12" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="994.93" y="473.03" />
+              <mxPoint x="994.93" y="543.03" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="foundryEvidence" edge="1" parent="1" source="foundry" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#176B8A;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="search" value="grounded retrieval">
+          <mxGeometry relative="1" x="-0.2698" y="-10" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fabricEvidence" edge="1" parent="1" source="fabric" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#176B8A;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="lake" value="analytics">
+          <mxGeometry relative="1" x="-0.2592" y="-14" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="workEvidence" edge="1" parent="1" source="work" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#176B8A;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="m365" value="user-scoped">
+          <mxGeometry relative="1" x="-0.2698" y="-14" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="webEvidence" edge="1" parent="1" source="web" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B146C2;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#8A3D96;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="public" value="public only">
+          <mxGeometry relative="1" x="-0.2698" y="-16" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="boundary" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF4CE;strokeColor=#C87919;strokeWidth=1;fontColor=#5A3308;fontSize=10;fontStyle=1;" value="MIXED INTERNAL + PUBLIC REQUESTS ARE REFUSED BEFORE ANY SOURCE CALL" vertex="1">
+          <mxGeometry height="34" width="920" x="1150" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="purposeHeading" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#44546A;" value="PURPOSE-AGENT A2A + BOUNDED PEER REVIEW" vertex="1">
+          <mxGeometry height="22" width="350" x="625" y="724" as="geometry" />
+        </mxCell>
+        <mxCell id="purposeIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/Bot_Services.svg;" value="" vertex="1">
+          <mxGeometry height="56" width="56" x="625" y="783" as="geometry" />
+        </mxCell>
+        <mxCell id="purpose" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontSize=11;align=left;spacingLeft=112;" value="&lt;b&gt;Deal Room Orchestrator Agent&lt;/b&gt;&#xa;deal-room-orchestrator&#xa;selects at most two specialists&#xa;validates one peer-review round&#xa;synthesizes one grounded answer" vertex="1">
+          <mxGeometry height="130" width="350" x="630" y="755" as="geometry" />
+        </mxCell>
+        <mxCell id="sourcing" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7A57C2;strokeWidth=1;fontSize=10;" value="&lt;b&gt;Sourcing Agent&lt;/b&gt;&#xa;deal-room-sourcing" vertex="1">
+          <mxGeometry height="68" width="250" x="1200" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="screening" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7A57C2;strokeWidth=1;fontSize=10;" value="&lt;b&gt;Screening Agent&lt;/b&gt;&#xa;deal-room-screening" vertex="1">
+          <mxGeometry height="68" width="250" x="1510" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="diligence" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7A57C2;strokeWidth=1;fontSize=10;" value="&lt;b&gt;Diligence Agent&lt;/b&gt;&#xa;deal-room-diligence" vertex="1">
+          <mxGeometry height="68" width="250" x="1820" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="modeling" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7A57C2;strokeWidth=1;fontSize=10;" value="&lt;b&gt;Modeling Agent&lt;/b&gt;&#xa;deal-room-modeling" vertex="1">
+          <mxGeometry height="68" width="250" x="1200" y="860" as="geometry" />
+        </mxCell>
+        <mxCell id="icmemo" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7A57C2;strokeWidth=1;fontSize=10;" value="&lt;b&gt;IC Memo Agent&lt;/b&gt;&#xa;deal-room-ic-memo" vertex="1">
+          <mxGeometry height="68" width="250" x="1510" y="860" as="geometry" />
+        </mxCell>
+        <mxCell id="value" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7A57C2;strokeWidth=1;fontSize=10;" value="&lt;b&gt;Value Creation Agent&lt;/b&gt;&#xa;deal-room-value-creation" vertex="1">
+          <mxGeometry height="68" width="250" x="1820" y="860" as="geometry" />
+        </mxCell>
+        <mxCell id="peerReviewLegend" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=9;fontColor=#5B4382;" value="dashed A2A = allow-listed peer request · evidence return · origin revision · no recursion" vertex="1">
+          <mxGeometry height="24" width="870" x="1200" y="814" as="geometry" />
+        </mxCell>
+        <mxCell id="peerSourcingScreening" edge="1" parent="1" source="sourcing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=2;dashed=1;dashPattern=5 5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="screening" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="peerScreeningDiligence" edge="1" parent="1" source="screening" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=2;dashed=1;dashPattern=5 5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="diligence" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="peerModelingIc" edge="1" parent="1" source="modeling" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=2;dashed=1;dashPattern=5 5;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="icmemo" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="surfaceIconTop" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/Bot_Services.svg;" value="" vertex="1">
+          <mxGeometry height="56" width="56" x="284" y="397" as="geometry" />
+        </mxCell>
+        <mxCell id="nodeIconTop" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/other/Worker_Container_App.svg;" value="" vertex="1">
+          <mxGeometry height="64" width="64" x="664" y="385" as="geometry" />
+        </mxCell>
+        <mxCell id="routerIconTop" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/AI_Foundry.svg;" value="" vertex="1">
+          <mxGeometry height="56" width="56" x="687" y="151" as="geometry" />
+        </mxCell>
+        <mxCell id="foundryIconTop" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/AI_Foundry.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1178" y="159" as="geometry" />
+        </mxCell>
+        <mxCell id="searchIconTop" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/app_services/Search_Services.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1768" y="159" as="geometry" />
+        </mxCell>
+        <mxCell id="fabricIconTop" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/storage/Storage_Accounts.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1178" y="279" as="geometry" />
+        </mxCell>
+        <mxCell id="lakeIconTop" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/storage/Storage_Accounts.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1768" y="279" as="geometry" />
+        </mxCell>
+        <mxCell id="workIconTop" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/identity/Azure_Active_Directory.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1178" y="399" as="geometry" />
+        </mxCell>
+        <mxCell id="m365IconTop" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/identity/Users.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1768" y="399" as="geometry" />
+        </mxCell>
+        <mxCell id="webIconTop" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/general/Globe.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1178" y="519" as="geometry" />
+        </mxCell>
+        <mxCell id="publicIconTop" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/general/Globe.svg;" value="" vertex="1">
+          <mxGeometry height="48" width="48" x="1768" y="519" as="geometry" />
+        </mxCell>
+        <mxCell id="purposeIconTop" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/Bot_Services.svg;" value="" vertex="1">
+          <mxGeometry height="56" width="56" x="664" y="783" as="geometry" />
+        </mxCell>
+        <mxCell id="nodePurpose" edge="1" parent="1" source="node" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#5B4382;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="purpose" value="A2A delegation">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="purposeSourcing" edge="1" parent="1" source="purpose" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=2;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=9;fontColor=#5B4382;exitX=1;exitY=0.35;entryX=0;entryY=0.5;" target="sourcing" value="consult + findings">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="800" />
+              <mxPoint x="1120" y="754" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="purposeScreening" edge="1" parent="1" source="purpose" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=1;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=1;exitY=0.25;entryX=0.5;entryY=0;" target="screening" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1100" y="788" />
+              <mxPoint x="1100" y="680" />
+              <mxPoint x="1635" y="680" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="purposeDiligence" edge="1" parent="1" source="purpose" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=1;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=1;exitY=0.15;entryX=0.5;entryY=0;" target="diligence" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1080" y="774" />
+              <mxPoint x="1080" y="660" />
+              <mxPoint x="1945" y="660" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="purposeModeling" edge="1" parent="1" source="purpose" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=1;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=1;exitY=0.65;entryX=0;entryY=0.5;" target="modeling" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="840" />
+              <mxPoint x="1120" y="894" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="purposeIc" edge="1" parent="1" source="purpose" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=1;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=1;exitY=0.75;entryX=0.5;entryY=1;" target="icmemo" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1100" y="852" />
+              <mxPoint x="1100" y="970" />
+              <mxPoint x="1635" y="970" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="purposeValue" edge="1" parent="1" source="purpose" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=1;startArrow=block;startFill=1;endArrow=block;endFill=1;exitX=1;exitY=0.85;entryX=0.5;entryY=1;" target="value" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1080" y="866" />
+              <mxPoint x="1080" y="990" />
+              <mxPoint x="1945" y="990" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="stamp" parent="1" style="text;html=1;align=right;verticalAlign=middle;fontSize=10;fontColor=#7F7F7F;" value="The Deal Room · high-level design flow · Microsoft Azure + Foundry" vertex="1">
+          <mxGeometry height="20" width="440" x="1630" y="1010" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
