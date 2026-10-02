@@ -20,6 +20,7 @@ if (-not $exe) {
 
 $repo = Split-Path $PSScriptRoot -Parent
 $src  = Join-Path $repo 'docs\diagrams\deal-room-architecture.drawio'
+$agentSrc = Join-Path $repo 'docs\diagrams\agent-iq-high-level-flow.drawio'
 
 # Page index -> output file. Keep in step with the pages in the master.
 $pages = @(
@@ -27,11 +28,12 @@ $pages = @(
   @{ index = 2; out = 'docs\diagrams\identity-trust-seam.svg' },
   @{ index = 3; out = 'docs\diagrams\azure-architecture.svg' },
   @{ index = 4; out = 'docs\diagrams\resource-interaction.svg' },
-  @{ index = 5; out = 'docs\diagrams\agent-iq-orchestration.svg' }
+  @{ index = 5; out = 'docs\diagrams\agent-iq-orchestration.svg'; src = $agentSrc }
 )
 
 foreach ($p in $pages) {
   $out = Join-Path $repo $p.out
+  $pageSrc = if ($p.src) { $p.src } else { $src }
   Remove-Item $out -ErrorAction SilentlyContinue
   # Each page carries an explicit white background, so --theme light renders a light card
   # that stays readable on GitHub in dark mode as well as light. (--theme auto exports a
@@ -41,7 +43,7 @@ foreach ($p in $pages) {
   $params = @(
     '--no-sandbox', '-x', '-p', $p.index, '-f', 'svg', '-e', '-b', '12',
     '--theme', 'light', '--embed-svg-fonts', 'false', '--embed-svg-images',
-    '-o', "`"$out`"", "`"$src`""
+    '-o', "`"$out`"", "`"$pageSrc`""
   )
   $proc = Start-Process -FilePath $exe -ArgumentList $params -NoNewWindow -PassThru -Wait
   if ($proc.ExitCode -ne 0 -or -not (Test-Path $out)) {

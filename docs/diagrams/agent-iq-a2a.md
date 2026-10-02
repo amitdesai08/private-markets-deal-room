@@ -2,7 +2,7 @@
 
 ![The Deal Room governed agent and IQ architecture](agent-iq-orchestration.svg)
 
-The editable source is page 5 of [deal-room-architecture.drawio](deal-room-architecture.drawio). Regenerate the committed SVG with `pwsh scripts/build-diagrams.ps1`.
+The editable source is [agent-iq-high-level-flow.drawio](agent-iq-high-level-flow.drawio). Regenerate the committed SVG with `pwsh scripts/build-diagrams.ps1`.
 
 The hosted router is policy-only: it receives the prompt, returns a bounded route, and has no access to deal records, Microsoft 365, Fabric, search, or the public web. The Node orchestrator restores canonical metadata, applies identity and deal scope, enforces the internal/public boundary, and owns every capability or A2A handoff.
 

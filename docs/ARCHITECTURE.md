@@ -132,10 +132,12 @@ synthesis — and do not expose private model reasoning.
 
 ## The diagrams themselves
 
-All five drawings above live in one draw.io file —
-[`docs/diagrams/deal-room-architecture.drawio`](diagrams/deal-room-architecture.drawio), one
-page per diagram. That file is the source; the SVGs beside it are generated from it and
-committed, because GitHub renders SVG inside a page and cannot render `.drawio`.
+The platform drawings live in
+[`docs/diagrams/deal-room-architecture.drawio`](diagrams/deal-room-architecture.drawio).
+The agent and IQ high-level flow has a dedicated editable source,
+[`docs/diagrams/agent-iq-high-level-flow.drawio`](diagrams/agent-iq-high-level-flow.drawio),
+so its wide reference-style layout can remain simple. The SVGs beside these sources are
+generated and committed because GitHub renders SVG inside a page and cannot render `.drawio`.
 
 To change a diagram, edit the `.drawio` — the
 [draw.io VS Code extension](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio)
