@@ -10,6 +10,15 @@
         <mxCell id="subtitle" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5B5B5B;" value="The Node orchestrator owns execution. The hosted router returns policy only; IQ peers and purpose agents perform the work through bounded handoffs and one-round peer review." vertex="1">
           <mxGeometry height="24" width="1350" x="42" y="70" as="geometry" />
         </mxCell>
+        <mxCell id="a365Heading" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#44546A;" value="AGENT 365 CONTROL PLANE · NOT AN EVIDENCE SOURCE" vertex="1">
+          <mxGeometry height="22" width="360" x="260" y="108" as="geometry" />
+        </mxCell>
+        <mxCell id="a365" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#107C10;strokeWidth=2;fontSize=10;align=left;spacingLeft=18;" value="&lt;b&gt;Microsoft Agent 365&lt;/b&gt;&#xa;registry · Entra Agent ID · Purview · Defender&#xa;Foundry activity + OpenTelemetry observability&#xa;&lt;font color=&quot;#8A3D07&quot;&gt;Logging configured · tenant NotLicensed&lt;/font&gt;" vertex="1">
+          <mxGeometry height="120" width="330" x="260" y="135" as="geometry" />
+        </mxCell>
+        <mxCell id="a365Governance" edge="1" parent="1" source="a365" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#107C10;strokeWidth=2;dashed=1;endArrow=block;endFill=1;fontSize=9;fontColor=#107C10;exitX=1;exitY=1;entryX=0;entryY=0.1;" target="node" value="governance + telemetry">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
         <mxCell id="usersBox" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#49657A;strokeWidth=1;dashed=1;dashPattern=6 4;" value="" vertex="1">
           <mxGeometry height="150" width="160" x="17" y="352.5" as="geometry" />
         </mxCell>
@@ -44,7 +53,7 @@
         <mxCell id="routerIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/ai_machine_learning/AI_Foundry.svg;" value="" vertex="1">
           <mxGeometry height="56" width="56" x="687" y="151" as="geometry" />
         </mxCell>
-        <mxCell id="router" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontColor=#1A1A1A;fontSize=11;align=left;spacingLeft=96;" value="&lt;b&gt;Hosted IQ Policy Router&lt;/b&gt;&#xa;deal-room-hosted-iq-router:1&#xa;prompt only · no source tools&#xa;&lt;font color=&quot;#8A3D07&quot;&gt;Returns bounded route JSON&lt;/font&gt;" vertex="1">
+        <mxCell id="router" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontColor=#1A1A1A;fontSize=11;align=left;spacingLeft=96;" value="&lt;b&gt;Hosted IQ Policy Router&lt;/b&gt;&#xa;deal-room-hosted-iq-router:2&#xa;prompt only · no source tools&#xa;&lt;font color=&quot;#8A3D07&quot;&gt;Returns bounded route JSON&lt;/font&gt;" vertex="1">
           <mxGeometry height="120" width="350" x="655" y="125" as="geometry" />
         </mxCell>
         <mxCell id="policyLink" edge="1" parent="1" source="node" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7A57C2;strokeWidth=2;dashed=1;startArrow=block;startFill=1;endArrow=block;endFill=1;fontSize=10;fontColor=#5B4382;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" target="router" value="policy prompt · route decision only">
@@ -85,14 +94,14 @@
         <mxCell id="fabricIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/storage/Storage_Accounts.svg;" value="" vertex="1">
           <mxGeometry height="48" width="48" x="1076" y="322" as="geometry" />
         </mxCell>
-        <mxCell id="fabric" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontSize=11;align=left;spacingLeft=80;" value="&lt;b&gt;Fabric IQ&lt;/b&gt;&#xa;deal-room-fabric&#xa;governed capability" vertex="1">
+        <mxCell id="fabric" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1473E6;strokeWidth=2;fontSize=11;align=left;spacingLeft=80;" value="&lt;b&gt;Fabric IQ&lt;/b&gt;&#xa;deal-room-fabric-iq&#xa;governed capability" vertex="1">
           <mxGeometry height="86" width="330" x="1150" y="260" as="geometry" />
         </mxCell>
         <mxCell id="lakeIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/storage/Storage_Accounts.svg;" value="" vertex="1">
           <mxGeometry height="48" width="48" x="1550" y="245" as="geometry" />
         </mxCell>
-        <mxCell id="lake" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9A9A9A;strokeWidth=1;fontSize=11;align=left;spacingLeft=80;" value="&lt;b&gt;Microsoft Fabric&lt;/b&gt;&#xa;OneLake · Fabric Data Agent" vertex="1">
-          <mxGeometry height="86" width="330" x="1740" y="260" as="geometry" />
+        <mxCell id="lake" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9A9A9A;strokeWidth=1;fontSize=10;align=left;spacingLeft=80;" value="&lt;b&gt;Microsoft Fabric&lt;/b&gt;&#xa;Fabric Data Agent · Direct Lake Semantic Model&#xa;Ontology · managed GraphModel · OneLake" vertex="1">
+          <mxGeometry height="100" width="330" x="1740" y="253" as="geometry" />
         </mxCell>
         <mxCell id="workIcon" parent="1" style="sketch=0;html=1;aspect=fixed;shape=image;image=img/lib/azure2/identity/Azure_Active_Directory.svg;" value="" vertex="1">
           <mxGeometry height="48" width="48" x="1076" y="426" as="geometry" />
@@ -153,7 +162,7 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="fabricEvidence" edge="1" parent="1" source="fabric" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#176B8A;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="lake" value="analytics">
+        <mxCell id="fabricEvidence" edge="1" parent="1" source="fabric" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#176B8A;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#176B8A;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="lake" value="metrics + relationships">
           <mxGeometry relative="1" x="-0.2592" y="-14" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>

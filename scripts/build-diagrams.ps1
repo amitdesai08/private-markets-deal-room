@@ -1,6 +1,6 @@
-# Renders every page of the draw.io master into the SVGs that GitHub displays.
+# Renders the draw.io sources into the SVGs that GitHub displays.
 #
-# The .drawio file is the source; the .svg files beside it are generated and committed,
+# The .drawio files are the sources; the .svg files beside them are generated and committed,
 # because GitHub renders SVG in markdown but cannot render .drawio. Each SVG carries a
 # copy of its diagram (-e), so it also reopens in draw.io if that is all you have.
 #
@@ -22,13 +22,13 @@ $repo = Split-Path $PSScriptRoot -Parent
 $src  = Join-Path $repo 'docs\diagrams\deal-room-architecture.drawio'
 $agentSrc = Join-Path $repo 'docs\diagrams\agent-iq-high-level-flow.drawio'
 
-# Page index -> output file. Keep in step with the pages in the master.
+# Source page index -> output file. Keep in step with each draw.io source.
 $pages = @(
   @{ index = 1; out = 'docs\diagrams\how-it-fits-together.svg' },
   @{ index = 2; out = 'docs\diagrams\identity-trust-seam.svg' },
   @{ index = 3; out = 'docs\diagrams\azure-architecture.svg' },
   @{ index = 4; out = 'docs\diagrams\resource-interaction.svg' },
-  @{ index = 5; out = 'docs\diagrams\agent-iq-orchestration.svg'; src = $agentSrc }
+  @{ index = 1; out = 'docs\diagrams\agent-iq-orchestration.svg'; src = $agentSrc }
 )
 
 foreach ($p in $pages) {
