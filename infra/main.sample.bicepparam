@@ -19,13 +19,13 @@ using './main.bicep'
 //==============================================================================
 
 // ── Placement & naming ───────────────────────────────────────────────────────
-param location = 'swedencentral'         // any region with AI Foundry + Container Apps
+param location = 'swedencentral'         // any region with Microsoft Foundry + Container Apps
 param locationShort = 'swc'
 param workload = 'dealhub'               // → rg-dealhub-*, ca-dealhub-*, cosmos-dealhub-*
 param environmentName = 'dev'
 param costCenter = 'private-markets'
 
-// ── AI Foundry models ────────────────────────────────────────────────────────
+// ── Microsoft Foundry models ─────────────────────────────────────────────────
 param appModelDeployment = 'gpt-5-mini'
 param openAiDeployments = [
   {

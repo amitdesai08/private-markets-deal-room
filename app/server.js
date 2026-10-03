@@ -152,7 +152,7 @@ import { withOpen, documentBrief, mergeLiveFiles } from './lib/docOpen.js';
 import { dealMcpHandler, dealMcpReadonlyHandler, dealMcpMethodNotAllowed, dealMcpInfo, dealMcpReadonlyInfo } from './lib/mcp/dealServer.js';
 import { workiqMcpHandler } from './lib/mcp/workiqServer.js';
 import { mcpAuthMiddleware, mcpReadonlyAuthMiddleware, mcpAuthInfo, mcpReadonlyKeyConfigured } from './lib/mcp/entraAuth.js';
-import { listConnectors, testConnector, disconnectConnector } from './lib/connectors.js';
+import { listConnectors, testConnector, disconnectConnector, probeConfiguredConnectors } from './lib/connectors.js';
 import { setConnectorEnabled, setConnectorConfig, addCustomConnector, removeCustomConnector, isCustomConnector, isSorConnector, approveCustomConnector } from './lib/connectorSettings.js';
 import { withFundMeta, fundMethodology } from './lib/metrics.js';
 import { guardReporting, REPORTING_SOURCE_IDS } from './lib/reportingGuard.js';
@@ -3007,6 +3007,9 @@ hydrate()
     app.listen(port, () => {
       const info = getModelInfo();
       console.log(`The Deal Room listening on :${port} — AI mode: ${info.mode} (${info.model})`);
+      void probeConfiguredConnectors()
+        .then((results) => console.log(`Data sources: ${results.filter((r) => r?.status === 'connected').length}/${results.length} configured sources connected`))
+        .catch((e) => console.log(`Data source probes: ${String(e?.message || e)}`));
     });
   });
 }

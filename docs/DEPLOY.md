@@ -14,7 +14,7 @@
 |---|---|---|
 | 1 | **Azure subscription** with `Owner` (or `Contributor` + `Role Based Access Control Administrator`) | subscription-scoped deploy creates resource groups **and** role assignments |
 | 2 | **Azure CLI** ≥ 2.60 + **Bicep** | `az bicep install` |
-| 3 | **Region** with AI Foundry + Container Apps | default `swedencentral` (EU residency) |
+| 3 | **Region** with Microsoft Foundry + Container Apps | default `swedencentral` (EU residency) |
 | 4 | **Entra admin** (Application Administrator / Global Administrator) | to run [`scripts/provision-entra.ps1`](../scripts/provision-entra.ps1), which **auto-creates** the four app registrations (Teams SSO, M365 connector, bot, MCP) and grants admin consent. Prefer to pre-create them? Pass the IDs as parameters instead. **Optional** for a data-only demo. |
 | 5 | **Container images** | build with `az acr build` after infra, then `az containerapp update --image <acr>/<repo>@sha256:<digest>` (or pass `orchestratorImage` / `teamsImage`) |
 | 6 | *(optional)* **Microsoft Fabric** capacity admin | only when `deployFabric = true` |
@@ -35,7 +35,7 @@ azd up
 - **Full** (Teams SSO / per-user M365 docs / bot) — `azd env set DEALROOM_MODE full`, then `azd up` (creates + registers the Entra apps via the postprovision hook) and `azd up` **once more** to wire them in. Needs an Entra admin.
 - **Foundry agents** — `azd up` also provisions the **Deal Orchestrator, News Scout and the ten persona agents** into your Foundry project (a `postdeploy` hook; best-effort, needs the `azure-ai-projects` Python SDK + Foundry data-plane access). Skip with `azd env set DEALROOM_AGENTS false`, or run [`app/scripts/create_persona_agents.py`](../app/scripts/create_persona_agents.py) by hand.
 
-> **Foundry is fully in the template:** the Bicep provisions the **AI Foundry account + project, model deployments and Bing grounding**; the `postdeploy` hook creates the **agents** on top; and [`app/scripts/create_agent.py`](../app/scripts/create_agent.py) is a copy-and-edit **template to add your own** Foundry agent.
+> **Foundry is fully in the template:** the Bicep provisions the **Microsoft Foundry account + project, model deployments and Bing grounding**; the `postdeploy` hook creates the **agents** on top; and [`app/scripts/create_agent.py`](../app/scripts/create_agent.py) is a copy-and-edit **template to add your own** Foundry agent.
 
 Pick region/subscription with `azd env new` then `azd env set AZURE_LOCATION swedencentral`.
 

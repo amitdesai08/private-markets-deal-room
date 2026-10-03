@@ -149,7 +149,7 @@ function isTableSeparator(line) {
 function parseMarkdown(text) {
   const lines = text.replaceAll('\r\n', '\n').split('\n');
   const children = [];
-  let title = 'Azure Portal integration proof';
+  let title = 'Architecture walkthrough and IQ reference guide';
   let index = 0;
 
   const listText = (initial) => {
@@ -238,20 +238,20 @@ const titleBlock = [
   new Paragraph({
     alignment: AlignmentType.CENTER,
     spacing: { after: 90 },
-    children: [new TextRun({ text: 'Technical demo companion', size: 28, color: COLORS.blue })],
+    children: [new TextRun({ text: 'Part 1: Talk track  |  Part 2: IQ reference', size: 28, color: COLORS.blue })],
   }),
   new Paragraph({
     alignment: AlignmentType.CENTER,
     spacing: { after: 460 },
-    children: [new TextRun({ text: 'Read-only Azure walkthrough for architecture and security reviews', italics: true, size: 21, color: COLORS.muted })],
+    children: [new TextRun({ text: 'Presenter guidance for Work IQ, Fabric IQ and Foundry IQ', italics: true, size: 21, color: COLORS.muted })],
   }),
 ];
 
 const doc = new Document({
   creator: 'The Deal Room',
   title,
-  subject: 'Azure Portal integration demo workflow',
-  description: 'Presenter-driven proof of the Deal Room Azure integration architecture.',
+  subject: 'Architecture demo talk track and IQ reference',
+  description: 'Presenter-driven architecture walkthrough and reference for Work IQ, Fabric IQ and Foundry IQ.',
   styles: {
     default: { document: { run: { font: 'Aptos', size: 21, color: COLORS.text } } },
     paragraphStyles: [
@@ -289,7 +289,7 @@ const doc = new Document({
         children: [new Paragraph({
           alignment: AlignmentType.CENTER,
           children: [
-            new TextRun({ text: 'The Deal Room  |  Azure Portal integration proof  |  ', color: COLORS.muted, size: 17 }),
+            new TextRun({ text: 'The Deal Room  |  Architecture and IQ guide  |  ', color: COLORS.muted, size: 17 }),
             new TextRun({ children: [PageNumber.CURRENT], color: COLORS.muted, size: 17 }),
           ],
         })],

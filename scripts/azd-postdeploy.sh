@@ -21,6 +21,18 @@ val() { azd env get-values | sed -n "s/^$1=\"\{0,1\}\([^\"]*\)\"\{0,1\}$/\1/p" |
 foundry="$(val FOUNDRY_PROJECT_ENDPOINT)"; [ -z "$foundry" ] && foundry="$(val foundryProjectEndpoint)"
 orch_fqdn="$(val orchestratorFqdn)"
 bing_conn="$(val bingConnectionId)"
+workiq_conn="$(val workIqConnectionId)"
+workiq_native_conn="$(val workIqNativeConnectionId)"
+workiq_a2a_conn="$(val workIqA2aConnectionId)"
+webiq_a2a_conn="$(val webIqA2aConnectionId)"
+foundry_iq_a2a_conn="$(val foundryIqA2aConnectionId)"
+fabric_iq_a2a_conn="$(val fabricIqA2aConnectionId)"
+foundry_iq_conn="$(val foundryIqConnectionId)"
+fabric_iq_conn="$(val fabricIqConnectionId)"
+foundry_iq_search="$(val FOUNDRY_IQ_SEARCH_ENDPOINT)"
+foundry_iq_kb="$(val FOUNDRY_IQ_KNOWLEDGE_BASE)"
+foundry_iq_api="$(val FOUNDRY_IQ_API_VERSION)"
+fabric_iq_url="$(val FABRIC_IQ_SERVER_URL)"
 model="${DEAL_AGENT_MODEL:-gpt-5-mini}"
 
 if [ -z "$foundry" ]; then
@@ -51,6 +63,7 @@ fi
 export FOUNDRY_PROJECT_ENDPOINT="$foundry"
 export DEAL_AGENT_MODEL="$model"
 export NEWS_AGENT_MODEL="$model"
+export IQ_AGENT_MODEL="$model"
 [ -n "$orch_fqdn" ] && export MCP_RO_URL="https://$orch_fqdn/mcp-ro"
 [ -n "$mcp_key" ] && export MCP_READONLY_KEY="$mcp_key"
 
@@ -69,6 +82,26 @@ if [ -n "$mcp_key" ]; then
   "$PY" "$scripts/create_persona_agents.py" && echo "[azd]   OK Persona agents (10)" || echo "[azd]   FAILED Persona agents" >&2
 else
   echo "[azd]   - Persona agents skipped (no MCP_READONLY_KEY). Set it and run app/scripts/create_persona_agents.py." >&2
+fi
+
+if [ -n "$workiq_conn" ] && [ -n "$workiq_native_conn" ]; then
+  export WORKIQ_PROJECT_CONNECTION_ID="$workiq_conn"
+  export WORKIQ_NATIVE_CONNECTION_ID="$workiq_native_conn"
+  export WORKIQ_A2A_CONNECTION_ID="$workiq_a2a_conn"
+  export WEBIQ_A2A_CONNECTION_ID="$webiq_a2a_conn"
+  [ -n "$foundry_iq_a2a_conn" ] && export FOUNDRY_IQ_A2A_CONNECTION_ID="$foundry_iq_a2a_conn"
+  [ -n "$fabric_iq_a2a_conn" ] && export FABRIC_IQ_A2A_CONNECTION_ID="$fabric_iq_a2a_conn"
+  if [ -n "$foundry_iq_conn" ] && [ -n "$foundry_iq_search" ] && [ -n "$foundry_iq_kb" ]; then
+    export FOUNDRY_IQ_CONNECTION_ID="$foundry_iq_conn"
+    export FOUNDRY_IQ_SERVER_URL="${foundry_iq_search%/}/knowledgebases/$foundry_iq_kb/mcp?api-version=$foundry_iq_api"
+  fi
+  if [ -n "$fabric_iq_conn" ] && [ -n "$fabric_iq_url" ]; then
+    export FABRIC_IQ_CONNECTION_ID="$fabric_iq_conn"
+    export FABRIC_IQ_SERVER_URL="$fabric_iq_url"
+  fi
+  "$PY" "$scripts/create_iq_a2a_agents.py" && echo "[azd]   OK Work IQ + Web IQ A2A agents" || echo "[azd]   FAILED IQ A2A agents" >&2
+else
+  echo "[azd]   - IQ A2A agents skipped (Foundry connection outputs are incomplete)." >&2
 fi
 
 echo "[azd] Foundry agent provisioning complete."

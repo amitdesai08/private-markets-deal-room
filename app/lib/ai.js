@@ -1,4 +1,4 @@
-// AI client — talks to the deployed Azure AI Foundry (Azure OpenAI) model when
+// AI client — talks to the deployed Microsoft Foundry model when
 // configured, otherwise reports "demo" so callers fall back to seeded output.
 // Auth prefers managed identity (DefaultAzureCredential); an API key is optional.
 

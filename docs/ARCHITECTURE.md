@@ -1,166 +1,77 @@
 # Architecture
 
-> The one-page picture of [The Deal Room](../README.md). Read this first; everything else in
-> `docs/` is a detail of something on this page.
->
-> Next: [How it works](HOW-IT-WORKS.md) for the internals · [Access model](ACCESS-MODEL.md) for
-> who may see what · [Deploy guide](DEPLOY.md) to run it.
+The Deal Room is one governed backend presented through Microsoft Teams and a standalone web
+console. Microsoft Foundry agents use the same permission-scoped deal tools, so chat, dashboards,
+documents, and automations work from one record.
 
----
+## High-level overview
 
-## In one paragraph
+![The Deal Room high-level architecture](diagrams/how-it-fits-together.svg)
 
-One backend holds the data and does the thinking. Two surfaces show it: a Teams channel tab
-with a conversational bot, and the same build served as a standalone web console. M365 Copilot
-and hosted agents reach the same deal tools through an Entra-secured MCP endpoint. Models come
-from Microsoft Foundry over managed identity, so there are no keys in the app. The whole thing
-is subscription-agnostic Bicep on Azure Container Apps.
+The console holds no business data. Every request crosses the server-side identity and access
+boundary before the backend reads a deal, invokes an agent, or applies an approved action.
 
----
+```mermaid
+flowchart LR
+    U[Teams or web user] --> UI[Deal Room console]
+    UI --> API[Governed backend]
+    API --> DATA[Deal record and documents]
+    API --> ORCH[Foundry orchestrator]
+    ORCH --> AGENTS[Purpose specialists]
+    ORCH --> IQ[Foundry, Fabric, Work, and Web IQ]
+    API --> AUDIT[Audit and telemetry]
+```
 
-## The shape of it
-
-<a href="https://raw.githack.com/amitdesai08/private-markets-deal-room/main/docs/diagrams/how-it-fits-together.svg" target="_blank" rel="noopener noreferrer"><img src="diagrams/how-it-fits-together.svg" alt="The Deal Room — one backend, two surfaces" /></a>
-
-> Click the diagram to open the full-size, zoomable SVG in a new tab.
-
-**The rule that keeps it honest:** the console tier holds no data. Every read and write is
-forwarded to the one backend, so there is a single source of truth and nothing to keep in sync.
-
----
-
-## Who is allowed to see what
-
-Access is decided on the server. The client can state who it is, but it cannot widen its own
-powers — the asserted identity is honoured only when the call carries the shared bot key.
-
-<a href="https://raw.githack.com/amitdesai08/private-markets-deal-room/main/docs/diagrams/identity-trust-seam.svg" target="_blank" rel="noopener noreferrer"><img src="diagrams/identity-trust-seam.svg" alt="The identity trust seam" /></a>
-
-> Click the diagram to open the full-size, zoomable SVG in a new tab.
-
-Full behaviour — the two-tier RBAC, deal-team need-to-know, confidential deals and MNPI
-barriers — is in the [access model](ACCESS-MODEL.md).
-
----
-
-## The Azure footprint
-
-Subscription-scoped Bicep, split into six resource groups so each domain can be governed and
-costed on its own — with the Microsoft 365 tenant it reads from on one side, and the keyless
-public sources on the other. **The numbered line is a single request, in order**, from the tab
-through the identity seam to the deal store; the dashed lines are platform services and the
-optional private path.
-
-<a href="https://raw.githack.com/amitdesai08/private-markets-deal-room/main/docs/diagrams/azure-architecture.svg" target="_blank" rel="noopener noreferrer"><img src="diagrams/azure-architecture.svg" alt="The Deal Room on Azure — the tenant, the subscription, its six resource groups and the path a request takes through them" /></a>
-
-> Click the diagram to open the full-size, zoomable SVG in a new tab.
-
-| Resource group | What lives there |
-|---|---|
-| **app** | The two container apps and their environment, the registry, the bot registration and the Function App. |
-| **ai** | Microsoft Foundry models and embeddings, Bing grounding, AI Search. |
-| **data** | The deal store — a storage account by default, Cosmos DB when you need it — and Fabric capacity. |
-| **integration** | API Management, Service Bus and Event Grid for event-driven signals. |
-| **core** | Key Vault, the user-assigned managed identity, Log Analytics and Application Insights. |
-| **network** | VNet, private endpoints and private DNS zones. |
-
----
-
-## How the resources interact
-
-Resource groups say who owns what. They do not say what talks to what, over which protocol, or
-what allows it. This is the same estate drawn as connections rather than containers — every hop
-labelled with what it carries, and colour-coded by the kind of traffic it is.
-
-<a href="https://raw.githack.com/amitdesai08/private-markets-deal-room/main/docs/diagrams/resource-interaction.svg" target="_blank" rel="noopener noreferrer"><img src="diagrams/resource-interaction.svg" alt="How the Deal Room resources interact — request traffic, the data plane, identity and RBAC, telemetry and the private network path" /></a>
-
-> Click the diagram to open the full-size, zoomable SVG in a new tab.
-
-| Line | What it is |
-|---|---|
-| **Blue — request traffic** | North-south. A person's request arriving from the tenant, terminating at the console and forwarded to the backend. |
-| **Green — data plane** | Service to service. The backend reading and writing blobs, calling models, publishing events, and Graph provisioning the channel. |
-| **Orange dashed — identity, RBAC and secrets** | Not traffic. What grants the call: the managed identity assigned to both apps, its role assignments, secrets read at revision start, the registry pull. |
-| **Grey dotted — telemetry** | Logs, traces and the access trail leaving every tier. |
-| **Purple dashed — private network path** | The optional data plane that never touches the public internet. |
-
-Two things are worth reading off it directly. **The console holds no data** — every blue line
-stops there and continues as a separate hop to the backend, so the surface a user reaches and
-the tier that stores documents are different processes with different permissions. And **there
-is no connection string anywhere on the diagram** — every green line is authorised by the
-orange one beneath it, which is the user-assigned managed identity plus an RBAC role assignment
-scoped to exactly that resource.
-
----
-
-## Multi-agent and IQ orchestration
-
-The assistant uses four evidence paths — Foundry IQ, Fabric IQ, Work IQ and Web IQ — behind one
-server-owned policy boundary. A selectively hosted router classifies the prompt without reading
-source data; the Node orchestrator validates that decision, applies identity and deal scope, and
-then performs the governed capability or A2A handoff. Mixed internal-data and public-web prompts
-are refused before either source is called.
+## Agent and IQ flow
 
 ![Governed agent and IQ orchestration](diagrams/agent-iq-orchestration.svg)
 
-The [agent and IQ architecture reference](diagrams/agent-iq-a2a.md) records the live deployment
-truth and implementation sources. Its traces are operational — route, handoff, source and
-synthesis — and do not expose private model reasoning.
+The policy router classifies the permitted evidence path without reading source data. The backend
+then applies caller identity, effective role, deal scope, and need-to-know access before choosing a
+record answer, a single agent, or bounded specialist collaboration.
 
----
+The reusable `deal-room-iq` Foundry toolbox exposes Microsoft's four IQ capabilities directly:
+Work IQ over Microsoft-hosted A2A, Fabric IQ over the governed ontology, Foundry IQ through the
+approved knowledge-base MCP endpoint, and Web IQ through native Foundry web search. Deal Room
+prompt agents wrap those capabilities only when bounded instructions or A2A collaboration are needed.
 
-## What runs where
+The chat's optional **Agent activity** view exposes:
 
-| Tier | Container app | Role |
-|---|---|---|
-| **Deal Room (API + data)** | `ca-dealhub-orch-*` — image `deal-room` | The API / data / MCP plane: the pluggable store, the agent engine, the MCP server and Graph provisioning. **The only tier that holds data.** |
-| **Deal Room console** | `ca-dealhub-teams-*` — image `deal-room-teams` | The user-facing console — Teams tab, bot, and the same build as a standalone web app. Forwards everything to the backend. |
+- context provided for the turn and scope inferred by policy;
+- the orchestrator's route and fan-out choice with a concise rationale;
+- specialist handoffs, bounded peer-review choices, and synthesis;
+- actual record or IQ tool calls reported by the completed response.
 
----
+It is an operational trace, not private model reasoning. Route classification is shown separately
+from confirmed tool invocation, so the interface does not claim an IQ system was used when it was
+only selected as the allowed evidence path.
 
-## Two choices worth knowing early
+## Azure services
 
-- **The database is optional.** `DEALROOM_STORE=blob` is the default and writes one JSON blob
-  per document to the storage account that already exists, so a full demo provisions no
-  database and carries no standing database cost. Switch to `cosmos` for production
-  concurrency. See [persistence](HOW-IT-WORKS.md#persistence--cosmos-is-optional).
-- **It can be switched off.** The platform sleeps and wakes as one unit, and an idle demo can
-  cost nothing. See [cost control](HOW-IT-WORKS.md#cost-control--sleep--wake-the-platform) and
-  the [operations plan](operations/OPERATIONS-PLAN.md).
+![The Deal Room Azure architecture](diagrams/azure-architecture.svg)
 
----
-
-## The diagrams themselves
-
-The platform drawings live in
-[`docs/diagrams/deal-room-architecture.drawio`](diagrams/deal-room-architecture.drawio).
-The agent and IQ high-level flow has a dedicated editable source,
-[`docs/diagrams/agent-iq-high-level-flow.drawio`](diagrams/agent-iq-high-level-flow.drawio),
-so its wide reference-style layout can remain simple. The SVGs beside these sources are
-generated and committed because GitHub renders SVG inside a page and cannot render `.drawio`.
-
-To change a diagram, edit the `.drawio` — the
-[draw.io VS Code extension](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio)
-opens it in place, or use draw.io desktop — then regenerate the SVGs:
-
-```powershell
-pwsh scripts/build-diagrams.ps1
-```
-
-Each SVG also carries a copy of its own diagram, so it reopens in draw.io on its own if that is
-all you have. Every page sets an explicit white background and exports with `--theme light`, so
-the drawings stay readable in GitHub's dark mode as well as its light one. The official Azure
-icons are inlined into the SVG, so nothing is fetched at view time.
-
----
-
-## Where to go next
-
-| If you want to | Read |
+| Service | Responsibility |
 |---|---|
-| Understand the internals | [How it works](HOW-IT-WORKS.md) |
-| Understand agent and IQ orchestration | [Agent and IQ architecture](diagrams/agent-iq-a2a.md) |
-| Know who can see what | [Access model](ACCESS-MODEL.md) |
-| Deploy it | [Deploy guide](DEPLOY.md) |
-| Connect real market data | [Data integration](integration/DATA-INTEGRATION.md) |
-| Answer a security review | [Security appendix](security/buyer-security-compliance.md) |
+| **Azure Container Apps** | Backend API/MCP plane and the Teams/web console |
+| **Microsoft Foundry** | Model inference, visible agents, A2A tools, and orchestration |
+| **Microsoft Fabric** | OneLake, semantic model, Ontology, GraphModel, and data agent |
+| **Microsoft Entra ID** | SSO, managed identity, delegated consent, and access groups |
+| **Azure Storage / Cosmos DB** | Deal, document, and audit persistence |
+| **Azure AI Search** | Foundry IQ knowledge retrieval |
+| **Azure Monitor / Application Insights** | Health, logs, traces, and usage evidence |
+| **API Management / Service Bus / Event Grid** | Optional governed integrations and events |
+
+The deployment is defined in Bicep. Managed identities authorize service-to-service calls;
+optional private endpoints keep the data plane on the virtual network.
+
+## Trust boundaries
+
+- The server, not the browser, decides role and deal access.
+- Hosted specialists receive only caller-authorized context.
+- Work IQ remains user-scoped; Fabric and Foundry IQ remain internal-data paths.
+- Web IQ receives public-only prompts and cannot receive private deal or Microsoft 365 content.
+- Agent writes remain proposals until an authorized person approves them.
+- Every accepted write is attributed in the audit trail.
+
+For detail, read the [access model](ACCESS-MODEL.md), [security controls](SECURITY-COMPLIANCE.md),
+[agent and IQ reference](diagrams/agent-iq-a2a.md), or [deployment guide](DEPLOY.md).

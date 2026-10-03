@@ -4,3 +4,4 @@ node_modules/
 *.log
 data/oauth/
 scripts/news-agent.env
+scripts/iq-a2a-agents.env

@@ -23,7 +23,7 @@ Both deploy the **same** `infra/main.bicep`. Path A reads `infra/main.parameters
 
 - [ ] **Azure subscription** with `Owner` (or `Contributor` + `Role Based Access Control Administrator`).
 - [ ] **Azure CLI ≥ 2.60** + **Bicep** (`az bicep install`) and **Azure Developer CLI (azd)**.
-- [ ] **Region** with Azure AI Foundry + Container Apps (default `swedencentral`).
+- [ ] **Region** with Microsoft Foundry + Container Apps (default `swedencentral`).
 - [ ] *(full mode only)* **Entra admin** (Application Administrator / Global Administrator) to create the app registrations.
 - [ ] *(agents)* **Python 3.10+** with `az login` as an identity that has **Foundry data-plane** access.
 - [ ] *(optional)* Microsoft **Fabric** capacity admin (only if binding live market intel) and an **APIM publisher email** (only if `deployApim=true`).

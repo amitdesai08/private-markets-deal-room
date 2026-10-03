@@ -39,6 +39,7 @@ export const config = Object.freeze({
   },
   foundry: {
     projectEndpoint: trimUrl(env.FOUNDRY_PROJECT_ENDPOINT, ''),
+    hostedIqRouterEndpoint: trimUrl(env.HOSTED_IQ_ROUTER_ENDPOINT, ''),
     dealAgentName: str(env.DEAL_AGENT_NAME, 'deal-room-analyst'),
     dealAgentModel: str(env.DEAL_AGENT_MODEL, 'gpt-5-mini'),
     newsAgentName: str(env.NEWS_AGENT_NAME, 'deal-room-news-scout'),

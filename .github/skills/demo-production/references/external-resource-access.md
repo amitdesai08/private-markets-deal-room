@@ -103,7 +103,7 @@ substitute for checking — resource-specific roles change and narrower custom r
 
 | Resource type | Read-only / view a run | Trigger or modify |
 |---|---|---|
-| Azure AI Foundry project / deployment | **Cognitive Services User** (scoped to the project) | **Azure AI Developer** (scoped to the project) |
+| Microsoft Foundry project / deployment | **Cognitive Services User** (scoped to the project) | **Azure AI Developer** (scoped to the project) |
 | Azure Data Factory pipeline | **Reader** + **Data Factory** built-in monitoring role (scoped to that Data Factory) | **Data Factory Contributor** (scoped to that Data Factory) |
 | Azure AI Search | **Search Index Data Reader** | **Search Service Contributor** |
 | Storage account / container the demo reads from | **Storage Blob Data Reader** | **Storage Blob Data Contributor** |
@@ -114,7 +114,7 @@ substitute for checking — resource-specific roles change and narrower custom r
 ### 1. The user's own credentials, interactively — the fast, one-off path
 
 Use whatever the user (or the agent acting on their behalf, in their own terminal/session)
-already has: an `az login` session, a browser already signed into the Azure Portal / AI Foundry
+already has: an `az login` session, a browser already signed into the Azure Portal / Microsoft Foundry
 portal / ADF Studio, or `DefaultAzureCredential` picking up that same signed-in context. This is
 the right default when:
 

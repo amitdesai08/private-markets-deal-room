@@ -103,14 +103,20 @@ export async function dispatchWorkiq(governedName, args = {}, { hidden } = {}) {
     try { result = await callWorkiqTool(mcpTool, mcpArgs); }
     catch (e) { result = { error: 'workiq-call-failed', tool: governedName, detail: String(e?.message || e).slice(0, 200) }; }
   }
-  // Demo corpus fallback: when live Work IQ is unavailable, not signed in, or returns
-  // nothing, surface the seeded Teams/SharePoint/mailbox content so the capability always
-  // has realistic material to show. Marked `demo: true` so it's transparent.
-  if (isEmptyOrError(result)) {
+  // A configured live backend must report its real empty/error state. Seed fallback is
+  // automatic only for an unconfigured local app, or when a deploy explicitly opts in.
+  if (isEmptyOrError(result) && workiqSeedFallbackAllowed()) {
     const seed = seedFor(governedName, args);
     if (seed) return scrub(seed, hidden);
   }
   return scrub(result, hidden);
+}
+
+export function workiqSeedFallbackAllowed({ graphConfigured = workIqGraphConfigured(), mcpUrl = workiqUrl() } = {}) {
+  const explicit = String(process.env.WORKIQ_ALLOW_SEED_FALLBACK ?? '').trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(explicit)) return true;
+  if (['0', 'false', 'no', 'off'].includes(explicit)) return false;
+  return !graphConfigured && !mcpUrl;
 }
 
 // This whole family took no identity. Asked a generic question, a `member` — the floor

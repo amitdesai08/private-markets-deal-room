@@ -28,6 +28,7 @@ param openAiDeployments = [
 ]
 
 param appModelDeployment = 'gpt-5-mini'
+param hostedIqRouterEndpoint = 'https://aif-dealhub-dev-p3tks.services.ai.azure.com/api/projects/proj-dealhub-dev/agents/deal-room-hosted-iq-router/endpoint/protocols/openai/responses?api-version=v1'
 
 param searchSku = 'basic'
 // Azure AI Search hosts the Foundry IQ diligence playbook knowledge base.

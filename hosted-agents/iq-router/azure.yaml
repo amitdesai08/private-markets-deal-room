@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  azd: '>=1.27.1'
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.9'
+name: deal-room-hosted-iq-router
+services:
+  ai-project:
+    host: azure.ai.project
+  deal-room-hosted-iq-router:
+    host: azure.ai.agent
+    metadata:
+      tags:
+        - AI Agent Hosting
+        - Responses Protocol
+        - LangGraph
+        - LangChain
+        - IQ Router
+        - A2A
+        - Python
+    project: src/langgraph-workflows-responses
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: '-m langchain_azure_ai.agents.hosting.run --protocol responses'
+    uses:
+      - ai-project
+    kind: hosted
+    name: deal-room-hosted-iq-router
+    displayName: Deal Room IQ Router
+    description: Deterministic policy router for Foundry IQ, Fabric IQ, Work IQ, and Web IQ. Returns the selected A2A peer and an operational trace without exposing private reasoning.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

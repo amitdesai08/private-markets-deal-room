@@ -1,7 +1,7 @@
 # How it works — architecture & internals
 
 > The technical "how" behind [The Deal Room](../README.md): one shared backend, two
-> surfaces, Azure AI Foundry agents, a pluggable store, and identity-aware access — all
+> surfaces, Microsoft Foundry agents, a pluggable store, and identity-aware access — all
 > subscription-agnostic Bicep on Azure Container Apps.
 >
 > See also: [Architecture](ARCHITECTURE.md) · [Deploy guide](DEPLOY.md) · [Access model](ACCESS-MODEL.md) · [Inside a deal](DEAL-STAGES.md)
@@ -65,7 +65,7 @@ behaviour.
 
 ## AI & agents
 
-- **Azure AI Foundry** provides the models (`gpt-5-mini` / `nano` + embeddings) and **Bing
+- **Microsoft Foundry** provides the models (`gpt-5-mini` / `nano` + embeddings) and **Bing
   grounding**, called via **managed identity** — no keys in the app.
 - The agent layer is a **Deal Orchestrator**, a **News Scout**, and **10 role-governed
   persona agents** (analyst, partner, principal, 3 sector MDs, operating partner, fund CFO,

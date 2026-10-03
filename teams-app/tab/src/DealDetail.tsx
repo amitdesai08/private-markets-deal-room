@@ -810,27 +810,16 @@ export default function DealDetail({ dealId, canViewStage2, canWrite, isAdmin, a
               announced that it was still working while the body said it had stopped.
               A refusal is a finished answer; the heading should read like one. */}
           <div className="drawer-title">{deal?.company || (loading ? 'Loading…' : 'Deal unavailable')}</div>
-          {/* Gated on !statusOnly. The body below already tells a restricted viewer that
-              this deal is closed to them and to ask to be added; offering them the two
-              doors they are locked out of, directly above that sentence, meant one of
-              the two was lying. They pressed it, got a server rejection, and stopped
-              believing the access message. */}
-          {/* COLLABORATION LIVES INSIDE THE PRODUCT. This button used to leave for Teams the
-              moment a channel existed, so the deal's conversation was the one part of the
-              deal you could not do here. It now opens the in-app channel view; that view
-              carries its own "Open in Teams" link for anyone who wants the full client. */}
-          {deal && !statusOnly ? <button className="chbtn" onClick={() => (deal.workspace?.teamsProvisioned ? setTab('threads') : dealChannel())} disabled={busy === 'channel'} title={deal.workspace?.teamsProvisioned ? "Open this deal's channel here in the Deal Room" : 'Create a Teams channel to converse about this deal'}>{deal.workspace?.teamsProvisioned ? '# Deal channel' : busy === 'channel' ? 'Creating…' : '# Deal channel'}</button> : null}
-          {/* Labelled "📁 Data room", which is not the name of anywhere you can get to from
-            here -- the tab is called Documents, and this button leaves the product for
-            SharePoint. Two names for one place is how people conclude they have missed a
-            screen. "Data room" is the term a deal professional uses, so that is the term
-            everywhere; the arrow says you are leaving. */}
-        {deal && !statusOnly ? <button className="chbtn spo" onClick={openDataRoom} disabled={busy === 'dataroom'} title="Open this deal's data room in a new tab">{deal.workspace?.sharePointProvisioned ? '📁 Data room ↗' : busy === 'dataroom' ? 'Opening…' : '📁 Data room'}</button> : null}
-          <button className={`askbtn${askOpen ? ' on' : ''}`} onClick={() => setAskOpen((v) => !v)}>💬 {askOpen ? 'Hide the assistant' : 'Ask the assistant'}</button>
-          {/* A partner's most ordinary request of any product is "send this to a
-              colleague". She could do it only by copying out of the address bar, and
-              until this round what came out of the address bar named the wrong page. */}
-          {deal ? <button className="chbtn" onClick={copyLink} title="Copy a link to exactly this page, to paste into an email">{copied ? '✓ Link copied' : '🔗 Copy link'}</button> : null}
+          {deal && !statusOnly ? (
+            <nav className="deal-quick" aria-label="Deal shortcuts">
+              <button className="deal-quick-btn" onClick={openDataRoom} disabled={busy === 'dataroom'} title="Open this deal's SharePoint data room"><span className="deal-quick-mark">SP</span><span>{busy === 'dataroom' ? 'Opening…' : 'SharePoint'}</span></button>
+              <button className="deal-quick-btn" onClick={() => (deal.workspace?.teamsProvisioned ? setTab('threads') : dealChannel())} disabled={busy === 'channel'} title="Open this deal's collaboration"><span className="deal-quick-mark">T</span><span>{busy === 'channel' ? 'Creating…' : 'Collaboration'}</span></button>
+              <button className="deal-quick-btn" onClick={() => setTab('docdesk')} title="Open this deal's documents"><span className="deal-quick-mark">D</span><span>Documents</span></button>
+              <button className="deal-quick-btn" onClick={() => setTab('activity')} title="Open messages, email and recent activity"><span className="deal-quick-mark">@</span><span>Messages & email</span></button>
+              <button className={`deal-quick-btn${askOpen ? ' on' : ''}`} onClick={() => setAskOpen((v) => !v)}><span className="deal-quick-mark">AI</span><span>{askOpen ? 'Hide assistant' : 'Ask agents'}</span></button>
+            </nav>
+          ) : null}
+          {deal ? <button className="copylink" onClick={copyLink} title="Copy a link to exactly this page, to paste into an email">{copied ? 'Copied' : 'Copy link'}</button> : null}
         </div>
 
         {/* A link naming a page that does not exist landed on the brief in silence, so

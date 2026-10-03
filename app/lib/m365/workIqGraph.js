@@ -108,8 +108,12 @@ async function searchQuery(entityTypes, queryString, size, userToken = null) {
       name: r.name || r.displayName || r.subject || undefined,
       webUrl: r.webUrl || r.webLink || undefined,
       lastModified: r.lastModifiedDateTime || r.createdDateTime || undefined,
+      timestamp: r.lastModifiedDateTime || r.createdDateTime || undefined,
+      author: r.createdBy?.user?.displayName || r.lastModifiedBy?.user?.displayName || undefined,
       summary: clip(h.summary || r.description || ''),
       size: r.size,
+      sourceType: 'live',
+      ingestionPath: 'microsoft-graph/search',
     };
   });
 }
@@ -119,7 +123,7 @@ export async function wiSearchFiles(query, { size, userToken = null } = {}) {
   if (!query) return { error: 'bad-args', reason: 'query is required.' };
   try {
     const results = await searchQuery(['driveItem', 'listItem'], query, cap(size, 10, 25), userToken);
-    return { source: 'graph.search', entity: 'files', query, count: results.length, results, asUser: !!userToken };
+    return { source: 'graph.search', sourceType: 'live', ingestionPath: 'microsoft-graph/search', entity: 'files', query, count: results.length, results, asUser: !!userToken };
   } catch (e) { return graphErr('search_files', e, userToken); }
 }
 
@@ -128,7 +132,7 @@ export async function wiSearch(query, { size, userToken = null } = {}) {
   if (!query) return { error: 'bad-args', reason: 'query is required.' };
   try {
     const results = await searchQuery(['driveItem', 'listItem', 'site'], query, cap(size, 10, 25), userToken);
-    return { source: 'graph.search', entity: 'all', query, count: results.length, results, asUser: !!userToken };
+    return { source: 'graph.search', sourceType: 'live', ingestionPath: 'microsoft-graph/search', entity: 'all', query, count: results.length, results, asUser: !!userToken };
   } catch (e) { return graphErr('search', e, userToken); }
 }
 
@@ -142,13 +146,15 @@ export async function wiSearchMail({ query, user, top, userToken = null } = {}) 
   try {
     const enc = encodeURIComponent(`"${String(query).replace(/"/g, '')}"`);
     const base = userToken ? '/me' : `/users/${encodeURIComponent(user)}`;
-    const data = await graphApp(`${base}/messages?$search=${enc}&$select=subject,from,receivedDateTime,bodyPreview,webLink&$top=${cap(top, 10, 25)}`,
+    const data = await graphApp(`${base}/messages?$search=${enc}&$select=id,subject,from,receivedDateTime,bodyPreview,webLink&$top=${cap(top, 10, 25)}`,
       { headers: { ConsistencyLevel: 'eventual' }, userToken });
     const results = (data?.value || []).map((m) => ({
-      subject: m.subject, from: m.from?.emailAddress?.address || m.from?.emailAddress?.name,
-      received: m.receivedDateTime, preview: clip(m.bodyPreview, 300), webLink: m.webLink,
+      id: m.id, subject: m.subject, from: m.from?.emailAddress?.address || m.from?.emailAddress?.name,
+      author: m.from?.emailAddress?.name || m.from?.emailAddress?.address,
+      received: m.receivedDateTime, timestamp: m.receivedDateTime, preview: clip(m.bodyPreview, 300), webLink: m.webLink,
+      sourceType: 'live', ingestionPath: 'microsoft-graph/mail',
     }));
-    return { source: 'graph.mail', entity: 'mail', user: userToken ? 'me' : user, query, count: results.length, results, asUser: !!userToken };
+    return { source: 'graph.mail', sourceType: 'live', ingestionPath: 'microsoft-graph/mail', entity: 'mail', user: userToken ? 'me' : user, query, count: results.length, results, asUser: !!userToken };
   } catch (e) { return graphErr('search_mail', e, userToken); }
 }
 
@@ -162,13 +168,17 @@ export async function wiReadChannel({ team_id, channel_id, top, userToken = null
       // specific message from inside the app rather than only start a new one.
       id: m.id || null,
       from: m.from?.user?.displayName || m.from?.application?.displayName || 'unknown',
+      author: m.from?.user?.displayName || m.from?.application?.displayName || 'unknown',
       fromId: m.from?.user?.id || null,
       created: m.createdDateTime,
+      timestamp: m.createdDateTime,
       preview: clip((m.body?.content || '').replace(/<[^>]+>/g, ' '), 300),
       webUrl: m.webUrl,
       replyCount: Array.isArray(m.replies) ? m.replies.length : undefined,
+      sourceType: 'live',
+      ingestionPath: 'microsoft-graph/teams',
     }));
-    return { source: 'graph.teams', entity: 'channel', team_id, channel_id, count: results.length, results, asUser: !!userToken };
+    return { source: 'graph.teams', sourceType: 'live', ingestionPath: 'microsoft-graph/teams', entity: 'channel', team_id, channel_id, count: results.length, results, asUser: !!userToken };
   } catch (e) { return graphErr('read_channel_messages', e, userToken); }
 }
 

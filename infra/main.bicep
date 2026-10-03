@@ -43,7 +43,7 @@ param environmentName string = 'dev'
 @description('Cost center tag value.')
 param costCenter string = 'private-markets'
 
-@description('Azure OpenAI / Foundry model deployments to create on the AI Foundry account.')
+@description('Azure OpenAI / Foundry model deployments to create on the Microsoft Foundry account.')
 param openAiDeployments array = [
   {
     name: 'gpt-5-mini'
@@ -81,7 +81,7 @@ param foundryIqKnowledgeBase string = ''
 param foundryIqKnowledgeSource string = ''
 
 @description('Azure AI Search knowledge-base API version. Use preview only when answer synthesis is required and accepted for the environment.')
-param foundryIqApiVersion string = '2026-04-01'
+param foundryIqApiVersion string = '2026-08-01-preview'
 
 @description('Log Analytics daily ingestion cap in GB (-1 = unlimited).')
 param logAnalyticsDailyQuotaGb int = -1
@@ -224,6 +224,9 @@ param appModelDeployment string = 'gpt-5-mini'
 @description('Name of the Foundry "Deal Room Analyst" agent (all-deals access, per-deal scoping).')
 param dealAgentName string = 'deal-room-analyst'
 
+@description('Responses endpoint for the optional hosted IQ policy router. Empty keeps deterministic local routing.')
+param hostedIqRouterEndpoint string = ''
+
 @description('Tenant used to build deal SharePoint/Teams deep links (<tenant>.sharepoint.com).')
 param workspaceTenant string = 'contoso'
 
@@ -261,6 +264,17 @@ param fabricWorkspace string = 'Deal Room'
 param fabricLakehouse string = 'deal_room_starter'
 @description('Published Microsoft Fabric Data Agent endpoint URL (optional; empty = grounded fallback on the snapshot).')
 param fabricDataAgentUrl string = ''
+@description('Published Microsoft Fabric IQ MCP endpoint for the Foundry native tool connection.')
+param fabricIqServerUrl string = ''
+@description('Fabric item type targeted by Fabric IQ: DataAgent, Ontology, or SemanticModel.')
+@allowed([ 'DataAgent', 'Ontology', 'SemanticModel' ])
+param fabricIqTargetKind string = 'DataAgent'
+@description('Human-readable Fabric IQ target item name.')
+param fabricIqTargetName string = ''
+param fabricIqWorkspaceId string = ''
+param fabricIqItemId string = ''
+@description('Opt the Foundry account into Agent 365 activity collection. Tenant licensing and consent are still required for ingestion.')
+param enableAgent365Logging bool = true
 param onelakeWorkspaceId string = ''
 param onelakeLakehouseId string = ''
 
@@ -378,6 +392,14 @@ module ai 'modules/ai.bicep' = {
     deploySearch: deploySearch
     openAiDeployments: openAiDeployments
     uamiPrincipalId: core.outputs.uamiPrincipalId
+    foundryIqKnowledgeBase: foundryIqKnowledgeBase
+    foundryIqApiVersion: foundryIqApiVersion
+    fabricIqServerUrl: fabricIqServerUrl
+    fabricIqTargetKind: fabricIqTargetKind
+    fabricIqTargetName: fabricIqTargetName
+    fabricIqWorkspaceId: fabricIqWorkspaceId
+    fabricIqItemId: fabricIqItemId
+    enableAgent365Logging: enableAgent365Logging
   }
 }
 
@@ -440,6 +462,7 @@ module app 'modules/app.bicep' = {
     orchestratorImage: orchestratorImage
     appModelDeployment: appModelDeployment
     dealAgentName: dealAgentName
+    hostedIqRouterEndpoint: hostedIqRouterEndpoint
     entraTenantId: entraTenantId
     mcpAudience: mcpAudience
     mcpRequiredScope: mcpRequiredScope
@@ -552,6 +575,14 @@ output foundryEndpoint string = ai.outputs.foundryEndpoint
 output foundryProjectName string = ai.outputs.foundryProjectName
 output foundryProjectEndpoint string = ai.outputs.foundryProjectEndpoint
 output bingConnectionId string = ai.outputs.bingConnectionId
+output workIqConnectionId string = ai.outputs.workIqConnectionId
+output workIqNativeConnectionId string = ai.outputs.workIqNativeConnectionId
+output workIqA2aConnectionId string = ai.outputs.workIqA2aConnectionId
+output webIqA2aConnectionId string = ai.outputs.webIqA2aConnectionId
+output foundryIqA2aConnectionId string = ai.outputs.foundryIqA2aConnectionId
+output fabricIqA2aConnectionId string = ai.outputs.fabricIqA2aConnectionId
+output foundryIqConnectionId string = ai.outputs.foundryIqConnectionId
+output fabricIqConnectionId string = ai.outputs.fabricIqConnectionId
 output deployedModels array = ai.outputs.deployedModels
 output documentIntelligenceEndpoint string = ai.outputs.documentIntelligenceEndpoint
 output contentSafetyEndpoint string = ai.outputs.contentSafetyEndpoint

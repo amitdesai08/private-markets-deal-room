@@ -1,8 +1,10 @@
-# Azure Portal integration proof
+# Architecture walkthrough and IQ reference guide
 
-An optional seven-minute companion to the
-[technical walkthrough](DEMO-WALKTHROUGH-TECHNICAL.md). It replaces the diagram-only Azure
-footprint segment with a live, read-only click-through of the deployed resources.
+A two-part companion to the [technical walkthrough](DEMO-WALKTHROUGH-TECHNICAL.md):
+
+1. **Talk track** — a seven-minute, read-only walkthrough of the deployed architecture.
+2. **IQ reference guide** — a question-driven map showing where to demonstrate Work IQ,
+   Fabric IQ and Foundry IQ, what each proves, and what not to expose.
 
 **Audience:** CTO, platform engineering, cloud security, or an architecture review.
 
@@ -19,13 +21,20 @@ identity only if this must later run unattended or be handed to another presente
 | Managed identity and RBAC | Azure calls are made by identity, with roles scoped to the resources being called. |
 | Azure AI Foundry | Models are deployments in the customer's own AI account and project. |
 | Foundry IQ | Approved diligence knowledge is retrieved through Azure AI Search with managed identity and returned with citations. |
+| Fabric IQ | Fund market intelligence and historical evidence come from Microsoft Fabric/OneLake in an explicitly reported live or snapshot mode. |
 | Application Insights | Both runtime tiers feed the customer's own operational telemetry. |
-| Deal Room Data sources | Foundry IQ and Work IQ are configured at the governed application boundary, not as browser plug-ins. |
+| Deal Room Data sources | Work IQ, Fabric IQ and Foundry IQ meet at one governed application boundary, not in the browser. |
 
 This is a proof path, not a general Azure tour. Do not open data explorers, secret values,
 mailbox contents, raw traces, access tokens, or the account/tenant switcher while presenting.
 
-## Before the meeting
+## Part 1: Architecture talk track
+
+Use this part as the presenter script. It follows one request from the application boundary
+through runtime, identity, AI and telemetry, then returns to the product to connect the three
+IQ capabilities.
+
+### Before the meeting
 
 1. Use a clean browser profile and sign in to the Azure portal with an account that has
    read-only visibility of the deployment. Collapse the account menu before sharing.
@@ -36,7 +45,7 @@ mailbox contents, raw traces, access tokens, or the account/tenant switcher whil
 
    ```powershell
    $resourceId = az containerapp show `
-     --name ca-dealhub-orch-beta `
+       --name ca-dealhub-orch-green `
      --resource-group rg-dealhub-app-dev-swc `
      --query id -o tsv
 
@@ -49,12 +58,13 @@ mailbox contents, raw traces, access tokens, or the account/tenant switcher whil
    - `id-dealhub-<env>-<loc>`
    - the Azure AI Foundry account
    - `srch-dealhub-<env>-<suffix>`
+   - the Fabric workspace or its **Fund reporting data** connector
    - `appi-dealhub-<env>-<loc>`
    - Deal Room **Settings → Data sources**
 5. Confirm the Container Apps and Application Insights pages show healthy data. If telemetry
    is empty, skip that stop rather than generating synthetic traffic during the meeting.
 
-## Safety rails
+### Safety rails
 
 **Safe to show:** resource names, types, regions, health, revision names, image tags, identity
 assignment, role names and scopes, model deployment names, Application Map, request rates and
@@ -72,7 +82,7 @@ Do not claim that every optional service is active merely because it exists. Nar
 selected environment actually shows. In particular, private networking and Fabric are
 deployment choices, and Work IQ configuration does not prove that every Graph request succeeds.
 
-## The click path
+### The click path
 
 ### 1. Resource groups: ownership boundaries (45 seconds)
 
@@ -96,8 +106,8 @@ from the architecture being reviewed.
 
 ### 2. Container Apps: two runtime tiers (60 seconds)
 
-Open `rg-dealhub-app-<env>-<loc>` and select the backend Container App. For the current beta
-environment that is `ca-dealhub-orch-beta`.
+Open `rg-dealhub-app-<env>-<loc>` and select the backend Container App. For the current
+production environment that is `ca-dealhub-orch-green`.
 
 1. On **Overview**, point to status, region and application URL.
 2. Open **Revision management** and point to the healthy revision and immutable image tag.
@@ -204,44 +214,196 @@ Avoid raw traces and Logs in a shared-screen demo.
 
 ### 7. Return to Data sources: the integration boundary (60 seconds)
 
-Return to the Deal Room → **Settings → Data sources**. Point first to **Approved diligence
-knowledge**, then to **Work IQ**.
+Return to the Deal Room → **Settings → Data sources**. Point to **Work IQ**, **Fund reporting
+data** and **Approved diligence knowledge**.
 
-> "Foundry IQ and Work IQ answer different questions. Foundry IQ retrieves reusable, approved
-> firm knowledge with citations. Work IQ reads the live files, Teams messages and mail that a
-> user or background process is permitted to access. The Deal Room keeps both behind the same
-> connector status, agent-sovereignty and deal-authorization boundaries."
+> "The three IQs contribute different evidence. Work IQ brings in the live work around this
+> deal. Fabric IQ brings the fund's structured market data and transaction history. Foundry IQ
+> brings approved diligence and IC standards with citations. They don't call one another. The
+> authorized Deal Analyst selects the sources needed for the question, keeps each result
+> bounded, and composes the answer with its provenance intact."
 
-> "Azure proves where the workloads, identity, models and telemetry live. Work IQ completes
-> the integration story at the application boundary: Microsoft Graph supplies files, Teams
-> messages and mail under delegated user permissions where available, with a read-only
-> app-only path for background work. The configured shared mailbox is a target for that
-> app-only search path, not a source of authority for the user-facing session."
+> "A useful way to remember the roles is now, before and should. Work IQ says what is happening
+> now. Fabric IQ says what the fund has seen before. Foundry IQ says what the firm says should
+> be tested. Deal authorization happens before any of those results are combined."
 
 Point to the connector's real status. Say **configured** unless a live round trip on that
 screen has succeeded; do not use **connected** as a synonym.
 
-## Close
+### Close
 
-> "What we have just shown is the same request path from both sides: governed Foundry IQ and
-> Work IQ connectors in the product, two independently deployed runtime tiers, managed
-> identities with scoped Azure roles, customer-owned model and knowledge deployments, and
-> customer-owned telemetry. The integration is inspectable without exposing a key or opening
-> a data record."
+> "What we have just shown is one governed intelligence plane over three evidence systems:
+> current work from Work IQ, fund history from Fabric IQ, and approved standards from Foundry
+> IQ. Two independently deployed runtime tiers, managed identities, scoped roles and
+> customer-owned telemetry make that composition inspectable without exposing a key."
 
 Return to the technical walkthrough for **Deploy, extend, jumpstart**.
 
-## Short path (three minutes)
+### Short path (three minutes)
 
 When time is tight, show only:
 
 1. `rg-dealhub-app-<env>-<loc>` → backend Container App → **Revision management**.
 2. `id-dealhub-<env>-<loc>` → **Azure role assignments**.
 3. Azure AI Search → **Identity** and **Access control (IAM)**.
-4. Deal Room → **Settings → Data sources → Approved diligence knowledge → Work IQ**.
+4. Deal Room → **Settings → Data sources** → **Work IQ**, **Fund reporting data**, then
+   **Approved diligence knowledge**.
 
-This preserves the runtime, authorization, cited-knowledge and live-work integration proof
+This preserves the runtime, authorization, live-work, fund-history and cited-knowledge proof
 without opening data or telemetry surfaces.
+
+## Part 2: IQ reference guide
+
+Use this part when the room asks a question, wants to see one IQ capability in more depth, or
+needs implementation guidance. Do not run it front to back. Start with the question, choose the
+matching row below, and show the narrowest surface that proves the answer.
+
+### Which IQ answers which question?
+
+| Capability | Question it answers | Governed source | Best product proof | Best platform proof |
+|---|---|---|---|---|
+| **Work IQ** | "What is happening now around this deal?" | SharePoint and OneDrive files, Teams messages, mail and durable deal notes | Open a provisioned deal, then show its documents, conversation or Work IQ panel; use **Settings → Data sources → Work IQ** for connector status. | Show the app registration/API permissions only in a separately approved security review; the normal architecture demo stays in the product because Graph permissions are enforced per request. |
+| **Fabric IQ** | "What does our fund data and transaction history tell us?" | Microsoft Fabric/OneLake companies, comparable deals, benchmark findings, IC precedents and filing metrics | Open **Market intelligence** for structured evidence; use the Fabric Data Agent question surface when available; use **Settings → Data sources** to state `live`, `materialized`, `seed` or grounded mode honestly. | Open the Fabric workspace and `deal_room_starter` lakehouse overview or lineage only when the presenter has approved read access. Do not open table rows in a shared-screen architecture review. |
+| **Foundry IQ** | "Which approved firm standards apply to this deal?" | The approved diligence and IC playbook in Azure AI Search | Open **Settings → Data sources → Approved diligence knowledge**, run its real connectivity test, then ask the Deal Analyst an evidence-standard question and point to citations. | Show Azure AI Search **Overview**, **Identity**, **IAM**, and the knowledge-base name; show the Foundry model deployment separately. |
+
+The shortest distinction to say aloud is:
+
+> "Work IQ is now. Fabric IQ is before. Foundry IQ is should. The Deal Analyst combines only
+> the evidence needed for the question, after identity and deal access are resolved."
+
+### How the IQs interact
+
+The IQs are peer evidence sources. They do not copy data into one another and they do not call
+one another directly. The Deal Analyst is the orchestrator.
+
+| Step | What happens | Boundary preserved |
+|---|---|---|
+| **1. Authorize** | The backend resolves the user, seat and deal before selecting tools. | A tool cannot widen deal access. |
+| **2. Select** | The Deal Analyst chooses Work IQ, Fabric IQ, Foundry IQ or a combination based on the question. | Only necessary sources are called. |
+| **3. Retrieve** | Each IQ returns bounded evidence from its own system under its own identity and permission model. | Microsoft 365 content stays in Graph; fund data stays in Fabric/OneLake; approved knowledge stays in Azure AI Search. |
+| **4. Compose** | The Deal Analyst compares the returned evidence with the already authorized deal record. | Source labels, modes and citations remain attached. |
+| **5. Respond** | The user receives one answer that distinguishes current facts, historical evidence and firm standards. | Missing or disconnected evidence is stated, not invented. |
+
+**Example: "Is this deal ready for IC?"**
+
+- **Work IQ** finds the latest diligence files, Teams decisions and relevant correspondence.
+- **Fabric IQ** supplies comparable transactions, recurring diligence findings and prior IC
+   conditions from the fund's OneLake data.
+- **Foundry IQ** supplies the approved evidence requirements and IC playbook citations.
+- **Deal Analyst** compares all three with the authorized deal record and identifies evidence
+   present, gaps and next actions. It does not merge the three source systems or write back
+   automatically.
+
+### Question-to-screen guide
+
+| If they ask... | Go here | Show | Say |
+|---|---|---|---|
+| "Can it read our Teams and SharePoint content?" | A provisioned deal → documents or conversation | A file list or Teams thread already visible to the current seat | "Work IQ uses Microsoft Graph. Delegated reads run as the signed-in user when a token is available, so Microsoft 365 permissions remain in force on top of deal access." |
+| "Does it read a shared mailbox in the background?" | **Settings → Data sources → Work IQ** | The configured/connected status and mailbox target, not messages | "The app-only path is read-only and targets the configured shared mailbox. The mailbox is a data source, not a source of user authority." |
+| "Where do comparables and IC precedents come from?" | **Market intelligence** | Comparable deals, benchmark findings, IC precedents and the displayed source/freshness mode | "Fabric IQ serves fund market data from OneLake. The screen states whether it is live or a point-in-time materialized snapshot." |
+| "Can I ask the lakehouse a question in plain English?" | Fabric Data Agent question surface, when exposed | One bounded question and its cited/grounded answer | "A published Fabric Data Agent is used when bound; otherwise the app can ground a Foundry model on the same bounded snapshot and labels that mode explicitly." |
+| "Can it apply our diligence methodology?" | Deal Analyst on an authorized deal | Ask: `Which approved technology diligence tests and IC evidence standards apply to this deal?` | "Foundry IQ retrieves the approved playbook; the Deal Analyst separately reads the authorized deal and applies only cited requirements." |
+| "How do you stop the knowledge base leaking deal facts?" | Azure AI Search IAM, then this guide's Foundry IQ request path | Search Index Data Reader on the app identity and the minimized-query step | "The backend authorizes the deal first and sends only classification, stage and an approved focus. It does not send the company, valuation, findings, documents or free-form prompt to Search." |
+| "How do we know a connector really works?" | **Settings → Data sources** | **Test** and the resulting status/latency | "Configured means settings exist. Connected means a real bounded round trip succeeded. The UI does not use those words interchangeably." |
+| "Can an external agent use these sources?" | Architecture diagram or agent governance reference | The internal-data tool boundary | "Foundry IQ and Fabric IQ are internal-data tools. Agent sovereignty denies them to the external news agent; deal authorization still applies before deal context is composed." |
+
+### Work IQ reference
+
+**Request path:** Teams or web identity → backend deal authorization → governed Work IQ tool →
+Microsoft Graph → bounded files, messages or mail result → Deal Analyst response.
+
+**Where to show it:** begin in **Settings → Data sources → Work IQ** to establish honest status.
+For a business proof, move to a provisioned deal and show **Documents**, **Conversation**, or the
+shared Work IQ notes panel. Keep the current seat visible so the audience can connect the result
+to a person and permissions.
+
+**Implementation anchors:** `app/lib/m365/workIqGraph.js` owns Graph reads,
+`app/lib/mcp/workiq.js` exposes the governed tools, and the Teams server performs delegated
+on-behalf-of token exchange. The background mail path uses the configured
+`WORKIQ_MAILBOX_USER` and app-only permissions.
+
+**Claims you can make:** delegated reads preserve the signed-in user's Microsoft 365 access;
+the app-only mailbox path is read-only; deal authorization is additive to Microsoft 365
+authorization; unavailable Graph access degrades without inventing content.
+
+**Do not claim:** that configuration proves every Graph permission has tenant consent, that an
+app-only token represents a human, or that a user can see every file attached to a deal.
+
+### Fabric IQ reference
+
+**Request path:** authorized firm user → `/api/market-intel` or `/api/fabric/ask` → Fabric
+adapter → live OneLake SQL endpoint or bounded materialized snapshot → filtered market evidence
+or natural-language answer.
+
+**Where to show it:** use **Market intelligence** first because it exposes the actual structured
+evidence: companies, comparables, benchmark diligence findings, IC precedents and filing metrics.
+Use **Settings → Data sources** to point out the Fabric Data Agent mode. If a dedicated question
+surface is available, ask a bounded fund-data question such as `What recurring commercial
+diligence risks appear in prior deals?`
+
+**Modes to state exactly:**
+
+- `live` — the app queried the Fabric lakehouse SQL analytics endpoint with managed identity;
+- `materialized` — a point-in-time OneLake projection persisted in the app store;
+- `seed` — the packaged snapshot extracted from the same lakehouse for a portable demo;
+- Data Agent `grounded` — a Foundry model answers only over that bounded snapshot;
+- Data Agent `live` — a published Fabric Data Agent endpoint answered with its citations.
+
+**Implementation anchors:** `app/lib/fabric.js` owns the live/materialized/seed data contract,
+`app/lib/fabricDataAgent.js` owns natural-language Q&A, and `/api/market-intel`, `/api/fabric`
+and `/api/fabric/ask` are the backend proof routes.
+
+**Do not claim:** that a snapshot is live, that a grounded fallback is a published Fabric Data
+Agent, or that the mere existence of a Fabric workspace proves the current app can query it.
+
+### Foundry IQ reference
+
+**Request path:** authorized deal question → existing `get_deal` authorization → minimized
+classification/stage/focus query → Azure AI Search knowledge-base retrieval → bounded answer and
+citations → Deal Analyst composition against the separately governed deal record.
+
+**Where to show it:** establish the connector in **Settings → Data sources → Approved diligence
+knowledge**, then show Azure AI Search **Identity** and **IAM**. Return to an authorized deal and
+ask one playbook question. End on the citations, not on the prose answer.
+
+**Implementation anchors:** `app/lib/foundryIq.js` owns query minimization, managed-identity
+authentication and citation normalization; `app/lib/dealAgent.js` dispatches the tool;
+`app/lib/agentSovereignty.js` restricts it to internal agents; and
+`app/scripts/provision_foundry_iq.py` provisions the index, source and knowledge base.
+
+**Claims you can make:** no Search API key is stored in the runtime; the app identity has
+Search Index Data Reader; confidential deal facts are excluded from the retrieval request;
+citations are mandatory for a supported answer; a real retrieval is required for connected
+status.
+
+**Do not claim:** that Search stores the deal record, that Foundry IQ can bypass deal access,
+or that a fluent uncited answer is acceptable evidence.
+
+### Presenter decision rules
+
+1. Start in the product unless the question is specifically about Azure ownership, identity or
+    runtime. Product behavior proves the capability; the portal proves its deployment controls.
+2. Show one bounded result, then its source or status. Do not browse broadly through customer
+    data to make the demo feel live.
+3. Name the active mode exactly: configured, connected, live, materialized, seed, grounded or
+    disconnected.
+4. For an access question, change seats or show IAM. Do not infer authorization from a successful
+    result under an administrator account.
+5. For a citation question, end on the source references. For a freshness question, end on the
+    mode and timestamp. For a runtime question, end on revision health and telemetry.
+
+### IQ fallback paths
+
+- **Work IQ has no delegated token:** show connector status and explain the app-only/background
+   boundary; do not open mailbox content to compensate.
+- **Fabric is not live:** show the declared `materialized` or `seed` mode and lineage. Do not call
+   it live; explain how `FABRIC_LIVE` and the workspace role enable direct SQL retrieval.
+- **Fabric Data Agent is grounded:** show Market intelligence as the bounded source and say the
+   answer uses the snapshot, not a published Data Agent endpoint.
+- **Foundry IQ is disconnected:** show the required endpoint and knowledge-base fields, then use
+   the backend request-path table. Do not claim live citations.
+- **Portal access is denied:** return to [Architecture](../ARCHITECTURE.md) and this reference.
+   Never elevate access during a shared-screen session.
 
 ## Failure handling
 

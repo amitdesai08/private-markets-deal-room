@@ -10,10 +10,11 @@ import type { Agent, Deal } from './types';
 
 type ProposedAction = { id: string; kind: string; label: string; summary: string; args: Record<string, unknown>; sources?: string[] };
 type CompareCol = { seat: string; label: string; text: string; role?: string; pending?: boolean };
+type OrchestrationStep = { id: string; kind: 'context' | 'route' | 'decision' | 'handoff' | 'collaboration' | 'source' | 'tool' | 'synthesis'; label: string; detail?: string; choice?: string; rationale?: string; explicit?: string[]; inferred?: string[]; iq?: string; agent?: string; peerAgent?: string; protocol?: string; status?: 'running' | 'complete' | 'blocked' };
 type Any = Record<string, any>;
 // `status` is what the assistant is doing while there is nothing to show yet — the reader
 // waits a real amount of time for a multi-specialist answer and deserves to know why.
-type Msg = { role: 'user' | 'agent'; text: string; source?: string; tools?: string[]; agentsUsed?: string[]; pending?: boolean; status?: string; proposed?: ProposedAction[]; applied?: string[]; saved?: boolean; question?: string; compare?: CompareCol[] };
+type Msg = { role: 'user' | 'agent'; text: string; source?: string; tools?: string[]; agentsUsed?: string[]; trace?: OrchestrationStep[]; pending?: boolean; status?: string; proposed?: ProposedAction[]; applied?: string[]; saved?: boolean; question?: string; compare?: CompareCol[] };
 
 const SPECIALIST_LABELS: Record<string, string> = {
   'deal-room-sourcing': 'Sourcing',
@@ -29,6 +30,18 @@ const DEAL_STARTERS = [
   'Show comparable deals and IC precedents.',
   'What are the top risks and the compliance status?',
 ];
+
+function evidenceSystems(tools: string[]) {
+  const systems = new Set<string>();
+  for (const tool of tools) {
+    if (/workiq|mail|channel|sharepoint|meeting/i.test(tool)) systems.add('Work IQ');
+    else if (/fabric|ontology|lakehouse|semantic/i.test(tool)) systems.add('Fabric IQ');
+    else if (/knowledge|foundry|playbook/i.test(tool)) systems.add('Foundry IQ');
+    else if (/web|news|search_public/i.test(tool)) systems.add('Web IQ');
+    else systems.add('Deal Room record');
+  }
+  return [...systems];
+}
 
 // The seats offered by "Compare roles". This is a showcase device — it exists to put
 // the same question through several colleagues' framing side by side so the access and
@@ -56,6 +69,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
   // A long answer deserves the room to be read in. Remembered, because someone who widens
   // it once wants it wide.
   const [wide, setWide] = useState(() => { try { return localStorage.getItem('dr.chatWide') === '1'; } catch { return false; } });
+  const [showActivity, setShowActivity] = useState(() => { try { return localStorage.getItem('dr.chatActivity') === '1'; } catch { return false; } });
   const [sending, setSending] = useState(false);
   const [applying, setApplying] = useState('');
   const [saving, setSaving] = useState('');
@@ -131,7 +145,8 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
         const decoder = new TextDecoder();
         let buffer = '';
         let shown = '';
-        const paint = () => setThreads((tt) => { const arr = (tt[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: shown, pending: !shown, status: shown ? undefined : status }; return { ...tt, [threadKey]: arr }; });
+        let trace: OrchestrationStep[] = [];
+        const paint = () => setThreads((tt) => { const arr = (tt[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: shown, pending: !shown, status: shown ? undefined : status, trace: trace.slice() }; return { ...tt, [threadKey]: arr }; });
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -144,6 +159,11 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
             let ev: Any;
             try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
             if (ev.type === 'status') { status = ev.text; if (!shown) paint(); }
+            else if (ev.type === 'orchestration' && ev.step?.id) {
+              const at = trace.findIndex((step) => step.id === ev.step.id);
+              trace = at >= 0 ? trace.map((step, idx) => idx === at ? ev.step : step) : [...trace, ev.step];
+              paint();
+            }
             else if (ev.type === 'delta') { shown += ev.text; paint(); }
             // A turn that turned out to be a tool call was the model thinking aloud on
             // the way to fetching something. Take it back rather than leave a sentence
@@ -162,7 +182,17 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
       const agentsUsed = Array.isArray(data?.agentsUsed) && data.agentsUsed.length ? Array.from(new Set(data.agentsUsed)) as string[] : undefined;
       const proposed = Array.isArray(data?.proposedActions) && data.proposedActions.length ? data.proposedActions as ProposedAction[] : undefined;
       if (data?.responseId) setPrevId((p) => ({ ...p, [threadKey]: data.responseId }));
-      setThreads((t) => { const arr = (t[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: reply, source: data?.source, tools, agentsUsed, status: status || undefined, proposed }; return { ...t, [threadKey]: arr }; });
+      setThreads((t) => {
+        const arr = (t[threadKey] || []).slice();
+        const current = arr[arr.length - 1];
+        const trace = current?.trace?.slice() || [];
+        if (tools?.length) {
+          const systems = evidenceSystems(tools);
+          trace.push({ id: 'evidence-tools', kind: 'tool', label: `${systems.join(', ')} used`, detail: `Confirmed calls: ${tools.join(', ')}`, choice: 'Use returned evidence in the answer.', rationale: 'These are the tools the completed response reported, not inferred activity.', iq: systems.join(', '), status: 'complete' });
+        }
+        arr[arr.length - 1] = { role: 'agent', text: reply, source: data?.source, tools, agentsUsed, trace, status: status || undefined, proposed };
+        return { ...t, [threadKey]: arr };
+      });
     } catch (e: any) {
       setThreads((t) => { const arr = (t[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: `Sorry — I couldn't reach the assistant (${String(e?.message || e)}).`, source: 'error' }; return { ...t, [threadKey]: arr }; });
     } finally { setSending(false); }
@@ -266,6 +296,10 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
           <option value="">All deals you can see</option>
           {deals.map((d) => (<option key={d.id} value={d.id}>{d.company}{d.stageName ? ` · ${d.stageName}` : ''}</option>))}
         </select>
+        <label className="activity-toggle" title="Show the context, routing choices, specialist handoffs and evidence tools used for each answer.">
+          <input type="checkbox" checked={showActivity} onChange={(e) => { const next = e.target.checked; setShowActivity(next); try { localStorage.setItem('dr.chatActivity', next ? '1' : '0'); } catch { /* storage blocked */ } }} />
+          <span>Agent activity</span>
+        </label>
       </div>
 
       <div ref={scrollRef} className="thread">
@@ -298,7 +332,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
                     {m.status ? <span className="typing-status">{m.status}…</span> : null}
                   </span>
                 )
-                    : m.role === 'agent' ? (<><div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />{m.status ? <div className="completed-status">{m.status}</div> : null}{m.agentsUsed?.length ? <div className="consulted">Consulted: {m.agentsUsed.map((key) => SPECIALIST_LABELS[key] || key).join(', ')}</div> : null}{m.tools?.length ? <div className="tools">Sources: {m.tools.join(', ')}</div> : m.source === 'live' ? (
+                    : m.role === 'agent' ? (<>{showActivity && m.trace?.length ? <details className="orch-trace" open><summary>Agent activity · {m.trace.length} steps</summary><div className="orch-note">Operational context and bounded choices, not private model reasoning.</div><div className="orch-steps">{m.trace.map((step) => <div className={`orch-step ${step.status || ''}`} key={step.id}><span className="orch-mark" aria-hidden="true"></span><div><div className="orch-step-head"><strong>{step.label}</strong>{step.protocol ? <span className="orch-protocol">{step.protocol}</span> : null}{step.iq ? <span className="orch-iq">{step.iq}</span> : null}</div>{step.detail ? <div>{step.detail}</div> : null}{step.explicit?.length ? <div className="orch-section"><b>Provided context</b>{step.explicit.map((item) => <span key={item}>{item}</span>)}</div> : null}{step.inferred?.length ? <div className="orch-section"><b>Inferred for this turn</b>{step.inferred.map((item) => <span key={item}>{item}</span>)}</div> : null}{step.choice ? <div className="orch-choice"><b>Choice</b> {step.choice}</div> : null}{step.rationale ? <div className="orch-choice"><b>Why</b> {step.rationale}</div> : null}{step.agent ? <div className="orch-agent">{step.agent}{step.peerAgent ? ` → ${step.peerAgent}` : ''}</div> : null}</div></div>)}</div></details> : null}<div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />{m.status ? <div className="completed-status">{m.status}</div> : null}{m.agentsUsed?.length ? <div className="consulted">Consulted: {m.agentsUsed.map((key) => SPECIALIST_LABELS[key] || key).join(', ')}</div> : null}{m.tools?.length ? <div className="tools">Sources: {m.tools.join(', ')}</div> : m.source === 'live' ? (
                       // The word "live", alone, under every answer. It means the answer was
                       // written just now against the current record rather than replayed
                       // from a script -- which is worth saying, but "live" on its own is
@@ -366,6 +400,26 @@ const CHAT_EXTRA_CSS = `
 .chatpanel .msg-actions { margin-top: 6px; white-space: nowrap; }
 .chatpanel .completed-status { margin-top: 7px; font-size: 11px; color: var(--muted); }
 .chatpanel .consulted { margin-top: 7px; font-size: 11px; font-weight: 650; color: var(--accent, #6ea8fe); }
+.chatpanel .orch-trace { margin-bottom: 10px; border: 1px solid var(--border); border-radius: 7px; background: color-mix(in srgb, var(--card) 82%, transparent); overflow: hidden; }
+.chatpanel .orch-trace summary { cursor: pointer; padding: 7px 9px; font-size: 11px; font-weight: 700; color: var(--fg); }
+.chatpanel .orch-note { margin: -2px 9px 8px; font-size: 9.5px; color: var(--muted); }
+.chatpanel .orch-steps { padding: 0 9px 8px; display: grid; gap: 7px; }
+.chatpanel .orch-step { display: grid; grid-template-columns: 9px minmax(0, 1fr); gap: 7px; font-size: 10.5px; color: var(--muted); }
+.chatpanel .orch-step strong { color: var(--fg); margin-right: 6px; }
+.chatpanel .orch-step-head { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.chatpanel .orch-mark { width: 7px; height: 7px; margin-top: 4px; border-radius: 50%; background: var(--accent, #3978c5); }
+.chatpanel .orch-step.running .orch-mark { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #3978c5) 18%, transparent); }
+.chatpanel .orch-step.blocked .orch-mark { background: var(--bad, #c44343); }
+.chatpanel .orch-protocol { display: inline-block; border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; font-size: 9px; font-weight: 700; color: var(--accent, #3978c5); }
+.chatpanel .orch-iq { font-size: 9px; font-weight: 700; color: var(--good); }
+.chatpanel .orch-section { margin-top: 5px; display: grid; gap: 2px; }
+.chatpanel .orch-section b { color: var(--fg); }
+.chatpanel .orch-section span { display: block; padding-left: 8px; }
+.chatpanel .orch-choice { margin-top: 4px; }
+.chatpanel .orch-choice b { color: var(--fg); }
+.chatpanel .orch-agent { margin-top: 3px; font-family: ui-monospace, monospace; font-size: 9px; overflow-wrap: anywhere; }
+.chatpanel .activity-toggle { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; font-size: 10.5px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.chatpanel .activity-toggle input { accent-color: var(--accent, #3978c5); }
 .chatpanel .bubble .tools { white-space: nowrap; }
 .chatpanel .save-wiq { font: inherit; font-size: 11px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--muted); cursor: pointer; }
 .chatpanel .save-wiq:hover:not(:disabled) { border-color: var(--accent, #6ea8fe); color: var(--accent, #6ea8fe); }

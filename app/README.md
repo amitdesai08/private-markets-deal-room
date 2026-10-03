@@ -80,7 +80,7 @@ assumption snapshots) persist and write audit events.
   quick-actions, the Deal Orchestrator chat and the MCP tool surface. No bundled web
   client — the user console is the Deal Room Teams app (`teams-app/`), which also runs
   as a standalone web console.
-- **AI** — calls the deployed **Azure AI Foundry** `gpt-4o` deployment via the
+- **AI** — calls the deployed **Microsoft Foundry** `gpt-4o` deployment via the
   OpenAI SDK using **managed identity** (`DefaultAzureCredential`). If no
   endpoint is configured it runs in **demo mode** with realistic seeded output,
   so the service is fully usable offline.

@@ -17,8 +17,8 @@ a model can never assert or change its own class.
 
 | Class | Agents | Reads the fund's governed data | Reaches the public internet |
 |---|---|:--:|:--:|
-| **internal-data** | `deal-room-analyst`, the 10 persona agents, `deal-room-fabric` | ✓ (governed tools, deal-scoped) | ✗ **never** (no egress tools) |
-| **external-web** | `deal-room-news-scout` (Bing-grounded) | ✗ **never** (no internal tools) | ✓ (public sourcing only) |
+| **internal-data** | `deal-room-analyst`, the 10 persona agents, `deal-room-fabric-iq`, `deal-room-foundry-iq`, `deal-room-work-iq`, hosted IQ router | ✓ (governed tools, deal- or user-scoped) | ✗ **never** (no egress tools) |
+| **external-web** | `deal-room-news-scout`, `deal-room-web-iq` | ✗ **never** (no internal tools) | ✓ (public sourcing only) |
 
 The boundary is a **guard at every agent↔tool dispatch seam**
 ([`assertToolAllowed`](../../app/lib/agentSovereignty.js)): before any tool runs, the server checks
@@ -29,11 +29,11 @@ the line.
 ```mermaid
 flowchart LR
   subgraph Internal["internal-data class — no egress"]
-    A1["deal analyst + 10 persona agents"]
-    A2["Fabric Data Agent"]
+    A1["deal analyst + persona / purpose agents"]
+    A2["Foundry IQ · Fabric IQ · Work IQ"]
   end
   subgraph External["external-web class — no internal reads"]
-    N["news scout (Bing)"]
+    N["news scout · Web IQ"]
   end
   A1 -->|governed deal tools| STORE[("Fund data<br/>deals · fund · lakehouse")]
   A2 --> STORE
@@ -66,13 +66,13 @@ flowchart LR
   in front of a web-facing model.
 
 ### 3 · External-web agents are separated from internal-data agents
-- The two classes are **distinct Foundry agents** with **disjoint tool sets**, declared in the
+- The two classes use **distinct Foundry agents** with **disjoint tool sets**, declared in the
   registry and enforced at runtime — separation is a policy the server upholds, not an
   assumption about wiring that could silently regress.
 
 ### 4 · Fresh (non-stale) data via web agents, still sovereign
 - Live web grounding / scraping for fresh sourcing signals lives **only** in the external-web
-  class (`deal-room-news-scout`). It returns *public* companies/signals into the sourcing
+  class (`deal-room-news-scout` and `deal-room-web-iq`). It returns *public* companies/signals into the sourcing
   funnel; it is never handed a deal record, a mandate, or any internal figure.
 - Server-side connectors that fetch public data (SEC EDGAR, GLEIF, GDELT) run without any deal
   context in the request, and feed the funnel — not confidential deal reasoning.

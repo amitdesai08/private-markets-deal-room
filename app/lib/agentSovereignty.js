@@ -72,9 +72,13 @@ const REGISTRY = {
   'deal-room-legal-gc':         { class: AGENT_CLASS.INTERNAL, objective: 'legal & execution' },
   'deal-room-ir-lp':            { class: AGENT_CLASS.INTERNAL, objective: 'LP / fund reporting' },
   // The Fabric Data Agent queries the fund's OWN OneLake lakehouse (internal data), not the web.
-  'deal-room-fabric':           { class: AGENT_CLASS.INTERNAL, objective: 'NL Q&A over the fund lakehouse' },
+  'deal-room-fabric-iq':        { class: AGENT_CLASS.INTERNAL, objective: 'NL Q&A over the fund lakehouse' },
+  'deal-room-foundry-iq':       { class: AGENT_CLASS.INTERNAL, objective: 'firm playbooks, knowledge, and grounded synthesis' },
+  'deal-room-work-iq':          { class: AGENT_CLASS.INTERNAL, objective: 'user-scoped Microsoft 365 work context' },
+  'deal-room-hosted-iq-router': { class: AGENT_CLASS.INTERNAL, objective: 'route prompts to one governed IQ peer' },
   // External-web: the ONLY agent allowed to reach the public internet.
   'deal-room-news-scout':       { class: AGENT_CLASS.EXTERNAL, objective: 'public web sourcing signals' },
+  'deal-room-web-iq':           { class: AGENT_CLASS.EXTERNAL, objective: 'grounded public-web intelligence' },
 };
 
 export class SovereigntyError extends Error {

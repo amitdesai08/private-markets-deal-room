@@ -64,43 +64,51 @@ const TIERS: { key: string; title: string; blurb: string; match: (c: Connector) 
 // list that already answers "is it configured, and can I test it". Each shape is a
 // REAL connector's live status, read straight from the same rows the list below
 // renders — this never invents a connection the list does not also show.
-const HUB_SPOKES: { key: string; label: string; detail: string; match: (c: Connector) => boolean }[] = [
-  { key: 'workiq', label: 'Microsoft 365', detail: 'Teams · SharePoint · Email', match: (c) => c.kind === 'workiq' },
-  { key: 'web', label: 'Live web & news', detail: 'Open-web market signals', match: (c) => c.kind === 'web' },
-  { key: 'mcp', label: 'Market data providers', detail: 'Morningstar · LSEG · Moody\u2019s', match: (c) => c.kind === 'mcp' },
-  { key: 'fabric-agent', label: 'Fund data', detail: 'Ask-your-fund-data (Fabric)', match: (c) => c.kind === 'fabric-agent' },
-  { key: 'foundry-iq', label: 'Diligence knowledge', detail: 'Cited playbooks (Foundry IQ)', match: (c) => c.kind === 'foundry-iq' },
-  { key: 'sor', label: 'Your CRM', detail: 'Pipeline in, decisions out', match: (c) => c.kind === 'sor' },
+const HUB_SPOKES: { key: string; label: string; detail: string; glyph: string; match?: (c: Connector) => boolean; output?: boolean }[] = [
+  { key: 'sharepoint', label: 'SharePoint', detail: 'Data-room files', glyph: 'SP', match: (c) => c.kind === 'workiq' },
+  { key: 'teams', label: 'Teams', detail: 'Deal discussion', glyph: 'T', match: (c) => c.kind === 'workiq' },
+  { key: 'email', label: 'Email', detail: 'Correspondence', glyph: '@', match: (c) => c.kind === 'workiq' },
+  { key: 'ic-docs', label: 'IC documents', detail: 'Memo & papers', glyph: 'IC', output: true },
+  { key: 'decks', label: 'PowerPoint', detail: 'IC decks', glyph: 'P', output: true },
+  { key: 'models', label: 'Models', detail: 'Returns & scenarios', glyph: 'XL', output: true },
+  { key: 'fabric', label: 'Fabric', detail: 'Fund data', glyph: 'F', match: (c) => c.kind === 'fabric-agent' },
+  { key: 'foundry', label: 'Foundry IQ', detail: 'Diligence knowledge', glyph: 'IQ', match: (c) => c.kind === 'foundry-iq' },
+  { key: 'external', label: 'Market sources', detail: 'Web, filings & entities', glyph: 'M', match: (c) => ['web', 'edgar', 'gdelt', 'gleif', 'mcp', 'database'].includes(c.kind) },
 ];
 
 function IntegrationsHub({ rows }: { rows: Connector[] }) {
   const spokes = HUB_SPOKES
     .map((s) => {
-      const matches = rows.filter(s.match);
-      if (!matches.length) return null;
-      const connected = matches.some((c) => c.status === 'connected');
-      const enabled = matches.some((c) => c.enabled);
-      return { ...s, connected, enabled, count: matches.length };
+      const matches = s.match ? rows.filter(s.match) : [];
+      const connected = s.output || matches.some((c) => c.status === 'connected');
+      const enabled = s.output || matches.some((c) => c.enabled);
+      return { ...s, connected, enabled };
     })
-    .filter(Boolean) as (typeof HUB_SPOKES[number] & { connected: boolean; enabled: boolean; count: number })[];
-  if (!spokes.length) return null;
+    .filter(Boolean) as (typeof HUB_SPOKES[number] & { connected: boolean; enabled: boolean })[];
   return (
-    <div className="hub">
+    <section className="hub" aria-labelledby="data-map-title">
+      <div className="hub-heading">
+        <h3 id="data-map-title">The deal data map</h3>
+        <p>Every source and work product resolves to one governed deal record.</p>
+      </div>
       <div className="hub-center">
-        <span className="hub-center-t">Deal Room</span>
-        <span className="hub-center-s">Every workflow below feeds one governed record</span>
+        <span className="hub-center-mark">D</span>
+        <span className="hub-center-t">The deal</span>
+        <span className="hub-center-s">One record · governed lineage</span>
       </div>
       <div className="hub-spokes">
-        {spokes.map((s) => (
-          <div key={s.key} className="hub-spoke">
+        {spokes.map((s, index) => (
+          <div key={s.key} className={`hub-spoke hub-spoke-${index}`}>
+            <span className="hub-line" aria-hidden="true" />
+            <span className="hub-glyph" aria-hidden="true">{s.glyph}</span>
             <span className={`hub-dot ${s.connected ? 'hub-on' : s.enabled ? 'hub-partial' : 'hub-off'}`} />
             <span className="hub-spoke-t">{s.label}</span>
             <span className="hub-spoke-s">{s.detail}</span>
-            <span className="hub-spoke-status">{s.connected ? 'Connected' : s.enabled ? 'Enabled, not yet connected' : 'Off'}</span>
+            <span className="hub-spoke-status">{s.output ? 'Generated from the deal' : s.connected ? 'Connected' : s.enabled ? 'Needs attention' : 'Off'}</span>
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -528,23 +536,40 @@ const CSS = `
 .ds-empty { color: var(--muted); }
 .ds-head h2 { margin: 0 0 4px; font-size: 20px; }
 .ds-head p { margin: 0 0 18px; color: var(--muted); font-size: 13px; max-width: 760px; line-height: 1.5; }
-/* --- integrations hub: one big shape at the centre, a large shape per real
-   connection around it, wired together with a plain schematic line. --- */
-.hub { margin: 0 0 26px; padding: 22px 20px 26px; border: 1px solid var(--border, #2a2a35); border-radius: 14px; background: var(--card, #1b1b22); display: flex; flex-direction: column; align-items: center; }
-.hub-center { position: relative; z-index: 1; background: var(--accent, #5b8cff); color: var(--accent-fg, #fff); border-radius: 16px; padding: 16px 30px; text-align: center; min-width: 220px; }
-.hub-center::after { content: ''; position: absolute; left: 50%; bottom: -24px; width: 2px; height: 24px; background: var(--border, #2a2a35); transform: translateX(-50%); }
-.hub-center-t { display: block; font-size: 16px; font-weight: 800; }
-.hub-center-s { display: block; font-size: 11px; opacity: .85; margin-top: 4px; max-width: 220px; }
-.hub-spokes { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; width: 100%; margin-top: 24px; padding-top: 24px; border-top: 2px dashed var(--border, #2a2a35); }
-.hub-spoke { position: relative; flex: 1 1 170px; max-width: 210px; background: var(--hover, #22222c); border-radius: 12px; padding: 14px; text-align: center; }
-.hub-spoke::before { content: ''; position: absolute; left: 50%; top: -24px; width: 2px; height: 24px; background: var(--border, #2a2a35); transform: translateX(-50%); }
-.hub-dot { display: block; width: 10px; height: 10px; border-radius: 50%; margin: 0 auto 8px; }
+/* --- deal data map: a source web around the governed deal record. --- */
+.hub { position: relative; margin: 0 0 26px; min-height: 590px; padding: 20px; overflow: hidden; border: 1px solid var(--border, #2a2a35); border-radius: 8px; background: var(--card, #1b1b22); }
+.hub-heading h3 { margin: 0; font-size: 15px; }
+.hub-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.hub-center { position: absolute; z-index: 3; left: 50%; top: 52%; width: 184px; aspect-ratio: 1; transform: translate(-50%, -50%); display: grid; place-content: center; text-align: center; border-radius: 50%; background: var(--accent, #5b8cff); color: var(--accent-fg, #fff); box-shadow: 0 0 0 12px color-mix(in srgb, var(--accent) 16%, transparent); }
+.hub-center-mark { width: 40px; height: 40px; margin: 0 auto 8px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.55); border-radius: 50%; font-size: 18px; font-weight: 800; }
+.hub-center-t { display: block; font-size: 19px; font-weight: 800; }
+.hub-center-s { display: block; font-size: 11px; opacity: .86; margin-top: 4px; }
+.hub-spokes { position: absolute; inset: 84px 34px 28px; }
+.hub-spoke { position: absolute; z-index: 2; width: 148px; min-height: 96px; box-sizing: border-box; transform: translate(-50%, -50%); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 9px 42px; background: var(--hover, #22222c); text-align: left; }
+.hub-spoke-0 { left: 20%; top: 10%; } .hub-spoke-1 { left: 50%; top: 4%; } .hub-spoke-2 { left: 80%; top: 10%; }
+.hub-spoke-3 { left: 93%; top: 35%; } .hub-spoke-4 { left: 93%; top: 72%; } .hub-spoke-5 { left: 70%; top: 94%; }
+.hub-spoke-6 { left: 50%; top: 96%; } .hub-spoke-7 { left: 25%; top: 94%; } .hub-spoke-8 { left: 7%; top: 52%; }
+.hub-line { position: absolute; z-index: -1; left: 50%; top: 50%; width: 260px; height: 1px; background: var(--border); transform-origin: left center; pointer-events: none; }
+.hub-spoke-0 .hub-line { transform: rotate(43deg); } .hub-spoke-1 .hub-line { transform: rotate(90deg); }
+.hub-spoke-2 .hub-line { transform: rotate(137deg); } .hub-spoke-3 .hub-line { transform: rotate(165deg); }
+.hub-spoke-4 .hub-line { transform: rotate(205deg); } .hub-spoke-5 .hub-line { transform: rotate(245deg); }
+.hub-spoke-6 .hub-line { transform: rotate(270deg); } .hub-spoke-7 .hub-line { transform: rotate(305deg); } .hub-spoke-8 .hub-line { transform: rotate(0deg); }
+.hub-glyph { position: absolute; left: 10px; top: 13px; width: 25px; height: 25px; display: grid; place-items: center; border-radius: 5px; background: var(--chip); color: var(--accent); font-size: 10px; font-weight: 800; }
+.hub-dot { position: absolute; right: 8px; top: 8px; width: 8px; height: 8px; border-radius: 50%; }
 .hub-dot.hub-on { background: var(--good, #2fa86a); }
 .hub-dot.hub-partial { background: var(--warn, #b26a00); }
 .hub-dot.hub-off { background: var(--muted, #7a7a86); }
-.hub-spoke-t { display: block; font-weight: 700; font-size: 13px; color: var(--fg); }
+.hub-spoke-t { display: block; font-weight: 700; font-size: 12.5px; color: var(--fg); }
 .hub-spoke-s { display: block; font-size: 11px; color: var(--muted); margin: 3px 0 6px; }
 .hub-spoke-status { display: block; font-size: 10.5px; font-weight: 600; color: var(--muted); }
+@media (max-width: 760px) {
+  .hub { min-height: 0; }
+  .hub-heading { margin-bottom: 16px; }
+  .hub-center { position: relative; left: auto; top: auto; width: 150px; margin: 0 auto 16px; transform: none; }
+  .hub-spokes { position: static; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .hub-spoke { position: relative; left: auto; top: auto; width: auto; min-height: 88px; transform: none; }
+  .hub-line { display: none; }
+}
 .ds-add { border: 1px dashed var(--border, #33333f); border-radius: 10px; padding: 12px 14px; margin-bottom: 22px; background: var(--card, #1b1b22); }
 .ds-add-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
 .ds-add-t { font-weight: 600; font-size: 14px; color: var(--fg); }

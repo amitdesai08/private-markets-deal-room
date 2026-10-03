@@ -5,8 +5,8 @@
 > today, see [How it works](../HOW-IT-WORKS.md) or the [Security & compliance](../SECURITY-COMPLIANCE.md)
 > control matrix.
 
-A tracked backlog of the WorkIQ follow-ups plus the product/UX items raised on
-2026-07-24. Each item states the **problem**, a grounded **analysis** (with the
+A tracked backlog of the WorkIQ follow-ups plus the product/UX items raised through
+2026-10-01. Each item states the **problem**, a grounded **analysis** (with the
 files involved), the **proposed approach**, and a rough **effort**. Nothing here is
 implemented yet — this is the plan.
 
@@ -35,6 +35,9 @@ implemented yet — this is the plan.
 | I3 · PE personas researched + documented | ✅ done — [PERSONAS.md](../PERSONAS.md) |
 | I4 · Role-aware "what can you do?" capabilities | ✅ done — [capabilities.js](../../app/lib/capabilities.js) + `/capabilities` |
 | I5 · Builder/IT explainer + PE glossary | ✅ done — [EXPLAINER.md](EXPLAINER.md) |
+| J1 · radial Deal Data Map | ✅ implemented; desktop/mobile build and visual checks pass |
+| J2 · real, traceable Microsoft 365 demo corpus | ⏳ live SharePoint + demo Team membership + provenance guards complete; authored Teams/email awaits delegated sender consent |
+| J3 · one-click SharePoint and collaboration navigation | ✅ implemented; five contextual shortcuts, desktop/mobile verified |
 
 ---
 
@@ -227,6 +230,7 @@ inert scaffold into a live capability.
 3. **Responsive pass:** E1.
 4. **Docs:** F1 (and this backlog stays the tracker).
 5. **WorkIQ go-live:** A1 → A2 → A3 (A2 is mostly tenant-admin; A1 unblocks agent calls).
+6. **Data provenance + navigation:** J2 → J1 → J3 (real source artifacts first, then map and shortcuts to them).
 
 ---
 
@@ -347,3 +351,65 @@ persona prompts (item 1), then add the missing connectors (item 3).
 - **Follow-on (optional):** thread the end-user identity through the orchestrator→specialist→MCP
   hop so the shared MCP can gate per-user need-to-know (see the I1 trade-off above); today the
   specialists ground via the read-only MCP under the app identity.
+
+---
+
+## J · Data provenance and minimal-click navigation
+
+### J1 · Radial Deal Data Map
+- **Status (2026-10-01):** implemented in Settings → Data Sources with nine live-status
+  spokes, including Foundry IQ, and a responsive two-column mobile flow. Production build and
+  desktop/mobile overlap checks pass.
+- **Problem:** Settings lists connectors, but it does not make the deal-level data model tangible.
+  A user should immediately see how IC documents, PowerPoint decks, SharePoint files, Teams
+  discussion, email, models, market data, Fabric, and diligence findings feed one governed deal.
+- **Approach:** add a responsive radial map to **Settings → Data Sources** with a large Deal node
+  in the center and source-family nodes arranged around it. Use familiar source/file icons,
+  connector health, item counts, and directional links; selecting a node filters to that source's
+  artifacts and exposes its real location and lineage. Collapse to an accessible list/flow on
+  narrow Teams and mobile layouts rather than shrinking labels into an unreadable circle.
+- **Acceptance:** every displayed node is backed by connector/artifact data, distinguishes
+  Connected/Off/Degraded truthfully, and links to the exact deal artifacts it represents. The map
+  must include IC docs, PowerPoint, SharePoint, Teams, email, models, Fabric, and external sources.
+- **Effort:** M.
+
+### J2 · Replace fabricated collaboration data with a real Microsoft 365 demo corpus
+- **Status (2026-10-01):** partially complete. Helvetia has a real Teams channel and a real
+  SharePoint data room with stable Graph IDs/URLs and native Word, Excel, and PowerPoint files.
+  The existing licensed demo Administrator, Analyst, and Partner identities are now members of
+  the `Private Equity Deals` Team. Live Work IQ no longer silently falls back to seed data, and
+  both live and demo records carry explicit source/ingestion provenance. Honest multi-author
+  Teams posts and Exchange threads remain blocked until those users sign in with delegated
+  `ChannelMessage.Send` and mail-send consent; no passwords were reset and no content was
+  falsely attributed.
+- **Problem:** Teams messages, email, and related collaboration records appear in the product but
+  are currently seeded fixtures. That prevents a presenter or reviewer from proving who created an
+  item, where it lives, and which source supplied it.
+- **Approach:** create approved demo identities managed from the `desaiamit` tenant user, assign
+  least-privilege licenses/roles, and use Microsoft Graph to populate the real Deal Room Team,
+  channels, shared mailbox, and SharePoint library with the existing deal narrative. Create the IC
+  documents, PowerPoint decks, email threads, channel discussions, and supporting files in their
+  native Microsoft 365 locations. Record immutable Graph IDs, web URLs, author identities,
+  timestamps, source type, and deal ID so every in-app item carries end-to-end provenance. Keep
+  credentials in Entra/Key Vault and clearly identify all accounts and content as demo-only.
+- **Acceptance:** live production demo surfaces contain no fabricated Teams/email/SharePoint
+  records; each item opens its exact Microsoft 365 artifact and shows source, author, timestamp,
+  and ingestion path. Automated checks compare the app record with Graph and fail if a live item
+  silently falls back to seed data. Access remains bounded by deal membership and the active user.
+- **Effort:** L. **Depends on:** tenant approval, demo-user licensing, and A3 for per-user OBO.
+
+### J3 · One-click access to SharePoint and collaboration
+- **Status (2026-10-01):** implemented on the deal header. SharePoint, collaboration,
+  documents, messages/email, and agents are directly accessible; the strip becomes a stable
+  three-column grid on mobile. Production build and desktop/mobile overflow checks pass.
+- **Problem:** key work surfaces exist, but users must hunt through tabs and drawers to reach the
+  SharePoint data room, Teams collaboration, email context, generated documents, and deal agents.
+- **Approach:** add a compact contextual action strip on the home/deal header with direct actions
+  for **Open SharePoint**, **Open collaboration**, **Documents**, **Messages & email**, and **Ask
+  agents**. Deep-link to the current deal's real Team/channel/folder when available; hide or disable
+  unavailable actions with an honest reason. Reuse the same actions in search results and the Deal
+  Data Map instead of creating a second navigation model.
+- **Acceptance:** from the portfolio or an open deal, SharePoint and collaboration are reachable in
+  one click, all other key surfaces in at most two; links preserve deal context, honor RBAC, and are
+  verified in desktop, narrow Teams, and mobile layouts.
+- **Effort:** M. **Depends on:** J2's canonical Microsoft 365 URLs and IDs.

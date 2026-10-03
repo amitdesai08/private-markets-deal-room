@@ -7,8 +7,9 @@ import { af } from './authFetch';
 // resurfaces in the value-creation run. This panel makes that durable memory visible.
 
 type Note = { id: string; author: string; personaLabel?: string; role?: string; text: string; sharedWith: string[]; createdAt: string };
-type CorpusMsg = { from: string; created: string; preview: string };
-type Corpus = { channel?: { name: string; messages: CorpusMsg[] } | null; files?: { name: string; summary: string; lastModified: string }[]; mail?: { subject: string; from: string; received: string; preview: string }[] };
+type Provenance = { sourceType?: 'seed' | 'derived'; ingestionPath?: string };
+type CorpusMsg = Provenance & { from: string; created: string; preview: string };
+type Corpus = { sourceType?: 'demo'; channel?: { name: string; messages: CorpusMsg[] } | null; files?: (Provenance & { name: string; summary: string; lastModified: string })[]; mail?: (Provenance & { subject: string; from: string; received: string; preview: string })[] };
 
 const SHARE_OPTIONS: { id: string; label: string }[] = [
   { id: 'partner', label: 'Lead Partner' },
@@ -117,7 +118,7 @@ export default function WorkIqPanel({ dealId, canWrite, onAsk }: { dealId: strin
       <section className="dd-panel wiq">
         <div className="dd-panel-h">
           <span>Files, chats & email on this deal</span>
-          <span className="muted">Microsoft 365 — Teams · SharePoint · Mail</span>
+          <span className="muted">Demo corpus — not read from Microsoft 365</span>
         </div>
         <div className="wiq-corpus">
           {corpus.channel ? (
@@ -125,7 +126,7 @@ export default function WorkIqPanel({ dealId, canWrite, onAsk }: { dealId: strin
               <div className="wiq-ch">Teams channel · {corpus.channel.name}</div>
               {corpus.channel.messages.slice(0, 5).map((m, i) => (
                 <div className="wiq-cmsg" key={i}>
-                  <div className="wiq-cmeta"><span className="wiq-cwho">{m.from}</span><span className="wiq-ctime">{ago(m.created)}</span></div>
+                  <div className="wiq-cmeta"><span className="wiq-cwho">{m.from}</span><span className="wiq-ctime">{ago(m.created)} · {m.sourceType === 'derived' ? 'from deal record' : 'demo seed'}</span></div>
                   <div className="wiq-cprev">{m.preview}</div>
                 </div>
               ))}
@@ -136,7 +137,7 @@ export default function WorkIqPanel({ dealId, canWrite, onAsk }: { dealId: strin
             <div className="wiq-cgroup">
               <div className="wiq-ch">Data room · files ({corpus.files!.length})</div>
               {corpus.files!.map((f, i) => (
-                <button type="button" className="wiq-file wiq-clk" key={i} onClick={() => onAsk?.(`Open the file “${f.name}” and give me its key points and any risks for this deal.`)} disabled={!onAsk}><span className="wiq-fname">{f.name}</span><span className="wiq-fsum">{f.summary}</span></button>
+                <button type="button" className="wiq-file wiq-clk" key={i} onClick={() => onAsk?.(`Open the file “${f.name}” and give me its key points and any risks for this deal.`)} disabled={!onAsk}><span className="wiq-fname">{f.name}</span><span className="wiq-fsum">{f.sourceType === 'derived' ? 'From deal record' : 'Demo seed'} · {f.summary}</span></button>
               ))}
             </div>
           ) : null}
@@ -144,7 +145,7 @@ export default function WorkIqPanel({ dealId, canWrite, onAsk }: { dealId: strin
             <div className="wiq-cgroup">
               <div className="wiq-ch">Mailbox ({corpus.mail!.length})</div>
               {corpus.mail!.map((m, i) => (
-                <button type="button" className="wiq-file wiq-clk" key={i} onClick={() => onAsk?.(`Summarise this email for the deal — “${m.subject}” from ${m.from} — and what it means for us.`)} disabled={!onAsk}><span className="wiq-fname">{m.subject}</span><span className="wiq-fsum">{m.from} · {m.preview}</span></button>
+                <button type="button" className="wiq-file wiq-clk" key={i} onClick={() => onAsk?.(`Summarise this email for the deal — “${m.subject}” from ${m.from} — and what it means for us.`)} disabled={!onAsk}><span className="wiq-fname">{m.subject}</span><span className="wiq-fsum">{m.sourceType === 'derived' ? 'From deal record' : 'Demo seed'} · {m.from} · {m.preview}</span></button>
               ))}
             </div>
           ) : null}

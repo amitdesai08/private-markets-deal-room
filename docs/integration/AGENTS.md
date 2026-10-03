@@ -1,5 +1,7 @@
 # Agents & skills
 
+This project was built with the microsoft-foundry skill. Before working on or answering questions about foundry agents, read the microsoft-foundry skill first.
+
 The Deal Room gives the team a **specialist for every job on a deal** — each drawing on the live
 record, each bounded by who's asking — so people get decision-grade answers without a generic
 chatbot guessing. This is the full reference:
@@ -34,8 +36,59 @@ deal data (see [DATA-SOVEREIGNTY.md](../security/DATA-SOVEREIGNTY.md)).
 | `deal-room-fund-cfo` | Fund CFO | internal-data | Returns & financing — LBO / IRR / MOIC, sources & uses | Stage 2–4 |
 | `deal-room-legal-gc` | General Counsel | internal-data | Legal diligence & execution — SPA, R&W, KYC/AML | Stage 2–3 |
 | `deal-room-ir-lp` | Gwendolyn Vale — IR / LP | internal-data | LP lens — exposure, ILPA/SFDR reporting, concentration | All stages |
-| `deal-room-fabric` | Fabric Data Agent | internal-data | NL Q&A over the fund's OneLake lakehouse | Cross-cutting |
+| `deal-room-fabric-iq` | Fabric IQ peer | internal-data | Governed Fabric business data and analytics | Cross-cutting |
 | `deal-room-news-scout` | News Scout | **external-web** | Public web sourcing signals (Bing-grounded) | Stage 1 (sourcing) |
+| `deal-room-work-iq` | Work IQ peer | internal-data | User-scoped Microsoft 365 work context through native Work IQ | Cross-cutting |
+| `deal-room-web-iq` | Web IQ peer | **external-web** | Current public-web intelligence through native Foundry web search | Cross-cutting |
+
+## Microsoft IQ + bounded A2A
+
+Microsoft Foundry hosts four live capability peers provisioned by
+[create_iq_a2a_agents.py](../../app/scripts/create_iq_a2a_agents.py). The script also versions and
+promotes the reusable `deal-room-iq` toolbox with native `work_iq_preview`, `fabric_iq_preview`,
+Foundry IQ knowledge-base MCP, and `web_search` entries. The peers wrap those capabilities with
+Deal Room-specific instructions and expose A2A for bounded collaboration:
+
+| Agent | Native tool | Incoming protocol |
+|---|---|---|
+| `deal-room-work-iq` | Work IQ MCP (`workiq.svc.cloud.microsoft`) with `UserEntraToken` | A2A |
+| `deal-room-web-iq` | Foundry `web_search` | A2A |
+| `deal-room-foundry-iq` | Foundry IQ knowledge base | A2A |
+| `deal-room-fabric-iq` | Fabric IQ | A2A |
+
+The peers are intentionally separate. The router sends Microsoft 365 questions only to Work IQ
+and public-only questions only to Web IQ. It must refuse requests that would transfer Work IQ
+results, deal records, correspondence, private documents, or other internal context into Web IQ.
+Work IQ retains the signed-in user's permissions; Web IQ has no internal-data connection.
+
+## Four-IQ orchestration map
+
+Every prompt is classified by the registry in
+[`iqRegistry.js`](../../app/lib/iqRegistry.js) to one primary capability. The registry is
+returned by the orchestrator metadata endpoint and drives the visible route in the assistant.
+
+| IQ | Owning agent | Evidence | Boundary |
+|---|---|---|---|
+| **Foundry IQ** | `deal-room-foundry-iq` | Firm playbooks, governed knowledge, citations, synthesis | Internal only |
+| **Fabric IQ** | `deal-room-fabric-iq` | Fund, portfolio, model, and OneLake analytics | Internal only |
+| **Work IQ** | `deal-room-work-iq` | User-scoped Teams, SharePoint, Outlook, meetings | Internal only; delegated user token |
+| **Web IQ** | `deal-room-web-iq` | Current public-web research | Public only; no deal or M365 access |
+
+The full agent-to-agent view is in
+[Multi-agent and IQ orchestration](../diagrams/agent-iq-a2a.md). The assistant shows the
+operational trace for each turn: IQ route, A2A handoffs, bounded evidence returned, and final
+synthesis. It deliberately does not expose private model chain-of-thought.
+
+### Selective hosted-agent implementation
+
+The active policy router is `deal-room-hosted-iq-router:2`, implemented in
+[`hosted-agents/iq-router`](../../hosted-agents/iq-router/) as a Foundry hosted Responses v2
+agent. It owns deterministic classification and the internal/public-web boundary, but no source
+data and no A2A tools. The Node orchestrator validates its result against the canonical registry
+and falls back to the same local policy if the endpoint is unavailable or malformed. The
+orchestrator and purpose specialists remain Foundry prompt agents: that preserves user-scoped
+grounding and keeps A2A calls and evidence interpretation inspectable instead of hiding them
+inside one hosted process.
 
 ## Purpose-based agents & orchestrator delegation (live in Foundry)
 

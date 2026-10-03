@@ -1,0 +1,14 @@
+name: deal-room-hosted-iq-router-smoke
+agent:
+    name: deal-room-hosted-iq-router
+    kind: hosted
+    config: .agent_configs/baseline/metadata.yaml
+dataset:
+    local_uri: ../../.foundry/datasets/iq-router-smoke.jsonl
+evaluators:
+    - name: deal-room-hosted-iq-router-smoke
+      version: "2"
+            local_uri: evaluators/deal-room-hosted-iq-router-smoke/rubric_dimensions.json
+options:
+    eval_model: gpt-5-mini
+max_samples: 16

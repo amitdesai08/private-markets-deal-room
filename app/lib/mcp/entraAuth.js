@@ -24,7 +24,7 @@ const TENANT_ID = config.mcpAuth.tenantId;
 const AUDIENCES = config.mcpAuth.audiences;
 const REQUIRED_SCOPE = config.mcpAuth.requiredScope;
 const DISABLED = config.mcpAuth.disabled;
-// A static, read-only API key that lets a hosted caller (e.g. an Azure AI Foundry
+// A static, read-only API key that lets a hosted caller (e.g. a Microsoft Foundry
 // agent published to Teams, which executes MCP tools server-side and can't perform
 // a rotating Entra OAuth flow) reach ONLY the read-only MCP surface. It never grants
 // the write/action tools — those stay Entra-guarded on /mcp. The 'unset' sentinel is

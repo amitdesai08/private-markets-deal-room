@@ -463,6 +463,21 @@ export function listConnectors() {
   });
 }
 
+// Populate process-local status after every revision starts. Only sources that
+// are genuinely configured and testable are probed; unavailable paid providers
+// remain disconnected until the fund supplies credentials and entitlements.
+export function startupProbeCandidates(connectors = listConnectors()) {
+  return connectors.filter((c) => c.enabled && c.configured && c.testable);
+}
+
+export async function probeConfiguredConnectors() {
+  const candidates = startupProbeCandidates();
+  const settled = await Promise.allSettled(candidates.map((c) => testConnector(c.id, { force: true })));
+  return settled.map((entry, index) => entry.status === 'fulfilled'
+    ? entry.value
+    : { id: candidates[index].id, status: 'degraded', message: String(entry.reason?.message || entry.reason) });
+}
+
 // Disconnect an OAuth-backed connector: remove its stored delegated token so the
 // panel reports it as disconnected and the next use requires a fresh sign-in.
 // Only m365 + MCP providers hold a token; other kinds are not disconnectable.

@@ -99,9 +99,9 @@ export function seedFilesResult(query, size = 10) {
   const results = FILES
     .filter((f) => matches(`${f.name} ${f.summary}`, query))
     .slice(0, size)
-    .map((f) => ({ id: f.name, type: f.type, name: f.name, webUrl: undefined, lastModified: f.lastModified, summary: f.summary }));
-  const out = results.length ? results : FILES.slice(0, size).map((f) => ({ id: f.name, type: f.type, name: f.name, lastModified: f.lastModified, summary: f.summary }));
-  return { source: 'workiq.demo', entity: 'files', query: query || '', count: out.length, results: out, demo: true };
+    .map((f) => ({ id: f.name, dealId: f.deal, type: f.type, name: f.name, webUrl: undefined, lastModified: f.lastModified, timestamp: f.lastModified, summary: f.summary, sourceType: 'seed', ingestionPath: 'bundled-demo-corpus' }));
+  const out = results.length ? results : FILES.slice(0, size).map((f) => ({ id: f.name, dealId: f.deal, type: f.type, name: f.name, lastModified: f.lastModified, timestamp: f.lastModified, summary: f.summary, sourceType: 'seed', ingestionPath: 'bundled-demo-corpus' }));
+  return { source: 'workiq.demo', sourceType: 'seed', ingestionPath: 'bundled-demo-corpus', entity: 'files', query: query || '', count: out.length, results: out, demo: true };
 }
 
 export function seedSearchResult(query, size = 10) {
@@ -110,9 +110,9 @@ export function seedSearchResult(query, size = 10) {
 
 export function seedMailResult({ query, user, top = 10 } = {}) {
   const results = MAIL.filter((m) => matches(`${m.subject} ${m.preview}`, query)).slice(0, top)
-    .map((m) => ({ subject: m.subject, from: m.from, received: m.received, preview: m.preview, webLink: undefined }));
-  const out = results.length ? results : MAIL.slice(0, top).map((m) => ({ subject: m.subject, from: m.from, received: m.received, preview: m.preview }));
-  return { source: 'workiq.demo', entity: 'mail', user: user || 'deal-team@fund.example', query: query || '', count: out.length, results: out, demo: true };
+    .map((m) => ({ id: `${m.deal}:${m.subject}`, dealId: m.deal, subject: m.subject, from: m.from, author: m.from, received: m.received, timestamp: m.received, preview: m.preview, webLink: undefined, sourceType: 'seed', ingestionPath: 'bundled-demo-corpus' }));
+  const out = results.length ? results : MAIL.slice(0, top).map((m) => ({ id: `${m.deal}:${m.subject}`, dealId: m.deal, subject: m.subject, from: m.from, author: m.from, received: m.received, timestamp: m.received, preview: m.preview, sourceType: 'seed', ingestionPath: 'bundled-demo-corpus' }));
+  return { source: 'workiq.demo', sourceType: 'seed', ingestionPath: 'bundled-demo-corpus', entity: 'mail', user: user || 'deal-team@fund.example', query: query || '', count: out.length, results: out, demo: true };
 }
 
 export function seedChannelResult({ team_id, channel_id, query, top = 15 } = {}) {
@@ -123,9 +123,9 @@ export function seedChannelResult({ team_id, channel_id, query, top = 15 } = {})
   // its LIMS finding and its $384M debt package. One deal's conversation on another deal's
   // screen is worse than no conversation, so an unmatched hint now returns nothing.
   const pick = CHANNELS.find((c) => matches(`${c.deal} ${c.channel}`, hint)) || null;
-  if (!pick) return { source: 'workiq.demo', entity: 'channel', team_id: team_id || null, channel_id: channel_id || null, count: 0, results: [], demo: true };
-  const results = (pick.messages || []).slice(0, top).map((m) => ({ from: m.from, created: m.created, preview: m.preview, webUrl: undefined }));
-  return { source: 'workiq.demo', entity: 'channel', team_id: team_id || pick.deal, channel_id: channel_id || pick.channel, count: results.length, results, demo: true };
+  if (!pick) return { source: 'workiq.demo', sourceType: 'seed', ingestionPath: 'bundled-demo-corpus', entity: 'channel', team_id: team_id || null, channel_id: channel_id || null, count: 0, results: [], demo: true };
+  const results = (pick.messages || []).slice(0, top).map((m, index) => ({ id: `${pick.deal}:${index + 1}`, dealId: pick.deal, from: m.from, author: m.from, created: m.created, timestamp: m.created, preview: m.preview, webUrl: undefined, sourceType: 'seed', ingestionPath: 'bundled-demo-corpus' }));
+  return { source: 'workiq.demo', sourceType: 'seed', ingestionPath: 'bundled-demo-corpus', entity: 'channel', team_id: team_id || pick.deal, channel_id: channel_id || pick.channel, count: results.length, results, demo: true };
 }
 
 // The seeded M365 corpus for ONE deal — Teams channel, SharePoint files and mail — so the

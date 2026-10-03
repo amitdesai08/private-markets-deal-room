@@ -1,68 +1,44 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
-#
-# Azure Developer CLI template for the Deal Room accelerator.
-#   azd up   →  provision (infra/main.bicep)  →  postprovision hook (Entra apps, full mode)
-#            →  build + push the orchestrator & teams images to ACR  →  deploy  →  done.
-#
-# Modes (set once with `azd env set DEALROOM_MODE <mode>`):
-#   demo  (default) — infra + seeded data + images. No identity, no admin needed. ONE `azd up`.
-#   full            — also provisions Teams SSO / M365 / bot Entra apps (needs an Entra admin).
-#                     Run `azd up` once to create + register the identity, then `azd up` again
-#                     to wire it into the platform.
-#
-# DEALROOM_MODE only gates identity provisioning. The fake showcase deals/candidates are a
-# separate flag: `azd env set SEED_DEMO_DATA false` before the first deploy for a customer
-# jumpstart (real firm, not a demo) so the store boots empty instead of seeded. See
-# docs/DEPLOY.md#demo-data-vs-a-customer-jumpstart.
+
 name: deal-room
 metadata:
-  template: deal-room-teams@1.0.0
-
-infra:
-  provider: bicep
-  path: infra
-  module: main
-
+    template: deal-room-teams@1.0.0
 services:
-  orchestrator:
-    project: ./app
-    language: js
-    host: containerapp
-    docker:
-      path: Dockerfile
-      remoteBuild: true
-  teams:
-    project: ./teams-app
-    language: js
-    host: containerapp
-    docker:
-      path: Dockerfile
-      remoteBuild: true
-
+    orchestrator:
+        project: ./app
+        host: containerapp
+        language: js
+        docker:
+            path: Dockerfile
+            remoteBuild: true
+    teams:
+        project: ./teams-app
+        host: containerapp
+        language: js
+        docker:
+            path: Dockerfile
+            remoteBuild: true
+infra:
+    provider: microsoft.foundry
+    module: main
 hooks:
-  postprovision:
-    windows:
-      shell: pwsh
-      run: ./scripts/azd-postprovision.ps1
-      continueOnError: false
-      interactive: true
-    posix:
-      shell: sh
-      run: ./scripts/azd-postprovision.sh
-      continueOnError: false
-      interactive: true
-  postdeploy:
-    # Provision the Foundry AGENTS (Deal Orchestrator, News Scout, 10 persona agents)
-    # into the deployed project. Best-effort — skips gracefully without the Python SDK
-    # / Foundry access, or when DEALROOM_AGENTS=false. continueOnError so a data-only
-    # demo never fails on agent provisioning.
-    windows:
-      shell: pwsh
-      run: ./scripts/azd-postdeploy.ps1
-      continueOnError: true
-      interactive: true
-    posix:
-      shell: sh
-      run: ./scripts/azd-postdeploy.sh
-      continueOnError: true
-      interactive: true
+    postdeploy:
+        windows:
+            shell: pwsh
+            run: ./scripts/azd-postdeploy.ps1
+            continueOnError: true
+            interactive: true
+        posix:
+            shell: sh
+            run: ./scripts/azd-postdeploy.sh
+            continueOnError: true
+            interactive: true
+    postprovision:
+        windows:
+            shell: pwsh
+            run: ./scripts/azd-postprovision.ps1
+            interactive: true
+        posix:
+            shell: sh
+            run: ./scripts/azd-postprovision.sh
+            interactive: true

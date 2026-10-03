@@ -1361,6 +1361,22 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .badlink { margin: 0; padding: 9px 16px; font-size: 12.5px; background: var(--warn-bg, #fff6e5); color: var(--warn, #8a5a00); border-bottom: 1px solid var(--border); }
 .drawer-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .drawer-title { font-weight: 700; font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deal-quick { display: flex; align-items: stretch; gap: 4px; }
+.deal-quick-btn { min-width: 86px; height: 48px; display: grid; grid-template-columns: 24px 1fr; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--card); color: var(--fg); border-radius: 6px; padding: 5px 8px; cursor: pointer; font: inherit; font-size: 10.5px; line-height: 1.15; text-align: left; }
+.deal-quick-btn:hover:not(:disabled), .deal-quick-btn.on { border-color: var(--accent); color: var(--accent); background: var(--chip); }
+.deal-quick-btn:disabled { opacity: .55; cursor: default; }
+.deal-quick-mark { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 5px; background: var(--chip); color: var(--accent); font-size: 9px; font-weight: 800; }
+.copylink { border: 0; background: transparent; color: var(--muted); padding: 4px; cursor: pointer; font: inherit; font-size: 11px; white-space: nowrap; }
+.copylink:hover { color: var(--accent); }
+@media (max-width: 1040px) {
+  .drawer-head { flex-wrap: wrap; }
+  .deal-quick { order: 3; width: 100%; overflow-x: auto; padding-bottom: 2px; }
+  .deal-quick-btn { flex: 1 0 104px; }
+}
+@media (max-width: 600px) {
+  .deal-quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; }
+  .deal-quick-btn { min-width: 0; width: 100%; }
+}
 .chbtn { border: 1px solid var(--accent); background: var(--chip); color: var(--accent); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .chbtn:hover:not(:disabled) { background: var(--accent); color: var(--accent-fg); }
 .chbtn:disabled { opacity: .6; cursor: default; }

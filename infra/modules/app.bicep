@@ -22,6 +22,7 @@ param containerTargetPort int
 param orchestratorImage string
 param appModelDeployment string
 param dealAgentName string
+param hostedIqRouterEndpoint string = ''
 param entraTenantId string
 param mcpAudience string
 param mcpRequiredScope string
@@ -247,6 +248,7 @@ resource orchestratorApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AZURE_OPENAI_DEPLOYMENT', value: appModelDeployment }
             { name: 'AZURE_OPENAI_API_VERSION', value: '2024-12-01-preview' }
             { name: 'FOUNDRY_PROJECT_ENDPOINT', value: foundryProjectEndpoint }
+            { name: 'HOSTED_IQ_ROUTER_ENDPOINT', value: hostedIqRouterEndpoint }
             { name: 'FOUNDRY_IQ_SEARCH_ENDPOINT', value: foundryIqSearchEndpoint }
             { name: 'FOUNDRY_IQ_KNOWLEDGE_BASE', value: foundryIqKnowledgeBase }
             { name: 'FOUNDRY_IQ_KNOWLEDGE_SOURCE', value: foundryIqKnowledgeSource }

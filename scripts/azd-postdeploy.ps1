@@ -25,6 +25,18 @@ function Val($n) { ($vals | Select-String -Pattern "(?i)^$n=""?(.*?)""?\s*$").Ma
 $foundry = Val 'FOUNDRY_PROJECT_ENDPOINT'; if (-not $foundry) { $foundry = Val 'foundryProjectEndpoint' }
 $orchFqdn = Val 'orchestratorFqdn'
 $bingConn = Val 'bingConnectionId'
+$workIqConn = Val 'workIqConnectionId'
+$workIqNativeConn = Val 'workIqNativeConnectionId'
+$workIqA2aConn = Val 'workIqA2aConnectionId'
+$webIqA2aConn = Val 'webIqA2aConnectionId'
+$foundryIqA2aConn = Val 'foundryIqA2aConnectionId'
+$fabricIqA2aConn = Val 'fabricIqA2aConnectionId'
+$foundryIqConn = Val 'foundryIqConnectionId'
+$fabricIqConn = Val 'fabricIqConnectionId'
+$foundryIqSearch = Val 'FOUNDRY_IQ_SEARCH_ENDPOINT'
+$foundryIqKb = Val 'FOUNDRY_IQ_KNOWLEDGE_BASE'
+$foundryIqApi = Val 'FOUNDRY_IQ_API_VERSION'
+$fabricIqUrl = Val 'FABRIC_IQ_SERVER_URL'
 $model = if ($env:DEAL_AGENT_MODEL) { $env:DEAL_AGENT_MODEL } else { 'gpt-5-mini' }
 
 if (-not $foundry) {
@@ -58,6 +70,7 @@ $mcpUrl = if ($orchFqdn) { "https://$orchFqdn/mcp-ro" } else { '' }
 $env:FOUNDRY_PROJECT_ENDPOINT = $foundry
 $env:DEAL_AGENT_MODEL = $model
 $env:NEWS_AGENT_MODEL = $model
+$env:IQ_AGENT_MODEL = $model
 if ($mcpUrl) { $env:MCP_RO_URL = $mcpUrl }
 if ($mcpKey) { $env:MCP_READONLY_KEY = $mcpKey }
 
@@ -79,6 +92,27 @@ if ($mcpKey) {
   try { & $py.Source (Join-Path $scripts 'create_persona_agents.py'); Write-Host '[azd]   ✓ Persona agents (10)' } catch { Write-Warning "[azd]   ✗ Persona agents: $($_.Exception.Message)" }
 } else {
   Write-Warning '[azd]   – Persona agents skipped (no MCP_READONLY_KEY). Set it and run app/scripts/create_persona_agents.py.'
+}
+
+# 4) Microsoft IQ peers and the native four-capability Foundry toolbox.
+if ($workIqConn -and $workIqNativeConn) {
+  $env:WORKIQ_PROJECT_CONNECTION_ID = $workIqConn
+  $env:WORKIQ_NATIVE_CONNECTION_ID = $workIqNativeConn
+  $env:WORKIQ_A2A_CONNECTION_ID = $workIqA2aConn
+  $env:WEBIQ_A2A_CONNECTION_ID = $webIqA2aConn
+  if ($foundryIqA2aConn) { $env:FOUNDRY_IQ_A2A_CONNECTION_ID = $foundryIqA2aConn }
+  if ($fabricIqA2aConn) { $env:FABRIC_IQ_A2A_CONNECTION_ID = $fabricIqA2aConn }
+  if ($foundryIqConn -and $foundryIqSearch -and $foundryIqKb) {
+    $env:FOUNDRY_IQ_CONNECTION_ID = $foundryIqConn
+    $env:FOUNDRY_IQ_SERVER_URL = "$($foundryIqSearch.TrimEnd('/'))/knowledgebases/$foundryIqKb/mcp?api-version=$foundryIqApi"
+  }
+  if ($fabricIqConn -and $fabricIqUrl) {
+    $env:FABRIC_IQ_CONNECTION_ID = $fabricIqConn
+    $env:FABRIC_IQ_SERVER_URL = $fabricIqUrl
+  }
+  try { & $py.Source (Join-Path $scripts 'create_iq_a2a_agents.py'); Write-Host '[azd]   ✓ Work IQ + Web IQ A2A agents' } catch { Write-Warning "[azd]   ✗ IQ A2A agents: $($_.Exception.Message)" }
+} else {
+  Write-Warning '[azd]   – IQ A2A agents skipped (Foundry connection outputs are incomplete).'
 }
 
 Write-Host '[azd] Foundry agent provisioning complete (see warnings above for any that were skipped).'

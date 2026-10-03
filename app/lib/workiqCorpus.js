@@ -710,11 +710,20 @@ export function corpusForDeal(deal) {
     files: generatedFiles(deal),
     mail: generatedMail(deal),
   };
+  const mark = (item) => ({
+    ...item,
+    dealId: deal.id,
+    sourceType: item.generated ? 'derived' : 'seed',
+    ingestionPath: item.generated ? 'deal-record-composition' : 'bundled-demo-corpus',
+  });
+  const channel = mergeChannel(deal, authored.channel, gen.channel);
   return {
     dealId: deal.id,
-    channel: mergeChannel(deal, authored.channel, gen.channel),
-    files: mergeBy('name', authored.files, gen.files),
-    mail: mergeBy('subject', authored.mail, gen.mail),
+    sourceType: 'demo',
+    ingestionPath: 'workiq-demo-corpus',
+    channel: channel ? { ...channel, messages: channel.messages.map(mark) } : null,
+    files: mergeBy('name', authored.files, gen.files).map(mark),
+    mail: mergeBy('subject', authored.mail, gen.mail).map(mark),
     // Honest provenance: whether the caller is looking at hand-authored demo
     // content topped up from the record, or content composed entirely from it.
     origin: {

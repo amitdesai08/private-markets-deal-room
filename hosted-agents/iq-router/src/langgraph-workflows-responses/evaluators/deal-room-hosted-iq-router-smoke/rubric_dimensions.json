@@ -1,0 +1,43 @@
+[
+  {
+    "id": "correct_chosen_id",
+    "description": "The top-level id field is exactly one of {\"foundry\",\"fabric\",\"work\",\"web\"} and equals the precedence-selected IQ specified by the authoritative expected_behavior for the prompt (i.e., the expected chosen id given the detected signals in expected_behavior).",
+    "weight": 10
+  },
+  {
+    "id": "matched_list_and_order",
+    "description": "The matched field is an array that contains exactly the set of detected IQ ids listed in expected_behavior (no extras or omissions) and is ordered in registry order (Foundry→Fabric→Work→Web) filtered to that detected subset.",
+    "weight": 5
+  },
+  {
+    "id": "canonical_metadata",
+    "description": "The top-level agent and dataClass fields use the exact canonical mapping for the chosen id: foundry -> deal-room-foundry-iq and internal-data; fabric -> deal-room-fabric-iq and internal-data; work -> deal-room-work-iq and internal-data; web -> deal-room-web-iq and external-web. The top-level protocol field is A2A and label matches the chosen IQ.",
+    "weight": 4
+  },
+  {
+    "id": "blocked_combination_flag",
+    "description": "The blockedCombination boolean exactly matches the policy given the detected IQs from expected_behavior: blockedCombination == true if and only if expected_behavior indicates that both \"web\" and at least one of {\"foundry\",\"fabric\",\"work\"} are detected; otherwise blockedCombination == false.",
+    "weight": 6
+  },
+  {
+    "id": "trace_terminal_events",
+    "description": "The trace begins with an event whose id is route, kind is route, and status is complete. If blockedCombination is true, the final event has id boundary, kind route, and status blocked, and no handoff event is present. Otherwise, the final event has id handoff, kind handoff, and status complete. The selected iq and canonical agent remain consistent across trace events.",
+    "weight": 5
+  },
+  {
+    "id": "output_schema_and_no_leakage",
+    "description": "The router output is exactly one syntactically valid JSON object with the expected top-level routing schema (required fields present and correctly typed). The output contains no substantive answer text, fetched web facts, or extraneous top-level keys beyond routing metadata and trace events; it does not attempt to answer the user's question or include web-fact content.",
+    "weight": 3
+  },
+  {
+    "id": "decision_and_reason_alignment",
+    "description": "The decision and reason fields concisely explain the selected IQ using the deterministic policy and do not contradict id, matched, blockedCombination, or the trace. A no-signal default explicitly identifies Foundry IQ as the orchestration and synthesis owner.",
+    "weight": 2
+  },
+  {
+    "id": "general_quality",
+    "description": "Other important quality factors not covered by listed criteria.",
+    "weight": 5,
+    "always_applicable": true
+  }
+]
