@@ -6,7 +6,7 @@
 > data. Enforced **server-side** in [`app/lib/agentSovereignty.js`](../../app/lib/agentSovereignty.js),
 > never by trusting a model.
 >
-> See also: [Security overview](../../SECURITY.md) · [Access model](../ACCESS-MODEL.md) · [How it works](../HOW-IT-WORKS.md#the-identity-trust-seam)
+> See also: [Security overview](../../SECURITY.md) · [Access model](../ACCESS-MODEL.md) · [Runtime request flow](../HOW-IT-WORKS.md#request-flow)
 
 ---
 

@@ -4,7 +4,7 @@
 > and every action — is scoped to **who is asking**, resolved **server-side** so a client can
 > never widen its own powers.
 >
-> See also: [How it works](HOW-IT-WORKS.md#the-identity-trust-seam) · [Inside a deal](DEAL-STAGES.md#access-within-a-deal)
+> See also: [Runtime request flow](HOW-IT-WORKS.md#request-flow) · [Inside a deal](DEAL-STAGES.md#access-within-a-deal)
 
 ---
 
@@ -162,7 +162,7 @@ harness then apply.
 - **Runtime toggle** — persisted admin setting layered over the deploy default (can only turn
   *off* within a demo-capable deploy).
 - **Server-side trust seam** — the orchestrator only honours a supplied identity when it
-  carries the shared bot key; see [the identity trust seam](HOW-IT-WORKS.md#the-identity-trust-seam).
+  carries the shared bot key; see the [runtime request flow](HOW-IT-WORKS.md#request-flow).
 - **Policy seam** — all of the above lives behind [`app/lib/userPolicy.js`](../app/lib/userPolicy.js);
   the deploy parameters (`adminIds`, `partnerIds`, …), **Entra app-role claims** and
   **security-group claims** all feed straight into it — see

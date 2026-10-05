@@ -1,115 +1,32 @@
-# Agents & skills
+# Agents and Microsoft IQ
 
-This project was built with the microsoft-foundry skill. Before working on or answering questions about foundry agents, read the microsoft-foundry skill first.
+The current solution separates policy, evidence, and deal work. The Node orchestrator owns every
+handoff and applies caller identity, deal scope, and sovereignty rules before an agent or IQ
+capability runs.
 
-The Deal Room gives the team a **specialist for every job on a deal** — each drawing on the live
-record, each bounded by who's asking — so people get decision-grade answers without a generic
-chatbot guessing. This is the full reference:
+## Runtime topology
 
-Every AI agent in The Deal Room, its **objective**, its data-sovereignty **class**, the
-**tools/skills** it uses, and where it fits the deal lifecycle. The class is enforced
-server-side by [agentSovereignty.js](../../app/lib/agentSovereignty.js) — an *internal-data*
-agent can never reach the public web, and the *external-web* scout can never read internal
-deal data (see [DATA-SOVEREIGNTY.md](../security/DATA-SOVEREIGNTY.md)).
-
-> Character names are the demo personas ([app/data/personas.js](../../app/data/personas.js));
-> the RBAC "view-as" roster is a separate, minimal set ([demoProfiles.js](../../app/data/demoProfiles.js)).
-
-## Classes
-
-| Class | Reaches internal deal data | Reaches the public web |
-|---|:--:|:--:|
-| **internal-data** | ✓ (governed, deal-scoped, need-to-know) | ✗ never |
-| **external-web** | ✗ never | ✓ (public sourcing only) |
-
-## The roster
-
-| Agent (`name`) | Persona | Class | Objective | Serves |
-|---|---|---|---|---|
-| `deal-room-analyst` | Chidi Anagonye — Analyst | internal-data | Read-only deal & portfolio analysis; runs the origination funnel | Stage 1–2 |
-| `deal-room-partner` | Eleanor Shellstrop — Partner | internal-data | Deal sponsorship, go/no-go, IC gatekeeping | All stages |
-| `deal-room-principal` | Principal — Deal Lead | internal-data | Deal lead / orchestration, IOI/LOI into IC | Stage 1–3 |
-| `deal-room-retail-md` | Retail MD | internal-data | Commercial diligence (market, customer, share) | Stage 2 |
-| `deal-room-ai-md` | AI / Tech MD | internal-data | Tech / AI diligence & digital value | Stage 2 |
-| `deal-room-supply-md` | Supply-Chain MD | internal-data | Operations & supply-chain diligence | Stage 2 |
-| `deal-room-operating-partner` | Operating Partner | internal-data | Value creation — 100-day plan, EBITDA bridge | Stage 3–4 |
-| `deal-room-fund-cfo` | Fund CFO | internal-data | Returns & financing — LBO / IRR / MOIC, sources & uses | Stage 2–4 |
-| `deal-room-legal-gc` | General Counsel | internal-data | Legal diligence & execution — SPA, R&W, KYC/AML | Stage 2–3 |
-| `deal-room-ir-lp` | Gwendolyn Vale — IR / LP | internal-data | LP lens — exposure, ILPA/SFDR reporting, concentration | All stages |
-| `deal-room-fabric-iq` | Fabric IQ peer | internal-data | Governed Fabric business data and analytics | Cross-cutting |
-| `deal-room-news-scout` | News Scout | **external-web** | Public web sourcing signals (Bing-grounded) | Stage 1 (sourcing) |
-| `deal-room-work-iq` | Work IQ peer | internal-data | User-scoped Microsoft 365 work context through native Work IQ | Cross-cutting |
-| `deal-room-web-iq` | Web IQ peer | **external-web** | Current public-web intelligence through native Foundry web search | Cross-cutting |
-
-## Microsoft IQ + bounded A2A
-
-Microsoft Foundry hosts four live capability peers provisioned by
-[create_iq_a2a_agents.py](../../app/scripts/create_iq_a2a_agents.py). The script also versions and
-promotes the reusable `deal-room-iq` toolbox with native `work_iq_preview`, `fabric_iq_preview`,
-Foundry IQ knowledge-base MCP, and `web_search` entries. The peers wrap those capabilities with
-Deal Room-specific instructions and expose A2A for bounded collaboration:
-
-| Agent | Native tool | Incoming protocol |
+| Layer | Components | Responsibility |
 |---|---|---|
-| `deal-room-work-iq` | Work IQ MCP (`workiq.svc.cloud.microsoft`) with `UserEntraToken` | A2A |
-| `deal-room-web-iq` | Foundry `web_search` | A2A |
-| `deal-room-foundry-iq` | Foundry IQ knowledge base | A2A |
-| `deal-room-fabric-iq` | Fabric IQ | A2A |
+| **Policy** | `deal-room-hosted-iq-router:2` | Returns a bounded route from prompt text; has no source tools |
+| **Evidence** | `deal-room-iq` toolbox | Exposes the four official Microsoft IQ capability paths |
+| **Deal work** | Six purpose specialists | Performs sourcing through value-creation work on caller-scoped context |
+| **Execution** | Node orchestrator | Validates routes, enforces boundaries, performs A2A handoffs, and synthesizes |
 
-The peers are intentionally separate. The router sends Microsoft 365 questions only to Work IQ
-and public-only questions only to Web IQ. It must refuse requests that would transfer Work IQ
-results, deal records, correspondence, private documents, or other internal context into Web IQ.
-Work IQ retains the signed-in user's permissions; Web IQ has no internal-data connection.
+## Four IQ paths
 
-## Four-IQ orchestration map
+| Path | Toolbox capability | Evidence boundary |
+|---|---|---|
+| **Foundry IQ** | Azure AI Search knowledge-base MCP | Approved internal knowledge only |
+| **Fabric IQ** | `fabric_iq_preview` | Governed Fabric and OneLake data only |
+| **Work IQ** | `work_iq_preview` | Signed-in user's Microsoft 365 permissions |
+| **Web IQ** | `web_search` | Public web only; no internal context |
 
-Every prompt is classified by the registry in
-[`iqRegistry.js`](../../app/lib/iqRegistry.js) to one primary capability. The registry is
-returned by the orchestrator metadata endpoint and drives the visible route in the assistant.
+Foundry IQ uses Microsoft's supported knowledge-base MCP contract; Web IQ is native Foundry web
+search. Deal Room prompt-agent wrappers add bounded instructions and A2A collaboration without
+replacing those official capabilities.
 
-| IQ | Owning agent | Evidence | Boundary |
-|---|---|---|---|
-| **Foundry IQ** | `deal-room-foundry-iq` | Firm playbooks, governed knowledge, citations, synthesis | Internal only |
-| **Fabric IQ** | `deal-room-fabric-iq` | Fund, portfolio, model, and OneLake analytics | Internal only |
-| **Work IQ** | `deal-room-work-iq` | User-scoped Teams, SharePoint, Outlook, meetings | Internal only; delegated user token |
-| **Web IQ** | `deal-room-web-iq` | Current public-web research | Public only; no deal or M365 access |
-
-The full agent-to-agent view is in
-[Multi-agent and IQ orchestration](../diagrams/agent-iq-a2a.md). The assistant shows the
-operational trace for each turn: IQ route, A2A handoffs, bounded evidence returned, and final
-synthesis. It deliberately does not expose private model chain-of-thought.
-
-### Selective hosted-agent implementation
-
-The active policy router is `deal-room-hosted-iq-router:2`, implemented in
-[`hosted-agents/iq-router`](../../hosted-agents/iq-router/) as a Foundry hosted Responses v2
-agent. It owns deterministic classification and the internal/public-web boundary, but no source
-data and no A2A tools. The Node orchestrator validates its result against the canonical registry
-and falls back to the same local policy if the endpoint is unavailable or malformed. The
-orchestrator and purpose specialists remain Foundry prompt agents: that preserves user-scoped
-grounding and keeps A2A calls and evidence interpretation inspectable instead of hiding them
-inside one hosted process.
-
-## Purpose-based agents & orchestrator delegation (live in Foundry)
-
-**Why it matters:** one agent per *job* with a router that picks the right specialist means less
-duplication and clearer ownership — with the same governance and access controls.
-
-The persona roster above is **role-shaped** (one agent per person). The target topology is
-**purpose-shaped**: a small set of task agents named for the *job*, with the **Deal Room
-orchestrator** deciding which one to delegate to, threading the caller's **identity**, and
-composing the answer. Personas become a *lens* (framing + which skills apply), not a separate
-agent each. **The seven purpose agents are provisioned live in the Foundry project
-`proj-dealhub-dev`** ([purpose-agents.env](../../app/scripts/purpose-agents.env)) alongside the
-personas — additive and non-destructive.
-
-**This delegation is now wired and live.** The single assistant is driven by
-[`purposeAgent.js`](../../app/lib/purposeAgent.js): the orchestrator **routes** a request (answer
-directly, or delegate to ≤2 stage specialists), the app **consults** the chosen `deal-room-*`
-specialists in parallel, and the orchestrator **composes** one grounded answer (the response
-reports which agents it used). It's gated by `ORCHESTRATION=purpose` (set on the `dev` backend)
-with automatic fallback to the single-agent analyst chat, so it can never hard-fail — unset the
-flag to revert instantly. The capabilities feature works against either topology.
+## Purpose specialists
 
 | Purpose agent (`name`) | Job | Bundled skills | Stage |
 |---|---|---|---|
@@ -121,104 +38,34 @@ flag to revert instantly. The capabilities feature works against either topology
 | `deal-room-ic-memo` | IC memo + deck + citation audit | `ic-memo` | 3 |
 | `deal-room-value-creation` | 100-day plan, EBITDA bridge, portfolio monitoring | `value-creation-plan`, `portfolio-monitoring` | 4 |
 
-Each skill lives at `skills/<slug>/SKILL.md` (see [SKILLS.md](../../SKILLS.md) for the format).
-The scaffold script is [create_purpose_agents.py](../../app/scripts/create_purpose_agents.py) —
-it provisions the seven agents in **Foundry**, each reaching the fund's governed data through
-the **same read-only MCP** (so RBAC + need-to-know stay enforced server-side), and bundling its
-skills. Why purpose-shaped: less duplication (seven deal-team personas did overlapping work),
-clearer skills ownership, and an orchestration seam that maps onto the Foundry Managed-Agents /
-Cowork handoff model. Same governed tools, **same data-protection guarantees** below — only the
-topology changes.
+Skills live in [`skills/`](../../skills/) and are attached by job rather than by demo character.
 
-## "What can you do?" — role-aware capabilities
-Any user can ask the assistant **"what can you do?"** (or "how can you help", "help me get
-started") and get an answer **scoped to their Entra role and deal stage** — so someone can walk
-in blind and discover what's available *to them*. It's deterministic (no model call): the
-[capabilities.js](../../app/lib/capabilities.js) module maps the role to the purpose agents,
-skills, write-actions and limits it's allowed, and the chat endpoints short-circuit capability
-questions before the deal gate. There's also a `GET /capabilities` endpoint returning the same,
-role-scoped, for the UI. See [PERSONAS.md](../PERSONAS.md) for the persona→role→access map and
-[EXPLAINER.md](../reference/EXPLAINER.md) for the plain-English tour.
+## Bounded collaboration
 
-## Proposed inline actions & the audit trail
+The orchestrator selects at most two specialists per turn. A specialist may request one peer
+from an explicit allow-list; the runtime validates the edge, disables recursion, and caps total
+peer reviews. Findings are treated as untrusted data and cannot widen identity, scope, or tools.
 
-Inside a deal the assistant can **propose concrete next steps** grounded in the deal's own
-state — open issues → *resolve*, blocking workstreams → *log an issue* — returned on the chat
-response as `proposedActions` ([`proposeAssistantActions`](../../app/lib/store.js)). It **never
-acts autonomously**: the user clicks **Apply**, which calls
-`POST /api/deals/:id/assistant-actions`. That route resolves the caller's identity + role
-server-side, gates on write capability and deal access, then invokes the same governed
-mutation the specialists use (`record_issue` / `resolve_issue`). Every apply writes a
-fully-attributed **audit entry** to the deal's `activity[]` — `actor` = the signed-in user,
-`via: 'assistant'` = human-approved AI change — served by `GET /api/deals/:id/activity` and
-rendered in the deal's **Activity** tab.
+## Sovereignty and actions
 
-**Authorization at the Apply boundary (enforced server-side):**
+- Internal agents cannot access the public web.
+- Web IQ cannot receive deal records, private documents, correspondence, or Work IQ output.
+- Mixed internal/public requests are refused before either evidence source runs.
+- Work IQ retains the signed-in user's Microsoft 365 permissions.
+- Agent writes remain proposals until an authorized user approves them; accepted changes are
+  attributed in the audit trail.
 
-| Condition | Result |
+The optional **Agent activity** view reports routes, handoffs, peer review, source use,
+refusals, and synthesis. It reports completed operations, not chain-of-thought.
+
+## Sources of truth
+
+| Concern | Implementation |
 |---|---|
-| Write-capable role (deal-team / partner / admin) **with** access to the deal | Apply runs; audit entry written under the user, `via: 'assistant'` |
-| Read-only role (analyst / member) | `403 forbidden` — *"your role is read-only; you cannot apply changes"* |
-| No / need-to-know access to the deal | `403 forbidden` (`authorizeDealContent`) |
-| Untrusted caller (identity not proven via the bot key) | Identity ignored; `actor` falls back to the **role label**, never a spoofed name |
-| Unknown / unsupported action kind | `400 unknown-action` |
-
-The assistant only ever **proposes** `record_issue` / `resolve_issue` (the two lowest-risk,
-fully-reversible verbs); higher-authority moves (advance stage, approve IC) remain persona-
-gated and are **not** proposable inline.
-
-## Tools
-
-**Governed deal tools** (internal-data agents, via [dealTools.js](../../app/lib/dealTools.js) and the
-read-only MCP [dealServer.js](../../app/lib/mcp/dealServer.js)):
-`list_deals` · `get_deal` · `search_deals` · `list_pipeline` · `get_candidate` ·
-`get_candidate_artifact` · `get_deal_artifact` · `get_ic_readiness` · `get_returns` ·
-`get_value_creation` · `get_risk_register` · `get_market_intel` · `get_citation_audit` ·
-`get_companies` · `get_company` · `get_next_actions`. Write/action verbs
-(`launch_deal`, `advance_deal`, `record_finding`, …) are additionally authorised **per
-persona** in [personaPolicy.js](../../app/lib/personaPolicy.js).
-
-**Work IQ tools** (M365 work data — internal-data only; governed + delegated;
-[workiq.js](../../app/lib/mcp/workiq.js)): `workiq_search_files` (SharePoint/OneDrive) ·
-`workiq_read_channel` (Teams) · `workiq_search_mail` (Outlook) · `workiq_search`
-(cross-M365). Inert until an endpoint is set in **Settings → Data Sources → Work IQ** and a
-delegated sign-in is completed.
-
-**Web tools** (external-web only): Bing-grounded search — never available to internal agents.
-
-## Skills (per stage)
-
-The quick-actions each stage/persona exposes ([flow.js](../../app/data/flow.js) `skills`,
-[personas.js](../../app/data/personas.js) `actions`):
-
-| Stage | Skills |
-|---|---|
-| **1 · Origination & Screening** | `@deal-screening` · `@comps-analysis` |
-| **2 · Diligence & Approval** | `@diligence-planner` · `@ic-memo` |
-| **3 · Execution & Closing** | SPA review · KYC/AML clearance · funds-flow |
-| **4 · Value Creation & Exit** | value-creation plan · returns bridge · LP reporting |
-
-Persona quick-actions (examples): Analyst — *draft screening one-pager*, *generate comps*,
-*summarize the CIM*; Retail MD — *synthesize commercial DD*, *assess customer concentration*;
-Fund CFO — *build the LBO case*, *run a returns sensitivity*; GC — *summarize SPA / R&W issues*,
-*run KYC/regulatory check*.
-
-## Governance & data protection
-
-Agents can **never** be a side-channel around the access model — an answer is always bounded
-by *who is asking*:
-
-- **Identity-gated tool dispatch (enforced)** — the requesting user's identity + view-as role
-  are threaded into every agent read ([dispatchTool](../../app/lib/dealTools.js),
-  [dealAgent.js](../../app/lib/dealAgent.js), [personaAgent.js](../../app/lib/personaAgent.js)).
-  `get_deal` **refuses** a deal the caller can't see (`access-denied`) and **redacts** restricted
-  ones to status-only; `list_deals` / `search_deals` return only the caller's visible deals. A
-  user cannot ask an agent to fetch a confidential deal they'd be blocked from in the UI.
-- **HTTP gate** — deal-scoped chat is authorised (`authorizeDealContent`) before the agent runs;
-  read-only roles are routed to the read-only analyst; write verbs require the role.
-- **Class guard** — every agent↔tool call is checked against the agent's class; boundary
-  crossings are refused and **audit-logged** (`sovereignty-denied`).
-- **Deal scope** — a deal-scoped conversation hard-filters every read to the focused deal.
-- **Need-to-know** — portfolio agent context excludes `confidential` deals; Work IQ reads run as
-  the signed-in user, so an agent only sees what that user is entitled to.
-- **Persona authority** — write verbs are set by the server per persona, never by the model.
+| IQ registry and precedence | [`iqRegistry.js`](../../app/lib/iqRegistry.js) |
+| Hosted route client and fallback | [`hostedIqRouter.js`](../../app/lib/hostedIqRouter.js) |
+| Handoffs and collaboration | [`purposeAgent.js`](../../app/lib/purposeAgent.js) |
+| Sovereignty enforcement | [`agentSovereignty.js`](../../app/lib/agentSovereignty.js) |
+| IQ and toolbox provisioning | [`create_iq_a2a_agents.py`](../../app/scripts/create_iq_a2a_agents.py) |
+| Hosted router | [`hosted-agents/iq-router/`](../../hosted-agents/iq-router/) |
+| Full flow | [Agent and IQ orchestration](../diagrams/agent-iq-a2a.md) |
