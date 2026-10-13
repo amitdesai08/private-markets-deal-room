@@ -392,6 +392,7 @@ output foundryId string = foundry.id
 output foundryAccountName string = foundry.name
 output foundryEndpoint string = foundry.properties.endpoint
 output foundryProjectName string = foundryProject.name
+output foundryProjectId string = foundryProject.id
 // The data-plane project endpoint the agents + Responses API use (agents SDK,
 // lib/dealAgent.js / lib/personaAgent.js, and scripts/create_*_agents.py).
 output foundryProjectEndpoint string = foundryProjectEndpoint

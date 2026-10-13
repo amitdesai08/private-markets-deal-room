@@ -24,6 +24,11 @@
     "analystIds": { "value": "${ANALYST_IDS=[]}" },
     "deployDemoProfiles": { "value": "${DEPLOY_DEMO_PROFILES=true}" },
     "seedDemoData": { "value": "${SEED_DEMO_DATA=true}" },
-    "storeDriver": { "value": "${DEALROOM_STORE=blob}" }
+    "storeDriver": { "value": "${DEALROOM_STORE=blob}" },
+    "deployFabric": { "value": "${DEPLOY_FABRIC=true}" },
+    "fabricAdminMembers": { "value": "${FABRIC_ADMIN_MEMBERS=[]}" },
+    "hydrateFabricDemo": { "value": "${HYDRATE_FABRIC_DEMO=false}" },
+    "fabricWorkspace": { "value": "${FABRIC_WORKSPACE=Deal Room Fabric IQ}" },
+    "fabricLakehouse": { "value": "${FABRIC_LAKEHOUSE=deal_room_starter}" }
   }
 }

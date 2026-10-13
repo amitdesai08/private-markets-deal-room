@@ -173,3 +173,4 @@ output cosmosAccountName string = deployCosmos ? cosmos.name : ''
 output cosmosEndpoint string = deployCosmos ? cosmos.properties.documentEndpoint : ''
 output cosmosDatabaseName string = cosmosDatabaseName
 output fabricCapacityName string = (deployFabric && !empty(fabricAdminMembers)) ? fabric.name : 'not-deployed'
+output fabricCapacityId string = (deployFabric && !empty(fabricAdminMembers)) ? fabric.id : ''

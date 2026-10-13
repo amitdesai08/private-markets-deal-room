@@ -171,7 +171,16 @@ $apiObj = @{
   identifierUris = @($identifierUri)
   requiredResourceAccess = @(ScopeAccess @('User.Read','Files.ReadWrite','Sites.ReadWrite.All','offline_access')) + (PowerBiScopeAccess @('Report.Read.All'))
 }
-if ($TeamsFqdn) { $apiObj.spa = @{ redirectUris = @("https://$TeamsFqdn/auth-end.html") } }
+if ($TeamsFqdn) {
+  $apiObj.spa = @{ redirectUris = @("https://$TeamsFqdn/auth-end.html") }
+  $apiObj.web = @{
+    redirectUris = @("https://$TeamsFqdn/.auth/login/aad/callback")
+    implicitGrantSettings = @{
+      enableIdTokenIssuance = $true
+      enableAccessTokenIssuance = $false
+    }
+  }
+}
 Invoke-GraphRest PATCH "https://graph.microsoft.com/v1.0/applications/$ssoObj" $apiObj | Out-Null
 Ensure-Sp $ssoAppId | Out-Null
 Grant-Consent $ssoAppId

@@ -32,12 +32,54 @@ The fastest path is the **Azure Developer CLI**: one command provisions the infr
 azd up
 ```
 - **Demo** *(default)* — infra + seeded data + images. No identity, no admin needed → **one** `azd up`.
-- **Full** (Teams SSO / per-user M365 docs / bot) — `azd env set DEALROOM_MODE full`, then `azd up` (creates + registers the Entra apps via the postprovision hook) and `azd up` **once more** to wire them in. Needs an Entra admin.
+- **Full** (Teams SSO / protected standalone console / per-user M365 docs / bot) — `azd env set DEALROOM_MODE full`, then `azd up` (creates + registers the Entra apps via the postprovision hook) and `azd up` **once more** to wire them in. Needs an Entra admin. The standalone Teams Container App URL redirects unauthenticated users through Microsoft Entra; the embedded Teams tab continues to use Teams SSO.
+- **Hosted IQ router** — `azd up` deploys the Responses v2 policy router from its nested Foundry project, binds its endpoint to the orchestrator, and retains the local policy as runtime fallback. The hook owns a companion azd environment named `<root-environment>-iq-router`; skip hosted deployment with `DEALROOM_HOSTED_ROUTER=false`.
 - **Foundry agents** — `azd up` also provisions the **Deal Orchestrator, News Scout and the ten persona agents** into your Foundry project (a `postdeploy` hook; best-effort, needs the `azure-ai-projects` Python SDK + Foundry data-plane access). Skip with `azd env set DEALROOM_AGENTS false`, or run [`app/scripts/create_persona_agents.py`](../app/scripts/create_persona_agents.py) by hand.
+- **Exact Fabric demo** *(optional and billable)* — opt in with `DEPLOY_FABRIC=true`, a non-empty `FABRIC_ADMIN_MEMBERS` JSON array, and `HYDRATE_FABRIC_DEMO=true`. The same postdeploy hook then hydrates the tracked simulation before it creates the Four-IQ agents. Requested hydration is release-blocking; optional agent provisioning stays best-effort.
 
-> **Foundry is fully in the template:** the Bicep provisions the **Microsoft Foundry account + project, model deployments and Bing grounding**; the `postdeploy` hook creates the **agents** on top; and [`app/scripts/create_agent.py`](../app/scripts/create_agent.py) is a copy-and-edit **template to add your own** Foundry agent.
+> **Foundry is fully in the deployment:** Bicep provisions the **Microsoft Foundry account + project, model deployments, connections and Bing grounding**. The `postdeploy` hook deploys the hosted router through its Foundry-native nested project, then creates the prompt/persona agents on top. [`app/scripts/create_agent.py`](../app/scripts/create_agent.py) is a copy-and-edit **template to add your own** Foundry agent.
+
+In full mode, Entra provisioning registers both the Teams SSO redirect and the
+Container Apps Easy Auth callback:
+
+- `https://<teams-fqdn>/auth-end.html`
+- `https://<teams-fqdn>/.auth/login/aad/callback`
+
+It also enables ID-token issuance for the confidential Easy Auth flow. Bicep
+reuses the Teams SSO registration in a canonical deployment. A targeted update
+to an existing topology may instead use a dedicated single-tenant web client
+when the deployment identity cannot modify the existing Teams registration.
+Bicep sets unauthenticated API access to `401`; the browser then starts the
+Entra login redirect. Static bootstrap assets, health/config endpoints, and the
+Bot Framework `/api/messages` endpoint remain excluded from that redirect boundary.
 
 Pick region/subscription with `azd env new` then `azd env set AZURE_LOCATION swedencentral`.
+
+### Reproduce the simulated Fabric view
+
+Use an identity that administers the target Fabric capacity and can create Fabric
+items under the tenant's Fabric/ontology settings:
+
+```bash
+azd env set DEPLOY_FABRIC true
+azd env set FABRIC_ADMIN_MEMBERS '["<fabric-admin-object-id-or-upn>"]'
+azd env set HYDRATE_FABRIC_DEMO true
+azd env set FABRIC_WORKSPACE 'Deal Room Fabric IQ'
+azd env set FABRIC_LAKEHOUSE deal_room_starter
+azd up
+```
+
+The idempotent bootstrap owns five tables and proves their row counts are
+15 companies, 12 deals, 59 diligence findings, 12 IC precedents, and 14 filing
+metrics. It also proves all 12 deal and 14 filing links resolve to a company,
+then publishes the Data Agent, Direct Lake model, ontology, and delegated Fabric
+IQ endpoint. No customer files, M365 content, prompts, or secrets are copied.
+
+Fabric F2 or higher is a paid resource. Leave `HYDRATE_FABRIC_DEMO=false` and
+`FABRIC_ADMIN_MEMBERS=[]` for the default keyless demo. For rollback, disable
+`FABRIC_LIVE` or restore the prior Container Apps revision; the app falls back to
+the bundled snapshot. Suspend the Fabric capacity separately to stop compute
+charges. The bootstrap preserves unrelated workspace items and lakehouse data.
 
 ---
 

@@ -34,6 +34,7 @@ local.settings.json
 .idea/
 .DS_Store
 Thumbs.db
+*.drawio.bkp
 
 # Playwright / test artifacts
 .playwright-mcp/

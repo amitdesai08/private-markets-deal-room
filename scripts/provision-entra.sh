@@ -85,10 +85,21 @@ read -r SSO_APPID SSO_OBJ < <(ensure_app "$DISPLAY_PREFIX Teams SSO")
 IDURI="api://${SSO_APPID}"; [[ -n "$TEAMS_FQDN" ]] && IDURI="api://${TEAMS_FQDN}/${SSO_APPID}"
 SID="$(az ad app show --id "$SSO_APPID" --query "api.oauth2PermissionScopes[?value=='access_as_user'].id | [0]" -o tsv)"
 [[ -z "$SID" || "$SID" == "None" ]] && SID="$(cat /proc/sys/kernel/random/uuid)"
+SSO_SPA_REDIRECTS="[]"; SSO_WEB_REDIRECTS="[]"
+if [[ -n "$TEAMS_FQDN" ]]; then
+  SSO_SPA_REDIRECTS="$(jq -n --arg u "https://$TEAMS_FQDN/auth-end.html" '[$u]')"
+  SSO_WEB_REDIRECTS="$(jq -n --arg u "https://$TEAMS_FQDN/.auth/login/aad/callback" '[$u]')"
+fi
 SSO_BODY="$(jq -n --arg id "$SID" --arg uri "$IDURI" --argjson clients "$TEAMS_CLIENTS" \
+  --argjson spa "$SSO_SPA_REDIRECTS" --argjson web "$SSO_WEB_REDIRECTS" \
   --argjson rra "$(rra_json User.Read Files.ReadWrite Sites.ReadWrite.All offline_access)" '{
   identifierUris: [$uri],
   requiredResourceAccess: $rra,
+  spa: { redirectUris: $spa },
+  web: {
+    redirectUris: $web,
+    implicitGrantSettings: { enableIdTokenIssuance: true, enableAccessTokenIssuance: false }
+  },
   api: {
     requestedAccessTokenVersion: 2,
     oauth2PermissionScopes: [{ id:$id, value:"access_as_user", type:"User", isEnabled:true,

@@ -25,6 +25,72 @@ const SPECIALIST_LABELS: Record<string, string> = {
   'deal-room-value-creation': 'Value creation',
 };
 
+function agentLabel(agent?: string) {
+  if (!agent) return 'Evidence';
+  if (agent === 'deal-room-orchestrator') return 'Deal Room orchestrator';
+  if (agent === 'deal-room-analyst') return 'Deal Room analyst';
+  return SPECIALIST_LABELS[agent] || agent.replace(/^deal-room-/, '').replace(/-/g, ' ');
+}
+
+function ActivityStep({ step }: { step: OrchestrationStep }) {
+  return (
+    <div className={`activity-step ${step.status || ''}`}>
+      <span className="activity-status" aria-label={step.status || 'complete'}></span>
+      <div className="activity-step-body">
+        <div className="activity-step-head">
+          <strong>{step.label}</strong>
+          {step.protocol ? <span className="orch-protocol">{step.protocol}</span> : null}
+          {step.iq ? <span className="orch-iq">{step.iq}</span> : null}
+        </div>
+        {step.detail ? <div className="activity-detail">{step.detail}</div> : null}
+        {step.explicit?.length ? <div className="orch-section"><b>Provided context</b>{step.explicit.map((item) => <span key={item}>{item}</span>)}</div> : null}
+        {step.inferred?.length ? <div className="orch-section"><b>Applied for this turn</b>{step.inferred.map((item) => <span key={item}>{item}</span>)}</div> : null}
+        {step.choice ? <div className="orch-choice"><b>Choice</b> {step.choice}</div> : null}
+        {step.rationale ? <div className="orch-choice"><b>Why</b> {step.rationale}</div> : null}
+        {step.peerAgent ? <div className="orch-agent">Peer: {agentLabel(step.peerAgent)}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function ActivityBoard({ trace, pending, status }: { trace: OrchestrationStep[]; pending?: boolean; status?: string }) {
+  const isAgentWork = (step: OrchestrationStep) => ['handoff', 'collaboration'].includes(step.kind)
+    || (step.kind === 'decision' && !!step.agent && step.agent !== 'deal-room-orchestrator');
+  const orchestrator = trace.filter((step) => step.kind !== 'tool' && !isAgentWork(step));
+  const evidence = trace.filter((step) => step.kind === 'tool');
+  const agentSteps = trace.filter(isAgentWork);
+  const agents = new Map<string, OrchestrationStep[]>();
+  for (const step of agentSteps) {
+    const owner = step.agent || step.peerAgent || 'evidence';
+    agents.set(owner, [...(agents.get(owner) || []), step]);
+  }
+  const running = trace.filter((step) => step.status === 'running').length;
+  const complete = trace.filter((step) => step.status === 'complete').length;
+  return (
+    <section className={`activity-board${pending ? ' live' : ''}`} aria-label="Agent activity">
+      <div className="activity-board-head">
+        <div><strong>{pending ? 'Work in progress' : 'How this answer was built'}</strong><span>Operational activity, not private model reasoning</span></div>
+        <div className="activity-counts">{running ? <span className="running">{running} active</span> : null}<span>{complete} complete</span></div>
+      </div>
+      <div className="activity-lanes">
+        <div className="activity-lane orchestrator-lane">
+          <div className="activity-lane-head"><span className="activity-owner-mark">DR</span><div><strong>Orchestrator</strong><span>Scopes, routes, delegates, synthesizes</span></div></div>
+          <div className="activity-list">{orchestrator.map((step) => <ActivityStep key={step.id} step={step} />)}{!orchestrator.length ? <div className="activity-waiting">Establishing the permitted route…</div> : null}</div>
+        </div>
+        <div className="activity-lane agents-lane">
+          <div className="activity-lane-head"><span className="activity-owner-mark agents">A</span><div><strong>Agents</strong><span>Each works only within its assigned discipline</span></div></div>
+          <div className="agent-work-grid">
+            {[...agents.entries()].map(([owner, steps]) => <div className="agent-work" key={owner}><div className="agent-work-head"><strong>{agentLabel(owner)}</strong><span>{steps.some((step) => step.status === 'running') ? 'Working' : 'Reported'}</span></div>{steps.map((step) => <ActivityStep key={step.id} step={step} />)}</div>)}
+            {!agents.size ? <div className="activity-waiting">Waiting for the orchestrator to decide whether specialist work is needed.</div> : null}
+          </div>
+        </div>
+        {evidence.length ? <div className="activity-lane evidence-lane"><div className="activity-lane-head"><span className="activity-owner-mark evidence">E</span><div><strong>Confirmed evidence</strong><span>Tools reported by the completed response</span></div></div><div className="activity-list">{evidence.map((step) => <ActivityStep key={step.id} step={step} />)}</div></div> : null}
+      </div>
+      {pending && status ? <div className="activity-now"><span></span>Now: {status}</div> : null}
+    </section>
+  );
+}
+
 const DEAL_STARTERS = [
   'Is this ready for IC, and what is blocking it?',
   'Show comparable deals and IC precedents.',
@@ -69,7 +135,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
   // A long answer deserves the room to be read in. Remembered, because someone who widens
   // it once wants it wide.
   const [wide, setWide] = useState(() => { try { return localStorage.getItem('dr.chatWide') === '1'; } catch { return false; } });
-  const [showActivity, setShowActivity] = useState(() => { try { return localStorage.getItem('dr.chatActivity') === '1'; } catch { return false; } });
+  const [showActivity, setShowActivity] = useState(() => { try { return localStorage.getItem('dr.chatActivity') !== '0'; } catch { return true; } });
   const [sending, setSending] = useState(false);
   const [applying, setApplying] = useState('');
   const [saving, setSaving] = useState('');
@@ -312,9 +378,9 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
           </div>
         ) : (
           messages.map((m, i) => (
-            <div key={i} className={`row ${m.role}`}>
+            <div key={i} className={`row ${m.role}${showActivity && m.trace?.length ? ' has-activity' : ''}`}>
               {m.role === 'agent' ? <span className="msg-av">{agent.initials}</span> : null}
-              <div className={`bubble ${m.role}`}>
+              <div className={`bubble ${m.role}${showActivity && m.trace?.length ? ' activity-answer' : ''}`}>
                 {m.compare ? (
                   <div className="cmp">
                     {m.compare.map((c) => (
@@ -327,12 +393,9 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
                 ) : m.pending ? (
                   // The wait for a multi-specialist answer is real. Naming the specialist that
                   // is working turns a spinner into a progress report.
-                  <span className="typing-wrap">
-                    <span className="typing"><span></span><span></span><span></span></span>
-                    {m.status ? <span className="typing-status">{m.status}…</span> : null}
-                  </span>
+                  showActivity && m.trace?.length ? <ActivityBoard trace={m.trace} pending status={m.status} /> : <span className="typing-wrap"><span className="typing"><span></span><span></span><span></span></span>{m.status ? <span className="typing-status">{m.status}…</span> : null}</span>
                 )
-                    : m.role === 'agent' ? (<>{showActivity && m.trace?.length ? <details className="orch-trace" open><summary>Agent activity · {m.trace.length} steps</summary><div className="orch-note">Operational context and bounded choices, not private model reasoning.</div><div className="orch-steps">{m.trace.map((step) => <div className={`orch-step ${step.status || ''}`} key={step.id}><span className="orch-mark" aria-hidden="true"></span><div><div className="orch-step-head"><strong>{step.label}</strong>{step.protocol ? <span className="orch-protocol">{step.protocol}</span> : null}{step.iq ? <span className="orch-iq">{step.iq}</span> : null}</div>{step.detail ? <div>{step.detail}</div> : null}{step.explicit?.length ? <div className="orch-section"><b>Provided context</b>{step.explicit.map((item) => <span key={item}>{item}</span>)}</div> : null}{step.inferred?.length ? <div className="orch-section"><b>Inferred for this turn</b>{step.inferred.map((item) => <span key={item}>{item}</span>)}</div> : null}{step.choice ? <div className="orch-choice"><b>Choice</b> {step.choice}</div> : null}{step.rationale ? <div className="orch-choice"><b>Why</b> {step.rationale}</div> : null}{step.agent ? <div className="orch-agent">{step.agent}{step.peerAgent ? ` → ${step.peerAgent}` : ''}</div> : null}</div></div>)}</div></details> : null}<div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />{m.status ? <div className="completed-status">{m.status}</div> : null}{m.agentsUsed?.length ? <div className="consulted">Consulted: {m.agentsUsed.map((key) => SPECIALIST_LABELS[key] || key).join(', ')}</div> : null}{m.tools?.length ? <div className="tools">Sources: {m.tools.join(', ')}</div> : m.source === 'live' ? (
+                    : m.role === 'agent' ? (<>{showActivity && m.trace?.length ? <ActivityBoard trace={m.trace} /> : null}<div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />{m.status ? <div className="completed-status">{m.status}</div> : null}{m.agentsUsed?.length ? <div className="consulted">Consulted: {m.agentsUsed.map((key) => SPECIALIST_LABELS[key] || key).join(', ')}</div> : null}{m.tools?.length ? <div className="tools">Sources: {m.tools.join(', ')}</div> : m.source === 'live' ? (
                       // The word "live", alone, under every answer. It means the answer was
                       // written just now against the current record rather than replayed
                       // from a script -- which is worth saying, but "live" on its own is
@@ -400,16 +463,50 @@ const CHAT_EXTRA_CSS = `
 .chatpanel .msg-actions { margin-top: 6px; white-space: nowrap; }
 .chatpanel .completed-status { margin-top: 7px; font-size: 11px; color: var(--muted); }
 .chatpanel .consulted { margin-top: 7px; font-size: 11px; font-weight: 650; color: var(--accent, #6ea8fe); }
-.chatpanel .orch-trace { margin-bottom: 10px; border: 1px solid var(--border); border-radius: 7px; background: color-mix(in srgb, var(--card) 82%, transparent); overflow: hidden; }
-.chatpanel .orch-trace summary { cursor: pointer; padding: 7px 9px; font-size: 11px; font-weight: 700; color: var(--fg); }
-.chatpanel .orch-note { margin: -2px 9px 8px; font-size: 9.5px; color: var(--muted); }
-.chatpanel .orch-steps { padding: 0 9px 8px; display: grid; gap: 7px; }
-.chatpanel .orch-step { display: grid; grid-template-columns: 9px minmax(0, 1fr); gap: 7px; font-size: 10.5px; color: var(--muted); }
-.chatpanel .orch-step strong { color: var(--fg); margin-right: 6px; }
-.chatpanel .orch-step-head { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-.chatpanel .orch-mark { width: 7px; height: 7px; margin-top: 4px; border-radius: 50%; background: var(--accent, #3978c5); }
-.chatpanel .orch-step.running .orch-mark { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #3978c5) 18%, transparent); }
-.chatpanel .orch-step.blocked .orch-mark { background: var(--bad, #c44343); }
+.chatpanel .row.has-activity { align-items: flex-start; }
+.chatpanel .row.has-activity .bubble.agent { flex: 1 1 auto; max-width: 100%; }
+.chatpanel { container-type: inline-size; }
+.chatpanel .activity-board { margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); overflow: hidden; }
+.chatpanel .activity-board.live { border-color: color-mix(in srgb, var(--accent, #3978c5) 55%, var(--border)); }
+.chatpanel .activity-board-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--card); }
+.chatpanel .activity-board-head > div:first-child { display: grid; gap: 2px; }
+.chatpanel .activity-board-head strong { font-size: 12px; color: var(--fg); }
+.chatpanel .activity-board-head span { font-size: 9.5px; color: var(--muted); }
+.chatpanel .activity-counts { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.chatpanel .activity-counts span { padding: 2px 6px; border: 1px solid var(--border); border-radius: 3px; font-weight: 700; }
+.chatpanel .activity-counts .running { color: var(--accent, #3978c5); border-color: var(--accent, #3978c5); }
+.chatpanel .activity-lanes { display: grid; grid-template-columns: minmax(0, 1fr); }
+.chatpanel .activity-lane { min-width: 0; padding: 11px 12px; border-bottom: 1px solid var(--border); }
+.chatpanel .activity-lane-head { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+.chatpanel .activity-lane-head > div { display: grid; gap: 1px; }
+.chatpanel .activity-lane-head strong { font-size: 11px; color: var(--fg); }
+.chatpanel .activity-lane-head span:not(.activity-owner-mark) { font-size: 9px; color: var(--muted); }
+.chatpanel .activity-owner-mark { width: 25px; height: 25px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid var(--accent, #3978c5); color: var(--accent, #3978c5); font-size: 9px; font-weight: 800; }
+.chatpanel .activity-owner-mark.agents { border-color: var(--good-br); color: var(--good); }
+.chatpanel .activity-owner-mark.evidence { border-color: var(--warn-br); color: var(--warn); }
+.chatpanel .activity-list, .chatpanel .agent-work { display: grid; gap: 8px; }
+.chatpanel .agent-work-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.chatpanel .agent-work { padding: 8px; border: 1px solid var(--border); background: var(--card); }
+.chatpanel .agent-work-head { display: flex; justify-content: space-between; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.chatpanel .agent-work-head strong { font-size: 10.5px; text-transform: capitalize; color: var(--fg); }
+.chatpanel .agent-work-head span { font-size: 9px; color: var(--muted); }
+.chatpanel .activity-step { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 7px; font-size: 10px; color: var(--muted); }
+.chatpanel .activity-status { width: 7px; height: 7px; margin-top: 4px; border-radius: 50%; background: var(--good); }
+.chatpanel .activity-step.running .activity-status { background: var(--accent, #3978c5); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #3978c5) 18%, transparent); animation: activity-pulse 1.5s ease-in-out infinite; }
+.chatpanel .activity-step.blocked .activity-status { background: var(--bad, #c44343); }
+.chatpanel .activity-step-head { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.chatpanel .activity-step strong { color: var(--fg); }
+.chatpanel .activity-detail { margin-top: 2px; }
+.chatpanel .activity-waiting { padding: 8px; border: 1px dashed var(--border); color: var(--muted); font-size: 9.5px; }
+.chatpanel .activity-now { display: flex; align-items: center; gap: 7px; padding: 7px 12px; background: var(--card); color: var(--muted); font-size: 10px; }
+.chatpanel .activity-now > span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent, #3978c5); animation: activity-pulse 1.5s ease-in-out infinite; }
+@container (min-width: 700px) {
+  .chatpanel .activity-lanes { grid-template-columns: minmax(0, .85fr) minmax(0, 1.35fr); }
+  .chatpanel .activity-lane.orchestrator-lane { border-right: 1px solid var(--border); }
+  .chatpanel .activity-lane.evidence-lane { grid-column: 1 / -1; }
+  .chatpanel .agent-work-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@keyframes activity-pulse { 50% { opacity: .35; } }
 .chatpanel .orch-protocol { display: inline-block; border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; font-size: 9px; font-weight: 700; color: var(--accent, #3978c5); }
 .chatpanel .orch-iq { font-size: 9px; font-weight: 700; color: var(--good); }
 .chatpanel .orch-section { margin-top: 5px; display: grid; gap: 2px; }

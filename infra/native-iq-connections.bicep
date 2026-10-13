@@ -7,10 +7,10 @@ param foundryAccountName string
 param foundryProjectName string
 
 @description('Existing Azure AI Search service name.')
-param searchServiceName string
+param searchServiceName string = ''
 
 @description('Existing Foundry IQ knowledge base name.')
-param foundryIqKnowledgeBase string
+param foundryIqKnowledgeBase string = ''
 
 @description('Azure AI Search knowledge-base API version.')
 param foundryIqApiVersion string = '2026-08-01-preview'
@@ -25,6 +25,7 @@ param fabricIqWorkspaceId string = ''
 param fabricIqItemId string = ''
 
 var searchIndexDataReaderRoleId = '1407120a-92aa-4202-b7e9-c0e197c71c8f'
+var deployFoundryIq = !empty(searchServiceName) && !empty(foundryIqKnowledgeBase)
 
 resource foundry 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = {
   name: foundryAccountName
@@ -35,11 +36,11 @@ resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-0
   name: foundryProjectName
 }
 
-resource search 'Microsoft.Search/searchServices@2025-05-01' existing = {
+resource search 'Microsoft.Search/searchServices@2025-05-01' existing = if (deployFoundryIq) {
   name: searchServiceName
 }
 
-resource foundryIqConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-10-01-preview' = {
+resource foundryIqConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-10-01-preview' = if (deployFoundryIq) {
   parent: foundryProject
   name: 'deal-room-foundry-iq'
   properties: {
@@ -77,7 +78,7 @@ resource fabricIqConnection 'Microsoft.CognitiveServices/accounts/projects/conne
   }
 }
 
-resource foundryProjectSearchReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource foundryProjectSearchReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFoundryIq) {
   name: guid(search.id, foundryProject.id, searchIndexDataReaderRoleId)
   scope: search
   properties: {
@@ -87,7 +88,7 @@ resource foundryProjectSearchReader 'Microsoft.Authorization/roleAssignments@202
   }
 }
 
-output foundryIqConnectionId string = foundryIqConnection.id
-output foundryIqServerUrl string = foundryIqConnection.properties.target
+output foundryIqConnectionId string = foundryIqConnection.?id ?? ''
+output foundryIqServerUrl string = foundryIqConnection.?properties.?target ?? ''
 output fabricIqConnectionId string = fabricIqConnection.id
 output fabricIqServerUrl string = fabricIqConnection.properties.target

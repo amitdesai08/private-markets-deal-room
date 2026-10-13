@@ -29,6 +29,7 @@ export const config = Object.freeze({
     tenantId: str(env.ENTRA_TENANT_ID, '').trim(),
     tabClientId: str(env.TEAMS_TAB_CLIENT_ID, '').trim(),
     tabClientSecret: str(env.TEAMS_TAB_CLIENT_SECRET, ''),
+    webAuthEnabled: /^true$/i.test(str(env.WEB_AUTH_ENABLED, 'false')),
   },
   bot: {
     appId: str(env.BOT_APP_ID, '').trim(),

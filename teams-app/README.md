@@ -12,7 +12,8 @@ source). Delivers three surfaces, all reading the same `/api` + `/mcp`:
 
 The Teams app owns **no data**. `server/proxy.js` forwards every data call to
 `SHARED_BACKEND_URL` (the `ca-dealhub-orch` Container App). It only adds
-Teams-specific glue: SSO/OBO, tab hosting, the bot, and persona mapping.
+Teams-specific glue: SSO/OBO, standalone Easy Auth identity, tab hosting, the
+bot, and persona mapping.
 
 ## Structure
 
@@ -54,7 +55,8 @@ All settings are documented in [.env.example](.env.example) and read in
 | Setting | Purpose |
 |---------|---------|
 | `SHARED_BACKEND_URL` | The shared Deal Room backend (`ca-dealhub-orch`). |
-| `ENTRA_TENANT_ID` / `TEAMS_TAB_CLIENT_ID` / `TEAMS_TAB_CLIENT_SECRET` | Tab SSO (OBO). |
+| `ENTRA_TENANT_ID` / `TEAMS_TAB_CLIENT_ID` / `TEAMS_TAB_CLIENT_SECRET` | Teams SSO (OBO) and the deployed Container Apps Easy Auth provider. |
+| `WEB_AUTH_ENABLED` | Trust the Container Apps `x-ms-client-principal` identity bridge. Set by Bicep only when Easy Auth is configured. |
 | `BOT_APP_ID` / `BOT_APP_PASSWORD` | Adaptive Card notifications. |
 | `APP_BASE_URL` | Public URL of this app (manifest + card deep links). |
 | `MCP_HOST` | MCP host for manifest `validDomains`. |
@@ -67,7 +69,12 @@ Built into the infra package: `infra/modules/app.bicep` defines
 1. Set `deployTeamsApp=true` and `teamsImage=<acr>/dealhub-teams:latest` in the
    `dev` params, then redeploy the `dealhub` stack.
 2. The Teams CA gets `SHARED_BACKEND_URL` wired to the orchestrator automatically.
-3. Fill the `manifest/` placeholders (`<TEAMS_HOST>`, `<TEAMS_APP_ID>`,
+3. In full mode, Bicep enables Container Apps Easy Auth for the standalone URL;
+  anonymous browsers redirect to Entra while the embedded tab keeps Teams SSO.
+  Entra provisioning registers `https://<TEAMS_HOST>/.auth/login/aad/callback`.
+  Canonical Bicep reuses the Teams SSO registration; a targeted update to an
+  existing Container App may use a dedicated single-tenant web client instead.
+4. Fill the `manifest/` placeholders (`<TEAMS_HOST>`, `<TEAMS_APP_ID>`,
    `<BOT_APP_ID>`, `<TEAMS_TAB_CLIENT_ID>`, `<MCP_HOST>`), add `color.png` +
    `outline.png` icons, zip the manifest folder, and sideload to a channel.
 

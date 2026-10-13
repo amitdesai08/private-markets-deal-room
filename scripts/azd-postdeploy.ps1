@@ -1,24 +1,38 @@
 #!/usr/bin/env pwsh
-# azd postdeploy hook — provision the Foundry AGENTS into the deployed project once the
-# app is live: the Deal Orchestrator, the News Scout, and the ten persona agents
+# azd postdeploy hook — hydrate the optional Fabric demo, then provision the Foundry
+# AGENTS into the deployed project once the app is live: the Deal Orchestrator,
+# the News Scout, and the ten persona agents
 # (analyst / partner / retail-md / ai-md / supply-md / principal / operating-partner /
 # fund-cfo / legal-gc / ir-lp). Foundry itself (account, project, model deployments,
 # Bing grounding) is provisioned by the Bicep; this hook creates the agents on top.
 #
-# Best-effort by design: it needs the azure-ai-projects Python SDK and Foundry
-# data-plane access (the deploying identity). It skips with clear guidance when a
-# prerequisite is missing, or when DEALROOM_AGENTS=false — so `azd up` never fails
-# for a data-only demo.
-$ErrorActionPreference = 'Continue'
+# Fabric hydration is required when HYDRATE_FABRIC_DEMO=true. Agent provisioning
+# remains best-effort because it depends on optional SDK and data-plane permissions.
+$ErrorActionPreference = 'Stop'
 
+$here = $PSScriptRoot
+$repo = Split-Path $here -Parent
+$scripts = Join-Path $repo 'app/scripts'
+
+if ($env:DEALROOM_HOSTED_ROUTER -ne 'false') {
+  Write-Host '[azd] Deploying and binding hosted IQ router endpoint...'
+  & node (Join-Path $here 'bind-hosted-router.mjs')
+  if ($LASTEXITCODE -ne 0) { throw "Hosted IQ router deployment or binding failed with exit code $LASTEXITCODE." }
+} else {
+  Write-Host '[azd] DEALROOM_HOSTED_ROUTER=false — using the in-process policy router.'
+}
+
+Write-Host '[azd] Checking optional Fabric demo hydration...'
+& node (Join-Path $here 'bootstrap-fabric.mjs')
+if ($LASTEXITCODE -ne 0) { throw "Fabric demo bootstrap failed with exit code $LASTEXITCODE." }
+
+$ErrorActionPreference = 'Continue'
 if ($env:DEALROOM_AGENTS -eq 'false') {
   Write-Host '[azd] DEALROOM_AGENTS=false — skipping Foundry agent provisioning.'
   exit 0
 }
 
-$here = $PSScriptRoot
-$repo = Split-Path $here -Parent
-$scripts = Join-Path $repo 'app/scripts'
+# Reload azd values because Fabric hydration publishes the ontology endpoint and IDs.
 $vals = azd env get-values
 function Val($n) { ($vals | Select-String -Pattern "(?i)^$n=""?(.*?)""?\s*$").Matches.Groups[1].Value }
 

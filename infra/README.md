@@ -135,6 +135,8 @@ az stack sub create `
 | `openAiDeployments` | gpt-5-mini, gpt-5-nano, text-embedding-3-large | Edit list / capacities to taste. |
 | `deployFabric` | `true` | Fabric also needs **`fabricAdminMembers`**; if that list is empty Fabric is skipped. |
 | `fabricAdminMembers` | `[]` | Add a UPN/objectId to actually provision Fabric. |
+| `hydrateFabricDemo` | `false` | With azd, run the required postdeploy Fabric data-plane bootstrap after capacity creation. Maps from `HYDRATE_FABRIC_DEMO`. |
+| `fabricWorkspace` / `fabricLakehouse` | Deal Room Fabric IQ / deal_room_starter | Names used by the idempotent Fabric bootstrap. |
 | `deployApim` | `true` | Developer SKU takes ~30–45 min. Set `false` for faster dev loops. |
 | `deployTeamsApp` | `false` | Deploy the `ca-dealhub-teams` interface app (Teams tab + bot proxy). |
 | `orchestratorMinReplicas` / `orchestratorMaxReplicas` | `1` / `1` | **Keep both = 1** — the shared backend holds the M365 delegated token in memory and a single writer avoids datastore races. |
@@ -173,6 +175,50 @@ them once, then pass their IDs as parameters (secrets at deploy time, never in g
 leave empty to find/create "The Deal Room" team on first provisioning.
 
 ## Post-deploy — bring the app to life
+
+### Deploy the hosted IQ router with azd
+
+The canonical root `azd up` uses standard Bicep for the platform and its custom
+Foundry connections. During postdeploy it selects or creates the companion
+`<root-environment>-iq-router` azd environment, passes the Bicep-created Foundry
+project resource ID to the nested project under `hosted-agents/iq-router`, deploys
+the Responses v2 router, and binds its endpoint to the orchestrator. This split is
+intentional: the Foundry azd provider owns the hosted agent while Bicep remains the
+source of truth for connection resource types that provider does not express.
+
+Set `DEALROOM_HOSTED_ROUTER=false` before `azd up` to omit the hosted deployment;
+the app then uses its equivalent in-process sovereignty policy. The hosted agent
+is separately billable while active.
+
+### Reproduce the live Fabric demo with azd
+
+Fabric capacity is billable and remains off unless both deployment and hydration
+are explicitly configured. The deploying identity must be a Fabric capacity admin,
+be allowed by the tenant settings to create Fabric and ontology items, and have
+delegated Fabric API access. Set at least one Fabric administrator object ID or UPN:
+
+```bash
+azd env set DEPLOY_FABRIC true
+azd env set FABRIC_ADMIN_MEMBERS '["<fabric-admin-object-id-or-upn>"]'
+azd env set HYDRATE_FABRIC_DEMO true
+azd up
+```
+
+The postdeploy hook creates or reuses the workspace and schema-enabled lakehouse,
+grants the app managed identity workspace `Contributor`, and overwrites only these
+demo-owned Delta tables from `app/data/fabric-cache.json`: `silver.dim_company`
+(15), `silver.fact_deal` (12), `bronze.bronze_diligence_findings` (59),
+`bronze.bronze_ic_approvals` (12), and `bronze.bronze_sec_filings` (14). It also
+requires 12 deal-company and 14 filing-company links before publishing the Data
+Agent, Direct Lake semantic model, ontology, app bindings, and Foundry Fabric IQ
+connection. A requested bootstrap failure fails `azd up`; optional Foundry agent
+creation remains best-effort.
+
+Use `node scripts/bootstrap-fabric.mjs --dry-run` to inspect the seed contract
+without Fabric writes. To roll back, set the orchestrator `FABRIC_LIVE=false` or
+restore its prior revision. The bundled snapshot remains available. Suspend or
+delete the optional Fabric capacity separately to stop capacity charges; the
+bootstrap never deletes existing workspace items or unrelated lakehouse data.
 
 Infra provisions the platform (incl. **all Cosmos containers** the app needs at
 boot). Then:

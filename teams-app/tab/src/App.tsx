@@ -23,7 +23,17 @@ import AdminGroups from './AdminGroups';
 import Offline, { OnlineLeaseBanner, type PlatformStatus } from './Offline';
 import type { Agent, Analytics, BackendConfig, Deal, MarketIntel, Persona, Pipeline } from './types';
 
-type TeamsConfig = { demoMode: boolean; backend: string; sso: boolean; bot: boolean; backendUrl?: string; appBaseUrl?: string };
+type TeamsConfig = {
+  demoMode: boolean;
+  backend: string;
+  sso: boolean;
+  webAuth: boolean;
+  loginUrl?: string | null;
+  logoutUrl?: string | null;
+  bot: boolean;
+  backendUrl?: string;
+  appBaseUrl?: string;
+};
 
 // The user talks to ONE assistant. It fronts the orchestrator, which brings in the
 // right specialist agents (sourcing, screening, diligence, modelling, IC-memo,
@@ -195,6 +205,8 @@ export default function App() {
   // the orchestrator is asleep, the whole app is replaced by the Offline gate.
   const [platform, setPlatform] = useState<PlatformStatus | null>(null);
   const [ssoToken, setSsoToken] = useState<string>('');
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState(false);
 
   // Only surface the agents this user (or the role they are viewing as) may use.
   // Demo mode showcases the whole role's roster; a real (non-demo) user sees only
@@ -242,13 +254,37 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      setTeams(await initTeams());
+      const info = await initTeams();
+      setTeams(info);
       setTheme(document.documentElement.dataset.theme || 'default');
-      // These do not depend on the SSO token, and awaiting it first held every one of them
-      // behind the four-second cap — four seconds of an empty screen before anything was
-      // even asked for. Identity still gates what comes BACK: loadScoped/loadDeals go
-      // through af(), which attaches the seat.
-      fetch('/api/teams/config').then((r) => r.json()).then(setCfg).catch(() => {});
+      let teamsCfg: TeamsConfig;
+      try {
+        const response = await fetch('/api/teams/config');
+        if (!response.ok) throw new Error(`config returned ${response.status}`);
+        teamsCfg = await response.json();
+        setCfg(teamsCfg);
+      } catch {
+        setAuthError(true);
+        return;
+      }
+
+      // Teams supplies its own bearer token. A standalone browser instead enters
+      // through Container Apps Easy Auth and must hold a platform session before any
+      // deal request is started.
+      if (!info.inTeams && teamsCfg.webAuth) {
+        const me = await fetch('/.auth/me', { headers: { accept: 'application/json' } }).then((r) => r.ok ? r.json() : []).catch(() => []);
+        if (!Array.isArray(me) || me.length === 0) {
+          const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+          const loginUrl = teamsCfg.loginUrl || '/.auth/login/aad';
+          window.location.replace(`${loginUrl}?post_login_redirect_uri=${encodeURIComponent(returnTo)}`);
+          return;
+        }
+      }
+
+      const tok = await getSsoToken().catch(() => null);
+      if (tok) { setSsoToken(tok); setAuthContext({ ssoToken: tok }); }
+      setAuthReady(true);
+
       // af(), not fetch(): /api/analytics is now scoped to the caller, so it has to be
       // asked as somebody. A bare fetch would carry no identity and the numbers would
       // silently revert to the whole book — which is the leak these counters started as.
@@ -264,16 +300,10 @@ export default function App() {
         setAgents([ORCHESTRATOR]);
       }).catch(() => {});
 
-      // SSO token identifies the caller so /platform/status can report isAdmin (the
-      // "keep online indefinitely" path is admin-only). Absent outside Teams — fine.
-      const tok = await getSsoToken().catch(() => null);
-      if (tok) { setSsoToken(tok); setAuthContext({ ssoToken: tok }); }
       fetch('/api/platform/status', tok ? { headers: { authorization: `Bearer ${tok}` } } : undefined)
         .then((r) => r.json()).then(setPlatform).catch(() => setPlatform(null));
 
-      getSsoToken().then((token) =>
-        fetch('/api/teams/context', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ssoToken: token }) }).then((r) => r.json())
-      ).then((ctx) => {
+      fetch('/api/teams/context', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ssoToken: tok }) }).then((r) => r.json()).then((ctx) => {
         applyAccess(ctx);
         if (Array.isArray(ctx?.demoUsers)) {
           setDemoUsers(ctx.demoUsers);
@@ -533,6 +563,14 @@ export default function App() {
   }
 
   // Platform asleep (power control on, orchestrator offline) → show the wake gate.
+  if (!authReady) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--bg, #f5f5f5)', color: 'var(--fg, #1f1f1f)', fontFamily: 'Segoe UI, sans-serif' }}>
+        <div role="status">{authError ? 'Unable to verify sign-in.' : 'Signing you in...'}</div>
+      </div>
+    );
+  }
+
   if (platform && platform.control && !platform.online) {
     return <Offline status={platform} ssoToken={ssoToken} />;
   }
@@ -1206,7 +1244,7 @@ details[open] > summary:before { content: "\\25BE "; }
    a narrow rail those must break mid-token or they push the panel sideways. */
 .bubble { max-width: 82%; min-width: 0; padding: 9px 12px; border-radius: 14px; overflow-wrap: anywhere; }
 .bubble.user { background: var(--bubble-user); border-bottom-right-radius: 4px; }
-.bubble.agent { background: var(--bubble-agent); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.bubble.agent { display: block; text-align: left; cursor: default; color: var(--fg); background: var(--bubble-agent); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
 .bubble .tools { margin-top: 6px; color: var(--muted); font-size: 11px; border-top: 1px dashed var(--border); padding-top: 5px; }
 .proposed { margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 7px; display: flex; flex-direction: column; gap: 6px; }
 .proposed-h { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }

@@ -35,6 +35,11 @@ azd ai agent invoke --local "Search the public web for current company news"
 
 ## Deploy to the existing Foundry project
 
+The repository root `azd up` performs this deployment automatically, using a
+companion environment named `<root-environment>-iq-router`, and binds the emitted
+Responses endpoint to the orchestrator. Set `DEALROOM_HOSTED_ROUTER=false` in the
+root deployment environment to retain only the in-process router.
+
 Initialize or select an azd environment in this folder and set the existing project resource ID:
 
 ```powershell

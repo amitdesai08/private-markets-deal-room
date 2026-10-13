@@ -140,6 +140,9 @@ var roleIds = {
   acrPull: '7f951dda-4ed3-4680-a7ca-43fe172d538d'
   storageBlobDataOwner: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
 }
+var teamsWebAuthEnabled = deployTeamsApp && !empty(teamsTabClientId) && !empty(teamsTabClientSecret)
+var teamsFqdn = 'ca-${workload}-teams-${environmentName}-${locationShort}.${caEnv.properties.defaultDomain}'
+var teamsTabAudience = empty(teamsTabClientId) ? '' : 'api://${teamsFqdn}/${teamsTabClientId}'
 
 // Log Analytics lives in the core RG — reference it to wire Container Apps logs.
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
@@ -382,11 +385,13 @@ resource teamsApp 'Microsoft.App/containerApps@2024-03-01' = if (deployTeamsApp)
             { name: 'ADMIN_IDS', value: join(adminIds, ',') }
             // Single source of truth — the Teams app forwards to the shared backend.
             { name: 'SHARED_BACKEND_URL', value: 'https://${orchestratorApp.properties.configuration.ingress.fqdn}' }
-            { name: 'APP_BASE_URL', value: 'https://ca-${workload}-teams-${environmentName}-${locationShort}.${caEnv.properties.defaultDomain}' }
+            { name: 'APP_BASE_URL', value: 'https://${teamsFqdn}' }
             { name: 'ENTRA_TENANT_ID', value: entraTenantId }
             // Per-user Teams tab SSO (access_as_user).
             { name: 'TEAMS_TAB_CLIENT_ID', value: teamsTabClientId }
             { name: 'TEAMS_TAB_CLIENT_SECRET', secretRef: 'teams-tab-client-secret' }
+            { name: 'TEAMS_TAB_AUDIENCE', value: teamsTabAudience }
+            { name: 'WEB_AUTH_ENABLED', value: string(teamsWebAuthEnabled) }
             // In-channel conversational bot (context-aware, login-free via managed identity).
             { name: 'BOT_APP_ID', value: botAppId }
             { name: 'BOT_APP_PASSWORD', secretRef: 'bot-app-password' }
@@ -401,6 +406,57 @@ resource teamsApp 'Microsoft.App/containerApps@2024-03-01' = if (deployTeamsApp)
       scale: {
         minReplicas: 1
         maxReplicas: 3
+      }
+    }
+  }
+}
+
+// Standalone browser access uses Container Apps Easy Auth. Static bootstrap stays
+// public so Teams can initialize and acquire its own SSO token; every data API is
+// protected by the platform boundary before Express resolves the caller's identity.
+resource teamsAuth 'Microsoft.App/containerApps/authConfigs@2025-01-01' = if (teamsWebAuthEnabled) {
+  parent: teamsApp
+  name: 'current'
+  properties: {
+    platform: {
+      enabled: true
+    }
+    globalValidation: {
+      unauthenticatedClientAction: 'Return401'
+      excludedPaths: [
+        '/'
+        '/index.html'
+        '/assets/*'
+        '/favicon.ico'
+        '/healthz'
+        '/api/teams/config'
+        '/api/messages'
+      ]
+    }
+    httpSettings: {
+      requireHttps: true
+    }
+    identityProviders: {
+      azureActiveDirectory: {
+        enabled: true
+        registration: {
+          clientId: teamsTabClientId
+          clientSecretSettingName: 'teams-tab-client-secret'
+          openIdIssuer: '${environment().authentication.loginEndpoint}${entraTenantId}/v2.0'
+        }
+        validation: {
+          allowedAudiences: [
+            teamsTabClientId
+            'api://${teamsTabClientId}'
+            teamsTabAudience
+          ]
+        }
+      }
+    }
+    login: {
+      preserveUrlFragmentsForLogins: true
+      tokenStore: {
+        enabled: true
       }
     }
   }

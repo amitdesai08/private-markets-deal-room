@@ -1,20 +1,28 @@
 #!/usr/bin/env sh
-# azd postdeploy hook (POSIX) — provision the Foundry AGENTS into the deployed project:
-# the Deal Orchestrator, the News Scout, and the ten persona agents. Foundry itself
-# (account, project, models, Bing grounding) is provisioned by the Bicep; this creates
-# the agents on top. Best-effort: needs the azure-ai-projects Python SDK + Foundry
-# data-plane access; skips with guidance when a prerequisite is missing or when
-# DEALROOM_AGENTS=false.
+# azd postdeploy hook (POSIX) — hydrate the optional Fabric demo, then provision the
+# Foundry AGENTS into the deployed project. Fabric hydration is required when opted
+# in; agent provisioning remains best-effort because its SDK and permissions are
+# optional.
 set -u
+
+here="$(cd "$(dirname "$0")" && pwd)"
+repo="$(dirname "$here")"
+scripts="$repo/app/scripts"
+
+if [ "${DEALROOM_HOSTED_ROUTER:-}" != "false" ]; then
+  echo "[azd] Deploying and binding hosted IQ router endpoint..."
+  node "$here/bind-hosted-router.mjs" || exit $?
+else
+  echo "[azd] DEALROOM_HOSTED_ROUTER=false — using the in-process policy router."
+fi
+
+echo "[azd] Checking optional Fabric demo hydration..."
+node "$here/bootstrap-fabric.mjs" || exit $?
 
 if [ "${DEALROOM_AGENTS:-}" = "false" ]; then
   echo "[azd] DEALROOM_AGENTS=false — skipping Foundry agent provisioning."
   exit 0
 fi
-
-here="$(cd "$(dirname "$0")" && pwd)"
-repo="$(dirname "$here")"
-scripts="$repo/app/scripts"
 
 val() { azd env get-values | sed -n "s/^$1=\"\{0,1\}\([^\"]*\)\"\{0,1\}$/\1/p" | head -n1; }
 

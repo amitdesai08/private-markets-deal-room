@@ -80,3 +80,42 @@ export async function identityFromSsoToken(ssoToken) {
     return null;
   }
 }
+
+const CLAIM = Object.freeze({
+  oid: ['oid', 'http://schemas.microsoft.com/identity/claims/objectidentifier'],
+  name: ['name', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'],
+  upn: ['preferred_username', 'upn', 'unique_name', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn'],
+  tid: ['tid', 'http://schemas.microsoft.com/identity/claims/tenantid'],
+  roles: ['roles', 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'],
+  groups: ['groups', 'http://schemas.microsoft.com/ws/2008/06/identity/claims/groups'],
+});
+
+// Container Apps Easy Auth validates the session before proxying the request and
+// supplies this principal header. Callers cannot opt into this path: index.js only
+// trusts it when WEB_AUTH_ENABLED was set by the same Bicep deployment as authConfigs.
+export function identityFromEasyAuthPrincipal(encodedPrincipal) {
+  if (!encodedPrincipal || typeof encodedPrincipal !== 'string') return null;
+  try {
+    const principal = JSON.parse(Buffer.from(encodedPrincipal, 'base64').toString('utf8'));
+    const claims = Array.isArray(principal?.claims) ? principal.claims : [];
+    const values = (types) => claims
+      .filter((claim) => types.includes(String(claim?.typ || '')))
+      .map((claim) => String(claim?.val || '').trim())
+      .filter(Boolean);
+    const first = (types, fallback = null) => values(types)[0] || fallback;
+    const oid = first(CLAIM.oid, principal?.user_id || null);
+    const upn = first(CLAIM.upn, principal?.user_details || null);
+    if (!oid && !upn) return null;
+    return {
+      oid,
+      name: first(CLAIM.name, principal?.user_details || null),
+      upn,
+      tid: first(CLAIM.tid),
+      roles: values(CLAIM.roles),
+      groups: values(CLAIM.groups),
+      verified: true,
+    };
+  } catch {
+    return null;
+  }
+}

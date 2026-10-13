@@ -3,6 +3,10 @@
 name: deal-room
 metadata:
     template: deal-room-teams@1.0.0
+requiredVersions:
+    azd: '>=1.27.1'
+    extensions:
+        azure.ai.agents: '>=1.0.0-beta.9'
 services:
     orchestrator:
         project: ./app
@@ -19,19 +23,17 @@ services:
             path: Dockerfile
             remoteBuild: true
 infra:
-    provider: microsoft.foundry
+    provider: bicep
     module: main
 hooks:
     postdeploy:
         windows:
             shell: pwsh
             run: ./scripts/azd-postdeploy.ps1
-            continueOnError: true
             interactive: true
         posix:
             shell: sh
             run: ./scripts/azd-postdeploy.sh
-            continueOnError: true
             interactive: true
     postprovision:
         windows:

@@ -7,8 +7,9 @@ const sourcePath = resolve(here, '../data/fabric-cache.json');
 const outputPath = resolve(process.argv[2] || 'fabric-hydrate.ipynb');
 const workspaceId = process.argv[3];
 const lakehouseId = process.argv[4];
+const lakehouseName = process.argv[5] || 'deal_room_starter';
 if (!workspaceId || !lakehouseId) {
-  throw new Error('Usage: node generate-fabric-hydration-notebook.mjs <output> <workspace-id> <lakehouse-id>');
+  throw new Error('Usage: node generate-fabric-hydration-notebook.mjs <output> <workspace-id> <lakehouse-id> [lakehouse-name]');
 }
 const snapshot = JSON.parse(await readFile(sourcePath, 'utf8'));
 
@@ -142,6 +143,10 @@ for table_name, table in tables.items():
   frame.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(table_name)
 
 counts = {name: spark.table(name).count() for name in tables}
+expected_counts = {name: len(table["rows"]) for name, table in tables.items()}
+for table_name, expected_count in expected_counts.items():
+  if counts[table_name] != expected_count:
+    raise RuntimeError(f"Expected {expected_count} rows in {table_name}; found {counts[table_name]}")
 company_deal_links = spark.sql("""
   SELECT COUNT(*)
   FROM silver.fact_deal deal
@@ -175,7 +180,7 @@ const notebook = {
       execution_count: null,
       metadata: {},
       outputs: [],
-      source: [`%%configure\n`, `${JSON.stringify({ defaultLakehouse: { name: 'deal_room_starter', id: lakehouseId, workspaceId } }, null, 2)}\n`]
+      source: [`%%configure\n`, `${JSON.stringify({ defaultLakehouse: { name: lakehouseName, id: lakehouseId, workspaceId } }, null, 2)}\n`]
     },
     { cell_type: 'code', execution_count: null, metadata: {}, outputs: [], source: code.split(/(?<=\n)/) }
   ]

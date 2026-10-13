@@ -114,6 +114,9 @@ param fabricSkuName string = 'F2'
 @description('Fabric capacity administrators (UPNs or object IDs). Required if deployFabric is true.')
 param fabricAdminMembers array = []
 
+@description('After app deployment, create/reuse and hydrate the Fabric demo workspace, lakehouse, semantic model, ontology, and Data Agent. Requires a deployed Fabric capacity.')
+param hydrateFabricDemo bool = false
+
 @description('Deploy Azure API Management as the AI Gateway (Developer SKU ~ 30-45 min to provision).')
 param deployApim bool = true
 
@@ -574,6 +577,8 @@ output foundryAccountName string = ai.outputs.foundryAccountName
 output foundryEndpoint string = ai.outputs.foundryEndpoint
 output foundryProjectName string = ai.outputs.foundryProjectName
 output foundryProjectEndpoint string = ai.outputs.foundryProjectEndpoint
+// The Microsoft Foundry azd provider uses this conventional output to deploy hosted agents.
+output AZURE_AI_PROJECT_ID string = ai.outputs.foundryProjectId
 output bingConnectionId string = ai.outputs.bingConnectionId
 output workIqConnectionId string = ai.outputs.workIqConnectionId
 output workIqNativeConnectionId string = ai.outputs.workIqNativeConnectionId
@@ -594,6 +599,10 @@ output cosmosAccountName string = data.outputs.cosmosAccountName
 output cosmosEndpoint string = data.outputs.cosmosEndpoint
 output cosmosDatabaseName string = data.outputs.cosmosDatabaseName
 output fabricCapacityName string = data.outputs.fabricCapacityName
+output fabricCapacityId string = data.outputs.fabricCapacityId
+output fabricBootstrapEnabled bool = hydrateFabricDemo
+output fabricBootstrapWorkspace string = fabricWorkspace
+output fabricBootstrapLakehouse string = fabricLakehouse
 output apimGatewayUrl string = integration.outputs.apimGatewayUrl
 output serviceBusNamespace string = integration.outputs.serviceBusNamespace
 output eventGridEndpoint string = integration.outputs.eventGridEndpoint
