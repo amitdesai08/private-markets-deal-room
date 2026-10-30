@@ -37,6 +37,7 @@ app.get('/healthz', (_req, res) => res.json({ status: 'ok', uptime: process.upti
 function requestToken(req) {
   return (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
     || req.headers['x-ms-token-aad-access-token']
+    || req.headers['x-ms-token-aad-id-token']
     || req.body?.ssoToken
     || '';
 }
