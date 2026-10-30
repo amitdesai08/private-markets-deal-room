@@ -268,10 +268,10 @@ export default function App() {
         return;
       }
 
-      // Teams supplies its own bearer token. A standalone browser instead enters
-      // through Container Apps Easy Auth and must hold a platform session before any
-      // deal request is started.
-      if (!info.inTeams && teamsCfg.webAuth) {
+      // Teams normally supplies its own bearer token. If it cannot, use the same Easy
+      // Auth session as the standalone console rather than continuing anonymously.
+      const tok = await getSsoToken().catch(() => null);
+      if (!tok && teamsCfg.webAuth) {
         const me = await fetch('/.auth/me', { headers: { accept: 'application/json' } }).then((r) => r.ok ? r.json() : []).catch(() => []);
         if (!Array.isArray(me) || me.length === 0) {
           const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -281,7 +281,6 @@ export default function App() {
         }
       }
 
-      const tok = await getSsoToken().catch(() => null);
       if (tok) { setSsoToken(tok); setAuthContext({ ssoToken: tok }); }
       setAuthReady(true);
 
