@@ -58,6 +58,26 @@ const LABELS = {
   modeling: 'modelling', 'ic-memo': 'IC memo', 'value-creation': 'value-creation',
 };
 
+const SPECIALIST_ASSIGNMENTS = {
+  sourcing: 'Assess target fit, origination signals, and the next sourcing action.',
+  screening: 'Test mandate fit, comparables, and the screening recommendation.',
+  diligence: 'Identify the diligence findings that could change the investment decision.',
+  modeling: 'Test returns, leverage, and the assumptions that drive the downside.',
+  'ic-memo': 'Shape the evidence-backed committee case and identify missing support.',
+  'value-creation': 'Assess the post-close value levers, owners, and execution risks.',
+};
+
+export function specialistAssignment(slug) {
+  return SPECIALIST_ASSIGNMENTS[slug] || 'Produce a bounded recommendation within the assigned discipline.';
+}
+
+export function findingSummary(text) {
+  const visible = withoutPlumbing(text);
+  const line = visible.split(/\r?\n/).map((item) => item.replace(/^\s*[-*#>]+\s*/, '').trim()).find(Boolean) || '';
+  if (!line || /^I could not assemble an answer/i.test(line)) return 'No decision-grade finding was returned.';
+  return line.length > 220 ? `${line.slice(0, 217).trimEnd()}...` : line;
+}
+
 // Models can request a peer, but the runtime owns and validates every hop.
 export const COLLABORATION_GRAPH = Object.freeze({
   sourcing: Object.freeze(['screening', 'diligence']),
@@ -363,9 +383,9 @@ async function collaborate(findings, ctx, userRequest, emit, clock) {
     emit(step('running', `${LABELS[request.origin]} requested ${LABELS[request.target]} review`, request.question));
     try {
       const peer = bySlug.get(request.target) || await clock(`peer:${request.origin}->${request.target}`, () => askPeerForReview(request, ctx, userRequest));
-      emit(step('running', `${LABELS[request.target]} evidence returned to ${LABELS[request.origin]}`, 'The requesting specialist is revising its recommendation with peer evidence.'));
+      emit(step('running', `${LABELS[request.target]} finding returned to ${LABELS[request.origin]}`, `Peer reported: ${findingSummary(peer.text)}`));
       const result = await clock(`revision:${request.origin}<-${request.target}`, () => reviseWithPeer(origin, ctx, userRequest, peer));
-      emit(step('complete', `${LABELS[request.origin]} incorporated ${LABELS[request.target]} evidence`, 'One bounded peer round completed; further delegation is disabled.'));
+      emit(step('complete', `${LABELS[request.origin]} incorporated ${LABELS[request.target]} evidence`, `Revised finding: ${findingSummary(result.text)} Further delegation is disabled.`));
       return result;
     } catch {
       emit(step('blocked', `${LABELS[request.origin]} kept its original finding`, 'The optional peer review did not complete; orchestration continued without it.'));
@@ -550,7 +570,9 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
   const emit = (e) => { if (onEvent) { try { onEvent(e); } catch { /* a dead client must not fail the answer */ } } };
   const text = String(message || '').trim();
   if (!text) return { error: 'message-required' };
+  emit({ type: 'orchestration', step: { id: 'orchestrator-request', kind: 'context', label: 'Orchestrator received the request', detail: 'Resolving the caller scope and permitted evidence boundary.', agent: ORCHESTRATOR_AGENT, status: 'running' } });
   const iqRoute = await resolveIqRoute(text);
+  emit({ type: 'orchestration', step: { id: 'orchestrator-request', kind: 'context', label: 'Orchestrator accepted the request', detail: 'The evidence boundary was checked before any agent handoff.', agent: ORCHESTRATOR_AGENT, status: 'complete' } });
   emit({
     type: 'orchestration',
     step: {
@@ -724,12 +746,12 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
     let findings = await clock('specialists', () => Promise.all(specialists.map((slug) => clock(
       `specialist:${slug}`,
       () => {
-        emit({ type: 'orchestration', step: { id: `specialist-${slug}`, kind: 'handoff', label: `A2A handoff to ${LABELS[slug] || slug}`, detail: `${SPECIALISTS[slug]} received the same caller-scoped context.`, choice: 'Produce one bounded recommendation and request an allow-listed peer only if needed.', rationale: `${LABELS[slug] || slug} matched the requested discipline.`, iq: iqRoute.id, agent: SPECIALISTS[slug], protocol: 'A2A', status: 'running' } });
+        emit({ type: 'orchestration', step: { id: `specialist-${slug}`, kind: 'handoff', label: `A2A handoff to ${LABELS[slug] || slug}`, detail: `Assignment: ${specialistAssignment(slug)}`, choice: 'Produce one bounded recommendation and request an allow-listed peer only if needed.', rationale: `${LABELS[slug] || slug} matched the requested discipline and received the same caller-scoped context.`, iq: iqRoute.id, agent: SPECIALISTS[slug], protocol: 'A2A', status: 'running' } });
         return consultSpecialist(slug, ctx, text, solo ? ((d) => emit({ type: 'delta', text: d })) : undefined)
         // One static line for twenty seconds reads as a stall. Report each as it lands, so
         // the reader can see the thing is moving and roughly how far in it is.
           .then((f) => {
-            emit({ type: 'orchestration', step: { id: `specialist-${slug}`, kind: 'handoff', label: `${LABELS[slug] || slug} evidence returned`, detail: 'The specialist returned a bounded finding for orchestration.', choice: f.peerRequest ? `Request ${LABELS[f.peerRequest.target] || f.peerRequest.target} peer review.` : 'Return the finding without another peer round.', rationale: f.peerRequest ? f.peerRequest.question : 'No additional discipline was required.', iq: iqRoute.id, agent: SPECIALISTS[slug], protocol: 'A2A', status: 'complete' } });
+            emit({ type: 'orchestration', step: { id: `specialist-${slug}`, kind: 'handoff', label: `${LABELS[slug] || slug} finding returned`, detail: `Reported: ${findingSummary(f.text)}`, choice: f.peerRequest ? `Request ${LABELS[f.peerRequest.target] || f.peerRequest.target} peer review.` : 'Return the finding without another peer round.', rationale: f.peerRequest ? f.peerRequest.question : 'No additional discipline was required.', iq: iqRoute.id, agent: SPECIALISTS[slug], protocol: 'A2A', status: 'complete' } });
             if (!solo) emit({ type: 'status', text: `${LABELS[slug] || slug} specialist has reported` });
             return f;
           });
@@ -750,7 +772,7 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
     if (single) phase.compose = 0;
     const reply = grounded(withoutPlumbing(stripControlLine(composed.text)), focusId);
     if (!reply) throw new Error('empty composed reply');
-    emit({ type: 'orchestration', step: { id: 'synthesis', kind: 'synthesis', label: 'Orchestrator synthesized the answer', detail: 'Specialist findings were reconciled with the governed deal record and source boundaries.', iq: iqRoute.id, agent: ORCHESTRATOR_AGENT, status: 'complete' } });
+    emit({ type: 'orchestration', step: { id: 'synthesis', kind: 'synthesis', label: single ? 'Orchestrator accepted the specialist finding' : 'Orchestrator synthesized the answer', detail: single ? 'The bounded finding was checked against the governed deal record and source boundary.' : 'Specialist findings were reconciled with the governed deal record and source boundaries.', choice: 'Present one grounded answer to the user.', rationale: single ? 'One specialist fully covered the requested discipline.' : 'Multiple specialist findings required reconciliation before presentation.', iq: iqRoute.id, agent: ORCHESTRATOR_AGENT, status: 'complete' } });
     return {
       reply,
       citations: [],
@@ -768,7 +790,9 @@ export async function chatOrchestrator({ message, dealId, scope, previousRespons
     };
   } catch (err) {
     // Any hard failure degrades to the proven single-agent analyst chat.
+    emit({ type: 'orchestration', step: { id: 'fallback', kind: 'decision', label: 'Specialist path unavailable', detail: 'The orchestrator is continuing with the governed Deal Room analyst.', choice: 'Use the single-agent fallback.', rationale: 'A specialist response could not be completed; no partial specialist output will be presented as final.', agent: 'deal-room-analyst', protocol: 'Responses API', status: 'running' } });
     const out = await chatDealAgent({ message: text, dealId: focusId || dealId, scope: effScope, previousResponseId, identity, viewAsRole, askerPersona });
+    emit({ type: 'orchestration', step: { id: 'fallback', kind: 'decision', label: 'Fallback answer accepted', detail: 'The analyst answer was checked against the same caller scope.', choice: 'Present the grounded fallback answer.', rationale: 'The answer completed without relying on unfinished specialist work.', agent: 'deal-room-analyst', protocol: 'Responses API', status: 'complete' } });
     return { ...out, orchestration: 'fallback', orchestrationError: String(err?.message || err) };
   }
 }

@@ -212,7 +212,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
         let buffer = '';
         let shown = '';
         let trace: OrchestrationStep[] = [];
-        const paint = () => setThreads((tt) => { const arr = (tt[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: shown, pending: !shown, status: shown ? undefined : status, trace: trace.slice() }; return { ...tt, [threadKey]: arr }; });
+        const paint = () => setThreads((tt) => { const arr = (tt[threadKey] || []).slice(); arr[arr.length - 1] = { role: 'agent', text: shown, pending: true, status: status || undefined, trace: trace.slice() }; return { ...tt, [threadKey]: arr }; });
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -224,7 +224,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
             if (!line.startsWith('data:')) continue;
             let ev: Any;
             try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
-            if (ev.type === 'status') { status = ev.text; if (!shown) paint(); }
+            if (ev.type === 'status') { status = ev.text; paint(); }
             else if (ev.type === 'orchestration' && ev.step?.id) {
               const at = trace.findIndex((step) => step.id === ev.step.id);
               trace = at >= 0 ? trace.map((step, idx) => idx === at ? ev.step : step) : [...trace, ev.step];
@@ -256,7 +256,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
           const systems = evidenceSystems(tools);
           trace.push({ id: 'evidence-tools', kind: 'tool', label: `${systems.join(', ')} used`, detail: `Confirmed calls: ${tools.join(', ')}`, choice: 'Use returned evidence in the answer.', rationale: 'These are the tools the completed response reported, not inferred activity.', iq: systems.join(', '), status: 'complete' });
         }
-        arr[arr.length - 1] = { role: 'agent', text: reply, source: data?.source, tools, agentsUsed, trace, status: status || undefined, proposed };
+        arr[arr.length - 1] = { role: 'agent', text: reply, source: data?.source, tools, agentsUsed, trace, proposed };
         return { ...t, [threadKey]: arr };
       });
     } catch (e: any) {
@@ -393,7 +393,7 @@ export default function ChatPanel({ agents, deals, focusDealId, onClose, viewAsR
                 ) : m.pending ? (
                   // The wait for a multi-specialist answer is real. Naming the specialist that
                   // is working turns a spinner into a progress report.
-                  showActivity && m.trace?.length ? <ActivityBoard trace={m.trace} pending status={m.status} /> : <span className="typing-wrap"><span className="typing"><span></span><span></span><span></span></span>{m.status ? <span className="typing-status">{m.status}…</span> : null}</span>
+                  showActivity && m.trace?.length ? <><ActivityBoard trace={m.trace} pending status={m.status} />{m.text ? <div className="md streaming-answer" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} /> : null}</> : m.text ? <div className="md streaming-answer" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} /> : <span className="typing-wrap"><span className="typing"><span></span><span></span><span></span></span>{m.status ? <span className="typing-status">{m.status}…</span> : null}</span>
                 )
                     : m.role === 'agent' ? (<>{showActivity && m.trace?.length ? <ActivityBoard trace={m.trace} /> : null}<div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />{m.status ? <div className="completed-status">{m.status}</div> : null}{m.agentsUsed?.length ? <div className="consulted">Consulted: {m.agentsUsed.map((key) => SPECIALIST_LABELS[key] || key).join(', ')}</div> : null}{m.tools?.length ? <div className="tools">Sources: {m.tools.join(', ')}</div> : m.source === 'live' ? (
                       // The word "live", alone, under every answer. It means the answer was
