@@ -500,6 +500,7 @@ export default function App() {
   // last and overwrites the scoped one, and the report reads "19 Sourced" above a table
   // of four deals. Numbering the requests and ignoring anything but the newest fixes it.
   const scopedSeq = useRef(0);
+  const dealsSeq = useRef(0);
   const mainRef = useRef<HTMLElement | null>(null);
   function loadScoped() {
     const seq = ++scopedSeq.current;
@@ -507,14 +508,31 @@ export default function App() {
     af('/api/pipeline').then((r) => r.json()).then((d) => { if (seq === scopedSeq.current) setPipeline(d); }).catch(() => {});
   }
 
-  // Critical data load with an explicit failure/retry state, so a transient API error
-  // degrades to "last known data + Retry" instead of a silent blank.
-  function loadDeals() {
-    return af('/api/deals')
-      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
-      .then((d) => { if (Array.isArray(d)) setDeals(d); setDealsError(false); })
-      .catch(() => setDealsError(true))
-      .finally(() => setDealsLoading(false));
+  // Identity and the backend can become ready a moment after the Teams shell. Retry that
+  // startup window automatically, while the sequence prevents an older anonymous load
+  // from overwriting the caller-scoped result.
+  async function loadDeals() {
+    const seq = ++dealsSeq.current;
+    setDealsLoading(true);
+    for (const delay of [0, 750, 2000]) {
+      if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+      if (seq !== dealsSeq.current) return;
+      try {
+        const response = await af('/api/deals');
+        if (!response.ok) throw new Error(String(response.status));
+        const data = await response.json();
+        if (!Array.isArray(data)) throw new Error('invalid deal list');
+        if (seq !== dealsSeq.current) return;
+        setDeals(data);
+        setDealsError(false);
+        setDealsLoading(false);
+        return;
+      } catch { /* retry below */ }
+    }
+    if (seq === dealsSeq.current) {
+      setDealsError(true);
+      setDealsLoading(false);
+    }
   }
 
   async function refreshData() {
